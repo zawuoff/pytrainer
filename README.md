@@ -19,6 +19,7 @@ come here to prove it by writing real code against hidden tests.
 | **Reviews** | Spaced repetition: solved exercises come back (1, 3, 7, 16, 35… days) and you rebuild them from a blank file. |
 | **Projects** | 12 AI-app builds (prompt kit, chat memory, chunker, search index, evals, CLI chat, mini RAG, structured outputs, tool-calling agent, resilient client, async batching, doc Q&A). Write them in your own editor under `~/pytrainer-lab/projects/<id>`, then submit: hidden tests + AI rubric review. |
 | **Terminal labs** | Real terminal missions verified on disk: running scripts, venv + pip, installing uv, uv projects, `.env` & secrets, PEP 723 scripts, your first real LLM API call. |
+| **Library** | A searchable reference that grows as you learn: each chapter you finish unlocks its card (key syntax, a one-line explanation, a tiny example). Press Ctrl+K inside an exercise to open it beside your code. |
 | **Progress** | Mastery per topic, pass rates, first-try rate, struggles, history. |
 
 A topic **clears** at 60% weighted mastery once you've solved at least one hard exercise (or you passed it in the placement test).
@@ -41,4 +42,5 @@ Export from Settings.
 - Stdlib only: `python3 server.py --port 8765` (no dependencies).
 - Content lives in `pytrainer/content/` — see `CONTENT_GUIDE.md`.
 - `python3 scripts/validate_content.py` runs every reference solution against its tests
-  and checks every starter fails.
+  and checks every starter fails. It also runs every Library card example (`REFERENCE` in each
+  topic file) and checks its `#` output lines against what the example really prints.

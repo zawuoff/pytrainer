@@ -13,43 +13,291 @@ TOPIC = {
                  "bag of words", "mean pooling", "TF-IDF"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["vector", "embedding", "dimension", "dot product", "norm", "length", "normalise",
+                 "cosine similarity", "distance", "math.sqrt", "zip", "top-k", "mean pooling",
+                 "bag of words", "tf-idf"],
+    "cards": [
+        {
+            "syntax": "sum(x * y for x, y in zip(a, b))",
+            "explain": "Dot product: multiplies the numbers at the same position and adds the products. Check len(a) == len(b) first.",
+            "example": r'''
+                a = [1, 2, 3]
+                b = [4, 5, 6]
+                print(sum(x * y for x, y in zip(a, b)))
+                # 32
+            ''',
+        },
+        {
+            "syntax": "math.sqrt(sum(x * x for x in v))",
+            "explain": "Norm (length) of a vector: the square root of the sum of its squares. Divide every number by it to normalise.",
+            "example": r'''
+                import math
+
+                v = [3, 4]
+                n = math.sqrt(sum(x * x for x in v))
+                print(n)
+                # 5.0
+                print([x / n for x in v])
+                # [0.6, 0.8]
+            ''',
+        },
+        {
+            "syntax": "dot / (norm_a * norm_b)",
+            "explain": "Cosine similarity: the dot product divided by both norms. 1 is the same direction, 0 unrelated, -1 opposite.",
+            "example": r'''
+                import math
+
+                a, b = [4, 0], [3, 4]
+                dot = sum(x * y for x, y in zip(a, b))
+                norm_a = math.sqrt(sum(x * x for x in a))
+                norm_b = math.sqrt(sum(x * x for x in b))
+                print(dot / (norm_a * norm_b))
+                # 0.6
+            ''',
+        },
+        {
+            "syntax": "[sum(col) / len(vs) for col in zip(*vs)]",
+            "explain": "Mean pooling: averages several vectors position by position. zip(*vs) yields one tuple per position.",
+            "example": r'''
+                vs = [[4, 0], [0, 2], [2, 1]]
+                print(list(zip(*vs)))
+                # [(4, 0, 2), (0, 2, 1)]
+                print([sum(col) / len(vs) for col in zip(*vs)])
+                # [2.0, 1.0]
+            ''',
+        },
+        {
+            "syntax": "sorted(d.items(), key=lambda p: (-p[1], p[0]))[:k]",
+            "explain": "Top-k: sorts (id, score) pairs by score from high to low, then by id for equal scores, and keeps the first k.",
+            "example": r'''
+                scores = {"c1": 0.2, "c2": 0.9, "c3": 0.9}
+                ranked = sorted(scores.items(), key=lambda p: (-p[1], p[0]))
+                print(ranked[:2])
+                # [('c2', 0.9), ('c3', 0.9)]
+            ''',
+        },
+        {
+            "syntax": "tf * math.log(N / df)",
+            "explain": "TF-IDF: a term's share of the document's words, times the log of (documents / documents containing the term).",
+            "example": r'''
+                import math
+
+                docs = ["the cat sat", "the dog sat down", "cats and dogs"]
+                words = docs[0].split()
+                tf = words.count("cat") / len(words)
+                df = sum(1 for d in docs if "cat" in d.split())
+                print(round(tf * math.log(len(docs) / df), 3))
+                # 0.366
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
-## Vectors & similarity - chapter notes
+## Vectors and similarity
 
-An **embedding** turns text into a **vector** (a list of numbers) so that similar meaning
-gives vectors pointing in similar directions. RAG = embed every chunk once, embed the
-question, rank chunks by similarity, paste the best ones into the prompt.
+### Vectors and embeddings
 
-| name | formula (pure Python) | notes |
-| --- | --- | --- |
-| element-wise add | `[x + y for x, y in zip(a, b)]` | same for `-`, `*` |
-| scale | `[x * f for x in v]` | new list, input unchanged |
-| dot product | `sum(x * y for x, y in zip(a, b))` | grows with length too |
-| norm / length (L2) | `math.sqrt(sum(x * x for x in v))` | `[3, 4]` -> `5.0` |
-| normalise | `[x / n for x in v]` with `n = norm(v)` | result has norm 1; zero vector -> error |
-| cosine similarity | `dot(a, b) / (norm(a) * norm(b))` | -1..1, direction only |
-| Euclidean distance | `math.dist(a, b)` | smaller = closer |
-| mean pooling | average position by position | one vector for many chunks |
-| top-k | `sorted(..., key=lambda p: (-p[1], p[0]))[:k]` | best first, ties by id |
+A **vector** is a list of numbers, such as `[3, 4]`. The count of numbers is the vector's
+**dimension**: `[3, 4]` has 2 dimensions. An **embedding** is a vector that a model computes
+from a piece of text. Texts with similar meaning get vectors with similar numbers. This
+chapter shows how to measure how similar two vectors are.
+
+**Retrieval** means finding the pieces of text that are relevant to a question. **RAG**
+(retrieval-augmented generation) puts those pieces into the prompt, so the model can answer
+from your own documents. It uses embeddings in four steps. You split documents into pieces
+called **chunks** and **embed** every chunk once, which means computing its embedding. You
+embed the question, which is also called the **query**. You sort the chunks by similarity to
+the question. You put the best chunks into the prompt.
+
+### Element-wise operations
+
+An **element-wise** operation combines the numbers at the same position. `zip(a, b)` produces
+the pairs and a list comprehension builds the result. **Scaling** multiplies every number by
+the same factor.
+
+```python
+a = [3, 4]
+b = [4, 3]
+print([x + y for x, y in zip(a, b)])
+# [7, 7]
+print([x * 2 for x in a])
+# [6, 8]
+print(a)
+# [3, 4]
+```
+
+Each comprehension builds a new list. `a` is not changed.
+
+### Dot product, norm and cosine similarity
+
+The **dot product** multiplies two vectors position by position and adds the products. For
+`[3, 4]` and `[4, 3]` it is `3 * 4 + 4 * 3 = 24`.
+
+The **norm** of a vector is the square root of the sum of its squares. For `[3, 4]` the
+squares are `9` and `16` and their sum is `25`. The square root of `25` is `5`, because
+`5 * 5` is `25`. `math.sqrt(x)` returns the square root of `x` as a float. The norm is also
+called the length, the magnitude or the L2 norm.
+
+**Cosine similarity** is the dot product divided by both norms. Here it is
+`24 / (5 * 5) = 0.96`. It is between `-1` and `1`. It depends only on the **direction** of
+each vector: the ratios between its numbers, not how large the numbers are. `[3, 4]` and
+`[6, 8]` have the same direction, and their cosine similarity is `1`.
+
+```python
+import math
+
+a = [3, 4]
+b = [4, 3]
+dot = sum(x * y for x, y in zip(a, b))
+norm_a = math.sqrt(sum(x * x for x in a))
+norm_b = math.sqrt(sum(x * x for x in b))
+print(dot)
+# 24
+print(norm_a)
+# 5.0
+print(dot / (norm_a * norm_b))
+# 0.96
+```
+
+Drag either vector and watch the dot product, the norms and the cosine similarity change.
+
+```diagram
+{"type":"vectors","title":"Dot product, norms and cosine similarity of a and b","a":[3,4],"b":[4,3]}
+```
+
+### Normalising and distance
+
+To **normalise** a vector, divide every number by the norm. The result has norm 1 and the
+same direction. `[3, 4]` has norm 5, so it becomes `[3 / 5, 4 / 5]`.
+
+The **Euclidean distance** between two vectors is the norm of their difference.
+`math.dist(a, b)` computes it. The difference of `[3, 4]` and `[4, 3]` is `[-1, 1]`. Its
+squares add up to `2`, and the square root of `2` is about `1.41`. A smaller distance means
+the numbers of the two vectors are closer.
+
+```python
+import math
+
+a = [3, 4]
+b = [4, 3]
+n = math.sqrt(sum(x * x for x in a))
+print([x / n for x in a])
+# [0.6, 0.8]
+print(math.dist(a, b))
+# 1.4142135623730951
+```
+
+### Comparing embeddings
+
+This example compares three small embeddings. `math.hypot` returns the norm of the numbers
+you pass to it. The `*` in `math.hypot(*a)` passes each item of the list `a` as a separate
+argument, so `math.hypot(*[3, 4])` is the same call as `math.hypot(3, 4)`.
 
 ```python
 import math
 
 cat, kitten, invoice = [0.9, 0.8, 0.0], [0.8, 0.9, 0.1], [0.0, 0.1, 0.9]
+
 def cosine(a, b):
     dot = sum(x * y for x, y in zip(a, b))
     return dot / (math.hypot(*a) * math.hypot(*b))
-print(round(cosine(cat, kitten), 2), round(cosine(cat, invoice), 2))
+
+print(round(cosine(cat, kitten), 2))
+# 0.99
+print(round(cosine(cat, invoice), 2))
+# 0.07
 ```
 
-**Keyword side:** *bag of words* = counts over a fixed vocabulary; *TF-IDF* = term
-frequency x `log(N / df)`, rewarding words that are frequent in a doc but rare overall.
+`cat` and `kitten` have similar numbers at every position, so their score is close to `1`.
+`cat` and `invoice` are large at different positions, so their score is close to `0`.
 
-**Gotchas**
-- `zip` silently stops at the shorter list - check `len(a) != len(b)` and raise `ValueError`.
-- A zero vector has norm 0: guard before dividing.
-- Rank by cosine, not raw dot product (long vectors win unfairly), unless vectors are normalised.
-- Compare floats with `math.isclose`, never `==`.
+### Mean pooling and top-k
+
+**Mean pooling** averages several vectors position by position. It gives one vector for many
+chunks. `zip(*chunks)` yields one tuple per position, here `(4, 0, 2)` and `(0, 2, 1)`. The
+averages are `6 / 3 = 2.0` and `3 / 3 = 1.0`.
+
+**Top-k** keeps the `k` highest scores. The sort key `(-p[1], p[0])` orders the pairs by
+score from high to low, then by id for equal scores.
+
+```python
+chunks = [[4, 0], [0, 2], [2, 1]]
+print([sum(col) / len(chunks) for col in zip(*chunks)])
+# [2.0, 1.0]
+
+scores = {"c1": 0.2, "c2": 0.9, "c3": 0.9}
+print(sorted(scores.items(), key=lambda p: (-p[1], p[0]))[:2])
+# [('c2', 0.9), ('c3', 0.9)]
+```
+
+### Keyword vectors
+
+A **vocabulary** is a fixed list of words. A **bag of words** vector holds one count per
+vocabulary word: how many times that word occurs in the text.
+
+```python
+words = "the cat and the hat".split()
+vocab = ["cat", "the", "dog"]
+print([words.count(w) for w in vocab])
+# [1, 2, 0]
+```
+
+**TF-IDF** is a score for how well a document matches one word. The word is called a
+**term**. The score multiplies two numbers.
+
+The **term frequency** (TF) is the number of times the term occurs in the document, divided
+by the number of words in the document.
+
+The **inverse document frequency** (IDF) is `math.log(N / df)`. `N` is the number of
+documents and `df` is the number of documents that contain the term. `math.log(x)` returns
+the natural logarithm of `x`. It is `0` when `x` is `1` and it grows slowly as `x` grows.
+
+```python
+import math
+
+docs = ["the cat sat", "the dog sat down", "cats and dogs"]
+words = docs[0].split()
+tf = words.count("cat") / len(words)
+df = sum(1 for d in docs if "cat" in d.split())
+idf = math.log(len(docs) / df)
+print(round(tf, 3), df, round(idf, 3))
+# 0.333 1 1.099
+print(round(tf * idf, 3))
+# 0.366
+print(math.log(3 / 3))
+# 0.0
+```
+
+`"cat"` is 1 of the 3 words of the first document, so TF is `1 / 3`. Only 1 of the 3
+documents contains `"cat"`, so IDF is `math.log(3 / 1)`. A term that all 3 documents contain
+gets `math.log(3 / 3)`, which is `0`, so it adds nothing to any score. A word that is
+frequent in one document and rare in the others gets a high score.
+
+### Common mistakes
+
+- `zip` stops at the end of the shorter list and raises no error. Check `len(a) != len(b)`
+  first and raise `ValueError`.
+- A vector of only zeros has norm 0. Check for that before you divide by the norm.
+- Rank by cosine similarity, not by the raw dot product. A long vector can get a larger dot
+  product than a short vector whose direction is closer to the query. The two rankings agree
+  when every vector is normalised.
+- Compare floats with `math.isclose(x, y)`, not with `==`. Float arithmetic has small
+  rounding errors.
+
+```python
+import math
+
+print(sum(x * y for x, y in zip([1, 2, 3], [10, 20])))
+# 50
+print(0.1 + 0.2 == 0.3)
+# False
+print(math.isclose(0.1 + 0.2, 0.3))
+# True
+```
 '''
 
 EXERCISES = [
@@ -58,25 +306,47 @@ EXERCISES = [
         "title": "What gets printed?",
         "difficulty": 0,
         "lesson": r'''
-            Imagine describing foods with three scores: *sweet*, *salty*, *spicy*. A cookie is
-            `[0.9, 0.1, 0.0]`, a pretzel `[0.1, 0.9, 0.0]`. Foods that taste alike get similar lists.
-            An **embedding** does the same for text: a model turns each sentence into a list of numbers
-            (hundreds of them) so that sentences with similar *meaning* get similar numbers.
+            ## Vectors and zip
 
-            A list of numbers like this is called a **vector**. In Python it's a plain list, and the
-            tool for comparing two of them position by position is `zip`:
+            A **vector** is a list of numbers. The count of numbers is its **dimension**: `[1, 0, 2]`
+            has 3 dimensions. An **embedding** is a vector that a model computes from a text. It
+            usually has hundreds of numbers. Texts with similar meaning get similar numbers, so you
+            can compare meanings by comparing vectors.
+
+            In Python a vector is a plain list. `zip(a, b)` pairs the items at the same position:
+            item 0 with item 0, item 1 with item 1, and so on. Each pair is a tuple.
 
             ```python
-            cookie = [0.9, 0.1, 0.0]
-            cake = [0.8, 0.2, 0.1]
-            print(list(zip(cookie, cake)))
-            print([round(x * y, 2) for x, y in zip(cookie, cake)])
+            query = [1, 0, 2]
+            doc = [3, 5, 1]
+            print(list(zip(query, doc)))
+            # [(1, 3), (0, 5), (2, 1)]
+            print([x * y for x, y in zip(query, doc)])
+            # [3, 0, 2]
             ```
 
-            `zip(a, b)` pairs item 0 with item 0, item 1 with item 1, and so on, giving tuples.
+            The **dot product** is the sum of those products: multiply each pair, then add the
+            results. Here it is `3 + 0 + 2 = 5`. The dot product is the basic similarity score for
+            two vectors. It is large when both vectors have large numbers at the same positions.
 
-            Multiply each pair and add the results and you get the **dot product** - the most basic
-            "how alike are these?" score. Bigger means the two vectors agree more.
+            Step through the loop to see `total` grow by one product per pair.
+
+            ```diagram
+            {"type": "trace", "title": "Dot product of query and doc with a loop", "code": ["query = [1, 0, 2]", "doc = [3, 5, 1]", "total = 0", "for x, y in zip(query, doc):", "    total += x * y", "print(total)"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"query": "[1, 0, 2]"}, "out": ""},
+              {"line": 3, "vars": {"query": "[1, 0, 2]", "doc": "[3, 5, 1]"}, "out": ""},
+              {"line": 4, "vars": {"query": "[1, 0, 2]", "doc": "[3, 5, 1]", "total": "0"}, "out": ""},
+              {"line": 5, "vars": {"query": "[1, 0, 2]", "doc": "[3, 5, 1]", "total": "0", "x": "1", "y": "3"}, "out": ""},
+              {"line": 4, "vars": {"query": "[1, 0, 2]", "doc": "[3, 5, 1]", "total": "3", "x": "1", "y": "3"}, "out": ""},
+              {"line": 5, "vars": {"query": "[1, 0, 2]", "doc": "[3, 5, 1]", "total": "3", "x": "0", "y": "5"}, "out": ""},
+              {"line": 4, "vars": {"query": "[1, 0, 2]", "doc": "[3, 5, 1]", "total": "3", "x": "0", "y": "5"}, "out": ""},
+              {"line": 5, "vars": {"query": "[1, 0, 2]", "doc": "[3, 5, 1]", "total": "3", "x": "2", "y": "1"}, "out": ""},
+              {"line": 4, "vars": {"query": "[1, 0, 2]", "doc": "[3, 5, 1]", "total": "5", "x": "2", "y": "1"}, "out": ""},
+              {"line": 6, "vars": {"query": "[1, 0, 2]", "doc": "[3, 5, 1]", "total": "5", "x": "2", "y": "1"}, "out": ""},
+              {"line": null, "vars": {"query": "[1, 0, 2]", "doc": "[3, 5, 1]", "total": "5", "x": "2", "y": "1"}, "out": "5\n"}
+            ]}
+            ```
         ''',
         "mode": "predict",
         "prompt": r'''Read the code and type exactly what it prints.''',
@@ -108,23 +378,36 @@ EXERCISES = [
         "title": "Add two vectors",
         "difficulty": 0,
         "lesson": r'''
-            Vectors are added **position by position**, like adding up two shopping receipts line by
-            line: apples with apples, bread with bread. The result is a new vector of the same length.
+            ## Element-wise addition
+
+            To add two vectors, add the numbers at the same position. The result is a new vector of
+            the same length. This is called **element-wise** (or component-wise) addition.
 
             ```python
-            monday = [2, 0, 1]
-            tuesday = [1, 3, 0]
-            total = [x + y for x, y in zip(monday, tuesday)]
+            chunk1 = [2, 0, 1]
+            chunk2 = [1, 3, 0]
+            total = [x + y for x, y in zip(chunk1, chunk2)]
             print(total)
-            print(monday)
+            # [3, 3, 1]
+            print(chunk1)
+            # [2, 0, 1]
             ```
 
-            This is a list comprehension over `zip`: for every pair `(x, y)`, compute one new number.
-            The originals are untouched - you build a new list.
+            The list comprehension loops over `zip(chunk1, chunk2)`. For every pair `(x, y)` it
+            computes one number, `x + y`, and puts it in a new list. `chunk1` and `chunk2` are not
+            changed.
 
-            The proper name is *element-wise* (or *component-wise*) addition. Subtraction and
-            multiplication work the same way; only the operator changes. In RAG code you'll see this in
-            averaging embeddings or moving a query vector towards a topic.
+            Subtraction and multiplication work the same way. Only the operator changes.
+
+            ```python
+            chunk1 = [2, 0, 1]
+            chunk2 = [1, 3, 0]
+            print([x - y for x, y in zip(chunk1, chunk2)])
+            # [1, -3, 1]
+            ```
+
+            Embedding code uses element-wise addition to average several embeddings: add them
+            position by position, then divide each sum by the number of embeddings.
         ''',
         "prompt": r'''
             Adding two vectors means adding the numbers at the same position.
@@ -179,23 +462,48 @@ EXERCISES = [
         "title": "When lengths don't match",
         "difficulty": 0,
         "lesson": r'''
-            `zip` has a quiet habit you must know about: when the two lists have **different lengths**,
-            it stops at the end of the **shorter** one - no error, no warning. Like pairing dancers:
-            if there are 3 on one side and 2 on the other, one person just sits out.
+            ## zip with different lengths
+
+            When the two lists have **different lengths**, `zip` stops at the end of the **shorter**
+            one. It raises no error and prints no warning. The extra items of the longer list are
+            ignored.
 
             ```python
             names = ["ana", "bo", "cy"]
             scores = [0.9, 0.4]
             for name, score in zip(names, scores):
                 print(name, score)
+            # ana 0.9
+            # bo 0.4
             print(len(names), len(scores))
+            # 3 2
             ```
 
-            For vectors this is dangerous. Two embeddings from **different models** often have different
-            sizes (e.g. 768 vs 1536 numbers). `zip` would happily compute a meaningless result.
+            Step through the loop and count how many times the loop body runs.
 
-            That's why vector code checks `len(a) != len(b)` first and raises a `ValueError`. Failing
-            loudly is better than a silent wrong answer - a principle called *fail fast*.
+            ```diagram
+            {"type": "trace", "title": "zip stops at the shorter list", "code": ["names = [\"ana\", \"bo\", \"cy\"]", "scores = [0.9, 0.4]", "for name, score in zip(names, scores):", "    print(name, score)", "print(len(names), len(scores))"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"names": "['ana', 'bo', 'cy']"}, "out": ""},
+              {"line": 3, "vars": {"names": "['ana', 'bo', 'cy']", "scores": "[0.9, 0.4]"}, "out": ""},
+              {"line": 4, "vars": {"names": "['ana', 'bo', 'cy']", "scores": "[0.9, 0.4]", "name": "'ana'", "score": "0.9"}, "out": ""},
+              {"line": 3, "vars": {"names": "['ana', 'bo', 'cy']", "scores": "[0.9, 0.4]", "name": "'ana'", "score": "0.9"}, "out": "ana 0.9\n"},
+              {"line": 4, "vars": {"names": "['ana', 'bo', 'cy']", "scores": "[0.9, 0.4]", "name": "'bo'", "score": "0.4"}, "out": "ana 0.9\n"},
+              {"line": 3, "vars": {"names": "['ana', 'bo', 'cy']", "scores": "[0.9, 0.4]", "name": "'bo'", "score": "0.4"}, "out": "ana 0.9\nbo 0.4\n"},
+              {"line": 5, "vars": {"names": "['ana', 'bo', 'cy']", "scores": "[0.9, 0.4]", "name": "'bo'", "score": "0.4"}, "out": "ana 0.9\nbo 0.4\n"},
+              {"line": null, "vars": {"names": "['ana', 'bo', 'cy']", "scores": "[0.9, 0.4]", "name": "'bo'", "score": "0.4"}, "out": "ana 0.9\nbo 0.4\n3 2\n"}
+            ]}
+            ```
+
+            `"cy"` is never printed because `scores` has only two items.
+
+            For vectors this produces wrong results. Embeddings from **different models** often have
+            different sizes, for example 768 and 1536 numbers. `zip` would pair the first 768
+            numbers of each and the code would return a number that means nothing.
+
+            Vector code therefore checks `len(a) != len(b)` first and raises `ValueError`. Stopping
+            with an error as soon as the input is wrong is called **fail fast**. An error is easier
+            to find than a wrong number.
         ''',
         "mode": "predict",
         "prompt": r'''Read the code and type exactly what it prints.''',
@@ -212,10 +520,11 @@ EXERCISES = [
             False
         ''',
         "explanation": r'''
-            `zip` stops when the **shorter** list runs out, so the `3` in `a` is silently
-            dropped: only two pairs. The "dot product" then adds 1\*10 + 2\*20 = 50 - a number
-            that looks fine but is meaningless. Only the explicit length check reveals the
-            problem.
+            `zip` stops at the end of the **shorter** list, so the `3` in `a` is never paired:
+            `zip` yields only `(1, 10)` and `(2, 20)`. The sum is then 1\*10 + 2\*20 = 50.
+            Python raises no error, but 50 is not the dot product of a 3-item and a 2-item
+            vector, which is not defined. Only `len(a) == len(b)`, which prints `False`, shows
+            the problem.
         ''',
         "starter": "", "tests": "",
         "hints": [
@@ -229,22 +538,32 @@ EXERCISES = [
         "title": "Scale a vector",
         "difficulty": 0,
         "lesson": r'''
-            *Scaling* stretches or shrinks a vector: multiply **every** number by the same factor. Think of
-            a recipe for 2 people scaled to 6: every ingredient times 3. The proportions - the vector's
-            **direction** - stay the same; only its size changes.
+            ## Scaling
+
+            **Scaling** a vector means multiplying **every** number in it by the same factor. The
+            number you multiply by is called a **scalar**.
 
             ```python
-            recipe = [200, 3, 50]
-            print([x * 3 for x in recipe])
-            print([x * 0.5 for x in recipe])
-            print(recipe)
+            v = [200, 3, 50]
+            print([x * 3 for x in v])
+            # [600, 9, 150]
+            print([x * 0.5 for x in v])
+            # [100.0, 1.5, 25.0]
+            print([x * -1 for x in v])
+            # [-200, -3, -50]
+            print(v)
+            # [200, 3, 50]
             ```
 
-            A number that multiplies a vector is called a *scalar* (it "scales" it). Multiplying by
-            `0.5` halves the vector; by `-1` flips it to point the opposite way.
+            The **direction** of a vector is the ratios between its numbers, not how large they
+            are. In `[200, 3, 50]` and in `[600, 9, 150]` the first number is 4 times the last, so
+            both have the same direction. Scaling by a positive factor keeps the direction and
+            changes only how large the numbers are. A factor of `0.5` halves every number. A factor
+            of `-1` flips every sign, which gives the opposite direction.
 
-            Watch out: build a **new** list with a comprehension. Changing the numbers inside the list
-            you were given (`v[i] = ...`) would surprise the caller, who may still need the original.
+            Build a **new** list with a comprehension. An assignment such as `v[i] = ...` changes
+            the list object that the caller passed in, and the caller may still need the original
+            numbers.
         ''',
         "prompt": r'''
             *Scaling* a vector multiplies every number in it by the same factor.
@@ -305,9 +624,12 @@ EXERCISES = [
         "title": "Vector length",
         "difficulty": 0,
         "lesson": r'''
-            How long is a vector? For `[3, 4]`, picture walking 3 blocks east and 4 blocks north: the
-            straight-line distance back home is 5 - Pythagoras. The same rule works in any number of
-            dimensions: square each number, add the squares, take the square root.
+            ## Vector length
+
+            The **length** of a vector is one number that says how large the vector is. To compute
+            it, square each number, add the squares, and take the square root of the sum. The
+            **square root** of `49` is `7`, because `7 * 7` is `49`. `math.sqrt(x)` returns the
+            square root of `x` as a float. The formula works for a vector with any number of items.
 
             ```python
             import math
@@ -315,14 +637,19 @@ EXERCISES = [
             v = [2, 3, 6]
             squares = [x * x for x in v]
             print(squares, sum(squares))
+            # [4, 9, 36] 49
             print(math.sqrt(sum(squares)))
+            # 7.0
             ```
 
-            This length is called the vector's **norm** or **magnitude** (precisely, the *L2 norm*).
-            Squaring makes negative numbers count the same as positive ones.
+            This length is also called the vector's **norm** or **magnitude**. Its full name is the
+            **L2 norm**. The square of a negative number is positive, so `[-2, -3, -6]` has the
+            same length as `[2, 3, 6]`.
 
-            Why care? Two texts can point the same way but have very different lengths. Dividing by the
-            norm later lets us compare **direction only** - that's where cosine similarity comes from.
+            Two embeddings can have the same direction and different lengths: `[2, 3, 6]` has
+            length 7 and `[4, 6, 12]` has length 14. Dividing each vector by its own norm gives
+            `[2 / 7, 3 / 7, 6 / 7]` for both, so you compare **direction only**. Cosine similarity,
+            later in this chapter, is built on that division.
         ''',
         "prompt": r'''
             An embedding is a vector (a list of numbers). Its *length* (also called its
@@ -392,23 +719,36 @@ EXERCISES = [
         "title": "Fix the best-chunk picker",
         "difficulty": 0,
         "lesson": r'''
-            Once every chunk has a similarity score, retrieval is simply "highest score wins". A dict
-            `{chunk_id: score}` holds the scores, and `max` can pick the winner - if you tell it **what to
-            compare**.
+            ## max with a key function
+
+            A **chunk** is a piece of a longer document. **Retrieval** means finding the chunks
+            that are relevant to a question. The code gives every chunk a similarity score and
+            returns the chunk with the highest score. A dict `{chunk_id: score}` holds the scores.
+            `max` finds that chunk if you tell it **which values to compare**.
 
             ```python
-            prices = {"apple": 0.5, "melon": 2.0, "grape": 1.2}
-            print(max(prices))
-            print(max(prices, key=prices.get))
-            print(min(prices, key=prices.get))
+            tokens = {"intro": 480, "setup": 310, "faq": 120}
+            print(max(tokens))
+            # setup
+            print(max(tokens, key=tokens.get))
+            # intro
+            print(min(tokens, key=tokens.get))
+            # faq
             ```
 
-            Looping over a dict gives its **keys**, so `max(prices)` compares the names alphabetically.
-            With `key=prices.get`, `max` looks up each key's value and compares those instead, but still
-            returns the **key**. `key=` takes a function - you met it in the sorting chapter.
+            Looping over a dict gives its **keys**, so `max(tokens)` compares the key strings
+            alphabetically. With `key=tokens.get`, `max` calls `tokens.get` on each key and compares
+            the returned values. It still returns the **key**. `key=` takes a function, as in the
+            sorting chapter.
 
-            With similarity scores, bigger means more similar, so the best match is the maximum - even
-            when every score is negative.
+            With similarity scores, a larger number means more similar, so the best match is the
+            maximum. That also holds when every score is negative: `-0.2` is larger than `-0.7`.
+
+            ```python
+            scores = {"c1": -0.7, "c2": -0.2}
+            print(max(scores, key=scores.get))
+            # c2
+            ```
         ''',
         "prompt": r'''
             A retriever scored some chunks by similarity to the question. `best_chunk` should
@@ -469,24 +809,41 @@ EXERCISES = [
         "title": "Dot product",
         "difficulty": 1,
         "lesson": r'''
-            Time to write the dot product yourself. Picture two people rating the same films from -1
-            (hate) to 1 (love). Multiply their ratings film by film and add up: where both love or both
-            hate a film, the product is positive and pushes the total up; where they disagree, it's
-            negative and pulls it down. A high total means similar taste.
+            ## Dot product
+
+            The **dot product** of two vectors is one number. Multiply the numbers at the same
+            position, then add all the products.
+
+            The sign of each product shows whether the two vectors agree at that position. Two
+            positive numbers, or two negative numbers, give a positive product and raise the total.
+            One positive and one negative number give a negative product and lower the total.
+
+            In this example two users rate the same three answers from `-1` (bad) to `1` (good).
 
             ```python
             ana = [1, -1, 0.5]
             bo = [1, -0.5, 1]
             products = [x * y for x, y in zip(ana, bo)]
             print(products)
+            # [1, 0.5, 0.5]
             print(sum(products))
+            # 2.0
             ```
 
-            That total is the **dot product**, written `a · b`. It's the core operation of every vector
-            database; GPUs compute billions of them per second.
+            The two users agree on all three answers, so every product is positive and the total is
+            high. Search tools use the same idea. A **vector database** is a program that stores
+            embeddings and finds the stored ones most similar to a given vector. It scores the
+            stored vectors against the given one with a measure such as the dot product.
 
-            `sum` of an empty sequence is `0`, so two empty vectors give `0` without any special case.
-            And remember the `zip` trap: check the lengths first and raise `ValueError` if they differ.
+            `sum` of an empty sequence is `0`, so two empty vectors give `0` with no special case.
+
+            ```python
+            print(sum([]))
+            # 0
+            ```
+
+            `zip` stops at the end of the shorter list. Check the lengths first and raise
+            `ValueError` if they differ.
         ''',
         "prompt": r'''
             The *dot product* is the basic building block of embedding similarity: it
@@ -554,9 +911,11 @@ EXERCISES = [
         "title": "Norm and unit vectors",
         "difficulty": 1,
         "lesson": r'''
-            A *unit vector* has length exactly 1 - like shrinking every arrow on a map to the same size so
-            only the **direction** is left. To get it, divide every number by the vector's norm. This is
-            called *normalising* the vector.
+            ## Norm and unit vectors
+
+            A **unit vector** is a vector whose length is exactly 1. To get one, divide every number
+            of a vector by the vector's norm. This is called **normalising** the vector. The result
+            points in the same **direction** as the original. Only the length changes.
 
             ```python
             import math
@@ -565,15 +924,23 @@ EXERCISES = [
             n = math.sqrt(sum(x * x for x in v))
             unit = [x / n for x in v]
             print(n, unit)
+            # 10.0 [0.6, 0.8]
             print(math.sqrt(sum(x * x for x in unit)))
+            # 1.0
             ```
 
-            Why vector databases love this: for unit vectors, the plain dot product **equals** cosine
-            similarity, so search only needs the cheap dot product. Many embedding APIs return vectors
-            that are already normalised.
+            The squares of `[6, 8]` are `36` and `64`. Their sum is `100` and its square root is
+            `10`, so each number is divided by `10`.
 
-            Watch out: a *zero vector* (all zeros) has norm 0 and no direction at all - dividing would
-            raise `ZeroDivisionError`. Check first and raise a clear `ValueError` instead.
+            Cosine similarity, a score taught later in this chapter, divides the dot product by
+            both norms. For unit vectors both norms are 1, so the dot product **equals** the
+            cosine similarity. A program that
+            stores normalised vectors needs only the dot product to search. Many embedding APIs
+            (services that compute embeddings for you) return vectors that are already normalised.
+
+            A **zero vector** contains only zeros. Its norm is 0 and it has no direction. Dividing
+            by that norm raises `ZeroDivisionError`. Check for a norm of 0 first and raise
+            `ValueError` with a clear message.
         ''',
         "prompt": r'''
             Many vector databases store embeddings *normalised* to length 1, so that a plain
@@ -671,27 +1038,35 @@ EXERCISES = [
         "title": "Euclidean distance",
         "difficulty": 1,
         "lesson": r'''
-            Similarity asks "do they point the same way?". **Distance** asks "how far apart are the two
-            points?" - like measuring with a ruler between two pins on a map. Small distance = close =
-            similar. Some vector databases rank by distance instead of cosine.
+            ## Euclidean distance
 
-            It's the norm from before, applied to the **difference** of the two vectors: subtract
-            position by position, square, add, square root.
+            Cosine similarity compares the directions of two vectors. **Distance** measures how far
+            apart their numbers are. A small distance means the numbers are close, so the texts are
+            similar. Some vector databases sort results by distance instead of cosine similarity.
+
+            The distance is the norm of the **difference** of the two vectors. Subtract position by
+            position, square each difference, add the squares, and take the square root.
 
             ```python
             import math
 
-            home, shop = [1, 1], [4, 5]
-            diff = [x - y for x, y in zip(home, shop)]
+            query, chunk = [1, 1], [4, 5]
+            diff = [x - y for x, y in zip(query, chunk)]
             print(diff)
+            # [-3, -4]
             print(math.sqrt(sum(d * d for d in diff)))
+            # 5.0
             ```
 
-            This is called the *Euclidean* (or *L2*) distance. Identical vectors have distance `0`;
-            order doesn't matter (`a` to `b` is as far as `b` to `a`).
+            The squares of `-3` and `-4` are `9` and `16`. Their sum is `25` and its square root
+            is `5`.
 
-            The standard library can already do this in one call. Finding which function is this step's
-            research task - reading the docs of the `math` module is a habit worth building.
+            This is called the **Euclidean distance** or L2 distance. Identical vectors have
+            distance `0`. The order of the arguments does not matter: squaring removes the sign of
+            each difference, so the distance from `a` to `b` equals the distance from `b` to `a`.
+
+            The standard library has a function that computes this in one call. Finding it is this
+            step's research task. Open the docs of the `math` module and read the function's entry.
         ''',
         "research": {
             "note": "The `math` module has a function that computes the Euclidean distance between two points in one call. Read its entry (and what it does when the points have different lengths), then come back.",
@@ -777,26 +1152,34 @@ EXERCISES = [
         "title": "Mean pooling",
         "difficulty": 1,
         "lesson": r'''
-            A long document is split into chunks, and each chunk gets its own embedding. Sometimes you
-            want **one** vector for the whole document. The simplest way: average the chunk vectors
-            position by position - like averaging a class's test scores subject by subject to get the
-            "typical student".
+            ## Mean pooling
+
+            A long document is split into chunks, and each chunk gets its own embedding. Sometimes
+            you need **one** vector for the whole document. **Mean pooling** produces it: average
+            the chunk vectors position by position.
 
             ```python
-            scores = [[10, 20], [14, 16], [12, 18]]
-            firsts = [row[0] for row in scores]
+            chunks = [[10, 20], [14, 16], [12, 18]]
+            firsts = [row[0] for row in chunks]
             print(firsts, sum(firsts) / len(firsts))
-            columns = list(zip(*scores))
+            # [10, 14, 12] 12.0
+            columns = list(zip(*chunks))
             print(columns)
+            # [(10, 14, 12), (20, 16, 18)]
             ```
 
-            `zip(*scores)` is a neat trick: the `*` *unpacks* the list, so it's the same as
-            `zip([10, 20], [14, 16], [12, 18])`, which walks all rows together and gives you one tuple
-            per **position** (a *column*). Averaging each column gives the mean vector.
+            `firsts` holds the number at position 0 of every vector. Their average, `12.0`, is
+            position 0 of the mean vector.
 
-            In embedding jargon this is called **mean pooling**. Watch out: averaging zero vectors is
-            dividing by zero, and rows of different lengths would be cut short by `zip` - both deserve
-            a `ValueError`.
+            In `zip(*chunks)` the `*` **unpacks** the list: Python passes each inner list as a
+            separate argument. The call is the same as `zip([10, 20], [14, 16], [12, 18])`. `zip`
+            then yields one tuple per **position**: all the first numbers, then all the second
+            numbers. Each tuple is a **column**. The average of each column is one number of the
+            mean vector.
+
+            Two inputs go wrong. An empty list of vectors has length 0, so computing the average
+            divides by zero. Vectors of different lengths are cut to the shortest one by `zip`.
+            Both cases should raise `ValueError`.
         ''',
         "prompt": r'''
             Turn a document's chunk embeddings into one document embedding by averaging them.
@@ -879,27 +1262,36 @@ EXERCISES = [
         "title": "Top-k results",
         "difficulty": 1,
         "lesson": r'''
-            A retriever rarely wants just **the** best chunk - it wants the best **k** (say 3), to give
-            the model a few sources. That's a podium: sort everyone by score, best first, and keep the
-            first k places.
+            ## Top-k results
 
-            Two details make it reliable:
-            - **Best first** means sorting by score descending.
-            - **Ties** need a rule, or results could come out in a different order each run. A common
+            A **retriever** is the code that finds the chunks for a question. It usually returns
+            the best **k** chunks, where `k` is a number you choose, for example 3. The model then
+            gets several sources. Sort the chunks by score, highest first, and keep the first k.
+            This is called **top-k** retrieval.
+
+            Two rules make the result predictable:
+            - **Best first** means sorting by score in descending order.
+            - **Ties** need a rule, so that equal scores always come out in the same order. A common
               rule: equal scores are ordered by id, A to Z.
 
-            A key function can return a **tuple**; Python compares tuples item by item. Negating a
-            number flips its order, so `(-score, name)` means "score high to low, then name A to Z":
+            A key function can return a **tuple**. Python compares tuples item by item: it compares
+            the first items, and looks at the second items only when the first are equal. Negating a
+            number reverses its order, so the key `(-score, name)` sorts by score from high to low,
+            then by name from A to Z.
 
             ```python
-            runners = {"cy": 9.5, "ana": 9.8, "bo": 9.5}
-            podium = sorted(runners.items(), key=lambda item: (-item[1], item[0]))
-            print(podium)
-            print(podium[:2])
+            ratings = {"cy": 9.5, "ana": 9.8, "bo": 9.5}
+            ranked = sorted(ratings.items(), key=lambda item: (-item[1], item[0]))
+            print(ranked)
+            # [('ana', 9.8), ('bo', 9.5), ('cy', 9.5)]
+            print(ranked[:2])
+            # [('ana', 9.8), ('bo', 9.5)]
+            print(ranked[:10])
+            # [('ana', 9.8), ('bo', 9.5), ('cy', 9.5)]
             ```
 
-            `dict.items()` gives `(key, value)` pairs, and slicing `[:k]` keeps the first k (a slice past
-            the end simply returns everything). This pattern is called **top-k** retrieval.
+            `ratings.items()` gives `(key, value)` tuples. The slice `[:k]` keeps the first k. A
+            slice that goes past the end returns all the items there are and raises no error.
         ''',
         "prompt": r'''
             A retriever has scored every chunk. Return the best `k` for the prompt.
@@ -978,17 +1370,36 @@ EXERCISES = [
         "title": "Cosine similarity",
         "difficulty": 2,
         "lesson": r'''
-            Putting it together: **cosine similarity** is the dot product of two vectors divided by both
-            their lengths. The division removes "how long" and keeps "which direction", so the score is
-            always between `-1` (opposite) and `1` (same direction), with `0` meaning unrelated. It's the
-            default similarity for embeddings.
+            ## Cosine similarity
+
+            **Cosine similarity** is the dot product of two vectors divided by the product of their
+            lengths. The division removes the lengths, so the score depends only on direction. It is
+            always between `-1` (opposite directions) and `1` (same direction). The score is `0`
+            when the dot product is `0`, as for `[1, 0]` and `[0, 5]`. Such vectors are called
+            **perpendicular**, and for embeddings that means the texts are unrelated. Cosine
+            similarity is the usual similarity measure for embeddings.
 
             ```python
             import math
 
-            a, b = [1, 2], [2, 4]
+            a = [4, 0]
+            b = [3, 4]
             dot = sum(x * y for x, y in zip(a, b))
-            print(dot / (math.sqrt(5) * math.sqrt(20)))
+            len_a = math.sqrt(sum(x * x for x in a))
+            len_b = math.sqrt(sum(x * x for x in b))
+            print(dot, len_a, len_b)
+            # 12 4.0 5.0
+            print(dot / (len_a * len_b))
+            # 0.6
+            ```
+
+            The dot product is `4 * 3 + 0 * 4 = 12`. The lengths are `4` and `5`, so the score is
+            `12 / (4 * 5) = 0.6`.
+
+            Drag the vectors until the cosine similarity is `1`, then `0`, then `-1`.
+
+            ```diagram
+            {"type":"vectors","title":"Cosine similarity of a and b","a":[4,0],"b":[3,4]}
             ```
         ''',
         "placement": True,
@@ -1085,15 +1496,23 @@ EXERCISES = [
         "title": "Bag of words",
         "difficulty": 2,
         "lesson": r'''
-            Putting it together: before neural embeddings, a text's vector was simply **word counts** over
-            a fixed vocabulary - a *bag of words* (order is thrown away, like tipping words into a bag).
-            Clean the tokens first (lowercase, strip punctuation), then count.
+            ## Bag of words
+
+            Before embedding models existed, the vector of a text was a list of **word counts**. A
+            **vocabulary** is a fixed list of words, and the vector has one count per vocabulary
+            word. This is called a **bag of words**: it records how often each word occurs and
+            ignores the order of the words. Here a **token** is one word of the text. Clean the
+            tokens first (lowercase them and strip punctuation from both ends), then count.
 
             ```python
             words = "the cat and the hat".split()
             vocab = ["cat", "the", "dog"]
             print([words.count(w) for w in vocab])
+            # [1, 2, 0]
             ```
+
+            Position `i` of the result is the count of `vocab[i]`. `"dog"` does not occur in the
+            text, so its count is `0`.
         ''',
         "prompt": r'''
             Before neural embeddings, text was turned into *count vectors* over a fixed

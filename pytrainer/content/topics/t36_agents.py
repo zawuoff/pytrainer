@@ -14,58 +14,269 @@ TOPIC = {
                  "budgets", "human approval", "scripted fake model", "workflows vs agents"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["agent", "agent loop", "tool", "registry", "max steps", "stop condition",
+                 "observation", "memory", "audit log", "budget", "approval", "fake model",
+                 "workflow", "stop_reason"],
+    "cards": [
+        {
+            "syntax": "result = tools[name](**args)",
+            "explain": "Runs a tool from the registry. tools[name] is the function and **args passes the dict as keyword arguments.",
+            "example": r'''
+                tools = {"add": lambda a, b: a + b}
+                name, args = "add", {"a": 2, "b": 3}
+                print(tools[name](**args))
+                # 5
+            ''',
+        },
+        {
+            "syntax": "for step in range(1, max_steps + 1):",
+            "explain": "The agent loop. It calls the model at most max_steps times and ends early on a final reply.",
+            "example": r'''
+                script = iter([{"type": "tool"}, {"type": "final", "text": "5"}])
+                for step in range(1, 4):
+                    reply = next(script)
+                    if reply["type"] == "final":
+                        print(step, reply["text"])
+                        break
+                # 2 5
+            ''',
+        },
+        {
+            "syntax": '{"role": "tool", "name": name, "content": str(result)}',
+            "explain": "The observation message. Append it after a tool call so the next model call receives the result as text.",
+            "example": r'''
+                messages = [{"role": "user", "content": "2 + 3?"}]
+                obs = {"role": "tool", "name": "add", "content": str(5)}
+                messages.append(obs)
+                print(len(messages), messages[-1])
+                # 2 {'role': 'tool', 'name': 'add', 'content': '5'}
+            ''',
+        },
+        {
+            "syntax": 'f"error: {type(e).__name__}: {e}"',
+            "explain": "Turns a tool exception into an error string for the model, so the loop keeps running.",
+            "example": r'''
+                try:
+                    result = 1 / 0
+                except Exception as e:
+                    result = f"error: {type(e).__name__}: {e}"
+                print(result)
+                # error: ZeroDivisionError: division by zero
+            ''',
+        },
+        {
+            "syntax": "used.get(key, 0) >= limits[key]",
+            "explain": "Budget check. A limit is reached when the amount used is greater than or equal to it.",
+            "example": r'''
+                used = {"steps": 4, "tokens": 900}
+                limits = {"steps": 5, "tokens": 800}
+                for key in limits:
+                    print(key, used.get(key, 0) >= limits[key])
+                # steps False
+                # tokens True
+            ''',
+        },
+        {
+            "syntax": "if name in risky and not approve(name, args):",
+            "explain": "Human approval. A risky tool runs only when approve returns True. approve is not called for other tools.",
+            "example": r'''
+                risky = {"send_email"}
+                def approve(name, args):
+                    return False
+                name, args = "send_email", {"to": "ada@example.com"}
+                if name in risky and not approve(name, args):
+                    print("denied:", name)
+                # denied: send_email
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
 ## Chapter notes: agents
 
-**Agent** = a model called in a loop. Each turn the model either asks for a tool or gives a
-final answer. Your code runs the tool and shows the result back to the model.
+### Agents
 
-**The loop (think -> act -> observe)**
-```text
+An **agent** is a loop in your code that calls a model and runs tools. On each pass the
+model returns one of two things: a request to run a tool, or a final answer. Your code runs
+the tool and adds the result to the messages, so the next model call receives it.
+
+```python
+script = iter([
+    {"type": "tool", "tool": "add", "args": {"a": 2, "b": 3}},
+    {"type": "final", "text": "2 + 3 is 5"},
+])
+
+def model(messages):
+    return next(script)
+
+tools = {"add": lambda a, b: a + b}
+messages = [{"role": "user", "content": "What is 2 + 3?"}]
+max_steps = 5
+answer, stop_reason = None, "max_steps"
 for step in range(1, max_steps + 1):
-    reply = model(messages)                  # think
+    reply = model(messages)
     if reply["type"] == "final":
-        break                                # done
-    result = tools[reply["tool"]](**reply["args"])   # act
-    messages.append({"role": "tool", "name": reply["tool"], "content": str(result)})  # observe
+        answer, stop_reason = reply["text"], "final"
+        break
+    name, args = reply["tool"], reply["args"]
+    result = tools[name](**args)
+    messages.append({"role": "assistant", "tool": name, "args": args})
+    messages.append({"role": "tool", "name": name, "content": str(result)})
+    print(step, name, args, "->", result)
+    # 1 add {'a': 2, 'b': 3} -> 5
+print(stop_reason, answer, step)
+# final 2 + 3 is 5 2
+print(len(messages))
+# 3
 ```
 
-**Reply shapes used in this chapter**
-- tool request: `{"type": "tool", "tool": "search", "args": {"q": "..."}}`
-- final answer: `{"type": "final", "text": "..."}`
-- message history: `{"role": "user", "content": task}`, then per tool call
-  `{"role": "assistant", "tool": name, "args": args}` and
-  `{"role": "tool", "name": name, "content": str(result)}`.
+`iter(...)` makes an iterator, which hands out the list items one at a time. Each
+`next(script)` call returns the next reply. `tools[name]` is the function stored under the tool name. `(**args)` calls it with the dict
+`args` unpacked into keyword arguments, so the call here is `add(a=2, b=3)`.
 
-**Stop conditions**: a final answer, `max_steps` reached, a budget reached (tokens, cost),
-too many errors in a row. Always return *why* it stopped (`stop_reason`).
+The first pass runs the tool and appends two messages, so the list ends with 3 messages. The
+second pass gets the final reply, so `step` is 2 when `break` ends the loop.
 
-**Tool registry**: a dict `name -> function`. Call with `tools[name](**args)`.
-Unknown names and exceptions must not crash the loop: turn them into an observation
-string like `"error: ZeroDivisionError: division by zero"` so the model can recover.
+The three parts of one pass are usually named think (call the model), act (run the tool)
+and observe (append the result). Click each stage to see the code that runs there.
 
-**Audit log**: one dict per action (`step`, `tool`, `args`, `result`/`status`). You can't debug
-or trust an agent you can't replay.
+```diagram
+{"type":"flow","title":"One pass of the agent loop","steps":[
+  {"label":"Start the history","detail":"Before the loop, the message list holds one message: the user's task.","code":"messages = [{\"role\": \"user\", \"content\": \"What is 2 + 3?\"}]"},
+  {"label":"Check the step limit","detail":"The for loop produces step numbers from 1 to max_steps. When they are used up, the loop ends and stop_reason stays \"max_steps\".","code":"for step in range(1, max_steps + 1):"},
+  {"label":"Call the model","detail":"The model receives the whole message list and returns one reply dict.","code":"reply = model(messages)"},
+  {"label":"Check the reply type","detail":"A reply with type \"final\" holds the answer, so break ends the loop. A reply with type \"tool\" continues to the next stage.","code":"if reply[\"type\"] == \"final\":\n    answer, stop_reason = reply[\"text\"], \"final\"\n    break"},
+  {"label":"Run the tool","detail":"The tool name is the key into the tools dict. The args dict is unpacked into keyword arguments.","code":"name, args = reply[\"tool\"], reply[\"args\"]\nresult = tools[name](**args)"},
+  {"label":"Append the observation","detail":"The request and the result are appended to the message list. The result is converted to a string. The next model call receives both.","code":"messages.append({\"role\": \"assistant\", \"tool\": name, \"args\": args})\nmessages.append({\"role\": \"tool\", \"name\": name, \"content\": str(result)})"}
+],"loop":{"from":5,"to":1,"label":"while the reply is a tool request and steps remain"}}
+```
 
-**Memory**: the message list is short-term memory. Trim old messages to fit the context;
-keep durable facts separately and inject them as a system message.
+### Reply and message shapes
 
-**Budgets**: count steps, tokens and cost. Check them every turn, *before* doing more work.
+This chapter uses two reply shapes. A **tool request** is
+`{"type": "tool", "tool": "search", "args": {"q": "..."}}`. A **final answer** is
+`{"type": "final", "text": "..."}`.
 
-**Human approval**: mark tools as risky (send email, delete, pay). Ask an `approve(name, args)`
-callback first; if it says no, the observation is "denied" and the agent carries on.
+The message list starts with `{"role": "user", "content": task}`. Each tool call adds two
+messages: `{"role": "assistant", "tool": name, "args": args}` and
+`{"role": "tool", "name": name, "content": str(result)}`.
 
-**Scripted fake model**: a function that returns pre-written replies in order. It makes agent
-code testable with no network and no randomness.
+### Stop conditions
 
-**Workflows vs agents** (Anthropic): a *workflow* follows a path you coded (e.g. prompt
-chaining with gates); an *agent* chooses its own next step. Prefer the simplest thing that works.
+A **stop condition** is a test that ends the loop. The common ones are a final answer,
+`max_steps` reached, a budget reached, and too many errors in a row. Return the reason
+with the result, for example as `stop_reason`.
 
-**Gotchas**
-- No `max_steps` = a possible infinite loop that burns money.
-- Forgetting to append the observation: the model asks for the same tool forever.
-- `str(result)`: message content is text.
-- Copy inputs you must not change.
+### Tool registry and tool errors
+
+A **tool registry** is a dict that maps each tool name to a function. `tools[name](**args)`
+gets the function and calls it with the dict `args` unpacked into keyword arguments.
+
+An unknown name or an exception must not end the loop. Turn each one into an
+**observation**: a string that goes back to the model in the next call.
+
+```python
+def divide(a, b):
+    return a / b
+
+tools = {"divide": divide}
+requests = [("divide", {"a": 1, "b": 0}), ("fly", {}), ("divide", {"a": 6, "b": 3})]
+for name, args in requests:
+    if name not in tools:
+        result = f"error: unknown tool {name}"
+    else:
+        try:
+            result = tools[name](**args)
+        except Exception as e:
+            result = f"error: {type(e).__name__}: {e}"
+    print(str(result))
+# error: ZeroDivisionError: division by zero
+# error: unknown tool fly
+# 2.0
+```
+
+### Audit log
+
+An **audit log** is a list with one dict per action: `step`, `tool`, `args` and `result` or
+`status`. You read it to find out which tools the agent ran and what each one returned.
+
+### Memory
+
+An agent's **memory** is the data your code sends to the model on every call. The model keeps
+nothing between calls. The message list is the first part of the memory. It must fit in the
+context window (the most text a model accepts in one call), so old messages are dropped.
+Values that must stay available are stored separately as **facts** and sent as a system
+message on every call.
+
+```python
+messages = [
+    {"role": "user", "content": "My name is Ada."},
+    {"role": "assistant", "content": "Hello Ada."},
+    {"role": "user", "content": "What is 2 + 3?"},
+]
+facts = {"name": "Ada"}
+recent = messages[-2:]
+system = {"role": "system", "content": "Facts: name=" + facts["name"]}
+for m in [system] + recent:
+    print(m["role"], "|", m["content"])
+# system | Facts: name=Ada
+# assistant | Hello Ada.
+# user | What is 2 + 3?
+```
+
+### Budgets and human approval
+
+A **budget** is a limit on steps, tokens or cost. A limit is reached when the amount used
+is greater than or equal to it. Check budgets on every pass, before doing more work.
+
+**Human approval** means a person must agree before a risky tool runs (send email, delete,
+pay). The code calls an `approve(name, args)` function first. If it returns `False`, the
+tool does not run, the observation is a "denied" string, and the loop continues.
+
+```python
+used = {"steps": 4, "tokens": 900}
+limits = {"steps": 5, "tokens": 800}
+for key in limits:
+    print(key, used.get(key, 0) >= limits[key])
+# steps False
+# tokens True
+
+risky = {"send_email"}
+
+def approve(name, args):
+    return False
+
+name, args = "send_email", {"to": "ada@example.com"}
+if name in risky and not approve(name, args):
+    print(f"denied: {name}")
+# denied: send_email
+```
+
+### Scripted fake model
+
+A **scripted fake model** is a function that returns pre-written replies in order, one per
+call. The `model` function in the first example is one. It lets you test agent code with
+no network and no randomness.
+
+### Workflows and agents
+
+In a **workflow**, your code fixes the order of the steps. One example is a **prompt chain**:
+each step is one model call that receives the previous step's output. A **gate** is a Python
+check that runs after a step and stops the chain when it returns `False`. In an agent, the
+model's reply selects the next step. Anthropic's advice is to use the simplest design that
+works.
+
+### Common mistakes
+
+- A loop with no `max_steps` can run forever, and every model call costs money.
+- If you do not append the observation, the model gets the same messages again and can
+  return the same tool request on every pass.
+- Message content is text. Convert the tool result with `str(result)`.
+- Copy an input that you must not change before you modify it.
 '''
 
 EXERCISES = [
@@ -75,28 +286,52 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            An **agent** is like an intern with a phone and a to-do list. They read the task,
-            decide "I need to call someone", make the call, write down what they heard, and
-            decide again - until they can give you the answer.
+            ## The agent loop
 
-            In code, the "intern's brain" is a model. Each time you ask it, it replies with
-            either **a tool request** or **a final answer**. Your loop runs tools until a final
-            answer arrives.
+            An **agent** is a loop in your code that calls a model and runs tools. The model
+            does not run anything itself. It returns data, and your code acts on that data.
+
+            In this chapter every model reply is a dict with a `"type"` key. A **tool request**
+            has the type `"tool"` and names a tool and its arguments. A **final answer** has
+            the type `"final"` and holds the answer text.
+
+            The program below uses two pre-written replies in place of real model calls. The
+            loop reads one reply per pass. For a tool request it prints the tool name. For a
+            final answer it prints the text, and `break` ends the loop.
 
             ```python
-            replies = [
-                {"type": "tool", "tool": "search", "args": {"q": "capital of France"}},
-                {"type": "final", "text": "Paris"},
-            ]
-            for reply in replies:
+            tool_reply = {"type": "tool", "tool": "search", "args": {"q": "France"}}
+            final_reply = {"type": "final", "text": "Paris"}
+            for reply in [tool_reply, final_reply]:
                 if reply["type"] == "final":
                     print("answer:", reply["text"])
                     break
                 print("calling", reply["tool"])
+            # calling search
+            # answer: Paris
             ```
 
-            The proper name for this is the **agent loop**: *think* (ask the model),
-            *act* (run the tool), *observe* (look at the result), repeat.
+            Step through the program to see which lines run for each reply.
+
+            ```diagram
+            {"type": "trace", "title": "Two replies through the loop", "code": ["tool_reply = {\"type\": \"tool\", \"tool\": \"search\", \"args\": {\"q\": \"France\"}}", "final_reply = {\"type\": \"final\", \"text\": \"Paris\"}", "for reply in [tool_reply, final_reply]:", "    if reply[\"type\"] == \"final\":", "        print(\"answer:\", reply[\"text\"])", "        break", "    print(\"calling\", reply[\"tool\"])"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}"}, "out": ""},
+              {"line": 3, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}"}, "out": ""},
+              {"line": 4, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}", "reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}"}, "out": ""},
+              {"line": 7, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}", "reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}"}, "out": ""},
+              {"line": 3, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}", "reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}"}, "out": "calling search\n"},
+              {"line": 4, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}", "reply": "{'type': 'final', 'text': 'Paris'}"}, "out": "calling search\n"},
+              {"line": 5, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}", "reply": "{'type': 'final', 'text': 'Paris'}"}, "out": "calling search\n"},
+              {"line": 6, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}", "reply": "{'type': 'final', 'text': 'Paris'}"}, "out": "calling search\nanswer: Paris\n"},
+              {"line": null, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}", "reply": "{'type': 'final', 'text': 'Paris'}"}, "out": "calling search\nanswer: Paris\n"}
+            ]}
+            ```
+
+            This is the **agent loop**. Its three parts have standard names: *think* (call the
+            model), *act* (run the tool) and *observe* (read the result). Then the loop repeats.
+
+            `break` ends the loop at once. Any reply after the final answer is never read.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -118,8 +353,10 @@ EXERCISES = [
             2 final: The answer is 5
         ''',
         "explanation": r'''
-            Step 1 is a tool request: `add(a=2, b=3)` runs and prints `5`. Step 2 is the final
-            answer, so it prints it and `break` ends the loop - the third reply is never used.
+            `enumerate(replies, start=1)` numbers the replies from 1. Reply 1 is a tool request:
+            `tools["add"](a=2, b=3)` returns `5`, and the line `1 tool add -> 5` is printed.
+            Reply 2 has the type `"final"`, so its text is printed and `break` ends the loop.
+            The third reply is never read.
         ''',
         "starter": "", "tests": "",
         "hints": [
@@ -133,21 +370,35 @@ EXERCISES = [
         "title": "Is the agent done?",
         "difficulty": 0,
         "lesson": r'''
-            Think of a relay race: every runner either passes the baton on or crosses the
-            finish line. Your loop must recognise the finish line, or it runs forever.
+            ## Stop conditions
 
-            Our fake model's replies are dicts with a `"type"` key. `"tool"` means "keep going,
-            run this tool"; `"final"` means "here's the answer, stop".
+            A **stop condition** is a test that tells the agent loop when to end. A loop with
+            no stop condition calls the model forever.
+
+            The first stop condition is the reply type. Each reply is a dict with a `"type"`
+            key. The value `"tool"` means the loop must run a tool and continue. The value
+            `"final"` means the model has returned its answer and the loop must end.
 
             ```python
             reply = {"type": "final", "text": "42"}
             print(reply["type"])
+            # final
             print(reply["type"] == "final")
+            # True
             print(reply["type"] == "tool")
+            # False
             ```
 
-            Comparing with `==` already gives you `True` or `False` - you can return that
-            directly. This check is the first **stop condition** of an agent.
+            `==` compares two values and produces `True` or `False`. A function can return
+            that result directly. No `if` statement is needed.
+
+            ```python
+            def is_tool(reply):
+                return reply["type"] == "tool"
+
+            print(is_tool({"type": "tool", "tool": "search", "args": {"q": "x"}}))
+            # True
+            ```
         ''',
         "prompt": r'''
             The loop needs to know when the model has finished. Replace the `___`.
@@ -196,23 +447,38 @@ EXERCISES = [
         "title": "Fix: one step too many",
         "difficulty": 0,
         "lesson": r'''
-            A taxi meter with no limit is scary. Agents are the same: a confused model can ask
-            for tools forever, and every call costs money. So we add a second stop condition:
-            **max steps**.
+            ## Max steps
 
-            If `step` is how many steps have already happened, the agent must stop as soon as
-            `step` reaches the limit - not one step after.
+            A model can return tool requests on every call and never return a final answer.
+            Every model call costs money, so the loop needs a second stop condition.
+            **Max steps** is a limit on the number of steps the loop may run.
+
+            `step` counts the steps that have already run. The agent must stop when `step`
+            equals the limit, not one step later.
 
             ```python
             max_steps = 3
             for step in [2, 3, 4]:
                 print(step, step >= max_steps, step > max_steps)
+            # 2 False False
+            # 3 True False
+            # 4 True True
             ```
 
-            `>=` means "reached or passed". `>` means "passed". Mixing them up is an
-            **off-by-one** bug - one of the most common bugs in loops.
+            `step >= max_steps` is `True` when `step` has reached the limit or passed it.
+            `step > max_steps` is `True` only after `step` has passed it. The two differ when
+            `step` is `3`. Using the wrong one is an **off-by-one** bug: the loop runs one
+            time too many or one time too few.
 
-            Watch out: an agent should stop if it's done **or** out of steps - either one is enough.
+            The agent stops when it is done or when it is out of steps. `or` produces a true
+            result when at least one side is true.
+
+            ```python
+            done = False
+            out_of_steps = True
+            print(done or out_of_steps)
+            # True
+            ```
         ''',
         "prompt": r'''
             The loop asks `should_stop` after every step. The agent is running one step too
@@ -267,25 +533,39 @@ EXERCISES = [
         "title": "Call a tool by name",
         "difficulty": 0,
         "lesson": r'''
-            A **tool registry** is like a hotel's front desk key board: each hook has a room
-            name, and on each hook hangs the key. Ask for "search" and you get the search
-            function.
+            ## Tool registry
 
-            In Python, that's a dict from name to function. The model sends the arguments as a
-            dict too, and `**` unpacks a dict into keyword arguments.
+            A **tool registry** is a dict that maps each tool name to a function. The model
+            sends the tool name as a string. Your code uses that string as the key to get
+            the function.
 
             ```python
             def weather(city, unit="C"):
                 return f"18{unit} in {city}"
 
             tools = {"weather": weather}
-            args = {"city": "Paris"}
             fn = tools["weather"]
-            print(fn(**args))            # same as weather(city="Paris")
+            print(fn("Paris"))
+            # 18C in Paris
             ```
 
-            Remember `**kwargs` from the functions chapter? This is the other side:
-            `**args` in a *call* spreads a dict out into named arguments.
+            The model sends the arguments as a dict too. In a call, `**` unpacks a dict into
+            keyword arguments. Each key becomes a parameter name.
+
+            ```python
+            def weather(city, unit="C"):
+                return f"18{unit} in {city}"
+
+            args = {"city": "Paris", "unit": "F"}
+            print(weather(**args))
+            # 18F in Paris
+            print(weather(city="Paris", unit="F"))
+            # 18F in Paris
+            ```
+
+            In the functions chapter, `**kwargs` in a `def` collected keyword arguments into
+            a dict. `**args` in a call does the reverse. An empty dict unpacks to no
+            arguments. A key that is not a parameter name raises `TypeError`.
         ''',
         "prompt": r'''
             The model asked for a tool by name, with its arguments as a dict. Run it.
@@ -350,11 +630,14 @@ EXERCISES = [
         "title": "Write it in the log",
         "difficulty": 0,
         "lesson": r'''
-            A pilot keeps a **logbook**: every take-off, every landing, every problem. If
-            something goes wrong, investigators replay it line by line.
+            ## Audit log
 
-            An agent needs the same: an **audit log** - one entry per action it took. It's
-            just a list of dicts that grows as the agent works.
+            An **audit log** is a record of every action the agent took, in order. An audit is
+            an official check of records. When an agent gives a wrong answer, you read the log
+            to see which tools it ran and what each one returned.
+
+            In code, the log is a list of dicts. Each dict is one entry. `append` adds an
+            entry to the end of the list.
 
             ```python
             log = []
@@ -362,11 +645,24 @@ EXERCISES = [
             log.append({"step": 2, "tool": "read", "args": {"id": 7}, "result": "Tea is..."})
             for entry in log:
                 print(entry["step"], entry["tool"], entry["result"])
+            # 1 search 3 hits
+            # 2 read Tea is...
             print(len(log), "actions")
+            # 2 actions
             ```
 
-            *Audit* means "an official check of records". Watch out: `append` changes the list
-            in place and returns `None` - so return the list itself, not the result of `append`.
+            `append` changes the list in place and returns `None`.
+
+            ```python
+            log = []
+            returned = log.append({"step": 1})
+            print(returned)
+            # None
+            print(log)
+            # [{'step': 1}]
+            ```
+
+            A function that must return the log returns the list, not the result of `append`.
         ''',
         "prompt": r'''
             Record one agent action in the audit log.
@@ -432,11 +728,11 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            A good assistant who dials a wrong number doesn't quit their job - they note "wrong
-            number" and try something else. Tools fail all the time: bad arguments, missing
-            data, timeouts. An agent should **catch** the error and keep going.
+            ## Tool errors
 
-            You already know `try` / `except`. Here the error becomes a note instead of a crash.
+            Tools fail often: wrong arguments, missing data, a timeout. An exception that no
+            code catches ends the program, and the agent loop ends with it. To keep the loop
+            running, put the tool call inside `try` / `except`.
 
             ```python
             def divide(a, b):
@@ -448,10 +744,46 @@ EXERCISES = [
                 except ZeroDivisionError as e:
                     print("tool failed:", e)
             print("still running")
+            # ok: 5.0
+            # tool failed: division by zero
+            # still running
             ```
 
-            `type(e).__name__` gives the error's class name as text (e.g. `"ZeroDivisionError"`),
-            which is handy when you report errors back to the model.
+            `divide(10, 0)` raises `ZeroDivisionError`. Python skips the rest of the `try`
+            block and runs the `except` block. The loop and the last `print` still run.
+            Step through the program to see the jump from line 2 to line 7.
+
+            ```diagram
+            {"type": "trace", "title": "A tool error caught inside the loop", "code": ["def divide(a, b):", "    return a / b", "", "for b in [2, 0]:", "    try:", "        print(\"ok:\", divide(10, b))", "    except ZeroDivisionError as e:", "        print(\"tool failed:\", e)", "print(\"still running\")"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 4, "vars": {}, "out": ""},
+              {"line": 5, "vars": {"b": "2"}, "out": ""},
+              {"line": 6, "vars": {"b": "2"}, "out": ""},
+              {"line": 2, "vars": {"a": "10", "b": "2"}, "out": ""},
+              {"line": 4, "vars": {"b": "2"}, "out": "ok: 5.0\n"},
+              {"line": 5, "vars": {"b": "0"}, "out": "ok: 5.0\n"},
+              {"line": 6, "vars": {"b": "0"}, "out": "ok: 5.0\n"},
+              {"line": 2, "vars": {"a": "10", "b": "0"}, "out": "ok: 5.0\n"},
+              {"line": 7, "vars": {"b": "0"}, "out": "ok: 5.0\n"},
+              {"line": 8, "vars": {"b": "0", "e": "ZeroDivisionError('division by zero')"}, "out": "ok: 5.0\n"},
+              {"line": 4, "vars": {"b": "0"}, "out": "ok: 5.0\ntool failed: division by zero\n"},
+              {"line": 9, "vars": {"b": "0"}, "out": "ok: 5.0\ntool failed: division by zero\n"},
+              {"line": null, "vars": {"b": "0"}, "out": "ok: 5.0\ntool failed: division by zero\nstill running\n"}
+            ]}
+            ```
+
+            `type(e).__name__` is the name of the exception's class as a string. You use it
+            when you report an error back to the model.
+
+            ```python
+            try:
+                int("abc")
+            except ValueError as e:
+                print(type(e).__name__)
+                # ValueError
+                print(e)
+                # invalid literal for int() with base 10: 'abc'
+            ```
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -488,12 +820,15 @@ EXERCISES = [
         "title": "A scripted fake model",
         "difficulty": 1,
         "lesson": r'''
-            Actors in a rehearsal follow a **script**: same lines, same order, every time. To
-            test agent code we don't want a real model (slow, costs money, different each time).
-            We want an actor reading a script.
+            ## Scripted fake model
 
-            A **scripted fake model** is a function that returns the next pre-written reply each
-            time it is called. It needs to remember where it is - a closure does that.
+            A real model is slow, costs money and can return a different reply on each call.
+            A test needs the same replies on every run. A **scripted fake model** is a function
+            that returns pre-written replies in order, one per call.
+
+            The function must keep count of the replies it has already returned. A closure
+            does this. A closure is a function defined inside another function that keeps
+            access to the outer function's variables after the outer function has returned.
 
             ```python
             def make_counter():
@@ -505,12 +840,26 @@ EXERCISES = [
 
             c = make_counter()
             print(c(), c(), c())
+            # 1 2 3
+            d = make_counter()
+            print(d(), c())
+            # 1 4
             ```
 
-            An iterator works too: `it = iter(items)` then `next(it)` gives the next item and raises
-            `StopIteration` when there are none left.
+            `calls` is a list with one item, and `count` changes that item on every call.
+            Each call to `make_counter` creates a new `calls` list, so `d` starts at 1 while
+            `c` continues from 3.
 
-            Watch out: each call to the factory must start its own script from the beginning.
+            An iterator also works. `iter(items)` creates an iterator over a list. `next(it)`
+            returns the next item, and raises `StopIteration` when no items are left.
+
+            ```python
+            it = iter(["a", "b"])
+            print(next(it))
+            # a
+            print(next(it))
+            # b
+            ```
         ''',
         "prompt": r'''
             Build the fake model every test in this chapter relies on.
@@ -600,15 +949,20 @@ EXERCISES = [
         "title": "Tool errors become observations",
         "difficulty": 1,
         "lesson": r'''
-            When a waiter can't find an ingredient, they don't faint - they come back and say
-            "we're out of basil". The chef (the model) can then choose something else.
+            ## Observations
 
-            An agent turns tool failures into **observations**: a short text the model reads on
-            the next turn. Two things can go wrong: the model asks for a tool that doesn't exist,
-            or the tool raises an exception.
+            An **observation** is the text your code sends back to the model after a tool
+            call. The model receives it in the next call. When a tool fails, the observation
+            is an error message, and the model can then return a different request.
+
+            Two things can go wrong. The model can ask for a name that is not in the registry.
+            The tool can also raise an exception while it runs.
 
             ```python
-            tools = {"half": lambda n: n / 2}
+            def half(n):
+                return n / 2
+
+            tools = {"half": half}
             for name, args in [("half", {"n": 8}), ("double", {"n": 2}), ("half", {"x": 1})]:
                 if name not in tools:
                     print(f"error: unknown tool {name}")
@@ -617,10 +971,17 @@ EXERCISES = [
                     print(tools[name](**args))
                 except Exception as e:
                     print(f"error: {type(e).__name__}: {e}")
+            # 4.0
+            # error: unknown tool double
+            # error: TypeError: half() got an unexpected keyword argument 'x'
             ```
 
-            `except Exception` catches any normal error. Here that's fine: we don't hide the
-            error, we **report** it to the model.
+            The `not in` test runs first, so an unknown name is never looked up or called.
+            The third request passes `x`, which is not a parameter of `half`, so the call
+            raises `TypeError`.
+
+            `except Exception` catches almost every exception a tool can raise. That is
+            acceptable here because the error is not hidden. It is reported to the model.
         ''',
         "prompt": r'''
             Run a tool safely: never crash, always give the model something to read.
@@ -693,13 +1054,16 @@ EXERCISES = [
         "title": "One turn: think, act, observe",
         "difficulty": 1,
         "lesson": r'''
-            A detective's notebook: they write the question, then each lead they chased and
-            what they found. Every time they think, they reread the whole notebook.
+            ## One turn of the loop
 
-            The **message list** is the agent's notebook. One turn of the loop:
-            1. **think** - call `model(messages)`;
-            2. **act** - if it asked for a tool, run it;
-            3. **observe** - write both the request and the result into `messages`.
+            The **message list** is a list of dicts that holds the task and everything that
+            has happened since. The whole list is passed to the model on every call.
+
+            One turn of the loop has three parts:
+
+            1. Think: call `model(messages)`.
+            2. Act: if the reply is a tool request, run the tool.
+            3. Observe: append the request and the result to `messages`.
 
             ```python
             messages = [{"role": "user", "content": "What is 2 + 3?"}]
@@ -708,11 +1072,17 @@ EXERCISES = [
             messages.append({"role": "assistant", "tool": reply["tool"], "args": reply["args"]})
             messages.append({"role": "tool", "name": reply["tool"], "content": str(result)})
             for m in messages:
-                print(m["role"], m)
+                print(m)
+            # {'role': 'user', 'content': 'What is 2 + 3?'}
+            # {'role': 'assistant', 'tool': 'add', 'args': {'a': 2, 'b': 3}}
+            # {'role': 'tool', 'name': 'add', 'content': '5'}
             ```
 
-            Watch out: message `content` is text, so turn the result into a string with `str()`.
-            Without the observation, the model never learns what happened and repeats itself.
+            Message `content` is text. `str(result)` converts the result to a string, so the
+            int `5` is stored as `'5'`.
+
+            If you skip the two appends, the next call gets the same messages as before. The
+            model has no information about the tool result and can return the same request again.
         ''',
         "prompt": r'''
             Run exactly one turn of the agent loop.
@@ -809,11 +1179,14 @@ EXERCISES = [
         "title": "Check the budget",
         "difficulty": 1,
         "lesson": r'''
-            A prepaid phone card: you can call anyone, but when the credit hits zero, the call
-            ends. Agents get **budgets** too - max steps, max tokens, max dollars - so a confused
-            agent can't run up a huge bill.
+            ## Budgets
 
-            Keep what you've used and the limits in two dicts with the same keys, and compare.
+            A **budget** is a limit on something the agent uses: steps, tokens or cost. The
+            loop compares what it has used with each limit and stops when a limit is reached.
+            A run that never produces a final answer then still has a maximum cost.
+
+            Store the amounts used and the limits in two dicts with the same keys. Then loop
+            over the limits and compare.
 
             ```python
             used = {"steps": 4, "tokens": 900}
@@ -821,10 +1194,21 @@ EXERCISES = [
             for key in limits:
                 spent = used.get(key, 0)
                 print(key, spent, "/", limits[key], "reached" if spent >= limits[key] else "ok")
+            # steps 4 / 5 ok
+            # tokens 900 / 800 reached
             ```
 
-            `.get(key, 0)` treats something you haven't counted yet as zero. A limit counts
-            as **reached** when used is greater than or equal to it.
+            A limit is **reached** when the amount used is greater than or equal to it. A
+            `for` loop over a dict visits the keys in the order they were added.
+
+            `used.get(key, 0)` returns `0` when the key is missing, so an amount that was
+            never counted is treated as zero.
+
+            ```python
+            used = {"steps": 4}
+            print(used.get("cost", 0))
+            # 0
+            ```
         ''',
         "prompt": r'''
             Before every turn, the agent checks whether any budget is used up.
@@ -903,13 +1287,15 @@ EXERCISES = [
             ],
         },
         "lesson": r'''
-            Not every job needs a free-thinking agent. A car factory is an **assembly line**:
-            each station does one job, and a quality inspector can stop a bad car before it
-            moves on. That's a **workflow**: a path *you* designed.
+            ## Workflows and prompt chaining
 
-            **Prompt chaining** is an assembly line of LLM calls: outline -> draft -> polish.
-            Between steps, a **gate** (a plain Python check) decides if the result is good enough
-            to continue.
+            A **workflow** is a fixed sequence of steps that you wrote in code. Your code
+            decides which step runs next. In an agent, the model's reply decides that.
+
+            **Prompt chaining** is a workflow where each step is one LLM call and each step
+            receives the previous step's output: outline, then draft, then polish. A **gate**
+            is a plain Python check that runs between steps and returns `True` or `False`.
+            When it returns `False`, the chain stops.
 
             ```python
             steps = [str.strip, str.upper]
@@ -918,10 +1304,25 @@ EXERCISES = [
             for i, step in enumerate(steps):
                 text = step(text)
                 print(i, repr(text), "pass" if gate(text) else "stop")
+            # 0 'hello' pass
+            # 1 'HELLO' pass
             ```
 
-            Anthropic's advice: start with the simplest workflow that works, and only use a
-            full agent when the path truly can't be planned in advance.
+            `str.strip` and `str.upper` are used as functions here. `str.strip(text)` does the
+            same as `text.strip()`. Click each stage to follow one step of the chain.
+
+            ```diagram
+            {"type":"flow","title":"A prompt chain with a gate","steps":[
+              {"label":"Start with the input","detail":"The chain starts with the input text. The first step receives it.","code":"text = \"  hello  \""},
+              {"label":"Run one step","detail":"The step is called with the current text. Its return value replaces the text.","code":"text = step(text)"},
+              {"label":"Call the gate","detail":"The gate is called with the step's output. It returns True or False.","code":"gate(text)"},
+              {"label":"Stop or continue","detail":"If the gate returned False, the chain stops and later steps do not run. If it returned True, the next step receives the output."},
+              {"label":"Return the output","detail":"When every step has passed the gate, the last output is the result of the chain.","code":"'HELLO'"}
+            ],"loop":{"from":3,"to":1,"label":"while the gate returns True and steps remain"}}
+            ```
+
+            Anthropic's advice is to start with the simplest workflow that works. Use an agent
+            only when the sequence of steps cannot be planned in advance.
         ''',
         "prompt": r'''
             Build a prompt chain with a gate after every step. In tests, each step is a small
@@ -1008,8 +1409,30 @@ EXERCISES = [
         "difficulty": 2,
         "placement": True,
         "lesson": r'''
-            Putting it together: repeat *think -> act -> observe* until the model gives a final
-            answer or the step limit is reached, and log every action on the way.
+            ## The full agent loop
+
+            This exercise combines the earlier parts into one function. The loop repeats
+            think, act and observe. It ends on a final answer or when the step limit is
+            reached, and it adds one audit log entry for every tool call.
+
+            `range(1, max_steps + 1)` produces the step numbers from 1 to `max_steps`. A `for`
+            loop over it runs its body at most `max_steps` times.
+
+            ```python
+            max_steps = 3
+            calls = 0
+            for step in range(1, max_steps + 1):
+                calls += 1
+                print("model call", step)
+            # model call 1
+            # model call 2
+            # model call 3
+            print("calls made:", calls)
+            # calls made: 3
+            ```
+
+            A `while True` loop has no such limit. The returned dict states why the loop
+            ended, in the key `stop_reason`.
         ''',
         "prompt": r'''
             Write a complete agent loop with a step limit and an audit log.
@@ -1127,9 +1550,32 @@ EXERCISES = [
         "title": "A registry with human approval",
         "difficulty": 2,
         "lesson": r'''
-            Putting it together: some tools are *risky* (send email, delete files, pay). Keep
-            them in the registry, but make them ask a human first - `approve(name, args)` - and
-            record what happened to every call.
+            ## Human approval
+
+            Some tools are risky because their effects are hard to undo: sending an email,
+            deleting files, paying. **Human approval** means a person must agree before such
+            a tool runs. In code, the person is a function `approve(name, args)` that returns
+            `True` or `False`. Risky tools stay in the registry, and every call is recorded.
+
+            ```python
+            risky = {"send_email"}
+
+            def approve(name, args):
+                print("asking about", name)
+                return False
+
+            for name in ["add", "send_email"]:
+                if name in risky and not approve(name, {}):
+                    print("denied:", name)
+                else:
+                    print("run:", name)
+            # run: add
+            # asking about send_email
+            # denied: send_email
+            ```
+
+            `and` evaluates its right side only when the left side is true. `approve` is
+            therefore called for `send_email` and not for `add`.
         ''',
         "prompt": r'''
             Build a tool registry class where risky tools need human approval.
@@ -1260,8 +1706,43 @@ EXERCISES = [
         "title": "Agent memory",
         "difficulty": 2,
         "lesson": r'''
-            Putting it together: the context window is limited, so an agent keeps only the most
-            recent messages, plus a small set of durable **facts** it injects every turn.
+            ## Agent memory
+
+            An agent's **memory** is the data your code sends to the model on every call.
+            The model itself keeps nothing between calls.
+
+            The context window (the most text a model accepts in one call) is limited, so an
+            agent keeps only the most recent messages. A slice with a negative start keeps
+            the last items of a list.
+
+            ```python
+            messages = ["m1", "m2", "m3", "m4"]
+            print(messages[-2:])
+            # ['m3', 'm4']
+            ```
+
+            Anything in a dropped message is no longer sent to the model. Values that must
+            stay available are stored separately as **facts**, in a dict, and sent in a
+            system message on every turn. Assigning to an existing key replaces the value
+            and keeps the key's position.
+
+            ```python
+            facts = {"name": "Ada", "lang": "fr"}
+            facts["lang"] = "en"
+            print(", ".join(f"{k} is {v}" for k, v in facts.items()))
+            # name is Ada, lang is en
+            ```
+
+            `dict(m)` creates a new dict with the same keys and values as `m`. Changing the
+            new dict does not change `m`.
+
+            ```python
+            m = {"role": "user", "content": "hi"}
+            c = dict(m)
+            c["content"] = "changed"
+            print(m["content"])
+            # hi
+            ```
         ''',
         "prompt": r'''
             Build a small memory for an agent: a rolling window of recent messages plus facts.
@@ -1367,7 +1848,7 @@ EXERCISES = [
         ''',
         "hints": [
             "Three jobs: trim the message list in add, store facts in a dict, and build a fresh list in context.",
-            "Slicing with a negative start keeps the last N items. Dicts remember insertion order, and assigning an existing key keeps its position. Copy each message dict when building the context.",
+            "Slicing with a negative start keeps the last N items. Dicts keep insertion order, and assigning an existing key keeps its position. Copy each message dict when building the context.",
             "add: append, then if too long keep self.messages[-self.max_messages:]. remember: self.facts[key] = value. context: start an empty list; if facts, add the system dict built by joining \"k=v\" strings with \"; \"; then append dict(m) for each stored message; return the list.",
         ],
     },
@@ -1376,7 +1857,7 @@ EXERCISES = [
         "title": "Budgets and error recovery",
         "difficulty": 3,
         "prompt": r'''
-            A production agent must stop for many reasons and must survive failing tools.
+            A production agent must stop for many reasons and must keep running when tools fail.
 
             **Write:** `run_budgeted_agent(model, tools, task, max_steps, max_tokens, max_errors=2)`
 

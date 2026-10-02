@@ -84,6 +84,9 @@ def topic_progress(states: dict | None = None) -> dict[str, dict]:
             "earned": earned_all,
             "placed": t["id"] in placed,
             "attempted": any(states.get(e["id"], {}).get("attempts", 0) for e in all_exs),
+            # The Library shows a chapter's reference card only once its lesson is finished:
+            # the steps are mastered, or the chapter was tested out of, or it was marked read.
+            "library_unlocked": steps_done or cleared or t["id"] in read,
         }
     for t in data["topics"]:
         out[t["id"]]["unlocked"] = all(out.get(r, {}).get("cleared") for r in t["requires"])

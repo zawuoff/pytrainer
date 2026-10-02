@@ -14,49 +14,301 @@ TOPIC = {
                  "span", "trace", "p50/p95 latency", "token cost", "redaction"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["logging", "log", "level", "getlogger", "basicconfig", "structured log",
+                 "perf_counter", "clock", "latency", "span", "trace", "percentile", "p95",
+                 "cost", "redact", "context manager"],
+    "cards": [
+        {
+            "syntax": "log = logging.getLogger(name)  /  log.info(msg)",
+            "explain": "Writes log messages. A message is written only when its level is at or above the configured level.",
+            "example": r'''
+                import logging, sys
+
+                logging.basicConfig(stream=sys.stdout, level=logging.INFO,
+                                    format="%(levelname)s %(name)s %(message)s")
+                log = logging.getLogger("rag")
+                log.debug("query embedded")
+                log.info("retrieved %s chunks", 3)
+                # INFO rag retrieved 3 chunks
+            ''',
+        },
+        {
+            "syntax": 'json.dumps({"event": event, **fields}, sort_keys=True)',
+            "explain": "A structured log line: one JSON object with a key for every value, keys in alphabetical order.",
+            "example": r'''
+                import json
+
+                fields = {"model": "small", "latency_ms": 250.0}
+                print(json.dumps({"event": "llm_call", **fields}, sort_keys=True))
+                # {"event": "llm_call", "latency_ms": 250.0, "model": "small"}
+            ''',
+        },
+        {
+            "syntax": "elapsed_ms = (clock() - start) * 1000",
+            "explain": "Elapsed time: the later clock reading minus the earlier one. Pass the clock in so a test can use a fake one.",
+            "example": r'''
+                readings = iter([10.0, 10.25])
+
+                def clock():
+                    return next(readings)
+
+                start = clock()
+                print((clock() - start) * 1000)
+                # 250.0
+            ''',
+        },
+        {
+            "syntax": "def __exit__(self, exc_type, exc, tb):",
+            "explain": "A context manager has __enter__ and __exit__. with calls __exit__ when its block ends. exc_type is None when no exception was raised.",
+            "example": r'''
+                class Step:
+                    def __enter__(self):
+                        return self
+                    def __exit__(self, exc_type, exc, tb):
+                        print("exit", exc_type is None)
+                with Step():
+                    pass
+                # exit True
+            ''',
+        },
+        {
+            "syntax": "ordered[max(1, math.ceil(p * n / 100)) - 1]",
+            "explain": "Nearest-rank percentile of n sorted values. p50 is the median. p95 measures the slow requests.",
+            "example": r'''
+                import math
+
+                ordered = sorted([120, 80, 950, 100, 110])
+                for p in (50, 95):
+                    rank = max(1, math.ceil(p * len(ordered) / 100))
+                    print(p, rank, ordered[rank - 1])
+                # 50 3 110
+                # 95 5 950
+            ''',
+        },
+        {
+            "syntax": "tokens * price / 1_000_000",
+            "explain": "Token cost. Prices are in dollars per million tokens, with one price for input and one for output.",
+            "example": r'''
+                cost = 1200 * 2.50 / 1_000_000 + 300 * 10.00 / 1_000_000
+                print(round(cost, 6))
+                # 0.006
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
 ## Chapter notes: observability
 
-**Why**: once an app is live you can't watch it. Logs, traces and metrics are its flight
-recorder: what happened, how long it took, what it cost.
+**Observability** is the ability to find out what a running program did from the data it
+recorded: what happened, how long it took and what it cost.
 
-**logging basics**
+### Logging and levels
+
+The `logging` module writes messages called **log records**. Each record has a **level**: an
+integer that says how serious the message is. The levels are `DEBUG` 10, `INFO` 20,
+`WARNING` 30, `ERROR` 40 and `CRITICAL` 50.
+
 ```python
 import logging, sys
-logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
-log = logging.getLogger("rag")      # one named logger per module/component
-log.info("retrieved %s chunks", 3)  # args are filled in lazily
+
+logging.basicConfig(stream=sys.stdout, level=logging.INFO,
+                    format="%(levelname)s %(name)s %(message)s")
+log = logging.getLogger("rag")
+log.debug("query embedded")
+log.info("retrieved %s chunks", 3)
+# INFO rag retrieved 3 chunks
+log.error("model call failed")
+# ERROR rag model call failed
 ```
-Levels are numbers: DEBUG 10, INFO 20, WARNING 30, ERROR 40, CRITICAL 50. A logger/handler
-shows records **at or above** its level. `record.getMessage()` gives the finished text
-(`msg % args`); `record.levelname`, `record.name` are the level and logger names.
 
-**Structured logs**: one JSON object per line (`json.dumps(..., sort_keys=True)`), so a
-machine can filter by `event`, `model`, `latency_ms`. A custom `logging.Formatter` subclass
-with a `format(self, record)` method turns records into JSON.
+A **logger** is an object whose methods (`debug`, `info`, `warning`, `error`, `critical`)
+create log records. `getLogger("rag")` returns a logger named `rag`. The **root logger** is
+the one logger that receives the records of every other logger and writes them.
+`basicConfig` configures the root logger once: where the output goes, the level and the
+line format.
 
-**Timing**: `time.perf_counter()` is a stopwatch (seconds, float). `elapsed = end - start`.
-In code you want to test, take the clock as a parameter (`clock=time.perf_counter`) and pass
-a fake clock in tests: deterministic numbers, no sleeping.
+In the `format` string, `%(levelname)s` is replaced by the level name, `%(name)s` by the
+logger name and `%(message)s` by the message. In a message, `%s` is replaced by the next
+argument, so `"retrieved %s chunks"` with `3` becomes `retrieved 3 chunks`.
 
-**Context managers**: `with X as y:` calls `X.__enter__()` (its return value becomes `y`),
-runs the block, then always calls `X.__exit__(exc_type, exc, tb)` - even on an exception.
-Returning `False` from `__exit__` lets the exception continue.
+A record is written only when its level is at or above the configured level, so the
+`debug` call prints nothing.
 
-**Spans and traces**: a *span* is one timed step (`retrieve`, `llm_call`) with a name,
-duration and status. Spans nest: the enclosing span is the *parent*. All spans of one request
-form a *trace*. OpenTelemetry is the standard library/format for this.
+### Structured logs
 
-**Latency percentiles** (nearest-rank): sort values, `rank = ceil(p * n / 100)` (at least 1),
-answer `sorted_values[rank - 1]`. p50 = typical request, p95 = the slow tail users feel.
-Averages hide the tail.
+A **structured log** is one JSON object per line. A tool can then filter the lines by
+`event`, `model` or `latency_ms`. **Latency** is the time one request takes. `latency_ms` is
+that time in milliseconds (thousandths of a second).
 
-**Cost**: prices are per million tokens:
-`cost = input_tokens * in_price / 1_000_000 + output_tokens * out_price / 1_000_000`.
+```python
+import json
 
-**Redaction**: logs are read by many people and tools. Never log API keys, passwords or
-auth headers: replace them (`sk-...` -> `[REDACTED]`, secret fields -> `"***"`) before logging,
-and build a new structure instead of mutating the caller's data.
+record = {"event": "llm_call", "model": "gpt-4o", "latency_ms": 812, "cost_usd": 0.006}
+line = json.dumps(record, sort_keys=True)
+print(line)
+# {"cost_usd": 0.006, "event": "llm_call", "latency_ms": 812, "model": "gpt-4o"}
+print(json.loads(line)["latency_ms"])
+# 812
+```
+
+To make `logging` write JSON, subclass `logging.Formatter` and define `format(self, record)`,
+which returns the text for one record. `record.getMessage()` is the finished message,
+`record.levelname` the level name and `record.name` the logger name.
+
+### Timing with an injected clock
+
+`time.perf_counter()` returns a float number of seconds. Only the difference between two
+readings has a meaning: `elapsed = end - start`. Real readings differ on every run, so code
+you want to test takes the clock as a parameter. Passing the clock in as an argument is
+called **injecting** it. A test injects a fake clock that returns fixed numbers.
+
+```python
+def timed(fn, clock):
+    start = clock()
+    result = fn()
+    return result, (clock() - start) * 1000
+
+readings = iter([10.0, 10.25])
+print(timed(lambda: "hi", lambda: next(readings)))
+# ('hi', 250.0)
+```
+
+`iter(list)` creates an iterator, which hands out the list items one at a time. Each
+`next(readings)` call returns the next item, so the fake clock returns `10.0` and then `10.25`.
+
+### Context managers
+
+A **context manager** is an object with `__enter__` and `__exit__` methods. `with X as y:`
+calls `X.__enter__()` and assigns its return value to `y`. Then the block runs. Then Python
+calls `X.__exit__(exc_type, exc, tb)`, also when the block raised an exception. The three
+arguments are the exception's type, the exception itself and its traceback (the record of
+the lines that were running). They are all `None` when there was no exception. Returning `False` lets an exception continue.
+
+```python
+class Step:
+    def __enter__(self):
+        print("enter")
+        return "value"
+    def __exit__(self, exc_type, exc, tb):
+        print("exit", exc_type)
+        return False
+
+with Step() as s:
+    print(s)
+# enter
+# value
+# exit None
+```
+
+### Spans and traces
+
+A **span** is one timed step of a request, such as `retrieve` or `llm_call`. It has a name,
+a duration and a status. A span opened inside another span is its child, and the outer span
+is its **parent**. All the spans of one request form a **trace**. OpenTelemetry is a
+widely used open standard and library for spans.
+
+### Latency percentiles
+
+A **percentile** is a value that a given percentage of the values are at or below. The
+**p95** latency is a value that 95% of requests were at or below. The **p50** latency is
+the **median**: half of the requests were at or below it.
+
+The nearest-rank method sorts the values and computes `rank = ceil(p * n / 100)`, where `n`
+is the number of values. `math.ceil` rounds a number up to the next whole number. The rank is
+at least 1. The answer is `ordered[rank - 1]`, because rank 1 is index 0.
+
+```python
+import math
+
+latencies = [120, 80, 950, 100, 110]
+ordered = sorted(latencies)
+for p in (50, 95):
+    rank = max(1, math.ceil(p * len(ordered) / 100))
+    print(p, rank, ordered[rank - 1])
+# 50 3 110
+# 95 5 950
+print(sum(latencies) / len(latencies))
+# 272.0
+```
+
+There are 5 values. For p50, `50 * 5 / 100` is 2.5, which rounds up to rank 3, and the third
+sorted value is 110. For p95, `95 * 5 / 100` is 4.75, which rounds up to rank 5, and the
+fifth sorted value is 950.
+
+The **mean** is the sum divided by the count: `1360 / 5`, which is 272.0. Four of the five
+requests took 120 ms or less, so the mean describes none of them. Report p50 and p95.
+
+### One traced request
+
+Prices are quoted per million tokens, with separate prices for input and output tokens.
+This program times one call, computes its cost and prints one structured log line.
+
+```python
+import json
+
+readings = iter([10.0, 10.25])
+
+def clock():
+    return next(readings)
+
+def fake_llm(prompt):
+    return {"text": "Hi!", "input_tokens": 1200, "output_tokens": 300}
+
+start = clock()
+reply = fake_llm("hello")
+latency_ms = (clock() - start) * 1000
+cost = reply["input_tokens"] * 2.50 / 1_000_000 + reply["output_tokens"] * 10.00 / 1_000_000
+record = {"event": "llm_call", "model": "gpt-4o", "latency_ms": latency_ms,
+          "input_tokens": reply["input_tokens"],
+          "output_tokens": reply["output_tokens"], "cost_usd": round(cost, 6)}
+print(json.dumps(record, sort_keys=True))
+# {"cost_usd": 0.006, "event": "llm_call", "input_tokens": 1200, "latency_ms": 250.0, "model": "gpt-4o", "output_tokens": 300}
+```
+
+Step through the stages to see the data each one produces.
+
+```diagram
+{"type":"flow","title":"One traced LLM request","steps":[
+{"label":"Start timer","detail":"The program reads the clock before the call and stores the reading in start.","code":"start = clock()\nstart: 10.0"},
+{"label":"Call the model","detail":"The program calls the model. The reply is a dict with the text and the token counts.","code":"reply = fake_llm(\"hello\")\nreply: {'text': 'Hi!', 'input_tokens': 1200, 'output_tokens': 300}"},
+{"label":"Record latency","detail":"The program reads the clock again. The difference between the two readings, times 1000, is the latency in milliseconds.","code":"latency_ms = (clock() - start) * 1000\n(10.25 - 10.0) * 1000 = 250.0"},
+{"label":"Compute cost","detail":"Each token count is multiplied by its price and divided by one million. The two parts are added.","code":"1200 * 2.50 / 1_000_000 = 0.003\n300 * 10.00 / 1_000_000 = 0.003\ncost: 0.006"},
+{"label":"Build the record","detail":"The program puts every measurement into one dict. Each value has a key.","code":"record = {'event': 'llm_call', 'model': 'gpt-4o', 'latency_ms': 250.0,\n          'input_tokens': 1200, 'output_tokens': 300, 'cost_usd': 0.006}"},
+{"label":"Write the log line","detail":"json.dumps turns the dict into one line of JSON text with sorted keys.","code":"{\"cost_usd\": 0.006, \"event\": \"llm_call\", \"input_tokens\": 1200, \"latency_ms\": 250.0, \"model\": \"gpt-4o\", \"output_tokens\": 300}"}
+]}
+```
+
+### Redaction
+
+To **redact** a value is to replace it with a placeholder before it is logged. Logs are
+copied to dashboards and bug reports, so an API key in a log is a leaked key.
+
+```python
+import re
+
+prompt = "summarise this, key sk-abc123XYZ789"
+print(re.sub(r"sk-[A-Za-z0-9_-]{8,}", "[REDACTED]", prompt))
+# summarise this, key [REDACTED]
+headers = {"Authorization": "Bearer sk-abc123XYZ789", "model": "gpt-4o"}
+safe = {k: ("***" if k.lower() == "authorization" else v) for k, v in headers.items()}
+print(safe)
+# {'Authorization': '***', 'model': 'gpt-4o'}
+```
+
+The comprehension builds a new dict. `headers` still holds the real key for the request.
+
+### Common mistakes
+
+- `(start - end) * 1000` gives a negative latency. Subtract the earlier reading from the later one.
+- Forgetting `/ 1_000_000` makes every cost a million times too high.
+- Returning `True` from `__exit__` makes Python discard the exception, so the failure is hidden.
+- A rank of 0 gives `ordered[-1]`, which is the largest value. Use `max(1, rank)`.
+- `record.msg` is the template with `%s` still in it. Use `record.getMessage()`.
+- `data[key] = "***"` changes the caller's dict. Build a new dict for the log.
 '''
 
 EXERCISES = [
@@ -66,11 +318,11 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## The flight recorder
+            ## Logging and levels
 
-            Once your app runs on a server, you can't watch it. `print` goes nowhere useful.
-            You need a **flight recorder**: a record of what happened, which you read after
-            something goes wrong. In Python that's the `logging` module.
+            An app on a server runs with nobody reading its output. A **log** is a record of
+            what the program did, which you read later to find out what went wrong. Python
+            writes logs with the `logging` module.
 
             ```python
             import logging, sys
@@ -78,16 +330,30 @@ EXERCISES = [
             logging.basicConfig(stream=sys.stdout, level=logging.INFO,
                                 format="%(levelname)s %(message)s")
             log = logging.getLogger("chat")
+            log.debug("prompt has 42 tokens")
             log.info("request received")
+            # INFO request received
             log.warning("retrying after 429")
+            # WARNING retrying after 429
             ```
 
-            Every message has a **level**: `debug` (details for developers), `info` (normal
-            events), `warning` (something odd), `error` (something failed), `critical`.
+            A **logger** is an object whose methods write log messages. `getLogger("chat")`
+            returns a logger named `chat`. The **root logger** is the one logger that
+            receives the messages of every other logger and writes them. `basicConfig`
+            configures the root logger once: where the output goes, the level and the line
+            format.
 
-            The level you configure is a volume knob: set it to `WARNING` and only warnings
-            and worse get through. `basicConfig` sets up the root logger once;
-            `getLogger(name)` gives you a named logger to write with.
+            `stream=sys.stdout` sends the lines to the normal program output. In the
+            `format` string, `%(levelname)s` is replaced by the level name and
+            `%(message)s` by the message.
+
+            Every message has a **level** that says how serious it is. From least to most
+            serious the levels are `debug` (details for developers), `info` (normal events),
+            `warning` (something unexpected), `error` (something failed) and `critical`.
+
+            The configured level is a threshold. A message is written only when its level is
+            the configured level or a more serious one. The example sets `logging.INFO`, so
+            the `debug` call prints nothing.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -123,28 +389,47 @@ EXERCISES = [
         "title": "Levels are numbers",
         "difficulty": 0,
         "lesson": r'''
-            ## A volume knob with numbers on it
+            ## Levels are integers
 
-            Behind the names, log levels are plain integers:
+            Each log level is an integer. The `logging` module stores them in named constants.
 
             ```python
             import logging
 
             print(logging.DEBUG, logging.INFO, logging.WARNING)
+            # 10 20 30
             print(logging.ERROR, logging.CRITICAL)
+            # 40 50
             print(logging.ERROR > logging.WARNING)
+            # True
             print(logging.getLevelName(30))
+            # WARNING
             ```
 
-            Bigger number = more serious. That's how "show WARNING and above" works: Python
-            just compares numbers.
+            A larger number means a more serious message. To decide whether to write a
+            message, `logging` compares its level number with the configured level number.
 
-            It also means your code can **choose** a level. A common rule for API calls:
-            server errors (status 500 and up) are `ERROR` - something is broken. Client
-            errors like 404 or 429 (400-499) are `WARNING`. Everything else is `INFO`.
+            A function can return a level. This one picks a level from a token count.
 
-            Watch out: use the named constants (`logging.ERROR`), not magic numbers like `40`.
-            They read better and can't be mistyped.
+            ```python
+            import logging
+
+            def level_for_tokens(tokens, limit):
+                if tokens > limit:
+                    return logging.WARNING
+                return logging.DEBUG
+
+            print(level_for_tokens(9000, 8000))
+            # 30
+            print(level_for_tokens(500, 8000))
+            # 10
+            ```
+
+            A common rule for API calls: a status of 500 or above is a server error and gets
+            `ERROR`. A status from 400 to 499 gets `WARNING`. Everything else gets `INFO`.
+
+            Write the constant `logging.ERROR`, not the number `40`. The name states the
+            meaning.
         ''',
         "prompt": r'''
             Pick the log level for an HTTP response from a model provider. Replace each `___`.
@@ -212,29 +497,43 @@ EXERCISES = [
         "title": "A structured log line",
         "difficulty": 0,
         "lesson": r'''
-            ## Fill in a form, don't write a diary
+            ## Structured logs
 
-            A diary entry: `"Called gpt-4o, took 812ms, used 1200 tokens"`. Easy for a human,
-            painful for a computer: to find every slow call you'd need a regex.
+            A log line such as `"Called gpt-4o, took 812ms"` is free text. To find every slow
+            call, a program would have to parse each sentence with a regex.
 
-            A form: `{"event": "llm_call", "model": "gpt-4o", "latency_ms": 812}`. Every field
-            has a name, so tools can filter and chart them. Logs written as one JSON object per
-            line are called **structured logs**.
+            A **structured log** is one JSON object per line. Every value has a key, so a
+            tool can filter and chart the lines by key.
 
             ```python
             import json
 
             fields = {"model": "gpt-4o", "latency_ms": 812}
-            line = json.dumps({"event": "llm_call", **fields}, sort_keys=True)
+            record = {"event": "llm_call", **fields}
+            line = json.dumps(record, sort_keys=True)
             print(line)
+            # {"event": "llm_call", "latency_ms": 812, "model": "gpt-4o"}
             print(json.loads(line)["latency_ms"])
+            # 812
+            print(fields)
+            # {'model': 'gpt-4o', 'latency_ms': 812}
             ```
 
-            `{"event": ..., **fields}` builds a **new** dict: the `event` key plus everything
-            from `fields`. `sort_keys=True` makes the key order stable, so the same data always
-            gives the same line.
+            `{"event": "llm_call", **fields}` creates a new dict. It holds the `event` key
+            and a copy of every key and value in `fields`. `fields` itself is unchanged, as
+            the last line shows.
 
-            Watch out: `fields["event"] = ...` would change the caller's dict. Build a new one.
+            `sort_keys=True` writes the keys in alphabetical order. The same data then
+            always produces the same line.
+
+            Click a key to read its value from `record`.
+
+            ```diagram
+            {"type":"dict","title":"The record dict before json.dumps","name":"record","entries":[["event","llm_call"],["model","gpt-4o"],["latency_ms",812]]}
+            ```
+
+            `fields["event"] = "llm_call"` would add the key to the caller's dict. Build a
+            new dict.
         ''',
         "prompt": r'''
             Build one structured (JSON) log line.
@@ -296,11 +595,12 @@ EXERCISES = [
         "title": "Fix: negative latency",
         "difficulty": 0,
         "lesson": r'''
-            ## A stopwatch you can control
+            ## Timing with an injected clock
 
-            To time something, read a stopwatch before and after: `time.perf_counter()` returns
-            seconds as a float from a high-precision clock. Its absolute value means nothing;
-            only the **difference** between two readings matters.
+            To time a piece of code, read a clock before it and after it.
+            `time.perf_counter()` returns a float number of seconds from a clock that can
+            measure very short times. One reading on its own has no meaning. The **difference** between two
+            readings is the elapsed time in seconds.
 
             ```python
             import time
@@ -309,19 +609,34 @@ EXERCISES = [
             total = sum(range(100_000))
             elapsed_ms = (time.perf_counter() - start) * 1000
             print(elapsed_ms > 0)
+            # True
             ```
 
-            Real clocks give different numbers every run, which makes tests flaky. The fix:
-            take the clock as a **parameter**. In production pass `time.perf_counter`; in tests
-            pass a fake that returns the numbers you choose. This is called **injecting** the
-            clock (the same trick as injecting a fake model).
+            A real clock gives different numbers on every run, so a test cannot check an
+            exact value. The fix is to take the clock as a **parameter**. Production code
+            passes `time.perf_counter`. A test passes a fake clock: a function that returns
+            numbers you chose. Passing the clock in as an argument is called **injecting**
+            it. You injected a fake model the same way in the RAG chapter.
 
             ```python
             readings = iter([10.0, 10.25])
-            fake_clock = lambda: next(readings)
-            a, b = fake_clock(), fake_clock()
+
+            def fake_clock():
+                return next(readings)
+
+            a = fake_clock()
+            b = fake_clock()
             print((b - a) * 1000)
+            # 250.0
+            print((a - b) * 1000)
+            # -250.0
             ```
+
+            `iter(list)` creates an iterator: an object that hands out the items of the list one
+            at a time. `next(iterator)` returns the next item. Each call to `fake_clock()` therefore
+            returns the next number from `readings`. The later
+            reading minus the earlier reading is positive. The other order gives a negative
+            number.
         ''',
         "prompt": r'''
             `timed_call` should run a function and report how long it took, but the latency
@@ -395,27 +710,35 @@ EXERCISES = [
         "title": "What did that call cost?",
         "difficulty": 0,
         "lesson": r'''
-            ## The taxi meter
+            ## Token cost
 
-            An LLM API is a taxi with two meters: one for tokens you send (**input**) and one
-            for tokens it writes (**output**). Output tokens usually cost more.
+            An LLM API charges for two token counts. **Input tokens** are the tokens you
+            send. **Output tokens** are the tokens the model writes. Output tokens usually
+            cost more.
 
-            Providers quote prices **per million tokens**, e.g. "$2.50 / 1M input, $10 / 1M
-            output". So one token costs `price / 1_000_000`.
+            Providers quote prices **per million tokens**, for example $2.50 per million
+            input tokens and $10 per million output tokens. One token costs
+            `price / 1_000_000`.
 
             ```python
             input_tokens, output_tokens = 1200, 300
             in_price, out_price = 2.50, 10.00   # dollars per million tokens
             cost = input_tokens * in_price / 1_000_000 + output_tokens * out_price / 1_000_000
             print(cost)
+            # 0.006
             print(round(cost, 6))
+            # 0.006
             ```
 
-            Cost per request is tiny, but multiply by a million requests a day and it's the
-            biggest line on the bill. That's why production apps log it on **every** call.
+            The input part is `1200 * 2.50 / 1_000_000`, which is 0.003. The output part is
+            `300 * 10.00 / 1_000_000`, also 0.003. `round(cost, 6)` keeps 6 decimals. Float
+            sums can be off by a tiny amount, and rounding removes that error.
 
-            Watch out: `1_000_000` is just `1000000` with underscores for readability.
-            Forgetting to divide gives you costs a million times too high.
+            The cost of one request is small. At a million requests a day it is 6000 dollars
+            a day, so production apps log the cost of **every** call.
+
+            `1_000_000` is the integer `1000000`. Python ignores underscores between digits.
+            Without the division, every cost is a million times too high.
         ''',
         "prompt": r'''
             Compute the dollar cost of one LLM request.
@@ -475,28 +798,31 @@ EXERCISES = [
         "title": "Redact API keys",
         "difficulty": 0,
         "lesson": r'''
-            ## Logs are postcards
+            ## Redacting API keys
 
-            A log line is like a postcard: the mail carrier, the neighbours, anyone who handles
-            it can read it. Logs get copied to dashboards, shared in bug reports and kept for
-            months. If an API key ends up in a log, consider it leaked.
+            Many people and tools read logs. Logs are copied to dashboards, pasted into bug
+            reports and kept for months. An API key that appears in a log is a leaked key.
 
-            So before logging text that might contain secrets, **redact** them: replace the
-            secret with a placeholder. Remember `re.sub` from the regex chapter?
+            To **redact** a secret is to replace it with a placeholder before the text is
+            logged. `re.sub(pattern, replacement, text)` from the regex chapter returns a
+            new string with every match of the pattern replaced.
 
             ```python
             import re
 
             text = "calling with key sk-abc123XYZ789 now"
             print(re.sub(r"sk-[A-Za-z0-9_-]{8,}", "[REDACTED]", text))
+            # calling with key [REDACTED] now
             print(re.sub(r"sk-[A-Za-z0-9_-]{8,}", "[REDACTED]", "sk-short stays"))
+            # sk-short stays
             ```
 
-            Many providers use a recognisable prefix for keys (like `sk-`), which makes them
-            easy to match. The `{8,}` part means "at least 8 more characters", so ordinary
-            words that start with `sk-` are left alone.
+            Many providers start their keys with a fixed prefix such as `sk-`, so a pattern
+            can find them. `[A-Za-z0-9_-]` matches one letter, digit, `_` or `-`. `{8,}`
+            repeats that 8 or more times. `sk-short` has only 5 such characters after the
+            prefix, so it does not match and stays in the text.
 
-            Watch out: redact **before** logging. Once the line is written, it's too late.
+            Redact **before** you log. Once a line is written, the key is already in the log.
         ''',
         "prompt": r'''
             Hide API keys in text before it is logged.
@@ -557,38 +883,49 @@ EXERCISES = [
     },
     {
         "id": "observability-s7",
-        "title": "The automatic door",
+        "title": "Context managers: enter and exit",
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Things that clean up after themselves
+            ## Context managers
 
-            You've used `with open(...) as f:` - the file closes itself when the block ends.
-            That's a **context manager**: like an automatic door that opens when you walk up
-            and closes behind you, even if you leave in a hurry.
+            You have used `with open(...) as f:`. Python closes the file when the block
+            ends. The object after `with` is a **context manager**: an object with an
+            `__enter__` method and an `__exit__` method. Python calls them at the start and
+            at the end of the `with` block.
 
-            You can make your own with a class that has two special methods:
-            - `__enter__(self)`: runs when the `with` block starts. What it returns is what
-              you get after `as`.
-            - `__exit__(self, exc_type, exc, tb)`: runs when the block ends - **always**, even
-              if an exception was raised. The three arguments describe the exception (all
-              `None` if there wasn't one). Returning `False` means "don't hide the exception".
+            You can write your own class with these two methods:
+            - `__enter__(self)` runs when the `with` block starts. Its return value is
+              assigned to the name after `as`.
+            - `__exit__(self, exc_type, exc, tb)` runs when the block ends. It runs
+              **always**, also when the block raised an exception. The three arguments
+              are the exception's type, the exception itself and its traceback (the record
+              of the lines that were running). All three are `None` when there was none. Returning
+              `False` tells Python to let the exception continue.
 
             ```python
-            class Door:
+            class Step:
                 def __enter__(self):
-                    print("open")
-                    return "inside"
+                    print("enter")
+                    return "embed"
                 def __exit__(self, exc_type, exc, tb):
-                    print("close")
+                    print("exit", exc_type)
                     return False
 
-            with Door() as where:
-                print(where)
+            with Step() as name:
+                print(name)
+            print("after")
+            # enter
+            # embed
+            # exit None
+            # after
             ```
 
-            This is perfect for timing: start the stopwatch in `__enter__`, stop it in
-            `__exit__`.
+            `Step()` creates the object. `with` calls its `__enter__`, which prints `enter`
+            and returns `"embed"`. That string is assigned to `name`. The block prints it.
+            Then `__exit__` prints `exit None`, because no exception was raised.
+
+            This order suits timing: read the clock in `__enter__` and again in `__exit__`.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -613,10 +950,11 @@ EXERCISES = [
             done
         ''',
         "explanation": r'''
-            `with` calls `__enter__` first (prints `start retrieve`) and binds its return value -
-            the Span itself - to `s`. The block runs, then `__exit__` runs. No exception
-            happened, so `exc_type` is `None` and `exc_type is None` is `True`. Finally the code
-            after the `with` block prints `done`.
+            `with` calls `__enter__` first, which prints `start retrieve` and returns the `Span`
+            object itself. That object is assigned to `s`. The block runs and prints
+            `working in retrieve`. Then `__exit__` runs. No exception was raised, so `exc_type`
+            is `None` and `exc_type is None` is `True`. Last, the line after the `with` block
+            prints `done`.
         ''',
         "starter": "", "tests": "",
         "hints": [
@@ -630,16 +968,22 @@ EXERCISES = [
         "title": "Latency percentile",
         "difficulty": 1,
         "lesson": r'''
-            ## The slowest buses matter
+            ## Latency percentiles
 
-            If your bus is usually 5 minutes late but one day in twenty it's an hour late, the
-            **average** delay looks fine and you still miss meetings. Users feel the slow tail.
+            **Latency** is the time one request takes. Most requests are fast and a few are
+            very slow. The **mean** is the sum of the latencies divided by their count. One
+            very slow request raises the mean a lot, so the mean describes neither the fast
+            requests nor the slow ones.
 
-            So we report **percentiles**. p50 (the median) is the typical request. p95 means
-            "95% of requests were at least this fast" - it shows the slow tail.
+            A **percentile** is a value that a given percentage of the requests were at or
+            below. **p50**, also called the **median**, is the value that half of the
+            requests were at or below. It is the latency of a typical request. **p95** is the
+            latency that 95% of requests were at or below. It measures the slow requests.
 
-            A simple method is **nearest-rank**: sort the values, and take the one at position
-            `ceil(p * n / 100)` (counting from 1).
+            The **nearest-rank** method sorts the values and computes
+            `rank = ceil(p * n / 100)`, where `n` is the number of values. `math.ceil` rounds
+            a number up to the next whole number. The answer is the value at position
+            `rank`, counting from 1.
 
             ```python
             import math
@@ -648,12 +992,21 @@ EXERCISES = [
             ordered = sorted(latencies)
             rank = math.ceil(95 * len(ordered) / 100)
             print(ordered, rank)
+            # [80, 100, 110, 120, 950] 5
             print("p95:", ordered[rank - 1])
+            # p95: 950
             print("mean:", sum(latencies) / len(latencies))
+            # mean: 272.0
             ```
 
-            Watch out: `sorted()` returns a new list; `.sort()` would reorder the caller's data.
-            And a rank of 0 (for `p=0`) must become 1, or `[rank - 1]` is `[-1]`: the maximum!
+            `95 * 5 / 100` is 4.75 and `math.ceil` rounds it up to 5. Position 5 is index 4,
+            so the code reads `ordered[rank - 1]`. For p50, `50 * 5 / 100` is 2.5, which
+            rounds up to rank 3, and `ordered[2]` is 110. The mean is 272.0, which is
+            larger than four of the five values.
+
+            `sorted()` returns a new list. `latencies.sort()` would reorder the caller's
+            list. For `p = 0` the rank is 0, and `ordered[0 - 1]` is `ordered[-1]`, the
+            largest value. Raise the rank to at least 1.
         ''',
         "prompt": r'''
             Compute a latency percentile using the nearest-rank method.
@@ -735,13 +1088,14 @@ EXERCISES = [
         "title": "A timing span",
         "difficulty": 1,
         "lesson": r'''
-            ## Wrap a step in a stopwatch
+            ## Spans
 
-            In a RAG request there are several steps: embed, retrieve, call the model. To see
-            which one is slow, wrap each in a **span**: a named, timed piece of work.
+            A RAG request has several steps: embed the question, retrieve chunks, call the
+            model. To see which step is slow, you time each one. A **span** is a record of
+            one named step and how long it took.
 
-            A context manager is a perfect span. `__enter__` starts the stopwatch, `__exit__`
-            stops it and notes whether the step ended with an exception.
+            A context manager fits this job. `__enter__` reads the clock when the step
+            starts. `__exit__` reads it again when the step ends and stores the difference.
 
             ```python
             readings = iter([1.0, 1.2])
@@ -758,13 +1112,18 @@ EXERCISES = [
             with Stopwatch() as sw:
                 pass
             print(round(sw.ms, 1))
+            # 200.0
             ```
 
-            A span also has a **status**: `"ok"` if the block finished normally, `"error"` if
-            an exception escaped. `exc_type` tells you which: it is `None` when all went well.
+            `__enter__` returns `self`, so `sw` is the `Stopwatch` object. Its `ms`
+            attribute is set in `__exit__`, so you read it after the block.
 
-            Watch out: return `False` from `__exit__`. Returning `True` would swallow the
-            exception and hide the failure.
+            A span also has a **status**: `"ok"` when the block finished normally and
+            `"error"` when the block raised an exception. `__exit__` can tell which one
+            happened: `exc_type` is `None` when no exception was raised.
+
+            Return `False` from `__exit__`. Returning `True` makes Python discard the
+            exception, and the caller never learns that the step failed.
         ''',
         "prompt": r'''
             Build a span class to time one step of a request.
@@ -856,14 +1215,16 @@ EXERCISES = [
         "title": "JSON log formatter",
         "difficulty": 1,
         "lesson": r'''
-            ## Teaching the logger to fill in forms
+            ## Formatters
 
-            The logging module has a pipeline: a **logger** creates a **LogRecord** (an object
-            holding the message, level, logger name, time...), a **handler** decides where it
-            goes (screen, file), and a **formatter** turns the record into text.
+            The `logging` module handles a message in three stages. A **logger** creates a
+            **LogRecord**: an object that holds the message, the level, the logger name and
+            the time. A **handler** sends the record to a destination such as the screen or
+            a file. A **formatter** converts the record to the text that is written.
 
-            To get structured logs, you swap in your own formatter: a subclass of
-            `logging.Formatter` with a `format(self, record)` method that returns a string.
+            To get structured logs, you give the handler your own formatter. It is a
+            subclass of `logging.Formatter` with a `format(self, record)` method that
+            returns a string.
 
             ```python
             import logging, sys
@@ -877,12 +1238,18 @@ EXERCISES = [
             log = logging.getLogger("demo")
             log.addHandler(handler)
             log.warning("disk at %s%%", 91)
+            # WARNING! DISK AT 91%
             ```
 
-            `record.getMessage()` fills in the `%s` placeholders with the arguments. That's
-            the finished message.
+            The handler calls `format` once for each record and writes the string it
+            returns. `record.levelname` is the level name, here `"WARNING"`. `record.name`
+            is the logger name, here `"demo"`.
 
-            Watch out: `record.msg` is the raw template (`"disk at %s%%"`), not the final text.
+            `record.getMessage()` returns the finished message. It puts the argument `91`
+            in place of `%s` and turns `%%` into `%`.
+
+            `record.msg` is the template `"disk at %s%%"` with nothing filled in. Use
+            `record.getMessage()` for the text.
         ''',
         "research": {
             "note": "Skim the logging HOWTO (loggers, handlers, formatters), then find the table of "
@@ -979,11 +1346,42 @@ EXERCISES = [
         "title": "Usage summary",
         "difficulty": 1,
         "lesson": r'''
-            ## Adding up the receipts
+            ## Usage totals
 
-            One request's cost is a receipt. At the end of the day you want the totals: how many
-            requests, how many tokens, how many dollars. Different models have different
-            prices, so you keep a **price table**: a dict from model name to its prices.
+            A log holds one usage record per request. To get totals for a day, you loop over
+            the records and add each number to a running total.
+
+            ```python
+            usage = [{"model": "small", "input_tokens": 1000},
+                     {"model": "small", "input_tokens": 2000}]
+            total = 0
+            for u in usage:
+                total += u["input_tokens"]
+            print(total)
+            # 3000
+            ```
+
+            Step through the loop and watch `total` grow.
+
+            ```diagram
+            {"type": "trace", "title": "Adding up input tokens", "code": ["usage = [{\"model\": \"small\", \"input_tokens\": 1000},", "         {\"model\": \"small\", \"input_tokens\": 2000}]", "total = 0", "for u in usage:", "    total += u[\"input_tokens\"]", "print(total)"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 2, "vars": {}, "out": ""},
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 3, "vars": {"usage": "[{'model': 'small', 'input_tokens': 1000}, {'model': 'small', 'inpu..."}, "out": ""},
+              {"line": 4, "vars": {"usage": "[{'model': 'small', 'input_tokens': 1000}, {'model': 'small', 'inpu...", "total": "0"}, "out": ""},
+              {"line": 5, "vars": {"usage": "[{'model': 'small', 'input_tokens': 1000}, {'model': 'small', 'inpu...", "total": "0", "u": "{'model': 'small', 'input_tokens': 1000}"}, "out": ""},
+              {"line": 4, "vars": {"usage": "[{'model': 'small', 'input_tokens': 1000}, {'model': 'small', 'inpu...", "total": "1000", "u": "{'model': 'small', 'input_tokens': 1000}"}, "out": ""},
+              {"line": 5, "vars": {"usage": "[{'model': 'small', 'input_tokens': 1000}, {'model': 'small', 'inpu...", "total": "1000", "u": "{'model': 'small', 'input_tokens': 2000}"}, "out": ""},
+              {"line": 4, "vars": {"usage": "[{'model': 'small', 'input_tokens': 1000}, {'model': 'small', 'inpu...", "total": "3000", "u": "{'model': 'small', 'input_tokens': 2000}"}, "out": ""},
+              {"line": 6, "vars": {"usage": "[{'model': 'small', 'input_tokens': 1000}, {'model': 'small', 'inpu...", "total": "3000", "u": "{'model': 'small', 'input_tokens': 2000}"}, "out": ""},
+              {"line": null, "vars": {"usage": "[{'model': 'small', 'input_tokens': 1000}, {'model': 'small', 'inpu...", "total": "3000", "u": "{'model': 'small', 'input_tokens': 2000}"}, "out": "3000\n"}
+            ]}
+            ```
+
+            Models have different prices, so you keep a **price table**: a dict that maps
+            each model name to its prices per million tokens. The loop looks up the prices
+            of each record's model and adds that record's cost to the total.
 
             ```python
             prices = {"small": {"input": 0.15, "output": 0.60}}
@@ -995,13 +1393,14 @@ EXERCISES = [
                 dollars += u["input_tokens"] * p["input"] / 1_000_000
                 dollars += u["output_tokens"] * p["output"] / 1_000_000
             print(round(dollars, 6))
+            # 0.00075
             ```
 
-            This is **cost accounting**. Teams use it to set budgets and alerts, and to see
-            which feature eats the bill.
+            This is **cost accounting**: recording what each request cost and adding the
+            costs up. Teams use the totals to set budgets and alerts.
 
-            Watch out: a model missing from the price table should fail **loudly** with a
-            clear message. Silently counting it as free hides real spending.
+            A model that is missing from the price table must raise an exception with a
+            clear message. Counting it as free would hide real spending.
         ''',
         "prompt": r'''
             Summarise token usage and cost for a batch of requests.
@@ -1081,11 +1480,12 @@ EXERCISES = [
         "title": "Redact secret fields",
         "difficulty": 1,
         "lesson": r'''
-            ## Black marker on the form
+            ## Redacting dict fields
 
-            Logging a whole request dict is tempting: it has everything you need to debug. It
-            also has the `Authorization` header and maybe an `api_key`. Before logging, run the
-            dict past someone with a **black marker** who blacks out the secret fields.
+            A whole request dict is useful in a log because it holds everything you need to
+            debug. It also holds the `Authorization` header and sometimes an `api_key`.
+            Before you log the dict, build a copy in which the value of every secret key is
+            replaced by a placeholder.
 
             ```python
             SECRET = {"api_key", "authorization", "password"}
@@ -1094,15 +1494,22 @@ EXERCISES = [
             for key, value in request.items():
                 safe[key] = "***" if key.lower() in SECRET else value
             print(safe)
+            # {'model': 'gpt-4o', 'Authorization': '***'}
             print(request["Authorization"])
+            # Bearer sk-123
             ```
 
-            Two details: header names come in any case (`Authorization`, `authorization`), so
-            compare with `key.lower()`. And build a **new** dict: the real request still needs
-            the real key to be sent.
+            The loop copies each key into `safe`. The value is `"***"` when the key is a
+            secret key, and the original value otherwise.
 
-            Watch out: `request[key] = "***"` inside the loop would change the caller's dict
-            and break the actual API call.
+            Header names appear in any letter case, such as `Authorization` or
+            `authorization`. `key.lower()` returns the key in lowercase, so one lowercase
+            name in `SECRET` matches both. The key stored in `safe` keeps its original
+            spelling.
+
+            `safe` is a **new** dict. `request` still holds the real key, as the last line
+            shows. `request[key] = "***"` inside the loop would change the caller's dict,
+            and the API call that uses it would then send `"***"` as the key.
         ''',
         "prompt": r'''
             Hide secret values in a dict before logging it.
@@ -1342,10 +1749,16 @@ EXERCISES = [
         "lesson": r'''
             ## Putting it together: traces
 
-            One request is a tree of steps: `answer` contains `retrieve` and `llm_call`. A
-            **tracer** records every span and who its parent is, so you can draw that tree and
-            see where time went. This is what OpenTelemetry does, in miniature: keep a stack of
-            open spans - the top of the stack is the parent of any new span.
+            The steps of one request are nested: the `answer` span contains the `retrieve`
+            span and the `llm_call` span. The containing span is the **parent**. All the
+            spans of one request form a **trace**.
+
+            A **tracer** records every span with the name of its parent, so you can see
+            which step took the time. OpenTelemetry, a widely used tracing library, does the
+            same. The tracer keeps a **stack** of the open spans: a list where items are
+            added and removed only at the end. `append` adds a span name when its block
+            starts and `pop()` removes it when the block ends. A new span's parent is the
+            last item of the stack at the moment the span starts.
         ''',
         "prompt": r'''
             Record nested spans for one request.
@@ -1488,10 +1901,11 @@ EXERCISES = [
         "lesson": r'''
             ## Putting it together: one observable call
 
-            In production every model call gets the same treatment: time it, count tokens and
-            cost, log one structured line with secrets removed, and log errors loudly before
-            re-raising them. Wrapping that in one function means no call slips through
-            unobserved.
+            In production every model call goes through the same steps. You time it, record
+            its token counts and cost, and log one structured line with secrets redacted.
+            When the call raises an exception, you log it at the `ERROR` level and raise it
+            again. Put these steps in one function that makes the model call. When all code
+            calls the model through that function, every call is logged.
         ''',
         "research": {
             "note": "See how OpenTelemetry names the same ideas (tracer, span, attributes, exporter). "

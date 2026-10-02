@@ -14,50 +14,258 @@ TOPIC = {
                  "custom exceptions", "aggregation", "payload validation"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["api", "response", "nested", "path", "get", "none", "missing key", "default",
+                 "status code", "retry", "backoff", "pagination", "cursor", "apierror",
+                 "tool call", "usage"],
+    "cards": [
+        {
+            "syntax": 'response["choices"][0]["message"]["content"]',
+            "explain": "A path: each pair of brackets does one lookup, left to right. A key reads a dict, an index reads a list.",
+            "example": r'''
+                response = {"choices": [{"message": {"content": "Hi"}}]}
+                print(response["choices"][0])
+                # {'message': {'content': 'Hi'}}
+                print(response["choices"][0]["message"]["content"])
+                # Hi
+            ''',
+        },
+        {
+            "syntax": "d.get(key) or default",
+            "explain": "Gives the default when the key is missing and when it holds None. d.get(key, default) covers only a missing key.",
+            "example": r'''
+                reply = {"content": None}
+                print(reply.get("content", "?"))
+                # None
+                print(reply.get("content") or "?")
+                # ?
+                print(reply.get("id") or "?")
+                # ?
+            ''',
+        },
+        {
+            "syntax": "total += d.get(key) or 0",
+            "explain": "Adds up a count that can be missing or None. Start the total at 0 before the loop.",
+            "example": r'''
+                responses = [{"tokens": 10}, {"tokens": None}, {}]
+                total = 0
+                for response in responses:
+                    total += response.get("tokens") or 0
+                print(total)
+                # 10
+            ''',
+        },
+        {
+            "syntax": "status == 429 or 500 <= status <= 599",
+            "explain": "True for the failures worth sending again. 200 <= status <= 299 is success. Other 4xx codes need a fixed request.",
+            "example": r'''
+                for status in (200, 401, 429, 503):
+                    retry = status == 429 or 500 <= status <= 599
+                    print(status, 200 <= status <= 299, retry)
+                # 200 True False
+                # 401 False False
+                # 429 False True
+                # 503 False True
+            ''',
+        },
+        {
+            "syntax": "class APIError(Exception):",
+            "explain": "An exception class that stores the status code. An except block reads it as err.status.",
+            "example": r'''
+                class APIError(Exception):
+                    def __init__(self, status, message):
+                        super().__init__(message)
+                        self.status = status
+                err = APIError(429, "slow down")
+                print(err.status, err)
+                # 429 slow down
+            ''',
+        },
+        {
+            "syntax": 'while page.get("next_cursor"):',
+            "explain": "Repeats while the page gives a cursor for a next page. Each round reads the page for that cursor.",
+            "example": r'''
+                pages = {None: {"data": [1], "next_cursor": "p2"}, "p2": {"data": [2]}}
+                page = pages[None]
+                items = page["data"]
+                while page.get("next_cursor"):
+                    page = pages[page["next_cursor"]]
+                    items = items + page["data"]
+                print(items)
+                # [1, 2]
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
-## Working with API data - chapter notes
+## Working with API data: chapter notes
 
-An API response is JSON turned into **nested dicts and lists**. The job: dig out what you
-need, survive missing pieces, react properly to failures.
+An **API** is a service your program sends requests to. An API response is JSON text.
+After `json.loads` decodes (parses) it, it is a dict whose
+values can be other dicts and lists. A dict or list stored inside another one is **nested**.
 
-**Paths.** Each `[...]` goes one level down: key for a dict, index for a list.
-`r["choices"][0]["message"]["content"]` = key, index, key, key. Lists start at index `0`.
+## Paths
 
-**Missing vs `None`**
+A **path** is a sequence of lookups written one after another. Each pair of square brackets
+does one lookup: a key reads from a dict, an index reads from a list. Python evaluates the
+lookups from left to right.
+
+```python
+response = {
+    "model": "gpt-4o",
+    "choices": [{"message": {"role": "assistant", "content": "Hi"}}],
+    "usage": None,
+}
+print(response["choices"][0]["message"]["content"])
+# Hi
+```
+
+Step through the path to see the value that each lookup returns.
+
+```diagram
+{"type":"flow","title":"Reading response[\"choices\"][0][\"message\"][\"content\"]","steps":[
+{"label":"response","detail":"The path starts at the whole response. It is a dict with the keys model, choices and usage.","code":"{'model': 'gpt-4o',\n 'choices': [{'message': {'role': 'assistant', 'content': 'Hi'}}],\n 'usage': None}"},
+{"label":"[\"choices\"]","detail":"The key choices reads from the response dict. The value is a list with one item.","code":"[{'message': {'role': 'assistant', 'content': 'Hi'}}]"},
+{"label":"[0]","detail":"The index 0 reads the first item of that list. The item is a dict with one key, message.","code":"{'message': {'role': 'assistant', 'content': 'Hi'}}"},
+{"label":"[\"message\"]","detail":"The key message reads from that dict. The value is another dict with the keys role and content.","code":"{'role': 'assistant', 'content': 'Hi'}"},
+{"label":"[\"content\"]","detail":"The key content reads from the message dict. The value is a string, and it is the result of the whole path.","code":"'Hi'"}
+]}
+```
+
+## Missing keys and None values
+
+A key can be **missing** (not in the dict), or it can be present and hold `None`. JSON
+`null` decodes to `None`. The two cases behave differently.
 
 | expression | key missing | key holds `None` |
 | --- | --- | --- |
-| `d["k"]` | `KeyError` | `None` |
+| `d["k"]` | raises `KeyError` | `None` |
 | `d.get("k")` | `None` | `None` |
-| `d.get("k", 0)` | `0` | `None` (!) |
+| `d.get("k", 0)` | `0` | `None` |
 | `d.get("k") or 0` | `0` | `0` |
+
+`.get(key, default)` returns the default only when the key is missing. `a or b` returns `b`
+whenever `a` is falsy (counts as `False` in a condition), and `None` is falsy.
 
 ```python
 response = {"choices": [], "usage": None}
 usage = response.get("usage") or {}
 print(usage.get("total_tokens", 0))
+# 0
 choices = response.get("choices") or []
-print(choices[0]["message"]["content"] if choices else "")
+print(choices[0]["message"]["content"] if choices else "no reply")
+# no reply
 ```
 
-**Status codes:** `2xx` success - `400` bad input, `401` bad key, `403` forbidden,
-`404` not found, `429` rate limited - `5xx` server broke. Retry only `429`, `5xx` and
-connection errors, with *exponential backoff* (`base * 2 ** attempt`), honouring
-`retry_after` when given. Never retry a `401`.
+Click a key, or type a key that is not in the dict, and compare `d[key]` with `d.get(key)`.
 
-**Errors as exceptions:** a small `class APIError(Exception)` that stores `status` lets
-callers `except APIError as err:` and read `err.status`.
+```diagram
+{"type":"dict","title":"Keys of response","name":"response","entries":[["model","gpt-4o"],["choices",[{"message":{"role":"assistant","content":"Hi"}}]],["usage",null]]}
+```
 
-**Pagination:** each page has `data` + `next_cursor`; loop until the cursor is `None`, with
-a `max_pages` safety limit.
+## Status codes
 
-**Tool calls:** `arguments` arrive as a JSON **string** - `json.loads` it, and remember
-`json.JSONDecodeError` is a subclass of `ValueError`.
+**HTTP** is the set of rules programs use to exchange messages over the web. Every HTTP
+response has a three-digit **status code**. Codes `200` to `299` mean success.
+Codes `400` to `499` mean the request was wrong: `400` is bad input, `401` is a bad API key,
+`403` is forbidden, `404` is not found and `429` is rate limited: you sent too many requests
+in a short time. Codes `500` to `599` mean the server failed.
 
-**Gotchas**
-- `d.get(k, default)` doesn't replace a `None` value - use `or`.
-- `choices[0]` on `[]` is an `IndexError` - check `if choices:` first.
-- Compute totals yourself instead of trusting one field the API might omit.
+Retry only `429`, the `5xx` codes and connection errors (the server could not be reached).
+Sending the same request again after a `401` returns `401` again.
+
+## Exponential backoff
+
+**Exponential backoff** means that the wait doubles after each failed attempt. The wait
+before retry number `attempt` is `base_delay * 2 ** attempt`, counting attempts from `0`.
+When a `429` body gives a `retry_after` number, wait at least that long.
+
+Pass the wait function in as a parameter, as in `sleep=time.sleep` (`time.sleep(n)` pauses
+the program for `n` seconds). A test can then pass
+`delays.append` and record the waits without waiting. Passing in the things a function
+depends on is called **dependency injection**.
+
+```python
+base_delay = 1.0
+for attempt in range(4):
+    print(attempt, base_delay * 2 ** attempt)
+# 0 1.0
+# 1 2.0
+# 2 4.0
+# 3 8.0
+```
+
+## Errors as exceptions
+
+A class that inherits from `Exception` can store the status code as an attribute. The
+caller catches it with `except APIError as err:` and reads `err.status`.
+
+```python
+class APIError(Exception):
+    def __init__(self, status, message):
+        super().__init__(message)
+        self.status = status
+
+try:
+    raise APIError(429, "rate limited")
+except APIError as err:
+    print(err.status, err)
+# 429 rate limited
+```
+
+## Pagination
+
+**Pagination** means the API returns a long list one page at a time. Each page is a dict
+with the items under `"data"` and a **cursor** under `"next_cursor"`: a value you send back
+to request the next page. You loop until the cursor is `None`. A page limit stops the loop
+if the API never returns `None`. In the example the dict `pages` stands in for the API:
+`pages[cursor]` is the page that a request with that cursor would return.
+
+```python
+pages = {
+    None: {"data": ["a", "b"], "next_cursor": "p2"},
+    "p2": {"data": ["c"], "next_cursor": None},
+}
+items = []
+cursor = None
+for _ in range(10):
+    page = pages[cursor]
+    items.extend(page.get("data") or [])
+    cursor = page.get("next_cursor")
+    if cursor is None:
+        break
+print(items)
+# ['a', 'b', 'c']
+```
+
+## Tool call arguments
+
+An **LLM** (large language model) is a program that writes text. A **tool** is a function in your
+program that an LLM can ask you to run. The request is a
+**tool call**: a dict with the function's name and its arguments. The `"arguments"` of a
+tool call are a JSON string, not a dict. `json.loads` decodes the string. Invalid JSON raises `json.JSONDecodeError`, which is a subclass of `ValueError`.
+
+```python
+import json
+
+call = {"name": "get_weather", "arguments": '{"city": "Paris"}'}
+print(type(call["arguments"]).__name__)
+# str
+args = json.loads(call["arguments"])
+print(args["city"])
+# Paris
+print(issubclass(json.JSONDecodeError, ValueError))
+# True
+```
+
+## Common mistakes
+
+- `d.get(k, default)` returns `None` when the key holds `None`. Use `d.get(k) or default`.
+- `choices[0]` raises `IndexError` when `choices` is `[]`. Check `if choices:` first.
+- An API can omit `total_tokens`. Add `prompt_tokens` and `completion_tokens` yourself.
 '''
 
 EXERCISES = [
@@ -66,8 +274,13 @@ EXERCISES = [
         "title": "What gets printed?",
         "difficulty": 0,
         "lesson": r'''
-            When you call an LLM API, the answer comes back as JSON, which Python turns into **nested
-            dicts and lists** - boxes inside boxes. To reach the reply text you open one box at a time.
+            ## Nested dicts
+
+            An API is a service that your program sends requests to. An LLM (large language model) is a
+            program that writes text, and an LLM API returns its answer as JSON text. After decoding,
+            the answer is a dict. A value
+            in that dict can be another dict or a list. A dict or list stored inside another one is
+            **nested**.
 
             ```python
             response = {
@@ -75,18 +288,47 @@ EXERCISES = [
                 "usage": {"prompt_tokens": 12, "completion_tokens": 30},
             }
             print(response["model"])
+            # gpt-4o
+            print(response["usage"])
+            # {'prompt_tokens': 12, 'completion_tokens': 30}
             print(response["usage"]["prompt_tokens"])
-            print(response.get("error"))
+            # 12
             ```
 
-            - `response["usage"]` opens the outer box and gives you the inner dict;
-              `["prompt_tokens"]` then reads from that inner dict. Reading left to right, this chain is
-              called a *path*.
-            - `.get(key)` is the careful version: if the key is missing you get `None` instead of a
-              `KeyError` crash, and `.get(key, default)` gives your default instead.
+            Python evaluates `response["usage"]["prompt_tokens"]` from left to right.
+            `response["usage"]` returns the inner dict. `["prompt_tokens"]` then reads a key from
+            that inner dict. A sequence of lookups like this is a **path**.
 
-            Watch out: `.get()` only protects **one** level. `response.get("usage")["x"]` still crashes if
-            `usage` is missing, because you'd be indexing `None`.
+            ### Missing keys
+
+            `response["error"]` raises `KeyError` because the dict has no `"error"` key.
+            `.get(key)` returns `None` for a missing key. `.get(key, default)` returns the default
+            for a missing key.
+
+            ```python
+            response = {
+                "model": "gpt-4o",
+                "usage": {"prompt_tokens": 12, "completion_tokens": 30},
+            }
+            print(response.get("error"))
+            # None
+            print(response.get("error", "no error"))
+            # no error
+            print(response.get("error", {}).get("message", "no message"))
+            # no message
+            ```
+
+            In the last line the first `.get` returns the default `{}`. The second `.get` then
+            runs on that empty dict and returns its own default.
+
+            Click a key, or type `error` as the key, and compare `d[key]` with `d.get(key)`.
+
+            ```diagram
+            {"type":"dict","title":"Keys of response","name":"response","entries":[["model","gpt-4o"],["usage",{"prompt_tokens":12,"completion_tokens":30}]]}
+            ```
+
+            `.get()` covers one lookup only. `response.get("error")["message"]` raises `TypeError`,
+            because `.get("error")` returns `None` and `None` has no keys to read.
         ''',
         "mode": "predict",
         "prompt": r'''Read the code and type exactly what it prints.''',
@@ -102,10 +344,10 @@ EXERCISES = [
             0
         ''',
         "explanation": r'''
-            `response["usage"]` is the inner dict, and `["completion_tokens"]` reads `30` from it.
-            There is no `"error"` key, so `.get("error")` returns `None` instead of crashing.
-            On the last line `"usage"` exists, but it has no `"total_tokens"`, so the default `0`
-            is used.
+            `response["usage"]` returns the inner dict, and `["completion_tokens"]` reads `30` from it.
+            There is no `"error"` key, so `.get("error")` returns `None` and raises nothing.
+            On the last line the `"usage"` key exists, so `.get("usage", {})` returns the inner dict.
+            That dict has no `"total_tokens"` key, so the second `.get` returns its default `0`.
         ''',
         "starter": "", "tests": "",
         "hints": [
@@ -119,25 +361,34 @@ EXERCISES = [
         "title": "Fix the role lookup",
         "difficulty": 0,
         "lesson": r'''
-            Chat APIs send and receive **lists of messages**. A path into a response mixes dict keys and
-            list indexes: key to open a dict, number to pick from a list - like "building B, floor 0,
-            room 3".
+            ## Keys and indexes in one path
+
+            A chat API sends and receives a list of **messages**. Each message is a dict with a
+            `"role"` (`"system"`, `"user"` or `"assistant"`) and a `"content"` string.
+
+            A path can mix dict keys and list indexes. A key in square brackets reads from a dict.
+            A whole number in square brackets reads from a list.
 
             ```python
             request = {"messages": [
                 {"role": "system", "content": "Be brief"},
                 {"role": "user", "content": "Hi"},
             ]}
+            print(request["messages"][0])
+            # {'role': 'system', 'content': 'Be brief'}
             print(request["messages"][0]["content"])
+            # Be brief
             print(request["messages"][-1]["role"])
+            # user
             print(len(request["messages"]))
+            # 2
             ```
 
-            Each message is a dict with a `"role"` (`"system"`, `"user"`, `"assistant"`) and its
-            `"content"`. The first message lives at index `0`, the last at `-1`.
+            `request["messages"]` returns the list. `[0]` returns the first message, which is a
+            dict. `["content"]` reads a key from that dict. The index `-1` returns the last item.
 
-            Watch out: counting from 1 is the classic slip. `[1]` is the **second** item - and on a
-            one-item list it raises `IndexError: list index out of range`.
+            List indexes start at `0`, so `[1]` is the second item. On a list with one item, `[1]`
+            raises `IndexError: list index out of range`.
         ''',
         "prompt": r'''
             A chat request holds a list of messages. This function should tell you who sent the
@@ -191,23 +442,38 @@ EXERCISES = [
         "title": "Model name with a default",
         "difficulty": 0,
         "lesson": r'''
-            A coat check hands your coat back when you show the ticket. If the ticket is lost, a nice
-            coat check gives you a spare umbrella instead of shouting. That's `.get(key, default)`: the
-            value if the key exists, otherwise the default you chose.
+            ## Default values with .get
+
+            `d.get(key, default)` takes two arguments. If the key is in the dict, it returns the
+            stored value. If the key is missing, it returns the second argument. That second
+            argument is the **default value**, also called a **fallback**.
 
             ```python
             config = {"model": "gpt-4o", "temperature": 0.2}
             print(config.get("model", "default-model"))
+            # gpt-4o
             print(config.get("max_tokens", 256))
+            # 256
             print(config.get("stream"))
+            # None
             ```
 
-            API responses often skip keys - an error response has no `"model"`, a streaming chunk has no
-            `"usage"`. Reading them with `d["key"]` would raise `KeyError`. With `.get` and a sensible
-            default, your code keeps going.
+            With one argument, `.get` returns `None` for a missing key.
 
-            The vocabulary: this is a *fallback* or *default value*. Pick one of the type the caller
-            expects - `""` for text, `0` for counts, `[]` for lists - so the next line of code still works.
+            API responses often leave keys out. An error response can have no `"model"` key, and
+            one partial response dict can have no `"usage"` key. `config["max_tokens"]` raises `KeyError`
+            when the key is missing. `.get` with a default returns a value and the program continues.
+
+            Choose a default of the type the next line expects: `""` for text, `0` for a count,
+            `[]` for a list.
+
+            ```python
+            chunk = {"delta": "Hel"}
+            print(len(chunk.get("tool_calls", [])))
+            # 0
+            ```
+
+            `len(None)` raises `TypeError`, so a default of `[]` is what makes this line work.
         ''',
         "prompt": r'''
             An API response usually says which model answered, but an error response may not.
@@ -260,27 +526,50 @@ EXERCISES = [
         "title": "Missing or None?",
         "difficulty": 0,
         "lesson": r'''
-            Here's a trap every API programmer hits. The coat check has your ticket, but the hook is
-            **empty**. The key exists - it just holds `None` (JSON's `null`). APIs do this a lot:
-            `"content": null` when the model calls a tool, `"usage": null` on some errors.
+            ## A missing key and a None value
 
-            `.get(key, default)` only uses the default when the key is **missing**, so it won't help.
-            The fix is `or`: `a or b` gives `a` if it's "truthy", otherwise `b`. `None`, `0`, `""`, `[]`
-            and `{}` are all "falsy".
+            A key can be in the dict and hold `None`. JSON `null` decodes to `None`, and APIs send
+            it often: `"content": null` when the reply has no text, `"usage": null` on some errors.
+
+            `.get(key, default)` returns the default only when the key is **missing**. When the key
+            is present and holds `None`, `.get` returns that `None`.
 
             ```python
-            reply = {"content": None}
+            reply = {"model": "gpt-4o", "content": None}
             print(reply.get("content", "?"))
-            print(reply.get("content") or "?")
-            print([] or "empty list")
-            print("hi" or "?")
+            # None
+            print(reply.get("id", "?"))
+            # ?
             ```
 
-            The pattern `d.get("key") or default` handles **both** cases - missing key *and* `None` - in
-            one go. Programmers call this *coalescing* a value.
+            Click `content`, then type `id` as the key, and compare what `d.get(key)` returns.
 
-            Watch out: `or` also replaces legit falsy values - a real count of `0` would become the
-            default. That's fine when the default is `0` too.
+            ```diagram
+            {"type":"dict","title":"A None value and a missing key","name":"reply","entries":[["model","gpt-4o"],["content",null]]}
+            ```
+
+            ### or
+
+            `a or b` returns `a` if `a` is truthy. Otherwise it returns `b`. `None`, `0`, `""`,
+            `[]` and `{}` are all falsy.
+
+            ```python
+            reply = {"model": "gpt-4o", "content": None}
+            print(reply.get("content") or "?")
+            # ?
+            print(reply.get("id") or "?")
+            # ?
+            print([] or "empty list")
+            # empty list
+            print("hi" or "?")
+            # hi
+            ```
+
+            `d.get("key") or default` returns the default in both cases: a missing key and a `None`
+            value. Replacing `None` with a default like this is called **coalescing**.
+
+            `or` also replaces real falsy values. A stored count of `0` becomes the default.
+            That changes nothing when the default is also `0`.
         ''',
         "mode": "predict",
         "prompt": r'''Read the code and type exactly what it prints.''',
@@ -298,9 +587,10 @@ EXERCISES = [
             anon
         ''',
         "explanation": r'''
-            `"content"` **exists** but holds `None`, so `.get("content", "empty")` returns that
-            `None` - the default is only for missing keys. `None or "empty"` gives `"empty"`
-            because `None` is falsy. `"name"` is **missing**, so both styles give `"anon"`.
+            The `"content"` key **exists** and holds `None`, so `.get("content", "empty")` returns
+            that `None`. `.get` returns its default only for a missing key. `None or "empty"`
+            returns `"empty"` because `None` is falsy. The `"name"` key is **missing**, so
+            `.get("name", "anon")` returns the default, and `None or "anon"` also returns `"anon"`.
         ''',
         "starter": "", "tests": "",
         "hints": [
@@ -314,23 +604,32 @@ EXERCISES = [
         "title": "Count the results",
         "difficulty": 0,
         "lesson": r'''
-            Big lists come back in **pages**, like a search engine showing 10 results at a time. A page
-            is a dict with the items (often under `"data"`) plus a pointer to the next page. Before you
-            loop over the items, make sure you really have a list.
+            ## Pages of results
+
+            An API does not return a long list in one response. It returns a **page**: a dict that
+            holds some of the items, often under the key `"data"`, plus a value that identifies
+            the next page.
+
+            The `"data"` key can be missing, and it can hold `None`. `len(None)` raises
+            `TypeError`, and so does `for item in None`. Before you count or loop, make sure you
+            have a list.
 
             ```python
             pages = [{"data": ["a", "b"]}, {"data": None}, {}]
             for page in pages:
                 items = page.get("data") or []
                 print(len(items), items)
+            # 2 ['a', 'b']
+            # 0 []
+            # 0 []
             ```
 
-            The line `page.get("data") or []` is the coalescing trick from the last step: whether
-            `"data"` is missing or `None`, you end up with an empty list, and `len`, `for` and `if` all
-            work on it.
+            `page.get("data") or []` is the coalescing pattern from the previous step. If `"data"`
+            is missing or `None`, `.get` returns `None`, and `None or []` returns `[]`. `len`,
+            `for` and `if` all work on an empty list.
 
-            This habit - turn "nothing" into an empty container as early as possible - is sometimes
-            called *normalising* the input. It keeps the rest of your code free of special cases.
+            Converting every missing or `None` value to one expected type as soon as you read it
+            is called **normalising** the input. The code after that line handles one case only.
         ''',
         "prompt": r'''
             A search API returns results one page at a time. Count how many results one page holds.
@@ -389,25 +688,36 @@ EXERCISES = [
         "title": "Was it a success?",
         "difficulty": 0,
         "lesson": r'''
-            Every HTTP response carries a three-digit **status code** - like the little light on a
-            parcel tracker: green, orange or red. The first digit tells you the family:
+            ## Status codes
 
-            - `2xx` success (`200` OK, `201` created)
-            - `4xx` **you** made a mistake (`400` bad input, `401` bad key, `404` not found,
-              `429` too many requests)
-            - `5xx` the **server** broke (`500`, `502`, `503`)
+            Every HTTP response has a **status code**: a three-digit whole number that says how the
+            request went. The first digit gives the group.
+
+            - `2xx` means success (`200` OK, `201` created).
+            - `4xx` means the request was wrong (`400` bad input, `401` bad key, `404` not found,
+              `429` too many requests).
+            - `5xx` means the server failed (`500`, `502`, `503`).
 
             ```python
             for status in (200, 204, 404, 503):
                 family = status // 100
                 print(status, "family", family, "success:", 200 <= status < 300)
+            # 200 family 2 success: True
+            # 204 family 2 success: True
+            # 404 family 4 success: False
+            # 503 family 5 success: False
             ```
 
-            Python lets you *chain* comparisons: `200 <= status < 300` reads like maths and is already a
-            `bool` - no `if` needed to return it.
+            `status // 100` divides and drops the remainder, so it returns the first digit.
 
-            Watch out for the edges: `200` is in the range and `300` is not, hence `<=` on the left and
-            `<` on the right.
+            ### Chained comparisons
+
+            A **chained comparison** joins two comparisons that share a middle value.
+            `200 <= status < 300` means `200 <= status and status < 300`. The result is a `bool`,
+            so a function can return it directly without an `if`.
+
+            The two ends use different operators. `<=` on the left includes `200`. `<` on the
+            right excludes `300`.
         ''',
         "prompt": r'''
             Every HTTP response has a status code. Codes from 200 to 299 (the "2xx" range) mean
@@ -465,8 +775,11 @@ EXERCISES = [
         "title": "Safe reply extraction",
         "difficulty": 1,
         "lesson": r'''
-            Now combine the guards into one safe path. Picture walking down a dark staircase: at every
-            step you check the next step exists before putting your weight on it.
+            ## A safe path through nested data
+
+            A long path such as `data["users"][0]["address"]["city"]` raises an exception if any
+            lookup fails. To make it safe, do one lookup per line and check each result before the
+            next lookup.
 
             ```python
             def first_city(data):
@@ -477,17 +790,24 @@ EXERCISES = [
                 return address.get("city") or ""
 
             print(first_city({"users": [{"address": {"city": "Lyon"}}]}))
+            # Lyon
             print(repr(first_city({"users": [{"address": None}]})))
+            # ''
             print(repr(first_city({})))
+            # ''
             ```
 
-            Each line does one step: coalesce a missing or `None` value into an empty container, check
-            the list isn't empty before indexing `[0]`, and coalesce the final value into the type you
-            promise to return.
+            Each line handles one lookup:
 
-            This style is called *defensive* code. It's exactly what you want at the edge of your
-            program, where untrusted API data comes in - once it's been cleaned up, the rest of your code
-            can stay simple.
+            - `data.get("users") or []` returns `[]` when the key is missing or holds `None`.
+            - `if not users` returns early for an empty list. Without it, `users[0]` raises
+              `IndexError` on `[]`.
+            - `users[0].get("address") or {}` returns `{}` when there is no address.
+            - `address.get("city") or ""` returns a string in every case.
+
+            Code that checks every value before using it is called **defensive** code. Write it
+            where API data enters your program. After that point every value has a known type, so
+            the rest of the code needs no checks.
         ''',
         "prompt": r'''
             A chat-completion API answers with a nested dict. Pull out the reply text without
@@ -563,26 +883,52 @@ EXERCISES = [
         "title": "Total token usage",
         "difficulty": 1,
         "lesson": r'''
-            You pay for LLM calls **per token**, so apps keep a running total - like a taxi meter adding
-            each trip's fare. Each response's `"usage"` dict holds that call's counts.
+            ## Summing values that can be missing
+
+            A **token** is a small piece of text, such as a word or part of a word, that a language model
+            reads or writes. LLM providers charge per token, so an app adds up the tokens of every call. Each
+            response has a `"usage"` dict with the counts for that call:
+            `{"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}`. **Prompt tokens**
+            count the text you sent. **Completion tokens** count the text the model wrote, and
+            they usually cost more.
+
+            To add up a value across many dicts, start a total at `0` and add to it inside a loop.
+            This is the accumulator pattern from the loops chapter.
 
             ```python
-            trips = [{"fare": 12}, {"fare": None}, {}, {"fare": 5}]
+            runs = [{"retries": 2}, {"retries": None}, {}, {"retries": 1}]
             total = 0
-            for trip in trips:
-                total += trip.get("fare") or 0
+            for run in runs:
+                total += run.get("retries") or 0
             print(total)
+            # 3
             ```
 
-            The loop is the *accumulator* pattern from the loops chapter; the `or 0` from this chapter
-            makes missing or `None` values count as zero instead of crashing with `TypeError`.
+            `run.get("retries")` returns `None` for the second and third dicts. `total += None`
+            raises `TypeError`. `or 0` replaces that `None` with `0`, so the addition works.
 
-            A typical usage dict looks like `{"prompt_tokens": 10, "completion_tokens": 5,
-            "total_tokens": 15}`. *Prompt* tokens are what you sent, *completion* tokens what the model
-            wrote (usually priced higher).
+            Step through the loop and watch `total` when the value is `None` or missing.
 
-            Watch out: don't trust one field for everything - if a response is missing `total_tokens`
-            you'd undercount. Summing the parts yourself is safer.
+            ```diagram
+            {"type": "trace", "title": "Adding counts that can be None or missing", "code": ["runs = [{\"retries\": 2}, {\"retries\": None}, {}, {\"retries\": 1}]", "total = 0", "for run in runs:", "    total += run.get(\"retries\") or 0", "print(total)"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"runs": "[{'retries': 2}, {'retries': None}, {}, {'retries': 1}]"}, "out": ""},
+              {"line": 3, "vars": {"runs": "[{'retries': 2}, {'retries': None}, {}, {'retries': 1}]", "total": "0"}, "out": ""},
+              {"line": 4, "vars": {"runs": "[{'retries': 2}, {'retries': None}, {}, {'retries': 1}]", "total": "0", "run": "{'retries': 2}"}, "out": ""},
+              {"line": 3, "vars": {"runs": "[{'retries': 2}, {'retries': None}, {}, {'retries': 1}]", "total": "2", "run": "{'retries': 2}"}, "out": ""},
+              {"line": 4, "vars": {"runs": "[{'retries': 2}, {'retries': None}, {}, {'retries': 1}]", "total": "2", "run": "{'retries': None}"}, "out": ""},
+              {"line": 3, "vars": {"runs": "[{'retries': 2}, {'retries': None}, {}, {'retries': 1}]", "total": "2", "run": "{'retries': None}"}, "out": ""},
+              {"line": 4, "vars": {"runs": "[{'retries': 2}, {'retries': None}, {}, {'retries': 1}]", "total": "2", "run": "{}"}, "out": ""},
+              {"line": 3, "vars": {"runs": "[{'retries': 2}, {'retries': None}, {}, {'retries': 1}]", "total": "2", "run": "{}"}, "out": ""},
+              {"line": 4, "vars": {"runs": "[{'retries': 2}, {'retries': None}, {}, {'retries': 1}]", "total": "2", "run": "{'retries': 1}"}, "out": ""},
+              {"line": 3, "vars": {"runs": "[{'retries': 2}, {'retries': None}, {}, {'retries': 1}]", "total": "3", "run": "{'retries': 1}"}, "out": ""},
+              {"line": 5, "vars": {"runs": "[{'retries': 2}, {'retries': None}, {}, {'retries': 1}]", "total": "3", "run": "{'retries': 1}"}, "out": ""},
+              {"line": null, "vars": {"runs": "[{'retries': 2}, {'retries': None}, {}, {'retries': 1}]", "total": "3", "run": "{'retries': 1}"}, "out": "3\n"}
+            ]}
+            ```
+
+            Do not rely on one field for the whole total. A response can leave out
+            `"total_tokens"`, and then your total is too low. Add the two counts yourself.
         ''',
         "prompt": r'''
             You pay per token. Add up how many tokens a batch of API calls used.
@@ -656,15 +1002,21 @@ EXERCISES = [
         "title": "Should we retry?",
         "difficulty": 1,
         "lesson": r'''
-            When a request fails, the status code tells you **what to do next** - like a shop sign:
-            "Closed, back in 5 minutes" (wait and come back) is very different from "Wrong address"
-            (coming back won't help).
+            ## Which failures to retry
 
-            - `2xx`: it worked, use the body.
-            - `429` *Too Many Requests*: you're going too fast - wait, then try again.
-            - `5xx`: the server had a problem - often temporary, worth another try.
-            - other `4xx`: **your** request is wrong (bad key, bad JSON, unknown model). Sending the same
-              request again gives the same error; fix the request instead.
+            When a request fails, the status code tells you what to do next.
+
+            - `2xx`: the request worked. Use the body.
+            - `429` (Too Many Requests): you sent requests too fast. Wait, then send it again.
+            - `5xx`: the server had a problem. The problem is often temporary, so send it again.
+            - Any other `4xx`: the request itself is wrong (bad key, bad JSON, unknown model).
+              Sending the same request again returns the same error. Fix the request.
+
+            A **transient** error is one that can succeed when you send the same request again
+            later. A **permanent** error fails every time until you change the request. `429` and
+            `5xx` are transient. The other `4xx` codes are permanent.
+
+            You test a range of codes with a chained comparison.
 
             ```python
             def is_server_error(status):
@@ -672,10 +1024,14 @@ EXERCISES = [
 
             for status in (200, 404, 500, 503):
                 print(status, is_server_error(status))
+            # 200 False
+            # 404 False
+            # 500 True
+            # 503 True
             ```
 
-            Errors worth retrying are called *transient* (they go away on their own); the others are
-            *permanent*. Deciding which is which is the first step of every retry strategy.
+            `429` is inside the `4xx` range but needs a different answer from the rest of that
+            range. Code that tests the whole `4xx` range first never reaches a later test for `429`.
         ''',
         "prompt": r'''
             Before retrying a failed LLM request, decide what kind of result you got.
@@ -745,10 +1101,15 @@ EXERCISES = [
         "title": "Raise an API error",
         "difficulty": 1,
         "lesson": r'''
-            Returning `"retry"` or `None` from deep inside your code is like whispering a problem - the
-            caller can easily miss it. Raising an exception is pulling the fire alarm: nobody can ignore
-            it, and whoever knows how to handle it catches it. A **custom exception class** makes the
-            alarm specific: "the API failed, with status 429".
+            ## Custom exception classes
+
+            A function can report a failure by returning a value such as `"retry"` or `None`. The
+            caller then has to test every return value, and a forgotten test hides the failure.
+            A raised exception stops the function. Python then stops the function that called
+            it, and that function's caller, and so on, until an `except` block catches it. If nothing catches it, the program stops with a traceback.
+
+            A **custom exception class** is a class you write that inherits from `Exception`. It
+            can store extra data about the failure, such as an HTTP status code.
 
             ```python
             class QuotaError(Exception):
@@ -760,14 +1121,18 @@ EXERCISES = [
                 raise QuotaError(120, 100)
             except QuotaError as err:
                 print("caught:", err, "| used =", err.used)
+            # caught: used 120 of 100 | used = 120
             ```
 
-            - Inheriting from `Exception` makes it a real exception you can `raise` and `except`.
-            - `super().__init__(message)` sets the text shown by `str(err)` and in tracebacks.
-            - Extra attributes like `err.used` let the handler make decisions (retry? give up?).
+            - Inheriting from `Exception` lets you use the class with `raise` and `except`.
+            - `super().__init__(message)` passes the message to `Exception`. That message is what
+              `str(err)` returns and what the traceback shows.
+            - `self.used = used` stores an attribute on the exception object. The `except` block
+              reads it as `err.used` and can decide what to do with it.
 
-            This is how real SDKs work: the OpenAI and Anthropic clients raise their own error classes
-            carrying the HTTP status.
+            The OpenAI and Anthropic client libraries (ready-made code from the companies
+            that run LLM services) work this way. They raise their own error
+            classes, and each error stores the HTTP status.
         ''',
         "prompt": r'''
             Turn a failed HTTP response into an exception that carries its status code, so the
@@ -861,29 +1226,49 @@ EXERCISES = [
         "title": "Decode tool arguments",
         "difficulty": 1,
         "lesson": r'''
-            When a model asks to use a tool, it sends the tool's arguments as a **JSON string**, not a
-            dict - like a letter still in its envelope. You have to open it with `json.loads` before
-            you can read it. And sometimes the letter is torn: models occasionally produce broken JSON.
+            ## Tool arguments are a JSON string
+
+            A **tool** is a function in your program that a model can ask you to run. The
+            model's request is a **tool call**: a dict with the function's name and its
+            arguments. The model sends the arguments as a **JSON string**, not as a dict. `raw["city"]` does not work on a string. `json.loads` decodes the
+            string into Python data first.
 
             ```python
             import json
 
             raw = '{"city": "Paris", "days": 3}'
+            print(type(raw).__name__)
+            # str
             args = json.loads(raw)
+            print(type(args).__name__)
+            # dict
             print(args["city"], args["days"] + 1)
+            # Paris 4
+            ```
+
+            A model sometimes writes invalid JSON, for example text that stops halfway. Then
+            `json.loads` raises `json.JSONDecodeError`. That class is a subclass of `ValueError`,
+            so `except ValueError` catches it. This step's research task shows where the docs
+            say so.
+
+            ```python
+            import json
+
             try:
                 json.loads('{"city": "Par')
             except ValueError as err:
                 print("broken:", type(err).__name__)
+            # broken: JSONDecodeError
+            print(isinstance(json.loads("[1, 2]"), dict))
+            # False
             ```
 
-            Things to know:
-            - `json.loads` on valid JSON can still give a **list** or a number, not a dict - check with
-              `isinstance(args, dict)` when you need a dict.
-            - Broken JSON raises `json.JSONDecodeError`. How that class relates to `ValueError` is this
-              step's research task.
-            - Re-raising with a clearer message (`raise ValueError(...) from err`) keeps the original
-              error attached for debugging - this is called *exception chaining*.
+            Valid JSON does not always decode to a dict. `"[1, 2]"` decodes to a list and `"5"`
+            to an `int`. Check with `isinstance(args, dict)` when you need a dict.
+
+            Inside an `except ... as err` block, `raise ValueError("clear message") from err`
+            raises a new exception and stores the original one on it. The traceback then shows
+            both. This is called **exception chaining**.
         ''',
         "research": {
             "note": "Read what `json.loads` raises for invalid text, and how `json.JSONDecodeError` relates to `ValueError`, then come back.",
@@ -987,7 +1372,7 @@ EXERCISES = [
         "placement": True,
         "prompt": r'''
             Many APIs return long lists one page at a time. Each page tells you the *cursor*
-            (a bookmark) to ask for the next page, until there is none left. This is called
+            (a value to send back) to ask for the next page, until there is none left. This is called
             *cursor pagination*.
 
             **Write:** `fetch_all(fetch_page, max_pages=100)`
@@ -1235,7 +1620,7 @@ EXERCISES = [
         },
         "hints": [
             'Define `__init__(self, status, message)` on the exception (call `super().__init__(message)`), then write a `for attempt in range(max_attempts)` loop with try/except.',
-            'Each attempt: call `request()`; on success return the body; on a non-retryable status raise immediately; otherwise remember the status and sleep with an exponentially growing delay - but not after the last attempt.',
+            'Each attempt: call `request()`; on success return the body; on a non-retryable status raise immediately; otherwise remember the status and sleep with an exponentially growing delay, but not after the last attempt.',
             '1) delay = `base_delay * 2 ** attempt`. 2) `except ConnectionError`: last_status = None. 3) 2xx: return body. 4) Not 429 and not 5xx: raise APIError(status). 5) For 429 with a numeric `retry_after` in a dict body, delay = max(retry_after, delay). 6) If this is not the last attempt, `sleep(delay)`. 7) After the loop, raise APIError(last_status).',
         ],
         "title": "Retry with backoff",
@@ -1253,7 +1638,8 @@ EXERCISES = [
                  `(status, body)`, e.g. `(200, {"ok": True})`, or raises `ConnectionError`
                - `max_attempts`: an `int`, the most times `request` may be called
                - `base_delay`: a `float`, the first wait in seconds
-               - `sleep`: the function to call to wait (tests pass their own to record the delays)
+               - `sleep`: the function to call to wait (`time.sleep(n)` pauses for `n` seconds; tests
+     pass their own function to record the delays instead)
                - **Returns:** the `body` of the first successful response
 
             **Rules**

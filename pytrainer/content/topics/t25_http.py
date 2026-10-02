@@ -16,59 +16,283 @@ TOPIC = {
                  "HTTPError", "timeouts", "retries", "backoff", "Retry-After", "webhooks", "HMAC"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["http", "request", "response", "url", "query string", "urlencode", "urlparse",
+                 "status code", "header", "bearer", "urlopen", "httperror", "timeout", "retry",
+                 "webhook", "hmac"],
+    "cards": [
+        {
+            "syntax": "urlparse(url)",
+            "explain": "Splits a URL string into parts: .scheme, .netloc (the host), .path and .query.",
+            "example": r'''
+                from urllib.parse import urlparse
+                parts = urlparse("https://api.example.com/v1/models?limit=2")
+                print(parts.scheme, parts.netloc)
+                # https api.example.com
+                print(parts.path, parts.query)
+                # /v1/models limit=2
+            ''',
+        },
+        {
+            "syntax": "urlencode(params)  /  parse_qs(query)",
+            "explain": "urlencode builds a query string from a dict. parse_qs turns one back into a dict of lists.",
+            "example": r'''
+                from urllib.parse import urlencode, parse_qs
+                query = urlencode({"q": "fish & chips", "limit": 5})
+                print(query)
+                # q=fish+%26+chips&limit=5
+                print(parse_qs(query)["q"][0])
+                # fish & chips
+            ''',
+        },
+        {
+            "syntax": "200 <= status <= 299",
+            "explain": "Tests the group of a status code. 2xx is success, 4xx a wrong request, 5xx a server failure.",
+            "example": r'''
+                for status in [200, 404, 503]:
+                    ok = 200 <= status <= 299
+                    retry = status == 429 or 500 <= status <= 599
+                    print(status, ok, retry)
+                # 200 True False
+                # 404 False False
+                # 503 False True
+            ''',
+        },
+        {
+            "syntax": "Request(url, data=body, headers={...}, method=\"POST\")",
+            "explain": "Stores one request without sending it. data must be bytes. urlopen(req, timeout=5) sends it.",
+            "example": r'''
+                import json
+                from urllib.request import Request
+                body = json.dumps({"prompt": "hi"}).encode("utf-8")
+                req = Request("https://api.example.com/v1/chat", data=body,
+                              headers={"Authorization": "Bearer sk-demo"},
+                              method="POST")
+                print(req.get_method(), req.get_header("Authorization"), req.data)
+                # POST Bearer sk-demo b'{"prompt": "hi"}'
+            ''',
+        },
+        {
+            "syntax": "except HTTPError as err:",
+            "explain": "urlopen raises HTTPError for a 4xx or 5xx response. err.code is the status, err.read() the body.",
+            "example": r'''
+                import io
+                from urllib.error import HTTPError
+                body = io.BytesIO(b"slow down")
+                try:
+                    raise HTTPError("https://x.io/v1", 429, "Too Many", {}, body)
+                except HTTPError as err:
+                    print(err.code, err.read().decode("utf-8"))
+                # 429 slow down
+            ''',
+        },
+        {
+            "syntax": "hmac.new(key, body, hashlib.sha256).hexdigest()",
+            "explain": "Computes the signature of a body with a secret key. Compare two signatures with hmac.compare_digest.",
+            "example": r'''
+                import hashlib
+                import hmac
+                sig = hmac.new(b"secret", b"{}", hashlib.sha256).hexdigest()
+                other = hmac.new(b"secret", b"{ }", hashlib.sha256).hexdigest()
+                print(len(sig), hmac.compare_digest(sig, sig))
+                # 64 True
+                print(hmac.compare_digest(sig, other))
+                # False
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
 ## Chapter notes: HTTP
 
-**Request -> response.** The client (your code) sends a *request*; the server sends back a
-*response*. Every LLM API call is one of these.
+### Requests and responses
 
-**A request has:** a **method** (`GET` read, `POST` create/send, `PUT`/`PATCH` update,
-`DELETE` remove), a **URL**, **headers** (metadata) and, for POST/PUT, a **body**.
+**HTTP** is the set of rules that programs use to exchange messages over the web. The
+**client** is the program that sends a message, called a **request**. The **server** is
+the program that receives it and sends back a **response**. An **API** is the set of
+requests that a server accepts from other programs. Every LLM API call is one request and
+one response.
 
-**A URL:** `https://api.example.com/v1/search?q=cats&limit=5`
-= scheme `https` + host `api.example.com` + path `/v1/search` + query `q=cats&limit=5`.
+A request has four parts:
 
-```python
-from urllib.parse import urlencode, urlparse, parse_qs
-print(urlencode({"q": "hello world", "n": 2}))       # q=hello+world&n=2
-print(parse_qs(urlparse("https://x.io/s?q=a&q=b").query))  # {'q': ['a', 'b']}
+- The **method** names the action. `GET` reads data, `POST` sends data, `PUT` and `PATCH`
+  update data, `DELETE` removes data.
+- The **URL** is the address the request goes to.
+- The **headers** are name and value pairs that describe the request. One of them carries
+  your API key, the secret string that tells the server who you are.
+- The **body** is the data you send. `GET` requests usually have no body.
+
+Step through one chat request to see the exact data at each stage.
+
+```diagram
+{"type":"flow","title":"One HTTP request and its response","steps":[
+{"label":"Encode the body","detail":"json.dumps turns the dict into JSON text. .encode(\"utf-8\") turns that text into bytes.","code":"payload = {\"model\": \"small\", \"messages\": [{\"role\": \"user\", \"content\": \"hi\"}]}\nbody = json.dumps(payload).encode(\"utf-8\")\n# b'{\"model\": \"small\", \"messages\": [{\"role\": \"user\", \"content\": \"hi\"}]}'"},
+{"label":"Build the Request","detail":"Request stores the URL, the method, the headers and the body. Nothing is sent yet.","code":"req = Request(\"https://api.example.com/v1/chat\", data=body, method=\"POST\",\n              headers={\"Authorization\": \"Bearer sk-demo\", \"Content-Type\": \"application/json\"})"},
+{"label":"Send the request","detail":"urlopen(req, timeout=10) connects to the host and sends the request line, the header lines, an empty line and the body.","code":"POST /v1/chat HTTP/1.1\nHost: api.example.com\nAuthorization: Bearer sk-demo\nContent-Type: application/json\nContent-Length: 67\n\n{\"model\": \"small\", \"messages\": [{\"role\": \"user\", \"content\": \"hi\"}]}"},
+{"label":"Receive the response","detail":"The server answers with a status line, header lines, an empty line and a body. The status code here is 200.","code":"HTTP/1.1 200 OK\nContent-Type: application/json\nContent-Length: 47\n\n{\"reply\": \"Hi!\", \"usage\": {\"total_tokens\": 12}}"},
+{"label":"Parse the JSON","detail":"resp.status is 200. resp.read() returns the body as bytes. json.loads turns those bytes into a dict.","code":"data = json.loads(resp.read())\n# {'reply': 'Hi!', 'usage': {'total_tokens': 12}}\nprint(data[\"reply\"])\n# Hi!"}
+]}
 ```
 
-**Status codes:** 2xx success (200 OK, 201 Created, 204 No Content), 3xx redirect,
-4xx *your* mistake (400 bad request, 401 no/bad key, 403 forbidden, 404 not found,
-429 too many requests), 5xx *server* trouble (500, 502, 503).
+### URLs and query strings
 
-**Headers:** `Authorization: Bearer <key>` (API key), `Content-Type: application/json`
-(what the body is), `Accept`, `Retry-After` (seconds to wait). Header names are
-case-insensitive.
+A URL has a **scheme** (`https`), a **host** (`api.example.com`), a **path**
+(`/v1/search`) and an optional **query string**: `key=value` pairs after a `?`, joined
+by `&`. `urlparse` splits a URL. `urlencode` builds a query string from a dict.
+`parse_qs` turns a query string into a dict of lists.
 
-**Sending with the stdlib:**
+```python
+from urllib.parse import urlparse, urlencode, parse_qs
+
+parts = urlparse("https://api.example.com/v1/search?q=cats&limit=5")
+print(parts.scheme, parts.netloc, parts.path, parts.query)
+# https api.example.com /v1/search q=cats&limit=5
+print(urlencode({"q": "hello world", "n": 2}))
+# q=hello+world&n=2
+print(parse_qs("q=a&q=b&n=2"))
+# {'q': ['a', 'b'], 'n': ['2']}
+```
+
+### Status codes
+
+Every response has a three-digit **status code**. The first digit gives the kind of result.
+
+- 2xx means success: `200` OK, `201` Created, `204` No Content.
+- 3xx means a redirect: the data is at another URL.
+- 4xx means the request is wrong: `400` bad request, `401` missing or bad key, `403`
+  forbidden, `404` not found, `429` too many requests.
+- 5xx means the server failed: `500`, `502`, `503`.
+
+### Headers and bodies
+
+`Authorization: Bearer <key>` carries your API key. `Bearer` is a fixed word that tells the server the text after it is an access key. `Content-Type: application/json`
+says the body is JSON. `Retry-After` is a response header that gives a number of seconds
+to wait. Header names are case-insensitive.
+
+A body is **bytes**: a sequence of raw byte values, not a `str`. Call
+`.encode("utf-8")` on JSON text before you send it. `json.loads` accepts the bytes that
+come back.
+
 ```python
 import json
 from urllib.request import Request
-body = json.dumps({"model": "m", "messages": []}).encode("utf-8")
-req = Request("https://api.example.com/v1/chat", data=body, method="POST",
-              headers={"Authorization": "Bearer sk-...", "Content-Type": "application/json"})
+
+payload = {"model": "small", "messages": [{"role": "user", "content": "hi"}]}
+body = json.dumps(payload).encode("utf-8")
+req = Request(
+    "https://api.example.com/v1/chat",
+    data=body,
+    headers={"Authorization": "Bearer sk-demo", "Content-Type": "application/json"},
+    method="POST",
+)
 print(req.get_method(), req.full_url)
-# with urlopen(req, timeout=10) as resp: data = json.loads(resp.read())
+# POST https://api.example.com/v1/chat
+print(req.data)
+# b'{"model": "small", "messages": [{"role": "user", "content": "hi"}]}'
 ```
-- `urlopen` raises `urllib.error.HTTPError` for 4xx/5xx (it has `.code`, `.headers`,
-  `.read()`), and `URLError` / `TimeoutError` when the server can't be reached in time.
-- `HTTPError` is a subclass of `URLError`: catch it first.
-- Bodies are **bytes**: `.encode("utf-8")` going out, `json.loads(resp.read())` coming back.
 
-**Always set a timeout.** Without one, a stuck server hangs your app forever.
+`Request` only stores the data. `urlopen(req, timeout=10)` sends it and returns the
+response. Use it in a `with` block, read `resp.status`, and parse the body with
+`json.loads(resp.read())`.
 
-**Retries:** retry 429 and 5xx (temporary), never 400/401/404 (retrying won't fix them).
-Wait between tries (*exponential backoff*: 0.5s, 1s, 2s...) and honour `Retry-After`.
-Inject `sleep` so tests don't actually wait.
+### Errors and timeouts
 
-**Webhooks** are the reverse: a service calls YOUR URL. Verify it's genuine with an HMAC
-signature: `hmac.new(secret, body, hashlib.sha256).hexdigest()` and compare with
-`hmac.compare_digest` (constant time). Add a timestamp check to stop replays.
+For a 4xx or 5xx response, `urlopen` raises `urllib.error.HTTPError`. The exception has
+`.code`, `.headers` and `.read()`. When the server cannot be reached, `urlopen` raises
+`urllib.error.URLError`. When the server accepts the connection but does not answer within
+`timeout` seconds, it raises `TimeoutError`. When the connection itself takes longer than
+`timeout`, you get a `URLError`.
 
-**Real projects** use `httpx` or `requests` (nicer API, same ideas), and LLM SDKs wrap
-all of this for you - but when something breaks, it's HTTP underneath.
+The example builds an `HTTPError` by hand, so it runs without a server. The arguments are
+the URL, the status code, the status text, the headers and the body. `io.BytesIO(b"...")`
+makes an object whose `.read()` method returns those bytes. `issubclass(A, B)` is `True`
+when class `A` is a subclass of class `B`.
+
+```python
+import io
+import json
+from urllib.error import HTTPError, URLError
+
+err = HTTPError("https://api.example.com/v1/chat", 429, "Too Many Requests",
+                {"Retry-After": "2"}, io.BytesIO(b'{"error": "slow down"}'))
+try:
+    raise err
+except HTTPError as e:
+    print(e.code)
+    # 429
+    print(e.headers.get("Retry-After"))
+    # 2
+    print(json.loads(e.read()))
+    # {'error': 'slow down'}
+print(issubclass(HTTPError, URLError))
+# True
+```
+
+### Retries
+
+Retry `429` and 5xx responses, because those failures are often temporary. Do not retry
+`400`, `401` or `404`: the same request fails again. Wait between attempts.
+**Exponential backoff** doubles the wait after each failed attempt. If the response has
+a `Retry-After` header, wait that many seconds instead. Pass `sleep` in as a parameter so
+tests can replace it and finish without waiting.
+
+```python
+def retry_wait(status, attempt, retry_after=None):
+    if status != 429 and not 500 <= status <= 599:
+        return None
+    if retry_after is not None:
+        return float(retry_after)
+    return 0.5 * 2 ** attempt
+
+print(retry_wait(503, 0), retry_wait(503, 1), retry_wait(503, 2))
+# 0.5 1.0 2.0
+print(retry_wait(429, 0, "2"))
+# 2.0
+print(retry_wait(404, 0))
+# None
+```
+
+### Webhooks
+
+A **webhook** is a request that a service sends to your server when an event happens.
+Anyone can send a request to your URL, so the sender adds a signature that proves who
+sent the body. The signature is an **HMAC**: a value computed from a secret key and the
+body. `hmac.new(key, body, hashlib.sha256).hexdigest()` returns it as a string of 64
+characters. You compute it again and compare with `hmac.compare_digest`. A body with one
+extra byte gives a different value. Check a signed timestamp as well, so an old request
+cannot be sent again.
+
+```python
+import hashlib
+import hmac
+
+secret = b"whsec_demo"
+body = b'{"event": "batch.completed"}'
+signature = hmac.new(secret, body, hashlib.sha256).hexdigest()
+print(len(signature))
+# 64
+changed = hmac.new(secret, body + b" ", hashlib.sha256).hexdigest()
+print(hmac.compare_digest(signature, changed))
+# False
+```
+
+### Common mistakes
+
+- `urlopen(url)` without `timeout` can wait forever when the server stops answering.
+  Always pass `timeout`.
+- `except URLError` placed before `except HTTPError` catches both, because `HTTPError`
+  is a subclass of `URLError`. Put `except HTTPError` first.
+- `Request(url, data="text")` fails when it is sent, because `data` must be bytes.
+- `"Bearer" + key` has no space after `Bearer`, so the server answers `401`.
+- A query string built with an f-string breaks when a value contains a space or `&`.
+  Use `urlencode`.
+
+Real projects often use `httpx` or `requests` (ready-made libraries for HTTP).
+An LLM **SDK** (a ready-made library from the company that runs the LLM service) makes
+these HTTP calls for you.
 '''
 
 # Shared by every check that talks to a real (local) server.
@@ -149,33 +373,55 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Ordering food over the web
+            ## Requests, responses and URLs
 
-            HTTP works like ordering in a restaurant. You (the **client**) give the waiter an
-            order - the **request**. The kitchen (the **server**) sends back a plate - the
-            **response**. Every time your code calls an LLM API, that's one order and one plate.
+            **HTTP** is the set of rules that programs use to exchange messages over the web.
+            The **client** is the program that sends a message. That message is a **request**.
+            The **server** is the program that receives the request and sends back a
+            **response**. An **API** is the set of requests that a server accepts from other
+            programs. When your code calls an LLM API, your code is the client. Each call
+            is one request and one response.
 
-            The order has to say *where* it goes. That's the **URL**, and it has parts:
+            A request names the address it goes to. That address is the **URL**. The URL
+            `https://example.com/docs?page=3` has four parts:
 
-            `https://api.example.com/v1/models?limit=2`
-            - `https` - the *scheme* (how to talk; `s` = encrypted)
-            - `api.example.com` - the *host* (which restaurant)
-            - `/v1/models` - the *path* (which item on the menu)
-            - `limit=2` - the *query string* (extra options: "no onions")
+            - The **scheme** is `https`. It names the rules used for the exchange. `https` is
+              HTTP with encryption: only the client and the server can read the messages.
+            - The **host** is `example.com`. It names the server.
+            - The **path** is `/docs`. It names one thing on that server, such as a page.
+            - The **query string** is `page=3`. It holds extra options, written after a `?`.
 
-            Python's `urllib.parse` splits and builds URLs for you:
+            `urlparse` from the `urllib.parse` module splits a URL string into these parts.
+            It names the host part `netloc`, short for network location.
 
             ```python
-            from urllib.parse import urlparse, urlencode
+            from urllib.parse import urlparse
 
             parts = urlparse("https://example.com/docs?page=3")
-            print(parts.netloc, parts.path, parts.query)
-            print(urlencode({"lang": "en", "page": 3}))
+            print(parts.scheme)
+            # https
+            print(parts.netloc)
+            # example.com
+            print(parts.path)
+            # /docs
+            print(parts.query)
+            # page=3
             ```
 
-            `urlencode` turns a dict into `key=value` pairs joined by `&`, and escapes
-            characters that aren't allowed in URLs (a space becomes `+`). The host part is
-            called `netloc` ("network location") in `urlparse`.
+            The path keeps its leading `/`. The query does not include the `?`.
+
+            `urlencode` does the opposite job for the query string. It takes a dict and
+            returns `key=value` pairs joined by `&`. A space is not allowed in a URL, so
+            `urlencode` replaces each space with `+`.
+
+            ```python
+            from urllib.parse import urlencode
+
+            print(urlencode({"lang": "en", "page": 3}))
+            # lang=en&page=3
+            print(urlencode({"prompt": "count tokens"}))
+            # prompt=count+tokens
+            ```
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -212,14 +458,15 @@ EXERCISES = [
         "title": "Build a URL with a query string",
         "difficulty": 0,
         "lesson": r'''
-            ## Query strings: the "no onions, extra cheese" part
+            ## Query strings
 
-            Many API requests carry options in the URL, after a `?`. That's the
-            **query string**: `?q=cats&limit=5`. Each option is a `key=value` pair, pairs are
-            joined with `&`.
+            Many API requests carry options in the URL, after a `?`. That part is the
+            **query string**, for example `?q=cats&limit=5`. Each option is a `key=value`
+            pair. The pairs are joined with `&`.
 
-            Gluing these together by hand breaks as soon as a value contains a space, `&` or
-            `=` (the server would think a new option started). So we let `urlencode` do it:
+            The characters `&` and `=` separate the pairs, so a value must not contain them
+            as they are. A value must not contain a space either. `urlencode` takes a dict
+            and returns a query string with those characters replaced.
 
             ```python
             from urllib.parse import urlencode
@@ -227,13 +474,20 @@ EXERCISES = [
             params = {"q": "fish & chips", "limit": 5}
             query = urlencode(params)
             print(query)
+            # q=fish+%26+chips&limit=5
             print("https://api.example.com/search?" + query)
+            # https://api.example.com/search?q=fish+%26+chips&limit=5
             ```
 
-            `&` inside a value becomes `%26` - this is called *percent-encoding* (or URL
-            encoding). The server decodes it back to `&`.
+            Each space became `+`. The `&` inside the value became `%26`. This replacement
+            is called **percent-encoding**: a `%` followed by the character's code number
+            written in **hexadecimal** (base 16, with the digits 0-9 and A-F). The code
+            number of `&` is 38, which is `26` in hexadecimal. The server decodes `%26`
+            back to `&`. `urlencode` does not add the `?`, so you add it yourself.
 
-            **Watch out:** don't write `f"?q={text}"` with raw user text. Use `urlencode`.
+            Do not build the query with an f-string such as `f"?q={text}"`. With the text
+            `fish & chips` the server reads the `&` as the start of a new pair, so `q` is
+            cut short. Use `urlencode` for every query string.
         ''',
         "prompt": r'''
             A search API takes its options in the query string. Replace the `___`.
@@ -296,27 +550,63 @@ EXERCISES = [
         "title": "What does this status code mean?",
         "difficulty": 0,
         "lesson": r'''
-            ## Status codes: the waiter's one-number summary
+            ## Status codes
 
-            Every response starts with a three-digit **status code**. Think of it as the
-            waiter's quick summary before you even look at the plate. The first digit is
-            the family:
+            Every response starts with a **status code**: a three-digit number that says how
+            the request went. The first digit gives the group of the code.
 
-            - **2xx - success.** `200 OK`, `201 Created`, `204 No Content`.
-            - **3xx - go elsewhere.** The dish moved to another table (a *redirect*).
-            - **4xx - your mistake.** `400` bad order, `401` no/bad API key, `404` no such
-              dish, `429` you're ordering too fast.
-            - **5xx - the kitchen's problem.** `500` error, `502`/`503` temporarily down.
+            - 2xx means success. Examples: `200` OK, `201` Created, `204` No Content.
+            - 3xx means a **redirect**: the data is at another URL.
+            - 4xx means the request is wrong. Examples: `400` bad request, `401` missing or
+              bad API key, `404` not found, `429` too many requests.
+            - 5xx means the server failed. Examples: `500` internal error, `502` and `503`
+              temporarily unavailable.
+
+            Here `2xx` stands for every code from 200 to 299.
+
+            The `//` operator divides and drops the remainder. `code // 100` gives the first
+            digit of a three-digit code.
 
             ```python
             for code in [200, 404, 503]:
                 family = code // 100
                 print(code, "family", family)
+            # 200 family 2
+            # 404 family 4
+            # 503 family 5
             ```
 
-            `//` is whole-number division, so `404 // 100` is `4`. The difference between
-            4xx and 5xx matters a lot later: a 4xx means *fix your request*, a 5xx often
-            means *try again in a moment*.
+            Step through the loop to see `family` change for each code.
+
+            ```diagram
+            {"type": "trace", "title": "First digit of each status code", "code": ["for code in [200, 404, 503]:", "    family = code // 100", "    print(code, \"family\", family)"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"code": "200"}, "out": ""},
+              {"line": 3, "vars": {"code": "200", "family": "2"}, "out": ""},
+              {"line": 1, "vars": {"code": "200", "family": "2"}, "out": "200 family 2\n"},
+              {"line": 2, "vars": {"code": "404", "family": "2"}, "out": "200 family 2\n"},
+              {"line": 3, "vars": {"code": "404", "family": "4"}, "out": "200 family 2\n"},
+              {"line": 1, "vars": {"code": "404", "family": "4"}, "out": "200 family 2\n404 family 4\n"},
+              {"line": 2, "vars": {"code": "503", "family": "4"}, "out": "200 family 2\n404 family 4\n"},
+              {"line": 3, "vars": {"code": "503", "family": "5"}, "out": "200 family 2\n404 family 4\n"},
+              {"line": 1, "vars": {"code": "503", "family": "5"}, "out": "200 family 2\n404 family 4\n503 family 5\n"},
+              {"line": null, "vars": {"code": "503", "family": "5"}, "out": "200 family 2\n404 family 4\n503 family 5\n"}
+            ]}
+            ```
+
+            You can also test a group with a chained comparison. `400 <= code <= 499` is
+            `True` when `code` is between 400 and 499, with both ends included.
+
+            ```python
+            code = 429
+            print(400 <= code <= 499)
+            # True
+            print(500 <= code <= 599)
+            # False
+            ```
+
+            The two error groups need different reactions. After a 4xx you fix the request.
+            After a 5xx the same request often works a moment later.
         ''',
         "prompt": r'''
             Your logs should show a readable label next to each status code. Finish the function.
@@ -387,12 +677,14 @@ EXERCISES = [
         "title": "Fix: the API key header",
         "difficulty": 0,
         "lesson": r'''
-            ## Headers: the notes stapled to your order
+            ## Headers
 
-            Besides the URL, a request carries **headers**: little labelled notes stapled to
-            the order. "I'm allergic to nuts" - or, for APIs, "here is my membership card".
+            Besides the URL, a request carries **headers**: name and value pairs that give
+            the server extra information about the request. Each header is sent as one line
+            of text in the form `Name: value`.
 
-            Headers are name/value pairs, so in Python they're a dict:
+            Headers are name and value pairs, so in Python you write them as a dict. Both the
+            names and the values are strings.
 
             ```python
             api_key = "sk-demo-123"
@@ -402,16 +694,29 @@ EXERCISES = [
             }
             for name, value in headers.items():
                 print(f"{name}: {value}")
+            # Authorization: Bearer sk-demo-123
+            # Content-Type: application/json
             ```
 
-            - `Authorization: Bearer <key>` is how most LLM APIs (OpenAI and many others)
-              receive your key. "Bearer" means "whoever carries this token is allowed in".
-            - `Content-Type: application/json` tells the server the body is JSON.
+            Click a key to read the value stored for that header.
 
-            The format is strict: the word `Bearer`, **one space**, then the key. The server
-            compares it character by character, and a missing space means `401 Unauthorized`.
+            ```diagram
+            {"type":"dict","title":"The headers dict","name":"headers","entries":[["Authorization","Bearer sk-demo-123"],["Content-Type","application/json"]]}
+            ```
 
-            **Watch out:** never print or log a real API key.
+            The `Authorization` header carries your API key. Most LLM APIs expect the value
+            `Bearer <key>`. The word `Bearer` tells the server that the text after it is a
+            secret key, and that the server accepts any request that carries this key. A key
+            sent this way is called a **Bearer token**.
+
+            The `Content-Type` header names the format of the request body.
+            `application/json` means the body is JSON.
+
+            The format of the `Authorization` value is exact: the word `Bearer`, one space,
+            then the key. The server checks the whole value. Without the space the value is
+            wrong and the server answers `401 Unauthorized`.
+
+            Do not print or log a real API key. Anyone who reads the log can use it.
         ''',
         "prompt": r'''
             This helper builds the headers for every API call, but the server keeps answering
@@ -466,14 +771,19 @@ EXERCISES = [
         "title": "A JSON request body",
         "difficulty": 0,
         "lesson": r'''
-            ## The body: what's actually in the envelope
+            ## The request body
 
-            A `GET` request is like asking "what's on the menu?" - no package needed. A `POST`
-            request sends something: a chat message, a document to embed. That something is
-            the **body**, and for APIs it's almost always **JSON**.
+            The **method** of a request names the action. A `GET` request asks the server for
+            data and usually has no body. A `POST` request sends data, such as a chat
+            message or a document to embed. That data is the **body** of the request. For
+            APIs the body is almost always JSON.
 
-            One catch: the network carries **bytes**, not Python strings. So sending is two
-            steps - dict to JSON text, then text to bytes:
+            A network connection transfers **bytes**: a sequence of numbers from 0 to 255.
+            It does not transfer Python strings. Python has a separate type for this, also
+            called `bytes`. A bytes value prints with a `b` in front of the quotes.
+
+            Sending a dict takes two steps. `json.dumps` turns the dict into JSON text.
+            The string method `.encode("utf-8")` turns that text into bytes.
 
             ```python
             import json
@@ -482,15 +792,27 @@ EXERCISES = [
             text = json.dumps(payload)
             body = text.encode("utf-8")
             print(type(text).__name__, type(body).__name__)
+            # str bytes
             print(json.loads(body) == payload)
+            # True
             ```
 
-            `.encode("utf-8")` turns text into bytes using the *UTF-8 encoding*, which can
-            represent every character (é, 日本, emoji). Going back, `json.loads` accepts the
-            bytes directly.
+            **UTF-8** is an encoding: a rule for turning characters into bytes. It covers
+            every character, including accented letters. `json.loads` accepts bytes as well
+            as a string.
 
-            **Watch out:** `str(payload)` is NOT JSON (it uses single quotes and `True`
-            instead of `true`). Always use `json.dumps`.
+            `str(payload)` does not produce JSON. It produces Python syntax, with single
+            quotes, `True` and `None`. A server that expects JSON rejects that text.
+
+            ```python
+            import json
+
+            payload = {"stream": True, "stop": None}
+            print(str(payload))
+            # {'stream': True, 'stop': None}
+            print(json.dumps(payload))
+            # {"stream": true, "stop": null}
+            ```
         ''',
         "prompt": r'''
             Before a chat request goes over the wire, its payload must become bytes.
@@ -550,29 +872,39 @@ EXERCISES = [
         "title": "Read a query parameter",
         "difficulty": 0,
         "lesson": r'''
-            ## Reading the options back out
+            ## Reading a query string
 
-            Sometimes you're on the other side: you receive a URL (a callback link, a
-            pagination "next" link) and need one option out of it. `urllib.parse` has the
-            reverse tools:
+            Sometimes your code receives a URL and needs one option from it. Examples are the
+            link a login service sends the user back to, or a link to the next page of
+            results. `urllib.parse` has functions for this direction too.
+
+            `urlparse(url).query` gives the query string. `parse_qs`, short for "parse query
+            string", turns that string into a dict.
 
             ```python
             from urllib.parse import urlparse, parse_qs
 
             url = "https://app.io/callback?code=abc123&tag=a&tag=b&q=hello+world"
             query = urlparse(url).query
+            print(query)
+            # code=abc123&tag=a&tag=b&q=hello+world
             params = parse_qs(query)
             print(params)
+            # {'code': ['abc123'], 'tag': ['a', 'b'], 'q': ['hello world']}
             print(params["code"][0])
+            # abc123
             print(params.get("missing"))
+            # None
             ```
 
-            `parse_qs` ("parse query string") returns a dict where **every value is a list**,
-            because a key may appear more than once (`tag=a&tag=b`). It also decodes the
-            percent-encoding for you (`+` becomes a space).
+            Every value in the dict is a list. A key can appear more than once in a query
+            string, as `tag` does here, and the list holds each value in order. `parse_qs`
+            also decodes each value: `hello+world` became `hello world`, and `%26` would
+            become `&`.
 
-            **Watch out:** `params["code"]` is `["abc123"]`, a list. Take `[0]` to get the
-            string. And use `.get()` for keys that might be missing.
+            `params["code"]` is the list `['abc123']`, not the string. Index it with `[0]`
+            to get the string. `params["missing"]` raises `KeyError` because the key is not
+            in the dict. Use `.get()` for a key that may be missing.
         ''',
         "prompt": r'''
             An OAuth-style callback URL carries values in its query string. Pull one out.
@@ -641,30 +973,47 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Writing the order slip
+            ## The Request object
 
-            Before the waiter goes to the kitchen, they write an order slip with everything
-            on it: table, dishes, notes. In the standard library that slip is
-            `urllib.request.Request`. It holds the URL, method, headers and body - but
-            creating it doesn't send anything yet.
+            `urllib.request.Request` is a standard library class that holds everything about
+            one request: the URL, the method, the headers and the body. Creating a `Request`
+            object sends nothing. It only stores the data.
 
             ```python
             from urllib.request import Request
 
-            req = Request("https://api.example.com/v1/chat",
-                          data=b'{"q": "hi"}',
+            req = Request("https://api.example.com/v1/embed",
+                          data=b'{"input": "hi"}',
                           headers={"Content-Type": "application/json"},
                           method="POST")
             print(req.get_method())
+            # POST
             print(req.full_url)
+            # https://api.example.com/v1/embed
             print(req.data)
+            # b'{"input": "hi"}'
             ```
 
-            If you don't pass `method`, `Request` guesses: **GET** when there's no body, and
-            **POST** when you pass `data`. The body (`data`) must be *bytes*.
+            `data` is the body and it must be bytes. `get_method()` returns the method the
+            request will use. `full_url` is the URL you passed. `get_header(name)` returns
+            the value of one header.
 
-            Sending it happens later with `urlopen(req, timeout=...)`, which returns the
-            *response*. You'll do that next.
+            If you leave out `method`, `get_method()` picks one from the body. It returns
+            `"GET"` when `data` is `None` and `"POST"` when you passed `data`.
+
+            ```python
+            from urllib.request import Request
+
+            print(Request("https://api.example.com/v1/files").get_method())
+            # GET
+            print(Request("https://api.example.com/v1/files", data=b"{}").get_method())
+            # POST
+            print(Request("https://api.example.com/v1/files/7", method="DELETE").get_method())
+            # DELETE
+            ```
+
+            You send a request with `urlopen(req, timeout=...)`, which returns the response.
+            A later exercise covers that step.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -702,33 +1051,46 @@ EXERCISES = [
         "title": "GET some JSON",
         "difficulty": 1,
         "lesson": r'''
-            ## Sending the order: urlopen
+            ## Sending a request with urlopen
 
-            Time to actually talk to a server. `urllib.request.urlopen` sends a request and
-            hands you the **response**. The response is like a sealed container: you read
-            its body once, as bytes.
+            `urllib.request.urlopen` sends a request and returns a response object. You can
+            pass it a URL string. It then sends a `GET` request to that URL.
+
+            The response object has the status code in `resp.status` and the body in
+            `resp.read()`. The body is bytes. `json.loads` accepts bytes and returns the
+            parsed value.
+
+            The example below uses a `data:` URL. A `data:` URL holds its content inside the
+            URL itself, so `urlopen` returns that content without contacting a server. The
+            reading and parsing steps are the same as for an `http:` URL.
 
             ```python
             import json
             from urllib.request import urlopen
 
-            # (needs a real server - in the exercise the checks start one for you)
-            def show_models(url):
-                with urlopen(url, timeout=5) as resp:
-                    print(resp.status)               # e.g. 200
-                    data = json.loads(resp.read())   # bytes -> Python dict
-                return data
-
-            print(json.loads(b'{"models": ["a", "b"]}'))   # what the parsing step does
+            url = 'data:application/json,{"reply": "Hi!", "tokens": 12}'
+            with urlopen(url, timeout=5) as resp:
+                raw = resp.read()
+                again = resp.read()
+            print(raw)
+            # b'{"reply": "Hi!", "tokens": 12}'
+            print(again)
+            # b''
+            data = json.loads(raw)
+            print(data["reply"], data["tokens"])
+            # Hi! 12
             ```
 
-            - `with ... as resp:` closes the connection when you're done (a *context manager*).
-            - `resp.read()` returns the body as bytes; `json.loads` accepts bytes.
-            - `resp.status` is the status code.
-            - `timeout=5` means "give up after 5 seconds". Always pass one.
+            - `with urlopen(...) as resp:` closes the connection when the block ends.
+            - `resp.read()` returns the whole body the first time. The second call returns
+              `b''` because the body has already been read. Store the result in a variable.
+            - `resp.status` is the status code of an HTTP response, for example `200`.
+            - `timeout=5` makes `urlopen` stop waiting after 5 seconds. Always pass a timeout.
 
-            In this exercise the checks run a tiny web server on your own machine
-            (`http://127.0.0.1:<port>`) and give your function its URL. No internet needed.
+            In this exercise the checks start a small web server on your own machine at
+            `http://127.0.0.1:<port>` and pass its URL to your function. The address
+            `127.0.0.1` always means your own machine, so no internet connection is needed.
+            A **port** is a number after the host that selects one program on that machine.
         ''',
         "prompt": r'''
             List the models an API offers by calling its endpoint.
@@ -806,11 +1168,11 @@ EXERCISES = [
             ],
         },
         "lesson": r'''
-            ## A full API call: method + headers + body
+            ## A full API call: method, headers and body
 
-            This is the shape of almost every LLM API call: **POST** a JSON body, with your
-            key in an `Authorization` header. You fill in the order slip (`Request`) with all
-            three, then hand it to `urlopen`.
+            Almost every LLM API call has the same three parts. The method is `POST`. The
+            body is JSON. The API key goes in an `Authorization` header. You put all three
+            into one `Request` object and pass that object to `urlopen`.
 
             ```python
             import json
@@ -822,15 +1184,26 @@ EXERCISES = [
                           headers={"Authorization": "Bearer sk-demo",
                                    "Content-Type": "application/json"},
                           method="POST")
-            print(req.get_method(), req.get_header("Content-type"))
-            # then: with urlopen(req, timeout=5) as resp: ...
+            print(req.get_method())
+            # POST
+            print(req.data)
+            # b'{"prompt": "hi"}'
+            print(req.header_items())
+            # [('Authorization', 'Bearer sk-demo'), ('Content-type', 'application/json')]
             ```
 
-            `Request` stores header names with only the first letter capitalised
-            (`Content-type`), which is fine: header names are *case-insensitive*.
+            `urlopen` accepts a `Request` object in place of a URL string. Sending and
+            reading work the same way as for a `GET`: open it in a `with` block, pass a
+            `timeout`, and parse `resp.read()` with `json.loads`.
 
-            In real projects you'd write `httpx.post(url, json=payload, headers=...)` and it
-            does the encoding for you - but it sends exactly the same bytes.
+            `Request` stores each header name with only its first letter in upper case, so
+            `Content-Type` is stored as `Content-type`. The server accepts both spellings
+            because HTTP header names are **case-insensitive**: upper and lower case letters
+            count as the same.
+
+            Many projects use the `httpx` library instead. `httpx.post(url, json=payload,
+            headers=...)` encodes the payload for you. The request it sends has the same
+            method, headers and JSON body.
         ''',
         "prompt": r'''
             Send a chat request the way LLM APIs expect it.
@@ -921,32 +1294,45 @@ EXERCISES = [
         "title": "When the server says no",
         "difficulty": 1,
         "lesson": r'''
-            ## Error responses arrive as exceptions
+            ## Error responses are raised as exceptions
 
-            When the kitchen sends back "sorry, we're out of that" (a 404) or "the oven broke"
-            (a 500), `urlopen` doesn't return normally. It **raises** `urllib.error.HTTPError`.
-            That error object is also a response: it has the status and the body, which
-            usually explains what went wrong.
+            When the server answers with a 4xx or 5xx status, `urlopen` does not return a
+            response. It raises `urllib.error.HTTPError`. The exception object holds the
+            response data: the status code, the headers and the body. The body usually
+            explains what went wrong.
+
+            The example builds an `HTTPError` by hand and raises it, so it runs without a
+            server. `urlopen` raises the same kind of object for a real 404.
+            `io.BytesIO(b"...")` makes an object with a `.read()` method that returns those
+            bytes.
 
             ```python
-            from urllib.error import HTTPError
             import io
+            from urllib.error import HTTPError
 
             err = HTTPError("https://x.io/v1/nope", 404, "Not Found", {}, io.BytesIO(b"no such model"))
             try:
-                raise err          # this is what urlopen does for a 404
+                raise err
             except HTTPError as e:
                 print(e.code)
+                # 404
                 print(e.read().decode("utf-8"))
+                # no such model
             ```
 
-            - `e.code` - the status code (404, 429, 500...)
-            - `e.read()` - the error body, as bytes
-            - `e.headers` - the response headers
+            - `e.code` is the status code, such as 404, 429 or 500.
+            - `e.read()` returns the error body as bytes.
+            - `.decode("utf-8")` turns bytes into a string. It is the reverse of `.encode("utf-8")`.
+            - `e.headers` holds the response headers.
 
-            Catching it lets your code decide what to do: show the message, retry, or give up.
+            Catching the exception lets your code choose what to do next: show the message,
+            try again, or stop.
 
-            **Watch out:** `HTTPError` lives in `urllib.error`, not `urllib.request`.
+            If nothing catches it, the program stops with a traceback whose last line is
+            `urllib.error.HTTPError: HTTP Error 404: Not Found`.
+
+            `HTTPError` is defined in `urllib.error`, not in `urllib.request`. Import it
+            with `from urllib.error import HTTPError`.
         ''',
         "prompt": r'''
             A health-check tool needs the status code and body of any URL - including errors.
@@ -1027,31 +1413,46 @@ EXERCISES = [
         "title": "Don't wait forever",
         "difficulty": 1,
         "lesson": r'''
-            ## Timeouts: how long you'll wait for your food
+            ## Timeouts
 
-            If your order never comes, you don't sit in the restaurant for a week. You wait a
-            reasonable time, then leave. A **timeout** is that limit for a request. Without
-            one, a stuck server can freeze your whole app - forever.
+            A **timeout** is the longest time, in seconds, that your code waits for the
+            server. Without a timeout, `urlopen` keeps waiting for as long as the server
+            stays silent, and your program does nothing else during that time.
 
-            `urlopen(url, timeout=2)` gives up after about 2 seconds of silence. Giving up
-            shows up as an exception:
-            - `TimeoutError` - the server connected but didn't answer in time,
-            - `urllib.error.URLError` - the server couldn't be reached (wrong port, down,
-              or a timeout while connecting).
+            `urlopen(url, timeout=2)` stops waiting after about 2 seconds without an answer.
+            It then raises an exception. Two exception types can occur:
+
+            - `TimeoutError`: the connection was made, but the server did not answer in time.
+            - `urllib.error.URLError`: the server could not be reached. The port is wrong,
+              the server is down, or the timeout ran out while connecting.
+
+            You can catch several exception types in one `except` clause. Put them in a
+            tuple: `except (TimeoutError, URLError):`.
+
+            This example raises the two exceptions itself, so it runs without a server.
 
             ```python
-            from urllib.request import urlopen
             from urllib.error import URLError
 
-            try:
-                urlopen("http://127.0.0.1:9/", timeout=0.5)   # port 9: nothing listening
-            except (TimeoutError, URLError) as err:
-                print("gave up:", type(err).__name__)
+            def call(kind):
+                if kind == "slow":
+                    raise TimeoutError("timed out")
+                if kind == "down":
+                    raise URLError("connection refused")
+                return "pong"
+
+            for kind in ["ok", "slow", "down"]:
+                try:
+                    print(call(kind))
+                except (TimeoutError, URLError) as err:
+                    print("gave up:", type(err).__name__)
+            # pong
+            # gave up: TimeoutError
+            # gave up: URLError
             ```
 
-            You can catch several exception types at once with a tuple:
-            `except (TimeoutError, URLError):`. LLM calls can legitimately take 30-60 s, so
-            real timeouts are often generous - but they are always set.
+            An LLM call can take 30 to 60 seconds to answer, so real timeouts are often
+            long. Set one on every request anyway.
         ''',
         "prompt": r'''
             A status page pings a service. It must never hang.
@@ -1127,27 +1528,52 @@ EXERCISES = [
         "title": "Should I retry?",
         "difficulty": 1,
         "lesson": r'''
-            ## Retries and backoff: knocking again, politely
+            ## Retries and backoff
 
-            Some failures are temporary. `429 Too Many Requests` means "you're going too fast,
-            wait a bit". `500`/`502`/`503` often mean "the kitchen is swamped, try again".
-            LLM APIs return these a LOT under load. Others are permanent: `400` (bad request),
-            `401` (bad key), `404` - retrying just fails again.
+            Some failures are temporary. `429 Too Many Requests` means you sent requests too
+            fast. `500`, `502` and `503` often mean the server is overloaded. LLM APIs return
+            these codes often when they are busy. A **retry** sends the same request again,
+            and it can succeed.
 
-            When you retry, wait a little longer each time, like knocking on a door: knock,
-            wait 1 s, knock, wait 2 s, wait 4 s... That's **exponential backoff**: the delay
-            doubles every attempt, up to a maximum (a *cap*).
+            Other failures are permanent. `400` is a bad request, `401` is a bad key and
+            `404` is a missing resource. The same request fails again, so you do not retry.
+
+            Wait before each retry, and wait longer each time. **Exponential backoff** is a
+            schedule where the wait doubles after every failed attempt. A **cap** is the
+            maximum wait. `min(a, b)` returns the smaller value, so it applies the cap.
 
             ```python
-            base, cap = 0.5, 8
+            base, cap = 1.0, 20.0
             for attempt in range(6):
                 delay = min(base * 2 ** attempt, cap)
                 print(attempt, delay)
+            # 0 1.0
+            # 1 2.0
+            # 2 4.0
+            # 3 8.0
+            # 4 16.0
+            # 5 20.0
             ```
 
-            If the server sends a `Retry-After` header (a number of seconds), it's telling
-            you exactly how long to wait - use that instead of your own guess. Header values
-            are always text, so `"2"` needs `float()`.
+            `2 ** attempt` is 1, 2, 4, 8, 16, 32. The last wait would be 32.0, and the cap
+            reduces it to 20.0.
+
+            Step through the stages to see where the loop goes back to the request.
+
+            ```diagram
+            {"type":"flow","title":"Retry with exponential backoff","steps":[
+            {"label":"Send the request","detail":"The first request uses attempt = 0.","code":"attempt = 0\nbase, cap = 1.0, 20.0"},
+            {"label":"Read the status","detail":"A 2xx status means success and the loop ends. Any other status goes to the next stage.","code":"status = 503"},
+            {"label":"Check the status","detail":"429 and 500 to 599 are temporary, so a retry can work. 400, 401 and 404 are permanent, so the loop ends with an error.","code":"status == 429 or 500 <= status <= 599\n# True"},
+            {"label":"Compute the wait","detail":"If the response has a Retry-After header, the wait is that number of seconds. Otherwise the wait doubles with each attempt, up to the cap.","code":"delay = min(base * 2 ** attempt, cap)\n# attempt 0: 1.0\n# attempt 1: 2.0\n# attempt 2: 4.0"},
+            {"label":"Wait","detail":"The program sleeps for delay seconds. Then attempt goes up by 1.","code":"time.sleep(delay)\nattempt += 1"}
+            ],"loop":{"from":4,"to":0,"label":"while the status is 429 or 5xx and attempts remain"}}
+            ```
+
+            A server can send a `Retry-After` header with a number of seconds. That is the
+            wait the server asks for, so use it in place of your computed delay. A header
+            value is always a string. Convert `"2"` with `float()` before you use it as a
+            number.
         ''',
         "prompt": r'''
             Decide whether a failed request should be retried, and after how long.
@@ -1222,11 +1648,33 @@ EXERCISES = [
         "difficulty": 2,
         "placement": True,
         "lesson": r'''
-            Putting it together: one helper that builds the request, sends it and turns both
-            success and error responses into `(status, data)`.
+            ## One helper for every request
+
+            This exercise combines the earlier steps in one function. The function builds
+            the headers and the body, sends the request, and returns `(status, data)` for
+            success responses and for error responses.
+
+            A successful response and an `HTTPError` both give you a status code and body
+            bytes. Some responses, such as `204 No Content`, have an empty body. Empty bytes
+            are `b""`, and `bool(b"")` is `False`. `json.loads(b"")` raises
+            `JSONDecodeError`, so check for an empty body before you parse.
+
+            ```python
+            import json
+
+            for raw in [b'{"ok": true}', b""]:
+                print(raw, bool(raw))
+            # b'{"ok": true}' True
+            # b'' False
+            try:
+                json.loads(b"")
+            except json.JSONDecodeError as err:
+                print("JSONDecodeError:", err)
+            # JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+            ```
         ''',
         "prompt": r'''
-            Every API client ends up with one function that does the HTTP plumbing. Write it.
+            Every API client ends up with one function that does the HTTP work. Write it.
 
             **Write:** `request_json(url, method="GET", payload=None, api_key=None, timeout=5)`
 
@@ -1464,21 +1912,42 @@ EXERCISES = [
             ],
         },
         "lesson": r'''
-            Webhooks flip HTTP around: a service (a payment provider, GitHub, an LLM batch job)
-            sends a POST to *your* server when something happens. Anyone can POST to your URL,
-            so the sender signs the body with a shared secret. An **HMAC** is that signature:
-            only someone with the secret can produce it, and changing one byte of the body
-            changes it completely.
+            ## Webhooks and HMAC signatures
+
+            A **webhook** is an HTTP request that a service sends to your server when an
+            event happens. Here your code is the server and the service is the client.
+
+            Anyone can send a `POST` to your URL, so the sender adds a **signature**: a value
+            that only someone with the secret key can compute. Only you and the sender have
+            that key. The signature is an **HMAC**: a
+            fixed-length value computed from a key and a message. Changing one byte of the
+            message gives a different value.
+
+            `hmac.new(key, message, hashlib.sha256)` takes the key and the message as bytes.
+            `hashlib.sha256` names the algorithm that computes the value. `.hexdigest()`
+            returns the HMAC as a string of 64 hexadecimal characters (`0`-`9` and `a`-`f`).
 
             ```python
-            import hashlib, hmac
-            sig = hmac.new(b"secret", b'{"event": "done"}', hashlib.sha256).hexdigest()
+            import hashlib
+            import hmac
+
+            secret = b"secret"
+            sig = hmac.new(secret, b'{"event": "done"}', hashlib.sha256).hexdigest()
             print(sig[:16], len(sig))
+            # e8e14181494d07f1 64
+            changed = hmac.new(secret, b'{"event": "DONE"}', hashlib.sha256).hexdigest()
+            print(changed[:16])
+            # e0ff41802135617f
+            print(hmac.compare_digest(sig, changed))
+            # False
             ```
 
-            Compare signatures with `hmac.compare_digest`, never `==`: `==` stops at the first
-            different character, and the time it takes leaks how much of a guess was right
-            (a *timing attack*).
+            To verify a webhook, compute the signature of the received body and compare it
+            with the header value. Use `hmac.compare_digest(a, b)`, not `==`. `==` can stop
+            at the first character that differs, so its running time shows how many leading
+            characters of a guess were right. An attacker who measures that time can find
+            the signature one character at a time. This is called a **timing attack**.
+            `compare_digest` takes the same time wherever the first difference is.
         ''',
         "prompt": r'''
             Your app receives webhooks. Each request has a header like

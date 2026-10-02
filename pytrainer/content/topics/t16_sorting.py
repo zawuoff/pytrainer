@@ -13,41 +13,189 @@ TOPIC = {
                  "top-k"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["sort", "sorted", "order", "key", "lambda", "reverse", "ascending", "descending",
+                 "min", "max", "map", "filter", "itemgetter", "stable", "tie", "top-k"],
+    "cards": [
+        {
+            "syntax": "sorted(items, reverse=True)",
+            "explain": "Returns a new sorted list and leaves items unchanged. Without reverse=True, the smallest item is first.",
+            "example": r'''
+                scores = [0.7, 0.9, 0.2]
+                print(sorted(scores))
+                # [0.2, 0.7, 0.9]
+                print(sorted(scores, reverse=True))
+                # [0.9, 0.7, 0.2]
+                print(scores)
+                # [0.7, 0.9, 0.2]
+            ''',
+        },
+        {
+            "syntax": "items.sort()",
+            "explain": "Sorts the list itself and returns None. It accepts key= and reverse= in the same way as sorted().",
+            "example": r'''
+                queue = [3, 1, 2]
+                answer = queue.sort()
+                print(queue)
+                # [1, 2, 3]
+                print(answer)
+                # None
+            ''',
+        },
+        {
+            "syntax": "sorted(items, key=function)",
+            "explain": "Calls function on every item and orders the items by the returned values. Pass the name, with no ().",
+            "example": r'''
+                words = ["ccc", "a", "bb"]
+                print(sorted(words, key=len))
+                # ['a', 'bb', 'ccc']
+                print(sorted(["bob", "Al"], key=str.lower))
+                # ['Al', 'bob']
+            ''',
+        },
+        {
+            "syntax": "lambda item: expression",
+            "explain": "A function with no name, written as one expression. Its return value is the value of the expression.",
+            "example": r'''
+                models = [{"name": "big", "price": 5.0},
+                          {"name": "tiny", "price": 0.2}]
+                ordered = sorted(models, key=lambda m: m["price"])
+                print(ordered[0]["name"])
+                # tiny
+            ''',
+        },
+        {
+            "syntax": 'key=lambda r: (-r["score"], r["id"])',
+            "explain": "A tuple key sorts by several rules: first part first, later parts for ties. A minus sign reverses a number.",
+            "example": r'''
+                results = [{"id": "c", "score": 0.7}, {"id": "a", "score": 0.9},
+                           {"id": "b", "score": 0.7}]
+                best = sorted(results, key=lambda r: (-r["score"], r["id"]))
+                print([r["id"] for r in best])
+                # ['a', 'b', 'c']
+            ''',
+        },
+        {
+            "syntax": "max(items, key=function, default=None)",
+            "explain": "Returns the whole item with the largest key value, or default for an empty list. min works the same way.",
+            "example": r'''
+                words = ["ab", "abcd", "abc"]
+                print(max(words, key=len))
+                # abcd
+                print(min(words, key=len))
+                # ab
+                print(max([], key=len, default=None))
+                # None
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
 ## Chapter notes: sorting, keys and lambdas
 
-| tool | what it does | returns |
-| --- | --- | --- |
-| `sorted(items)` | builds a **new** sorted list, original untouched | the new list |
-| `items.sort()` | sorts the list **in place** | `None` |
-| `reverse=True` | biggest / Z first (works on both) | - |
-| `key=func` | sort by `func(item)` instead of the item | - |
-| `min/max(items, key=..., default=...)` | the whole smallest/largest item | one item |
-| `map(f, items)` / `filter(f, items)` | apply `f` to each / keep items where `f` is true | lazy - wrap in `list()` |
-| `operator.itemgetter(1, 0)` | ready-made key picking positions/keys | a tuple of them |
+### `sorted()` and `.sort()`
+
+`sorted(items)` returns a new list with the items in **ascending** order: smallest first. The
+original list is not changed. `items.sort()` reorders the list itself and returns `None`. Both
+accept `reverse=True`, which gives **descending** order: largest first.
+
+```python
+scores = [0.7, 0.9, 0.2]
+print(sorted(scores))
+# [0.2, 0.7, 0.9]
+print(scores)
+# [0.7, 0.9, 0.2]
+scores.sort(reverse=True)
+print(scores)
+# [0.9, 0.7, 0.2]
+```
+
+### Key functions and lambdas
+
+A **key function** takes one item and returns the value that Python compares. You pass it as
+`key=`. A **lambda** is a function written as one expression, with no name:
+`lambda r: r["score"]` takes `r` and returns `r["score"]`.
+
+```python
+results = [{"id": "c", "score": 0.7}, {"id": "a", "score": 0.9}, {"id": "b", "score": 0.7}]
+ordered = sorted(results, key=lambda r: r["score"])
+print([r["id"] for r in ordered])
+# ['c', 'b', 'a']
+```
+
+Step through the stages to see the data that `sorted()` works with at each one.
+
+```diagram
+{"type":"flow","title":"How sorted(results, key=...) works","steps":[
+{"label":"Input list","detail":"sorted() receives the list and the key function. It does not change this list.","code":"results = [\n  {'id': 'c', 'score': 0.7},\n  {'id': 'a', 'score': 0.9},\n  {'id': 'b', 'score': 0.7},\n]\nkey = lambda r: r['score']"},
+{"label":"Call key on each item","detail":"Python calls the key function once for every item, in list order. Each call returns one key value.","code":"key({'id': 'c', 'score': 0.7})  returns 0.7\nkey({'id': 'a', 'score': 0.9})  returns 0.9\nkey({'id': 'b', 'score': 0.7})  returns 0.7"},
+{"label":"Compare the key values","detail":"Python compares the key values with <, not the dicts. 0.7 is less than 0.9, so 'c' and 'b' go before 'a'. The two 0.7 values are equal, so 'c' and 'b' keep their original order.","code":"0.7 ('c')\n0.7 ('b')\n0.9 ('a')"},
+{"label":"Return the items","detail":"sorted() returns a new list that holds the original items in that order. The key values are discarded.","code":"[\n  {'id': 'c', 'score': 0.7},\n  {'id': 'b', 'score': 0.7},\n  {'id': 'a', 'score': 0.9},\n]"}
+]}
+```
+
+### Tuple keys
+
+A key can return a tuple. Python compares the first parts, and compares the next parts only when
+the first parts are equal. A minus sign in front of a number reverses the order of that part.
 
 ```python
 results = [{"id": "c", "score": 0.7}, {"id": "a", "score": 0.9}, {"id": "b", "score": 0.7}]
 best = sorted(results, key=lambda r: (-r["score"], r["id"]))
 print([r["id"] for r in best])
-print(max(results, key=lambda r: r["score"])["id"])
-print(max([], default=None))
+# ['a', 'b', 'c']
 ```
 
-**Key ideas**
-- A *key function* takes one item and returns what to compare. Pass it **without** brackets:
-  `key=len`, not `key=len()`.
-- A *lambda* is a one-line, nameless function: `lambda r: r["score"]`.
-- *Tuple keys* compare the first part, then the next on a tie: `(provider, price)`.
-- A minus flips one numeric part: `(-score, name)` = score high to low, name A-Z.
-- Python's sort is *stable*: items with equal keys keep their original order. So you can sort
-  twice - least important rule first - to mix directions on strings.
+### Stable sort
 
-**Gotchas**
-- `items = items.sort()` turns `items` into `None`.
-- `reverse=True` flips **every** part of a tuple key.
-- `max([])` raises `ValueError` - use `default=`.
-- `print(map(...))` shows `<map object ...>` - use `list(map(...))`.
+Python's sort is **stable**: items with equal keys keep their original order. A minus sign
+does not work on a string, so a tuple key cannot put a string part in descending order. Sort
+twice instead. Sort by the least important rule first, then by the more important rules.
+
+### `min()` and `max()` with a key
+
+`min` and `max` accept the same `key=`. They return the whole item, not the key value.
+`default=` is the value they return for an empty list.
+
+```python
+results = [{"id": "c", "score": 0.7}, {"id": "a", "score": 0.9}, {"id": "b", "score": 0.7}]
+print(max(results, key=lambda r: r["score"])["id"])
+# a
+print(max([], default=None))
+# None
+```
+
+### `map`, `filter` and `itemgetter`
+
+`map(f, items)` calls `f` on each item. `filter(f, items)` keeps the items for which `f` returns
+a truthy value (a value that counts as `True` in a condition). Both produce their results one at a time, so pass them to `list()` to get a list.
+`operator` is a standard library module, and `from operator import itemgetter` loads only
+`itemgetter` from it. `operator.itemgetter("score", "id")` returns a key
+function that takes one item and returns `(item["score"], item["id"])`.
+
+```python
+from operator import itemgetter
+
+scores = [0.7, 0.9, 0.2]
+print(list(map(lambda s: s * 10, scores)))
+# [7.0, 9.0, 2.0]
+print(list(filter(lambda s: s > 0.5, scores)))
+# [0.7, 0.9]
+results = [{"id": "c", "score": 0.7}, {"id": "a", "score": 0.9}, {"id": "b", "score": 0.7}]
+print(sorted(results, key=itemgetter("score", "id"))[0])
+# {'id': 'b', 'score': 0.7}
+```
+
+### Common mistakes
+
+- `items = items.sort()` stores `None` in `items`, because `.sort()` returns `None`.
+- `key=len()` calls `len` with no argument and raises `TypeError`. Write `key=len`.
+- `reverse=True` reverses every part of a tuple key, not one part.
+- `max([])` raises `ValueError`. Pass `default=` to get a value back.
+- `print(map(len, words))` prints `<map object at 0x...>`. Write `list(map(len, words))`.
 '''
 
 
@@ -55,27 +203,37 @@ EXERCISES = [
     {
         "id": "sorting-s1",
         "lesson": r'''
-            ## `sorted()` makes a sorted copy
+            ## `sorted()` returns a new sorted list
 
-            Picture a pile of exam papers on your desk. `sorted()` photocopies the pile and puts the
-            **copies** in order. The original pile doesn't move at all.
+            `sorted()` is a built-in function. You pass it a list. It builds a **new list** that holds the
+            same items in order, and returns that new list.
 
             ```python
             prices = [5.0, 0.5, 2.0]
             cheap_first = sorted(prices)
             print(cheap_first)
+            # [0.5, 2.0, 5.0]
             print(prices)
-            print(sorted(["b", "c", "a"], reverse=True))
+            # [5.0, 0.5, 2.0]
             ```
 
-            Numbers go smallest to largest, strings go A to Z. Add `reverse=True` and the order flips:
-            biggest (or Z) first.
+            `prices` prints exactly as it was. `sorted()` never changes the list you pass in.
 
-            The real words: `sorted` is a *built-in function* that **returns a new list**. `reverse=True`
-            is a *keyword argument* - an option you pass by name.
+            The default order is **ascending**: numbers go from smallest to largest, and strings go from
+            A to Z. Every upper-case letter sorts before every lower-case letter.
 
-            Watch out: `sorted()` never changes the list you give it. If you print the original, you see
-            it exactly as it was.
+            To get the opposite order, pass `reverse=True`. It is a keyword argument: an argument you pass
+            by name. The result is in **descending** order, largest or Z first.
+
+            ```python
+            prices = [5.0, 0.5, 2.0]
+            print(sorted(prices, reverse=True))
+            # [5.0, 2.0, 0.5]
+            print(sorted(["b", "c", "a"], reverse=True))
+            # ['c', 'b', 'a']
+            ```
+
+            If you print the original list after calling `sorted()`, you see the original order.
         ''',
         "title": "What gets printed?",
         "difficulty": 0,
@@ -95,9 +253,9 @@ EXERCISES = [
             [3, 2, 1]
         ''',
         "explanation": r'''
-            `sorted(nums)` builds a **new** sorted list and leaves `nums` alone - that is why
-            the second line still shows `[3, 1, 2]`. `reverse=True` flips the order so the
-            biggest number comes first.
+            `sorted(nums)` builds a **new** sorted list and does not change `nums`. That is why
+            the second line still shows `[3, 1, 2]`. `reverse=True` gives descending order, so the
+            largest number comes first.
         ''',
         "starter": "",
         "tests": "",
@@ -110,30 +268,58 @@ EXERCISES = [
     {
         "id": "sorting-s2",
         "lesson": r'''
-            ## Sorting by something else: `key=`
+            ## Key functions: `key=`
 
-            Imagine lining up a class. By default Python lines people up by name. But you can say
-            "line them up by **height**" - you tell it *what to measure* on each person.
+            By default, `sorted()` compares the items themselves. To sort by something else, pass a
+            function as the `key=` argument.
 
-            That is what `key=` does. You give `sorted` a function. Python calls it on every item and
-            sorts by the answers, not by the items themselves.
+            A **key function** takes one item and returns the value to compare. Python calls it once on
+            every item. It then orders the items by the returned values, not by the items.
 
             ```python
             temps = [-5, 2, -1, 4]
-            print(sorted(temps))            # plain numbers
-            print(sorted(temps, key=abs))   # by distance from zero
-
-            names = ["bob", "Alice", "carol"]
-            print(sorted(names, key=str.lower))  # ignore upper/lower case
+            print(sorted(temps))
+            # [-5, -1, 2, 4]
+            print(sorted(temps, key=abs))
+            # [-1, 2, 4, -5]
             ```
 
-            `abs(-5)` is `5`, so `-5` ends up last in the second line. The list still holds the original
-            items - only the order was decided by the key.
+            `abs(-5)` returns `5`, the largest key value, so `-5` goes last. The new list still holds the
+            original items. The key values only decide the order.
 
-            The real name: a *key function*. It takes **one item** and returns the thing to compare.
+            You can use a function you defined yourself. Step through the code to see `sorted()` call
+            `distance` once per item.
 
-            Watch out: pass the function itself, **without brackets**: `key=abs`, not `key=abs()`.
-            With brackets you'd be calling it right away, with nothing to measure.
+            ```diagram
+            {"type": "trace", "title": "sorted() calls distance once per item", "code": ["def distance(n):", "    return abs(n)", "", "temps = [-5, 2, -1, 4]", "ordered = sorted(temps, key=distance)", "print(ordered)", "print(temps)"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 4, "vars": {}, "out": ""},
+              {"line": 5, "vars": {"temps": "[-5, 2, -1, 4]"}, "out": ""},
+              {"line": 2, "vars": {"n": "-5"}, "out": ""},
+              {"line": 2, "vars": {"n": "2"}, "out": ""},
+              {"line": 2, "vars": {"n": "-1"}, "out": ""},
+              {"line": 2, "vars": {"n": "4"}, "out": ""},
+              {"line": 6, "vars": {"temps": "[-5, 2, -1, 4]", "ordered": "[-1, 2, 4, -5]"}, "out": ""},
+              {"line": 7, "vars": {"temps": "[-5, 2, -1, 4]", "ordered": "[-1, 2, 4, -5]"}, "out": "[-1, 2, 4, -5]\n"},
+              {"line": null, "vars": {"temps": "[-5, 2, -1, 4]", "ordered": "[-1, 2, 4, -5]"}, "out": "[-1, 2, 4, -5]\n[-5, 2, -1, 4]\n"}
+            ]}
+            ```
+
+            `str.lower` is the `lower` method taken from the `str` type. You pass the string as its
+            argument, so `str.lower(name)` returns the same value as `name.lower()`. This makes
+            `str.lower` work as a key function that ignores upper and lower case. Without it, every uppercase letter sorts
+            before every lowercase letter.
+
+            ```python
+            names = ["bob", "Alice", "Carol"]
+            print(sorted(names))
+            # ['Alice', 'Carol', 'bob']
+            print(sorted(names, key=str.lower))
+            # ['Alice', 'bob', 'Carol']
+            ```
+
+            Pass the function itself, without parentheses: `key=abs`. Writing `key=abs()` calls `abs`
+            immediately with no argument, which raises `TypeError`.
         ''',
         "title": "Sort by length",
         "difficulty": 0,
@@ -193,28 +379,43 @@ EXERCISES = [
         "lesson": r'''
             ## `.sort()` changes the list itself
 
-            Back to the pile of papers. `sorted()` made copies. The list **method** `.sort()` instead
-            rearranges the **original** papers - and hands you nothing back.
+            A **method** is a function that you call on a value with a dot. Lists have a method named
+            `.sort()`. It reorders the items inside the list you call it on. It does not build a new list.
 
             ```python
             queue = [3, 1, 2]
             queue.sort()
             print(queue)
-
-            answer = queue.sort(reverse=True)
-            print(queue)
-            print(answer)
+            # [1, 2, 3]
             ```
 
-            The list is now in order, but `answer` is `None`: `.sort()` did its work on the list and
-            returned nothing.
+            Changing an existing object like this is called sorting **in place**.
 
-            The real words: `.sort()` sorts *in place* (it changes the object you call it on). Methods
-            that change something in place usually return `None`.
+            `.sort()` returns `None`. It accepts `reverse=True`, the same as `sorted()`.
 
-            Watch out for the classic bug: `items = items.sort()`. The list gets sorted... and then you
-            throw it away by storing `None` in `items`. If you want a sorted list **back**, use
-            `sorted(items)`.
+            ```python
+            queue = [3, 1, 2]
+            answer = queue.sort(reverse=True)
+            print(queue)
+            # [3, 2, 1]
+            print(answer)
+            # None
+            ```
+
+            The list is in descending order, and `answer` is `None`. Most Python methods that change an
+            object in place return `None`.
+
+            A common bug is `items = items.sort()`. Python sorts the list, then assigns `None` to the name
+            `items`. The sorted list is no longer reachable through that name.
+
+            ```python
+            items = [2, 3, 1]
+            items = items.sort()
+            print(items)
+            # None
+            ```
+
+            When you need a sorted list as a return value, use `sorted(items)`.
         ''',
         "title": "Fix the bug: newest first",
         "difficulty": 0,
@@ -270,12 +471,10 @@ EXERCISES = [
     {
         "id": "sorting-s4",
         "lesson": r'''
-            ## `lambda`: a tiny throwaway function
+            ## Lambdas
 
-            Sometimes the key you need doesn't exist yet - "sort these dicts by their `price`". You could
-            write a whole `def` for that, but it's like printing a business card just to write down one
-            phone number. A `lambda` is a **sticky note**: a one-line function written right where you
-            need it.
+            Sometimes no existing function returns the key you need, for example the `"price"` of a dict.
+            You can define one with `def`.
 
             ```python
             models = [{"name": "big", "price": 5.0}, {"name": "tiny", "price": 0.2}]
@@ -284,16 +483,32 @@ EXERCISES = [
                 return m["price"]
 
             print(sorted(models, key=get_price)[0]["name"])
-            print(sorted(models, key=lambda m: m["price"])[0]["name"])
+            # tiny
             ```
 
-            Both lines print the same thing. `lambda m: m["price"]` means "take `m`, give back
-            `m["price"]`".
+            A **lambda** is a function written as a single expression, with no name. The syntax is
+            `lambda parameters: expression`. You can write it directly where the function is needed.
 
-            The real words: a *lambda* (or *anonymous function*) is `lambda parameters: expression`.
-            There is no `return` keyword - the expression after the colon **is** the return value.
+            ```python
+            models = [{"name": "big", "price": 5.0}, {"name": "tiny", "price": 0.2}]
+            print(sorted(models, key=lambda m: m["price"])[0]["name"])
+            # tiny
+            ```
 
-            Watch out: a lambda can only hold one expression. Anything bigger deserves a normal `def`.
+            `lambda m: m["price"]` takes one argument `m` and returns `m["price"]`. It does the same work
+            as `get_price`.
+
+            A lambda has no `return` keyword. Python evaluates the expression after the colon, and that
+            value is the return value.
+
+            ```python
+            double = lambda n: n * 2
+            print(double(4))
+            # 8
+            ```
+
+            A lambda can hold only one expression. It cannot contain statements such as `if` blocks or
+            assignments. For anything longer, write a normal `def`.
         ''',
         "title": "Best results first",
         "difficulty": 0,
@@ -356,29 +571,37 @@ EXERCISES = [
         "lesson": r'''
             ## `min()` and `max()` with a key
 
-            To find the tallest person in a room you don't line everyone up - you just look for the
-            tallest. `min()` and `max()` do exactly that, and they take the same `key=` as `sorted`.
+            `min()` returns the smallest item of a list and `max()` returns the largest. Neither one sorts
+            the list. Both accept the same `key=` argument as `sorted()`.
 
             ```python
             models = [{"name": "a", "context": 8000}, {"name": "b", "context": 200000}]
             biggest = max(models, key=lambda m: m["context"])
             print(biggest)
+            # {'name': 'b', 'context': 200000}
             print(biggest["name"])
+            # b
             ```
 
-            Notice: `max` returns the **whole item** (the full dict), not the number the key produced.
-            Take what you need from it afterwards.
+            `max` calls the key on every item and finds the largest key value. It then returns the
+            **whole item** that produced it, here the full dict. It does not return the key value. Read
+            the part you need from the item afterwards.
 
-            An empty list has no biggest item, so `max([])` raises a `ValueError`. Either check first
-            (`if not items:`), or pass `default=`, which is returned instead of an error:
+            ### Empty lists
+
+            An empty list has no largest item, so `max([])` raises `ValueError`. The same is true for
+            `min([])`. There are two ways to handle it. You can check first with `if not items:`. Or you
+            can pass `default=`, and `max` returns that value instead of raising.
 
             ```python
             print(max([], default=None))
+            # None
             print(min([3, 1, 2], default=None))
+            # 1
             ```
 
-            The real words: `key=` works the same everywhere it appears - `sorted`, `.sort`, `min`,
-            `max`.
+            `default=` is used only when the list is empty. `key=` works the same way in `sorted`,
+            `.sort`, `min` and `max`.
         ''',
         "title": "Cheapest model",
         "difficulty": 0,
@@ -438,32 +661,45 @@ EXERCISES = [
     {
         "id": "sorting-s6",
         "lesson": r'''
-            ## Sorting by two things: tuple keys
+            ## Tuple keys
 
-            A phone book is sorted by last name, and **only when two last names are equal** does the
-            first name decide. Tuples compare the same way: first part first, and the next part only
-            breaks ties.
+            Python compares two tuples part by part. It compares the first parts. It looks at the second
+            parts only when the first parts are equal.
 
             ```python
-            print((1, "b") < (1, "c"))   # tie on 1, so "b" vs "c" decides
-            print((2, "a") < (1, "z"))   # 2 vs 1 already decides
-
-            people = [("kim", 30), ("ada", 25), ("bo", 30)]
-            print(sorted(people, key=lambda p: (p[1], p[0])))
+            print((1, "b") < (1, "c"))
+            # True
+            print((2, "a") < (1, "z"))
+            # False
             ```
 
-            So a key that returns a **tuple** sorts by several rules at once.
+            In the first line both tuples start with `1`, so `"b" < "c"` decides. In the second line `2 < 1`
+            is already false, so Python never compares `"a"` and `"z"`.
 
-            Need one rule to go the other way? For numbers, put a minus in front: `-p[1]` turns "small
-            to big" into "big to small" for just that part.
+            A key function that returns a tuple is called a **tuple key**. It sorts by several rules in
+            one call. The first part is the main rule. A **tie** is two items whose first parts are
+            equal, and each later part decides the order of the tied items.
+
+            ```python
+            people = [("kim", 30), ("ada", 25), ("bo", 30)]
+            print(sorted(people, key=lambda p: (p[1], p[0])))
+            # [('ada', 25), ('bo', 30), ('kim', 30)]
+            ```
+
+            The key is `(age, name)`. `bo` and `kim` both have `30`, so their names decide.
+
+            ### Reversing one part
+
+            To sort one numeric part in descending order, put a minus sign in front of it. `-30` is less
+            than `-25`, so the larger number comes first. The other parts stay ascending.
 
             ```python
             people = [("kim", 30), ("ada", 25), ("bo", 30)]
             print(sorted(people, key=lambda p: (-p[1], p[0])))
+            # [('bo', 30), ('kim', 30), ('ada', 25)]
             ```
 
-            The real words: this is a *tuple key* (or *multi-key sort*). Watch out: `reverse=True`
-            flips **every** part of the tuple, not just one.
+            `reverse=True` reverses the order of **every** part of the tuple, not only one part.
         ''',
         "title": "Predict: two-part keys",
         "difficulty": 0,
@@ -481,11 +717,11 @@ EXERCISES = [
             [('opus', 3), ('sonnet', 3), ('haiku', 1)]
         ''',
         "explanation": r'''
-            The key returns a tuple, so Python compares the number first and only looks at the
-            name when the numbers tie. `opus` and `sonnet` both have `3`, so the name decides:
-            `opus` comes first (A-Z). In the second line the minus flips just the number part
-            (big first), while names still go A-Z. Python prints tuples with round brackets and
-            strings inside them with single quotes.
+            The key returns a tuple, so Python compares the number first and compares the names
+            only when the numbers are equal. `opus` and `sonnet` both have `3`, so the name decides:
+            `opus` comes first (A to Z). In the second line the minus sign reverses only the number
+            part (largest first), while names still go A to Z. Python prints tuples with round
+            brackets and the strings inside them with single quotes.
         ''',
         "starter": "",
         "tests": "",
@@ -498,16 +734,21 @@ EXERCISES = [
     {
         "id": "sorting-1",
         "lesson": r'''
-            ## Copy or in place: choosing the right tool
+            ## Copy or in place
 
-            You now know two ways to order a list. Which to pick?
+            You know two ways to order a list.
 
-            - `sorted(items)` - the **photocopier**. Use it when the caller's list must stay as it was,
-              or when you want the sorted list as a result.
-            - `items.sort()` - **rearranging the originals**. Use it when you *own* the list and want to
-              change it; it saves making a copy.
+            - `sorted(items)` returns a new list. Use it when the caller's list must stay unchanged, or
+              when you need the sorted list as a return value.
+            - `items.sort()` reorders the existing list. Use it when your code is the only user of the list
+              and you want to change it. It does not build a second list.
 
-            A function that has no `return` line still returns something: `None`.
+            ### Functions without `return`
+
+            A function with no `return` statement returns `None`.
+
+            A function receives the same list object that the caller passed, not a copy. If the function
+            changes that list, the caller sees the change.
 
             ```python
             def add_default(tags):
@@ -515,16 +756,18 @@ EXERCISES = [
 
             my_tags = ["rag", "llm"]
             result = add_default(my_tags)
-            print(my_tags)   # changed by the function!
+            print(my_tags)
+            # ['rag', 'llm', 'general']
             print(result)
+            # None
             ```
 
-            The real words: changing an object that the caller passed in is called *mutating* it (or a
-            *side effect*). A function that does this should say so - usually by returning `None`, just
-            like `.sort()` does.
+            Changing an object that the caller passed in is called **mutating** it. The change is a
+            **side effect** of the call. By convention, a function that mutates its argument returns
+            `None`, as `.sort()` does. The `None` tells the reader that the argument itself was changed.
 
-            Watch out: a function that sorts *in place* and also returns the list confuses readers. Pick
-            one style.
+            Do not write a function that sorts in place and also returns the list. A reader cannot tell
+            from the call whether the original list was changed. Choose one of the two styles.
         ''',
         "title": "Copy or in place",
         "hints": [
@@ -602,28 +845,40 @@ EXERCISES = [
         "lesson": r'''
             ## Stable sorting and ties
 
-            Think of a queue at a bakery where the baker serves **VIPs first**. Two VIPs don't fight -
-            they keep the order they arrived in. Python's sort works the same way: items whose keys are
-            **equal** keep their original order.
+            A sort is **stable** when items with equal keys keep their original order. Python's
+            `sorted()` and `.sort()` are stable.
 
             ```python
             tickets = [{"who": "ann", "vip": 0}, {"who": "bo", "vip": 1},
                        {"who": "cy", "vip": 0}, {"who": "di", "vip": 1}]
             served = sorted(tickets, key=lambda t: -t["vip"])
             print([t["who"] for t in served])
+            # ['bo', 'di', 'ann', 'cy']
             ```
 
-            `bo` still comes before `di`, and `ann` before `cy`. The real word: Python's sort is *stable*.
+            The key is `-1` for `bo` and `di`, and `0` for `ann` and `cy`. `bo` was before `di` in the
+            input, so `bo` is still before `di` in the result. The same holds for `ann` and `cy`.
 
-            `max` and `min` have a similar tie rule: when several items tie, they return the **first**
-            one they met.
+            ### Ties in `min` and `max`
+
+            When several items have the same largest key, `max` returns the first of them in the list.
+            `min` does the same for the smallest key.
 
             ```python
             print(max([-3, 3, 1], key=abs))
-            print(max([], key=abs, default=None))
+            # -3
+            print(min([2, -1, 1], key=abs))
+            # -1
             ```
 
-            Remember `default=` from before - it is what `max` returns for an empty list.
+            `abs(-3)` and `abs(3)` are both `3`. `-3` comes first in the list, so `max` returns `-3`.
+
+            `default=` still applies when you pass a key. `max` returns it for an empty list.
+
+            ```python
+            print(max([], key=abs, default=None))
+            # None
+            ```
         ''',
         "title": "Shortest and longest chunks",
         "hints": [
@@ -704,10 +959,10 @@ EXERCISES = [
         "lesson": r'''
             ## Writing your own tuple key
 
-            You predicted tuple keys earlier - now you write one. The recipe:
+            You have read code with tuple keys. To write one, follow two steps.
 
             1. List your rules from most important to least important.
-            2. Return them, in that order, as a tuple from the key.
+            2. Return the values for those rules, in that order, as a tuple from the key function.
 
             ```python
             tasks = [{"title": "deploy", "team": "ops", "hours": 3},
@@ -715,16 +970,20 @@ EXERCISES = [
                      {"title": "fix", "team": "ops", "hours": 1}]
             ordered = sorted(tasks, key=lambda t: (t["team"], t["hours"]))
             print([t["title"] for t in ordered])
+            # ['docs', 'fix', 'deploy']
             ```
 
-            Team first (A-Z), and only inside the same team do hours decide.
+            The key is `(team, hours)`. `"dev"` sorts before `"ops"`, so `docs` comes first. `fix` and
+            `deploy` are both in `ops`, so their hours decide: `1` before `3`.
 
-            Real engineers keep the official docs open while they work. Python has a short, friendly
-            guide to sorting (the *Sorting HOWTO*) - it covers key functions, tuple keys and stability,
-            everything in this chapter. Reading it now is part of this step.
+            ### The Sorting HOWTO
 
-            Watch out: if every part of your key ties, the stable sort keeps the original order - so
-            you don't need to add a rule for that.
+            The official Python documentation has a short guide named the *Sorting HOWTO*. It covers key
+            functions, tuple keys and stability, which are the subjects of this chapter. Read it now as
+            part of this step.
+
+            When every part of the key is equal for two items, the stable sort keeps them in their
+            original order. You do not need to add a rule for that case.
         ''',
         "title": "Catalog order: provider, then price",
         "difficulty": 1,
@@ -808,28 +1067,52 @@ EXERCISES = [
     {
         "id": "sorting-8",
         "lesson": r'''
-            ## `map` and `filter`: assembly line and sieve
+            ## `map` and `filter`
 
-            Picture a factory line. `map` is a machine that does **the same thing to every item** that
-            passes by. `filter` is a sieve: it lets through only the items that pass a test.
+            `map` and `filter` are built-in functions. Each takes a function and a list.
+
+            - `map(f, items)` calls `f(item)` for each item and produces the return values.
+            - `filter(f, items)` calls `f(item)` for each item and keeps the items for which the result
+              is truthy.
+
+            A value is **truthy** when Python treats it as `True` in a condition. An empty string is not
+            truthy. A string with at least one character is.
 
             ```python
             words = ["hi", "", "llm", "  "]
             print(list(map(len, words)))
+            # [2, 0, 3, 2]
             print(list(filter(lambda w: w.strip(), words)))
-            print(list(map(str.upper, filter(lambda w: w.strip(), words))))
+            # ['hi', 'llm']
             ```
 
-            - `map(f, items)` calls `f(item)` for each item.
-            - `filter(f, items)` keeps each item where `f(item)` is *truthy* (an empty string is falsy).
+            `"  ".strip()` returns `""`, so `filter` drops both `""` and `"  "`.
 
-            The real words: both are *built-in functions* that take a function as an argument (like
-            `key=`). They are *lazy*: they don't build a list, they hand out results one at a time. Wrap
-            them in `list(...)` to see or keep the results.
+            Both functions are **lazy**: they do not build a list. They return an object that computes
+            one result each time something asks for the next one. Pass that object to `list()` to get all
+            the results as a list.
 
-            Watch out: `print(map(len, words))` prints something like `<map object at 0x...>`, not the
-            numbers. You'll usually write a comprehension instead in everyday code - but you'll read
-            `map`/`filter` in other people's code all the time.
+            The output of `filter` can be the input of `map`. Step through the stages to see the data
+            after each call.
+
+            ```diagram
+            {"type":"flow","title":"filter, then map, then list","steps":[
+            {"label":"Input list","detail":"The list has four strings. One is empty and one holds only spaces.","code":"words = ['hi', '', 'llm', '  ']"},
+            {"label":"filter","detail":"filter calls the lambda on each word and keeps the words where w.strip() is a non-empty string.","code":"filter(lambda w: w.strip(), words)\n\n'hi'   strip() returns 'hi'   kept\n''     strip() returns ''     dropped\n'llm'  strip() returns 'llm'  kept\n'  '   strip() returns ''     dropped"},
+            {"label":"map","detail":"map calls str.upper on each word that filter kept.","code":"map(str.upper, ...)\n\nstr.upper('hi')   returns 'HI'\nstr.upper('llm')  returns 'LLM'"},
+            {"label":"list","detail":"list() requests every result from the map object and stores them in a new list.","code":"['HI', 'LLM']"}
+            ]}
+            ```
+
+            ```python
+            words = ["hi", "", "llm", "  "]
+            print(list(map(str.upper, filter(lambda w: w.strip(), words))))
+            # ['HI', 'LLM']
+            ```
+
+            `print(map(len, words))` prints text such as `<map object at 0x...>`, not the numbers. In
+            your own code a comprehension is usually clearer. You still need to read `map` and `filter`,
+            because other people's code uses them often.
         ''',
         "title": "Lengths of non-blank chunks",
         "difficulty": 1,
@@ -986,21 +1269,34 @@ EXERCISES = [
     {
         "id": "sorting-4",
         "lesson": r'''
-            ## Putting it together: `operator.itemgetter`
+            ## `operator.itemgetter`
 
-            Writing `lambda pair: pair[1]` gets repetitive. The `operator` module has a ready-made key
-            maker: `itemgetter(1)` builds a function that picks index `1` from whatever it's given.
-            Give it several indexes and it returns a tuple - a tuple key without a lambda.
+            A key such as `lambda pair: pair[1]` appears often. The standard library module `operator`
+            provides `itemgetter`, a function that builds this kind of key function for you.
+
+            `itemgetter(1)` returns a function. That function takes one value and returns the item at
+            index `1` of it. With several indexes, the function returns a tuple of those items. That gives
+            you a tuple key without a lambda. The line `from operator import itemgetter` loads only
+            `itemgetter` from the module, so you write `itemgetter(...)` and not `operator.itemgetter(...)`.
 
             ```python
             from operator import itemgetter
 
             pick = itemgetter(1, 0)
             print(pick(("gpt", 820)))
+            # (820, 'gpt')
             print(sorted([("b", 2), ("a", 2), ("c", 1)], key=itemgetter(1, 0)))
+            # [('c', 1), ('a', 2), ('b', 2)]
             ```
 
-            It works with dict keys too: `itemgetter("score")`.
+            `itemgetter` also works with dict keys.
+
+            ```python
+            from operator import itemgetter
+
+            print(itemgetter("score")({"id": "a", "score": 0.9}))
+            # 0.9
+            ```
         ''',
         "title": "Rank models by latency",
         "hints": [
@@ -1089,17 +1385,33 @@ EXERCISES = [
     {
         "id": "sorting-5",
         "lesson": r'''
-            ## Putting it together: sorting in two passes
+            ## Sorting in two passes
 
-            A minus sign can flip a number, but not a string - `-"abc"` is an error. The trick uses
-            *stability*: sort by the **least** important rule first, then sort again by the more
-            important rules. Ties in the second sort keep the order from the first.
+            A minus sign reverses a number, but it does not work on a string. `-"abc"` raises
+            `TypeError`. So a tuple key cannot sort one string part in descending order.
+
+            The solution uses stability. Sort by the **least** important rule first. Then sort the result
+            by the more important rules. Items that tie in the second sort keep the order from the first.
 
             ```python
             names = ["ann", "zed", "bo"]
             teams = {"ann": "x", "zed": "x", "bo": "a"}
             step1 = sorted(names, reverse=True)
+            print(step1)
+            # ['zed', 'bo', 'ann']
             print(sorted(step1, key=lambda n: teams[n]))
+            # ['bo', 'zed', 'ann']
+            ```
+
+            Step through the stages to see the list after each sort.
+
+            ```diagram
+            {"type":"flow","title":"Two sorts: name Z to A, then team A to Z","steps":[
+            {"label":"Input list","detail":"The goal is team A to Z, and name Z to A inside a team.","code":"names = ['ann', 'zed', 'bo']\nteams = {'ann': 'x', 'zed': 'x', 'bo': 'a'}"},
+            {"label":"Sort by name, reversed","detail":"The first sort applies the least important rule: name Z to A.","code":"step1 = sorted(names, reverse=True)\n\n['zed', 'bo', 'ann']"},
+            {"label":"Sort by team","detail":"The second sort uses the team as the key. 'bo' has key 'a'. 'zed' and 'ann' both have key 'x'.","code":"sorted(step1, key=lambda n: teams[n])\n\n'zed'  key 'x'\n'bo'   key 'a'\n'ann'  key 'x'"},
+            {"label":"Ties keep their order","detail":"The sort is stable. 'zed' and 'ann' have equal keys, so 'zed' stays before 'ann', as in step1.","code":"['bo', 'zed', 'ann']"}
+            ]}
             ```
         ''',
         "title": "Mixed-direction catalog",
@@ -1197,7 +1509,7 @@ EXERCISES = [
         ],
         "difficulty": 3,
         "prompt": r'''
-            A tiny keyword *reranker*: after retrieval, put the documents that best match the
+            A tiny keyword *reranker*: after a search has found documents, put the ones that best match the
             user's query first.
 
             **Write:** `rerank(docs, query)`

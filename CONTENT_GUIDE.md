@@ -279,15 +279,45 @@ Every difficulty 0-1 step has a `lesson`; difficulty 2-3 may have a short `lesso
 
 Markdown, 250-1800 chars, teaching exactly what this step's exercise needs. Voice:
 
-1. **Plain words and a metaphor first.** "A variable is a labelled box...", "A dict is like a
-   coat check: you hand over a ticket (the key) and get your coat (the value) back."
+1. **Plain, literal words first. No metaphors or analogies.** "A variable is a name that points
+   to a value.", "A dict stores values under keys. You give it a key and get the value back."
 2. **Then a tiny runnable example** (```python block, prints something, < 12 lines; the app
    adds Run / Edit & run buttons).
 3. **Then the real vocabulary**, introduced gently: "The proper name for this is a
    *return value*." / "You'll see people call this *unpacking*."
 4. Optionally one "Watch out" line with the common mistake.
 Short sentences. No jargon without explanation. Never contains the exercise solution.
-Steps build on each other - the lesson can refer back ("Remember the coat check?").
+Steps build on each other - the lesson can refer back ("Remember how a dict looks up a key?").
+
+## Library card (`REFERENCE`, module-level, one per chapter)
+
+The Library (`#/library`, or Ctrl+K inside an exercise) shows one entry per chapter, and only
+after the learner has finished that chapter. An entry is the chapter title and summary plus
+the cards in the chapter file's `REFERENCE` dict, placed between `TOPIC` and `LESSON`:
+
+```python
+REFERENCE = {
+    "keywords": ["dict", "dictionary", "key", "keyerror"],   # 3-16 lowercase search words
+    "cards": [                                               # 3-6 cards, basic to advanced
+        {
+            "syntax": "d.get(key, default)",                 # one line, <= 60 chars
+            "explain": "Reads a value without a KeyError. Returns default when the key is missing.",
+            "example": r'''
+                usage = {"input": 12}
+                print(usage.get("output", 0))
+                # 0
+            ''',
+        },
+    ],
+}
+```
+
+- `explain` is 15-160 characters, literal, and uses no term the chapter has not defined.
+- `example` is a complete program of 2-8 lines (<= 72 chars each): standard library only, no
+  network, deterministic, and it prints something.
+- Every line that starts with `#` in an example is an output line. The `#` lines, in order,
+  must be exactly what the example prints, so examples carry no explanatory comments.
+- Check one chapter with `python3 scripts/validate_content.py reference:<topic-id>`.
 
 ## Research steps (`research` field)
 
@@ -322,13 +352,13 @@ The prompt describes what `target.py` does (its behaviour spec), not the bugs.
 - **testing**: why tests; `assert`; test functions; arrange-act-assert; edge cases; testing
   exceptions (try/except + assert, or a helper); fixtures-as-functions; mocking by injecting a fake
   (e.g. a fake LLM function); what pytest adds (lesson only, + link). Mostly `mode: "tests"`.
-- **http**: what an HTTP request/response is (restaurant order metaphor), methods, URLs & query
+- **http**: what an HTTP request/response is (request in, response out), methods, URLs & query
   strings (`urllib.parse`), status codes, headers, JSON bodies, auth headers (Bearer), building a
   request with `urllib.request.Request`, timeouts, retries on 429/5xx, webhooks (verifying an
   HMAC signature with `hmac`/`hashlib`). Tests may start a local `http.server` in a thread
   on port 0 and pass its URL to the learner's function - keep it fast and reliable. Mention
   `httpx`/`requests` as what real projects use (research link).
-- **sql**: tables/rows (spreadsheet metaphor), `sqlite3` in-memory, CREATE/INSERT with `?`
+- **sql**: tables/rows (rows and columns), `sqlite3` in-memory, CREATE/INSERT with `?`
   params (and why: SQL injection), SELECT/WHERE/ORDER BY/LIMIT, aggregates & GROUP BY, JOIN,
   transactions/commit, storing chat logs & token usage, pagination with LIMIT/OFFSET.
 - **llm-basics**: what an LLM API call is, messages & roles, model params (temperature,
@@ -359,7 +389,7 @@ The prompt describes what `target.py` does (its behaviour spec), not the bugs.
 - **agents**: the loop (think → act → observe), stop conditions & max steps, tool registry,
   state/memory, recording every action (audit log), recovering from tool errors, budgets
   (steps/tokens/cost), human approval for risky tools - with scripted fake models.
-- **ai-safety**: prompt injection (the "sticky note in the document" metaphor), treating
+- **ai-safety**: prompt injection (instructions hidden inside retrieved text), treating
   retrieved text as untrusted data, delimiting/escaping, detecting suspicious instructions
   (heuristics), least-privilege tool allow-lists, confirming dangerous actions, PII/secret
   redaction in inputs/outputs, output validation before acting. Link OWASP LLM Top 10.

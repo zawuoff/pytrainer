@@ -15,50 +15,250 @@ TOPIC = {
                  "dependency injection"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["llm", "model", "token", "messages", "role", "system prompt", "temperature",
+                 "max_tokens", "response", "usage", "cost", "stop reason", "finish_reason",
+                 "streaming", "rate limit", "retry"],
+    "cards": [
+        {
+            "syntax": '{"role": "user", "content": text}',
+            "explain": "One chat message. The role is \"system\", \"user\" or \"assistant\". A conversation is a list of these dicts.",
+            "example": r'''
+                messages = [{"role": "system", "content": "Be terse."}]
+                messages.append({"role": "user", "content": "Hi"})
+                print([m["role"] for m in messages])
+                # ['system', 'user']
+            ''',
+        },
+        {
+            "syntax": 'r["choices"][0]["message"]["content"]',
+            "explain": "The reply text of an OpenAI response. The stop reason is beside the message, under \"finish_reason\".",
+            "example": r'''
+                r = {"choices": [{"message": {"content": "Paris."},
+                                  "finish_reason": "stop"}]}
+                choice = r["choices"][0]
+                print(choice["message"]["content"])
+                # Paris.
+                print(choice["finish_reason"])
+                # stop
+            ''',
+        },
+        {
+            "syntax": '[b["text"] for b in r["content"] if b["type"] == "text"]',
+            "explain": "The text blocks of an Anthropic response. Join them with \"\".join to get the reply text.",
+            "example": r'''
+                r = {"content": [{"type": "text", "text": "Hel"},
+                                 {"type": "text", "text": "lo"}],
+                     "stop_reason": "end_turn"}
+                parts = [b["text"] for b in r["content"] if b["type"] == "text"]
+                print("".join(parts), r["stop_reason"])
+                # Hello end_turn
+            ''',
+        },
+        {
+            "syntax": "tokens * price / 1_000_000",
+            "explain": "Cost in dollars of one side of a call. Prices are per million tokens. Add the input cost and the output cost.",
+            "example": r'''
+                usage = {"prompt_tokens": 2000, "completion_tokens": 400}
+                cost_in = usage["prompt_tokens"] * 3.0 / 1_000_000
+                cost_out = usage["completion_tokens"] * 15.0 / 1_000_000
+                print(cost_in + cost_out)
+                # 0.012
+            ''',
+        },
+        {
+            "syntax": 'chunk["choices"][0]["delta"].get("content") or ""',
+            "explain": "The new text in one OpenAI stream chunk. Skip a chunk whose choices list is empty, then join the pieces.",
+            "example": r'''
+                chunks = [{"choices": [{"delta": {"role": "assistant"}}]},
+                          {"choices": [{"delta": {"content": "Hi"}}]}]
+                text = ""
+                for chunk in chunks:
+                    delta = chunk["choices"][0]["delta"]
+                    text += delta.get("content") or ""
+                print(text)
+                # Hi
+            ''',
+        },
+        {
+            "syntax": 'getattr(err, "status_code", None)',
+            "explain": "The status code of an error, or None if it has none. Retry 429 and 500 to 599. Raise every other error again.",
+            "example": r'''
+                class APIError(Exception):
+                    status_code = 429
+                try:
+                    raise APIError("slow down")
+                except Exception as err:
+                    code = getattr(err, "status_code", None)
+                    print(code, code == 429)
+                # 429 True
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
 ## Chapter notes: calling an LLM
 
-An LLM API call is an HTTP POST: you send a **request** (model, messages, parameters) and get
-back a JSON **response** (the reply, why it stopped, how many tokens it used). The model
-remembers nothing between calls - you resend the whole conversation every time.
+### What an LLM does
 
-**Messages**: a list of `{"role": ..., "content": ...}` dicts in order.
-Roles: `system` (instructions), `user` (the person), `assistant` (the model's earlier replies).
-Anthropic takes the system prompt as a separate top-level `system` field instead.
+A **large language model (LLM)** is a program that takes a list of tokens and predicts the
+next token. This course calls it the **model**. A **token** is a small piece of text: a
+short word, part of a longer word or a punctuation mark. (It is not the Bearer token of the
+HTTP chapter, which is a secret key.) The model appends the predicted token to the list and
+predicts again. It repeats this until it reaches a stop condition.
 
-**Parameters**: `model`, `max_tokens` (hard cap on the reply length), `temperature`
-(0 = focused/repeatable, higher = more varied).
+### One API call
 
-**Reading responses**
+An LLM API call is an HTTP POST. You send a **request**: a model name, a list of messages
+and a few parameters. You get back a JSON **response**: the reply text, the reason
+generation stopped and the token counts. The **provider** is the company that runs the
+model. It stores nothing between calls, so you send the whole conversation in every request.
+
+The text you send is the **prompt**. The text the model generates is the **completion**.
+A call that sends chat messages and gets one new message back is a **chat completion**.
+The **client** is the code that sends the request.
+
+Step through the stages of one call and read the data at each stage.
+
+```diagram
+{"type":"flow","title":"One chat completion call","steps":[{"label":"Build messages","detail":"You build a list of message dicts. Each dict has a role and the text content.","code":"messages = [\n    {\"role\": \"system\", \"content\": \"Be terse.\"},\n    {\"role\": \"user\", \"content\": \"Capital of France?\"},\n]"},{"label":"Send the request","detail":"The client puts the model name, the messages and the parameters into a JSON body. It sends that body with an HTTP POST.","code":"{\"model\": \"gpt-4o-mini\", \"messages\": [...], \"temperature\": 0, \"max_tokens\": 20}"},{"label":"Predict one token","detail":"The provider converts the messages to a list of tokens. The model predicts the next token and appends it to the list.","code":"reply after pass 1: 'Paris'\nreply after pass 2: 'Paris.'"},{"label":"Check the stop condition","detail":"Generation ends when the model predicts its end-of-reply token, or when the reply reaches max_tokens tokens. Otherwise the model predicts another token.","code":"end-of-reply token predicted: finish_reason is 'stop'\nmax_tokens reached: finish_reason is 'length'"},{"label":"Build the response","detail":"The provider converts the generated tokens to text. It returns JSON that holds the text, the stop reason and the token counts.","code":"{\"choices\": [{\"message\": {\"role\": \"assistant\", \"content\": \"Paris.\"},\n              \"finish_reason\": \"stop\"}],\n \"usage\": {\"prompt_tokens\": 14, \"completion_tokens\": 2}}"},{"label":"Read content and usage","detail":"Your code reads the reply text, the stop reason and the token counts from the response dict.","code":"response[\"choices\"][0][\"message\"][\"content\"]   # 'Paris.'\nresponse[\"choices\"][0][\"finish_reason\"]        # 'stop'\nresponse[\"usage\"][\"completion_tokens\"]         # 2"}],"loop":{"from":3,"to":2,"label":"while no stop condition is met"}}
+```
+
+### Messages
+
+The conversation is a list of dicts in order. Each dict has a `"role"` and a `"content"`.
+A `system` message holds instructions, a `user` message holds what the person typed and
+an `assistant` message holds an earlier reply from the model.
+
+```python
+messages = [
+    {"role": "system", "content": "Be terse."},
+    {"role": "user", "content": "Capital of France?"},
+]
+messages.append({"role": "assistant", "content": "Paris."})
+print([m["role"] for m in messages])
+# ['system', 'user', 'assistant']
+```
+
+The text of the system message is the **system prompt**. OpenAI takes it as a message in
+the list, as above. Anthropic takes it in a separate `"system"` key of the request body,
+next to `"messages"`.
+
+### Parameters
+
+`model` names the model that runs. `max_tokens` is the maximum number of tokens in the
+reply. `temperature` controls how the next token is picked: at `0` the model picks the
+most likely token almost every time, and higher values pick less likely tokens more often.
+
+### Reading responses
+
+The two providers return different shapes. In an Anthropic response, `"content"` is a list
+of **content blocks**: dicts with a `"type"` key. A text block is
+`{"type": "text", "text": "..."}`.
 
 | | OpenAI Chat Completions | Anthropic Messages |
 | --- | --- | --- |
 | text | `r["choices"][0]["message"]["content"]` | join `b["text"]` for blocks in `r["content"]` with `type == "text"` |
-| stop | `choices[0]["finish_reason"]`: `stop`, `length`, `tool_calls` | `r["stop_reason"]`: `end_turn`, `max_tokens`, `tool_use`, `stop_sequence` |
+| stop | `choices[0]["finish_reason"]`: `stop`, `length` | `r["stop_reason"]`: `end_turn`, `max_tokens`, `stop_sequence` |
 | usage | `usage.prompt_tokens`, `usage.completion_tokens` | `usage.input_tokens`, `usage.output_tokens` |
 
-**Cost**: prices are quoted per million tokens, input and output priced separately:
-`cost = input_tokens * in_price / 1_000_000 + output_tokens * out_price / 1_000_000`.
+```python
+openai_response = {
+    "choices": [{"message": {"role": "assistant", "content": "Paris."}, "finish_reason": "stop"}],
+    "usage": {"prompt_tokens": 14, "completion_tokens": 2},
+}
+anthropic_response = {
+    "content": [{"type": "text", "text": "Paris."}],
+    "stop_reason": "end_turn",
+    "usage": {"input_tokens": 14, "output_tokens": 2},
+}
+print(openai_response["choices"][0]["message"]["content"])
+# Paris.
+print("".join(b["text"] for b in anthropic_response["content"] if b["type"] == "text"))
+# Paris.
+print(openai_response["choices"][0]["finish_reason"], anthropic_response["stop_reason"])
+# stop end_turn
+```
 
-**Truncation**: `length` / `max_tokens` means the reply was cut off - don't trust it as complete.
+A stop reason of `length` or `max_tokens` means the reply reached the token limit. The
+text is **truncated**: it ends before the model finished. (Other stop reasons exist for
+tool use. The Tool Calling chapter covers them. Ignore them here.)
 
-**Streaming**: the reply arrives in small pieces. OpenAI chunks carry
-`choices[0]["delta"].get("content")` (can be missing or `None`, and a final usage chunk can have
-empty `choices`). Anthropic sends events: `content_block_delta` with `delta.text`, and
-`message_delta` with `stop_reason` and output `usage`. Join the pieces with `"".join(parts)`.
+### Cost
 
-**Errors**: `429` = rate limited, `5xx` = server trouble -> retry with **exponential backoff**
-(wait 1, 2, 4 ... seconds). `400`/`401`/`403`/`404` are your bug -> don't retry, raise.
+Prices are quoted per million tokens. Input tokens and output tokens have separate prices.
 
-**Fake clients**: pass the client in as a parameter (*dependency injection*). Tests (and
-this course) swap in a fake function that returns a canned response dict - no network,
-no cost, deterministic.
+```python
+usage = {"prompt_tokens": 2000, "completion_tokens": 400}
+in_price, out_price = 3.0, 15.0
+cost = usage["prompt_tokens"] * in_price / 1_000_000 + usage["completion_tokens"] * out_price / 1_000_000
+print(cost)
+# 0.012
+```
 
-## Gotchas
-- Forgetting to append the assistant reply to history: the next turn loses context.
-- `content` can be `None` in an OpenAI reply that only calls tools.
-- Anthropic `content` is a **list** of blocks, not a string.
-- Don't mutate the caller's `messages` list unless that is the job.
+### Streaming
+
+With **streaming**, the provider sends the reply in small pieces while the model is still
+generating it. Each piece is a dict called a **chunk**. The new text in a chunk is called its
+**delta**. An OpenAI chunk holds the delta in `choices[0]["delta"]["content"]`. That key can be missing or `None`, and a final usage
+chunk can have an empty `choices` list.
+
+```python
+chunks = [
+    {"choices": [{"delta": {"role": "assistant"}}]},
+    {"choices": [{"delta": {"content": "Par"}}]},
+    {"choices": [{"delta": {"content": "is."}}]},
+    {"choices": [], "usage": {"prompt_tokens": 14, "completion_tokens": 2}},
+]
+parts = []
+for chunk in chunks:
+    if chunk["choices"]:
+        parts.append(chunk["choices"][0]["delta"].get("content") or "")
+print("".join(parts))
+# Paris.
+```
+
+Anthropic sends **events**: dicts with a `"type"` key. A `content_block_delta` event holds
+text in `event["delta"]["text"]`. A `message_delta` event holds the `stop_reason` and the
+output `usage`.
+
+### Errors and retries
+
+Status `429` means you are **rate limited**: you sent more requests or tokens per minute
+than the provider allows. Statuses `500` to `599` mean the server failed.
+Both are temporary, so you retry with **exponential backoff**: wait 1 second, then 2, then
+4. Statuses `400`, `401`, `403` and `404` mean the request itself is wrong. A retry sends
+the same wrong request, so you raise the error instead.
+
+### Fake clients
+
+**Dependency injection** means a function receives the client as an argument instead of
+creating it. A test passes a fake function that returns a fixed response dict. The test
+then uses no network, costs nothing and gives the same result on every run.
+
+```python
+def fake_client(model, messages):
+    return {"choices": [{"message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}]}
+
+def ask(client, question):
+    response = client(model="demo", messages=[{"role": "user", "content": question}])
+    return response["choices"][0]["message"]["content"]
+
+print(ask(fake_client, "ping"))
+# ok
+```
+
+## Common mistakes
+
+- You do not append the assistant reply to the history. The next request then lacks that
+  reply, so the model cannot use it.
+- You call a string method on `content` when it is `None`. An OpenAI reply that only asks
+  your code to run a function (finish reason `tool_calls`) has `"content": None`.
+- You treat Anthropic `content` as a string. It is a **list** of blocks.
+- You change the caller's `messages` list when the function was only asked to read it.
 '''
 
 EXERCISES = [
@@ -69,31 +269,42 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Messages: the script of a play
+            ## Messages and roles
 
-            Calling an LLM is like handing an actor a **script** of the play so far and asking
-            for the next line. The actor has no memory: every time, you hand over the whole
-            script again.
+            A **large language model (LLM)** is a program that takes a list of tokens and
+            predicts the next token. This course calls it the **model**. A **token** is a
+            small piece of text, such as a word or part of a word. An LLM API takes your text, converts it to tokens and returns the
+            predicted tokens as text. The reply is built one predicted token at a time.
 
-            In code the script is a **list of messages**. Each message is a dict with a
-            `"role"` (who is speaking) and `"content"` (what they said):
+            You send the text as a list of **messages**. Each message is a dict with two keys.
+            `"role"` says who wrote the text. `"content"` holds the text.
 
             ```python
             messages = [
-                {"role": "system", "content": "You are a terse travel agent."},
-                {"role": "user", "content": "Best time to visit Rome?"},
+                {"role": "system", "content": "Be terse."},
+                {"role": "user", "content": "Rome in May?"},
             ]
-            messages.append({"role": "assistant", "content": "April or October."})
+            messages.append({"role": "assistant", "content": "Yes."})
             for m in messages:
                 print(m["role"], "->", m["content"])
+            # system -> Be terse.
+            # user -> Rome in May?
+            # assistant -> Yes.
             ```
 
-            The three roles: **system** - the director's notes (rules and persona), **user** -
-            the person typing, **assistant** - the model's earlier replies. This format is
-            called the **chat messages format**, and nearly every LLM API uses it.
+            There are three roles. A `system` message holds instructions for the model. A
+            `user` message holds what the person typed. An `assistant` message holds a reply
+            the model produced earlier. This layout is called the **chat messages format**, and
+            nearly every LLM API uses it.
 
-            Watch out: the model only knows what is in the list you send. If you don't append
-            its last reply, it "forgets" what it said.
+            Click a cell to read one message.
+
+            ```diagram
+            {"type":"list-index","title":"Indexes of messages","name":"messages","items":[{"role":"system","content":"Be terse."},{"role":"user","content":"Rome in May?"},{"role":"assistant","content":"Yes."}]}
+            ```
+
+            The API stores nothing between calls. The model's input is only the list you send.
+            If you do not append the model's last reply, the next request does not contain it.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -112,9 +323,10 @@ EXERCISES = [
             ['system', 'user', 'assistant']
         ''',
         "explanation": r'''
-            The list starts with 2 messages and `append` adds a third, so `len` is 3.
-            `messages[-1]` is the last one, the assistant's. The comprehension collects every
-            role in order and prints the list with single quotes.
+            The list starts with 2 messages and `append` adds a third, so `len(messages)` is 3.
+            `messages[-1]` is the last message, the one with the role `assistant`. The
+            comprehension builds a list of every role in order. `print` shows the strings in
+            that list with single quotes.
         ''',
         "starter": "", "tests": "",
         "hints": [
@@ -128,11 +340,12 @@ EXERCISES = [
         "title": "Make a user message",
         "difficulty": 0,
         "lesson": r'''
-            ## One message = one small dict
+            ## Message helper functions
 
-            Think of each message as a speech bubble with a name tag. The tag is the role, the
-            bubble is the content. Building them by hand everywhere is repetitive and easy to
-            typo (`"rol"`, `"User"`), so real apps have tiny helper functions for it.
+            A message is a dict with two keys: `"role"` and `"content"`. If you write that
+            dict by hand in many places, you will mistype a key or a role at some point, for
+            example `"rol"` or `"User"`. A small function that builds the dict keeps the
+            spelling in one place.
 
             ```python
             def system_message(text):
@@ -140,14 +353,19 @@ EXERCISES = [
 
             msg = system_message("Answer in French.")
             print(msg)
+            # {'role': 'system', 'content': 'Answer in French.'}
             print(msg["role"])
+            # system
             ```
 
-            The role strings are exact and lowercase: `"system"`, `"user"`, `"assistant"`.
-            The API rejects anything else with a `400 Bad Request` error.
+            The function takes the text as its argument and returns a new dict. The role is
+            fixed inside the function, so the caller cannot misspell it.
 
-            Watch out: `content` is the text itself - a string - not a list or another dict
-            (for plain text messages).
+            The role strings are exact and lowercase: `"system"`, `"user"`, `"assistant"`.
+            The API rejects a role it does not know, such as `"User"`, with a
+            `400 Bad Request` error.
+
+            For a plain text message, `content` is a string. It is not a list or another dict.
         ''',
         "prompt": r'''
             A tiny helper so the rest of the app never typos a message dict.
@@ -201,16 +419,18 @@ EXERCISES = [
         "title": "Build the request body",
         "difficulty": 0,
         "lesson": r'''
-            ## The order slip: model and knobs
+            ## The request body
 
-            Ordering coffee, you say *which* drink (the **model**), and adjust a few knobs:
-            size, sugar. An LLM request is the same: the model name, the messages, and a
-            few **parameters**:
+            A request to an LLM API holds the model name, the messages and a few
+            **parameters**: named settings that control how the reply is generated.
 
-            - `max_tokens` - the maximum length of the reply, in tokens (word pieces). It is a
-              hard cap: the model stops mid-sentence if it hits it.
-            - `temperature` - how adventurous the wording is. `0` gives focused, repeatable
-              answers (good for extraction); around `1` gives more variety (good for ideas).
+            `max_tokens` is the maximum number of tokens in the reply. Generation stops when
+            the reply reaches that count, even in the middle of a sentence.
+
+            `temperature` controls how the model picks each next token. At `0` it picks the
+            most likely token almost every time, so repeated calls give nearly the same
+            reply. That suits data extraction. Around `1` it picks less likely tokens more
+            often, so replies vary more. That suits generating ideas.
 
             ```python
             import json
@@ -221,12 +441,15 @@ EXERCISES = [
                 "max_tokens": 20,
             }
             print(json.dumps(body))
+            # {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Name a colour"}], "temperature": 0, "max_tokens": 20}
             ```
 
-            This dict is the **request body**. The client library turns it into JSON and POSTs
-            it to the provider, just like the HTTP requests you built earlier.
+            This dict is the **request body**. The provider's Python package converts it to
+            JSON text and sends it with an HTTP POST to the **provider**: the company that
+            runs the model.
 
-            Watch out: parameter names are exact - `max_tokens`, not `maxTokens` or `max_token`.
+            Parameter names are exact. The API accepts `max_tokens`. It does not accept
+            `maxTokens` or `max_token`.
         ''',
         "prompt": r'''
             Build the JSON body of a chat request.
@@ -287,10 +510,11 @@ EXERCISES = [
         "title": "Fix the OpenAI reply reader",
         "difficulty": 0,
         "lesson": r'''
-            ## Unwrapping the parcel
+            ## Reading an OpenAI response
 
-            The reply comes back like a parcel inside a box inside another box. You open them in
-            order. An OpenAI Chat Completions response looks like this:
+            An OpenAI Chat Completions response is a dict that holds a list that holds more
+            dicts. The reply text is several levels down. You read it one key or index at a
+            time.
 
             ```python
             response = {
@@ -303,16 +527,21 @@ EXERCISES = [
             }
             first = response["choices"][0]
             print(first["message"]["role"])
+            # assistant
             print(first["message"]["content"])
+            # Paris.
             ```
 
-            `"choices"` is a **list** (you can ask for several alternative replies), so you index
-            it with `[0]`. Inside, `"message"` is a normal assistant message - the same shape as
-            the ones you send. This walk through nested keys is called **drilling into** the
-            response.
+            `response["choices"]` is a **list**, because a request can ask for several
+            alternative replies. `[0]` reads the first one. Each item in that list is a
+            **choice**: a dict with the keys `"index"`, `"message"` and `"finish_reason"`.
 
-            Watch out: the text is not directly on the choice - it's one level deeper, in
-            `"message"`.
+            `first["message"]` is an assistant message. It has the same two keys as the
+            messages you send: `"role"` and `"content"`. Reading a value through several keys
+            and indexes in a row is called **nested access**.
+
+            A choice has no `"content"` key. The text is one level deeper, inside
+            `"message"`. Asking a dict for a key it does not have raises `KeyError`.
         ''',
         "prompt": r'''
             This function should pull the reply text out of an OpenAI-shaped chat response, but
@@ -368,12 +597,14 @@ EXERCISES = [
         "title": "Read an Anthropic reply",
         "difficulty": 0,
         "lesson": r'''
-            ## Same parcel, different packaging
+            ## Reading an Anthropic response
 
-            Two shops can sell the same thing in different boxes. Anthropic's Messages API also
-            returns an assistant reply, but the text lives in a **list of content blocks**. Each
-            block has a `"type"`; plain text blocks are `{"type": "text", "text": "..."}`.
-            Other types (like `"tool_use"`) can appear too.
+            Anthropic's Messages API also returns an assistant reply, but the response has a
+            different shape. `response["content"]` is a list of **content blocks**. A content
+            block is a dict with a `"type"` key. A plain text block has the form
+            `{"type": "text", "text": "..."}`. This lesson reads only the text blocks and
+            skips the rest. (Blocks of other types exist for tool use. The Tool
+            Calling chapter covers them.)
 
             ```python
             response = {
@@ -383,16 +614,23 @@ EXERCISES = [
                 "stop_reason": "end_turn",
                 "usage": {"input_tokens": 10, "output_tokens": 3},
             }
-            parts = [b["text"] for b in response["content"] if b["type"] == "text"]
+            parts = []
+            for block in response["content"]:
+                if block["type"] == "text":
+                    parts.append(block["text"])
             print(parts)
+            # ['Hello', ' world']
             print("".join(parts))
+            # Hello world
             ```
 
-            This design lets one reply mix text with other things. Getting "the text" therefore
-            means: keep the text blocks, then **join** their text in order.
+            One reply can hold text blocks and other blocks together. To get the reply text,
+            you keep the blocks whose type is `"text"`, then join their `"text"` values in
+            order. `"".join(parts)` builds one string from the strings in `parts` and puts
+            nothing between them.
 
-            Watch out: `response["content"]` is a list, not a string - `response["content"][0]`
-            is a dict, not text.
+            `response["content"]` is a list, not a string. `response["content"][0]` is a
+            dict, not text.
         ''',
         "prompt": r'''
             Get the full reply text out of an Anthropic-shaped response.
@@ -446,7 +684,7 @@ EXERCISES = [
         ''',
         "hints": [
             "Loop over response[\"content\"] and look at each block's \"type\".",
-            "Collect the text of the text blocks only, then glue them together with an empty separator.",
+            "Collect the text of the text blocks only, then join them together with an empty separator.",
             "Build a list of `block[\"text\"]` for blocks where `block[\"type\"] == \"text\"`, then return `\"\".join(...)` of it.",
         ],
     },
@@ -455,28 +693,38 @@ EXERCISES = [
         "title": "What did that call cost?",
         "difficulty": 0,
         "lesson": r'''
-            ## Paying by the word piece
+            ## Tokens and cost
 
-            LLMs are billed like a taxi meter, but for text. The meter counts **tokens** - small
-            pieces of words (roughly 3/4 of a word in English). What you send (**input tokens**)
-            and what the model writes (**output tokens**) have separate prices, and output is
-            usually several times more expensive.
+            Providers charge per **token**. A token is a small piece of text. In English, one
+            token is about 3/4 of a word on average.
 
-            Prices are quoted **per million tokens**, e.g. "$3 input / $15 output per 1M".
+            **Input tokens** are the tokens in what you send. **Output tokens** are the tokens
+            the model generates. Each kind has its own price, and the output price is usually
+            several times higher.
+
+            Prices are quoted **per million tokens**, for example "$3 input / $15 output per
+            1M". To get the cost of one side, multiply its token count by its price and divide
+            by one million.
 
             ```python
             input_tokens, output_tokens = 2_000, 400
             in_price, out_price = 3.0, 15.0        # dollars per million tokens (made-up prices)
-            cost = input_tokens * in_price / 1_000_000 + output_tokens * out_price / 1_000_000
+            input_cost = input_tokens * in_price / 1_000_000
+            output_cost = output_tokens * out_price / 1_000_000
+            print(input_cost, output_cost)
+            # 0.006 0.006
+            cost = input_cost + output_cost
             print(cost)
+            # 0.012
             print(f"${cost:.4f}")
+            # $0.0120
             ```
 
-            The token counts come back in every response's **usage** section, so you can
-            compute the exact cost of each call after it happens.
+            Every response has a **usage** section that holds both token counts. You can
+            compute the exact cost of a call as soon as you have its response.
 
-            Watch out: divide by one million (`1_000_000`), not one thousand - some older price
-            lists were per 1K tokens.
+            Divide by one million (`1_000_000`), not one thousand. Some older price lists
+            were per 1K tokens.
         ''',
         "prompt": r'''
             Compute the price of one API call in dollars.
@@ -540,14 +788,14 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Streaming: the reply arrives like a typewriter
+            ## Streaming and deltas
 
-            Waiting 10 seconds for a whole answer feels slow. So chat apps **stream**: the
-            server sends the reply a few characters at a time, like a typewriter, and the app
-            shows each piece as it lands.
+            A long reply can take 10 seconds to generate. With **streaming**, the server
+            sends each part of the reply as soon as the model generates it. The app shows the
+            text while the rest is still being generated.
 
-            Each piece is called a **delta** (a change: "add this bit"). To get the full text
-            you glue the deltas together, in order:
+            Each part is called a **delta**: the new text to add to what you already have. To
+            get the full reply, you join the deltas in order.
 
             ```python
             deltas = ["The ", "sky ", "is ", "blue."]
@@ -555,15 +803,45 @@ EXERCISES = [
             for piece in deltas:
                 shown += piece
                 print(shown)
+            # The
+            # The sky
+            # The sky is
+            # The sky is blue.
             print("".join(deltas) == shown)
+            # True
             ```
 
-            `"".join(pieces)` glues a list of strings with nothing in between - the usual way
-            to rebuild the reply.
+            Step through the loop and watch `shown` grow by one delta on each pass.
 
-            Watch out: some stream events carry no text at all (the first one may only say
-            the role, the last one only the stop reason). Their delta can be missing or `None`,
-            and `"".join` crashes on `None` - replace it with `""` first.
+            ```diagram
+            {"type": "trace", "title": "Joining deltas one at a time", "code": ["deltas = [\"The \", \"sky \", \"is \", \"blue.\"]", "shown = \"\"", "for piece in deltas:", "    shown += piece", "    print(shown)", "print(\"\".join(deltas) == shown)"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']"}, "out": ""},
+              {"line": 3, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "''"}, "out": ""},
+              {"line": 4, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "''", "piece": "'The '"}, "out": ""},
+              {"line": 5, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "'The '", "piece": "'The '"}, "out": ""},
+              {"line": 3, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "'The '", "piece": "'The '"}, "out": "The \n"},
+              {"line": 4, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "'The '", "piece": "'sky '"}, "out": "The \n"},
+              {"line": 5, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "'The sky '", "piece": "'sky '"}, "out": "The \n"},
+              {"line": 3, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "'The sky '", "piece": "'sky '"}, "out": "The \nThe sky \n"},
+              {"line": 4, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "'The sky '", "piece": "'is '"}, "out": "The \nThe sky \n"},
+              {"line": 5, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "'The sky is '", "piece": "'is '"}, "out": "The \nThe sky \n"},
+              {"line": 3, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "'The sky is '", "piece": "'is '"}, "out": "The \nThe sky \nThe sky is \n"},
+              {"line": 4, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "'The sky is '", "piece": "'blue.'"}, "out": "The \nThe sky \nThe sky is \n"},
+              {"line": 5, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "'The sky is blue.'", "piece": "'blue.'"}, "out": "The \nThe sky \nThe sky is \n"},
+              {"line": 3, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "'The sky is blue.'", "piece": "'blue.'"}, "out": "The \nThe sky \nThe sky is \nThe sky is blue.\n"},
+              {"line": 6, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "'The sky is blue.'", "piece": "'blue.'"}, "out": "The \nThe sky \nThe sky is \nThe sky is blue.\n"},
+              {"line": null, "vars": {"deltas": "['The ', 'sky ', 'is ', 'blue.']", "shown": "'The sky is blue.'", "piece": "'blue.'"}, "out": "The \nThe sky \nThe sky is \nThe sky is blue.\nTrue\n"}
+            ]}
+            ```
+
+            `"".join(deltas)` builds one string from the strings in the list and puts nothing
+            between them. It is the usual way to rebuild the reply.
+
+            Each item the server sends in a stream is called an **event**. Some events hold
+            no text. The first one may hold only the role, and the last one only the stop
+            reason. Their delta can be missing or `None`. `"".join`
+            raises `TypeError` when an item is `None`, so replace `None` with `""` first.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -586,9 +864,9 @@ EXERCISES = [
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "\"\".join glues strings together with nothing between them.",
+            "\"\".join joins strings together with nothing between them.",
             "An empty string adds nothing. len of a list counts its items. `None or \"\"` is \"\".",
-            "Line 1: the glued text. Line 2: how many items are in the deltas list. Line 3: the glued text of the events, where None became an empty string.",
+            "Line 1: the joined text. Line 2: how many items are in the deltas list. Line 3: the joined text of the events, where None became an empty string.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 1
@@ -597,12 +875,15 @@ EXERCISES = [
         "title": "Ask through an injected client",
         "difficulty": 1,
         "lesson": r'''
-            ## Plug in the client, don't hard-wire it
+            ## Passing the client as an argument
 
-            A lamp with a plug works with any socket; a lamp wired into the wall only works
-            there. If your function *receives* the LLM client as an argument, you can plug in
-            the real one in production and a **fake** one in tests - no network, no cost, the
-            same answer every time.
+            A **client** is the function or object that sends the request to the provider. A
+            function that creates its own client can only ever call the real API. A function
+            that receives the client as an argument works with any client you pass.
+
+            In the real app you pass the real client. In a test you pass a **fake client**: a
+            function that returns a fixed response dict. A fake uses no network, costs
+            nothing and returns the same answer on every run.
 
             ```python
             def fake_client(model, messages, **kwargs):
@@ -615,15 +896,23 @@ EXERCISES = [
                 return response["choices"][0]["message"]["content"]
 
             print(ask(fake_client, "ping"))
+            # You said: ping
             ```
 
-            Passing collaborators in like this is called **dependency injection**. The real
-            OpenAI SDK call looks almost the same:
-            `client.chat.completions.create(model=..., messages=...)` - keyword arguments in,
-            a response out.
+            `**kwargs` in a parameter list collects any extra keyword arguments into a dict. The fake
+            accepts them and ignores them.
 
-            Watch out: call the client with **keyword** arguments (`model=...`), exactly as the
-            spec says - real SDKs require them.
+            `ask` calls whatever function `client` refers to. Here that is `fake_client`,
+            which builds its reply from the last message it received.
+
+            Passing a function the objects it depends on is called **dependency injection**.
+            An **SDK** (software development kit) is the Python package a provider publishes
+            for calling its API. The real OpenAI SDK call has almost the same form:
+            `client.chat.completions.create(model=..., messages=...)`. It takes keyword
+            arguments and returns a response.
+
+            Call the client with **keyword arguments** (`model=...`), exactly as the task
+            states. Real SDKs require them.
         ''',
         "prompt": r'''
             A helper that asks one question with a system prompt, using whatever client it is given.
@@ -704,11 +993,13 @@ EXERCISES = [
         "title": "Split out the system prompt",
         "difficulty": 1,
         "lesson": r'''
-            ## Anthropic keeps the director's notes separate
+            ## The Anthropic system field
 
-            Some theatres pin the director's notes to the wall instead of writing them into the
-            script. Anthropic's Messages API does that: the system prompt goes in its own
-            top-level `"system"` field, and `"messages"` holds only `user` and `assistant` turns.
+            The **system prompt** is the text of the system message: the instructions for the
+            model. OpenAI takes it as a message with the role `"system"` inside the messages
+            list. Anthropic's Messages API takes it in a separate top-level `"system"` field
+            of the request body. Its `"messages"` list holds only `user` and `assistant`
+            messages.
 
             ```python
             openai_style = [
@@ -719,14 +1010,19 @@ EXERCISES = [
             rest = openai_style[1:]
             body = {"model": "claude-haiku", "system": system, "messages": rest, "max_tokens": 100}
             print(body["system"])
+            # Be brief.
             print(body["messages"])
+            # [{'role': 'user', 'content': 'Hi'}]
             ```
 
-            Code that supports several providers therefore needs an **adapter**: a small
-            function that converts one request shape into another.
+            The slice `openai_style[1:]` creates a new list. `openai_style` still has both
+            messages afterwards.
 
-            Watch out: build a new list for the non-system messages - don't delete items from
-            the caller's list while looping over it.
+            Code that supports several providers needs an **adapter**: a small function that
+            converts one request shape into another.
+
+            Build a new list for the non-system messages. Do not delete items from the
+            caller's list while you loop over it, because the loop then skips items.
         ''',
         "prompt": r'''
             Convert an OpenAI-style message list for Anthropic, which wants the system prompt separately.
@@ -794,29 +1090,37 @@ EXERCISES = [
         "title": "Was the reply cut off?",
         "difficulty": 1,
         "lesson": r'''
-            ## Stop reasons: why did it stop talking?
+            ## Stop reasons
 
-            A speaker can stop because they finished their point, or because the moderator cut
-            the microphone. You need to know which! Every response says why generation stopped -
-            the **stop reason**.
+            The model generates tokens until a stop condition is met. One condition is that
+            the model predicts its end-of-reply token, so the reply is complete. Another is
+            that the reply reaches `max_tokens`, so the reply ends early. Every response
+            holds a **stop reason**: a string that says which condition ended generation.
 
             ```python
             openai_reply = {"choices": [{"message": {"role": "assistant", "content": "The three steps are: 1."},
                                          "finish_reason": "length"}]}
             anthropic_reply = {"content": [{"type": "text", "text": "Done."}], "stop_reason": "end_turn"}
             print(openai_reply["choices"][0]["finish_reason"])
+            # length
             print(anthropic_reply["stop_reason"])
+            # end_turn
             ```
 
-            The common values: OpenAI's `finish_reason` is `"stop"` (finished), `"length"` (hit
-            `max_tokens`), or `"tool_calls"`. Anthropic's `stop_reason` is `"end_turn"`,
-            `"max_tokens"`, `"stop_sequence"` or `"tool_use"`.
+            OpenAI calls the field `finish_reason`. The values that matter here are `"stop"`
+            (the reply is complete) and `"length"` (the reply reached `max_tokens`).
+            Anthropic calls the field `stop_reason`. The values that matter here are
+            `"end_turn"` (complete), `"max_tokens"` (limit reached) and `"stop_sequence"`
+            (the model generated a string that your request listed as a
+            place to stop). (Both providers have extra values for tool use. The Tool
+            Calling chapter covers them.)
 
-            A reply that hit the token limit is **truncated**: half a JSON object, a list that
-            stops at item 3. Real apps detect it and retry with a bigger `max_tokens` or warn.
+            A reply that reached the token limit is **truncated**: the text ends before the
+            model finished. It can be half a JSON object, or a list that ends at item 3. Real
+            apps detect this and retry with a larger `max_tokens`, or show a warning.
 
-            Watch out: the two providers put the stop reason in different places - check which
-            shape you have first (`"choices" in response`).
+            The two providers put the stop reason in different places. Check which shape you
+            have first, for example with `"choices" in response`.
         ''',
         "prompt": r'''
             Detect whether a reply was cut off by the token limit, for either provider.
@@ -896,11 +1200,15 @@ EXERCISES = [
         "title": "Normalise token usage",
         "difficulty": 1,
         "lesson": r'''
-            ## Usage: the itemised receipt
+            ## Token usage
 
-            Every response comes with a receipt: how many tokens went in and how many came out.
-            Providers print the receipt with different labels, so your code translates them into
-            one shape of your own - then cost tracking and dashboards only deal with one format.
+            Every response has a `"usage"` dict. It holds the number of tokens you sent and
+            the number of tokens the model generated. The two providers use different key
+            names for the same two counts.
+
+            OpenAI names them `prompt_tokens` and `completion_tokens`. The **prompt** is the
+            text you send and the **completion** is the text the model generates. Anthropic
+            names them `input_tokens` and `output_tokens`.
 
             ```python
             openai_usage = {"prompt_tokens": 120, "completion_tokens": 30, "total_tokens": 150}
@@ -909,14 +1217,26 @@ EXERCISES = [
                 inp = usage.get("prompt_tokens", usage.get("input_tokens", 0))
                 out = usage.get("completion_tokens", usage.get("output_tokens", 0))
                 print(inp, out, inp + out)
+            # 120 30 150
+            # 120 30 150
             ```
 
-            OpenAI says **prompt** / **completion** tokens; Anthropic says **input** / **output**.
-            Same idea: what you sent, and what the model wrote. Translating provider shapes into
-            your own is called **normalising** the data.
+            `usage.get("prompt_tokens", default)` returns the value for `"prompt_tokens"` if
+            the key exists. Otherwise it returns the default. Here the default is a second
+            `.get` call that reads the Anthropic key, and that call falls back to `0`.
 
-            Watch out: a response may have no `"usage"` at all (some fakes and some stream
-            chunks) - `.get("usage") or {}` keeps your code from crashing.
+            Try `get` with `input_tokens` on the OpenAI dict to see why the fallback is needed.
+
+            ```diagram
+            {"type":"dict","title":"Keys of an OpenAI usage dict","name":"openai_usage","entries":[["prompt_tokens",120],["completion_tokens",30],["total_tokens",150]]}
+            ```
+
+            Converting each provider's shape into one shape of your own is called
+            **normalising** the data. Cost tracking code then handles one format only.
+
+            A response may have no `"usage"` key, or `"usage": None`. Some fakes and some
+            stream chunks are built that way. `response.get("usage") or {}` gives you an
+            empty dict in both cases, so the later `.get` calls still work.
         ''',
         "prompt": r'''
             Turn either provider's usage block into one shape for your cost tracker.
@@ -984,12 +1304,15 @@ EXERCISES = [
         "title": "Collect a stream",
         "difficulty": 1,
         "lesson": r'''
-            ## Reading the typewriter tape
+            ## OpenAI stream chunks
 
-            Remember the typewriter? A real OpenAI stream sends **chunks** shaped a lot like a
-            normal response, except each choice has a `"delta"` (the new bit) instead of a whole
-            `"message"`. The first chunk often only carries the role; the last one only the
-            `finish_reason`; with usage reporting on, a final chunk has **no choices at all**.
+            A real OpenAI stream sends a sequence of **chunks**. A chunk is a dict with almost
+            the same shape as a normal response. The difference is that each choice has a
+            `"delta"` dict, which holds only the new text, instead of a full `"message"`.
+
+            Not every chunk holds text. The first chunk often holds only the role. The last
+            one holds only the `finish_reason`. When usage reporting is on, a final chunk has
+            an **empty `choices` list**.
 
             ```python
             def fake_stream():
@@ -1002,13 +1325,21 @@ EXERCISES = [
             for chunk in fake_stream():
                 if chunk["choices"]:
                     print(repr(chunk["choices"][0]["delta"].get("content")))
+            # None
+            # 'Hel'
+            # 'lo'
+            # None
             ```
 
-            The stream is an **iterable** - often a generator like this one - so you consume it
-            with a `for` loop, once. Each chunk is a **delta event**.
+            The loop prints four lines for five chunks. The `if` skips the last chunk because
+            an empty list counts as false. `.get("content")` returns `None` for the two
+            deltas that have no `"content"` key.
 
-            Watch out: `delta.get("content")` can be `None`; and `chunk["choices"][0]` crashes on
-            the empty-choices chunk.
+            The stream is an **iterable**, often a generator such as `fake_stream()`. A
+            generator produces each item once, so you can loop over the stream only one time.
+
+            `delta.get("content")` can be `None`. `chunk["choices"][0]` raises `IndexError`
+            on the chunk whose `choices` list is empty.
         ''',
         "prompt": r'''
             Rebuild the full reply text from an OpenAI-style stream of chunks.
@@ -1097,14 +1428,17 @@ EXERCISES = [
         "title": "Survive a rate limit",
         "difficulty": 1,
         "lesson": r'''
-            ## 429: the kitchen is full
+            ## Rate limits and status 429
 
-            A busy restaurant sometimes says "we can't take your order right now". An LLM API
-            says the same with **HTTP 429 Too Many Requests** - you're being **rate limited**
-            (too many requests or tokens per minute). It's temporary. Other errors, like `401`
-            (bad API key) or `400` (bad request), are *your* bug and won't fix themselves.
+            A provider allows each account a fixed number of requests and tokens per minute.
+            When you send more than that, the API responds with **HTTP 429 Too Many
+            Requests**. You are **rate limited**. The condition is temporary: the same
+            request can succeed a little later.
 
-            SDKs raise exceptions that carry the status code as an attribute:
+            Other errors are not temporary. `401` means the API key is wrong and `400` means
+            the request body is invalid. The same request fails again until you change your code.
+
+            SDKs raise exceptions that store the status code as an attribute.
 
             ```python
             class APIError(Exception):
@@ -1117,13 +1451,16 @@ EXERCISES = [
             except Exception as err:
                 code = getattr(err, "status_code", None)
                 print("status:", code, "-", err)
+            # status: 429 - Rate limit reached
             ```
 
-            `getattr(obj, "name", default)` reads an attribute by name and returns the default
-            if it doesn't exist - handy when not every exception has a `status_code`.
+            `getattr(obj, "name", default)` reads the attribute called `name` from `obj`. If
+            the object has no such attribute, it returns the default instead of raising
+            `AttributeError`. That matters here because many exceptions, such as `KeyError`,
+            have no `status_code`.
 
-            Watch out: catch only what you can handle. For everything else, a bare `raise`
-            inside `except` re-raises the same error unchanged.
+            Handle only the errors you have a response for. For every other error, write a
+            bare `raise` inside the `except` block. It raises the same exception object again.
         ''',
         "prompt": r'''
             Show a friendly message when the model is rate limited, and let every other error through.
@@ -1473,7 +1810,7 @@ EXERCISES = [
     },
     {
         "id": "llm-basics-16",
-        "title": "One response shape to rule them all",
+        "title": "One response shape for both providers",
         "difficulty": 2,
         "prompt": r'''
             Your app talks to two providers. Convert either response into one internal shape.

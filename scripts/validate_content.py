@@ -119,10 +119,48 @@ def check_project(p):
     return "project:" + p["id"], problems
 
 
+def check_reference(t):
+    """The Library card for a topic: structured, short, and every example really prints what it claims."""
+    problems = []
+    ref = t.get("reference") or {}
+    keywords, cards = ref.get("keywords", []), ref.get("cards", [])
+    if not 3 <= len(keywords) <= 16 or any(not k or k != k.lower() or len(k) > 30 for k in keywords):
+        problems.append("REFERENCE needs 3-16 lowercase `keywords` (search words, each <= 30 chars)")
+    if not 3 <= len(cards) <= 6:
+        problems.append(f"REFERENCE needs 3-6 `cards`, has {len(cards)}")
+    for i, c in enumerate(cards):
+        where = f"card {i + 1} ({c['syntax'][:30]!r})"
+        if not c["syntax"] or "\n" in c["syntax"] or len(c["syntax"]) > 60:
+            problems.append(f"{where}: `syntax` must be one line, 1-60 chars")
+        if not 15 <= len(c["explain"]) <= 160:
+            problems.append(f"{where}: `explain` must be one sentence or two, 15-160 chars")
+        lines = c["example"].splitlines()
+        if not 2 <= len(lines) <= 8 or any(len(line) > 72 for line in lines):
+            problems.append(f"{where}: `example` must be 2-8 lines of at most 72 chars")
+            continue
+        if any(ord(ch) > 127 for ch in c["syntax"] + c["explain"] + c["example"]):
+            problems.append(f"{where}: ASCII only")
+        r = runner.run_code({"snippet.py": c["example"] + "\n"}, main="snippet.py")
+        claimed = [line[2:] if line.startswith("# ") else "" for line in lines if line.startswith("#")]
+        actual = r["stdout"].rstrip("\n").split("\n") if r["stdout"].strip() else []
+        if r["returncode"] != 0 or r.get("timed_out"):
+            last = r["stderr"].strip().splitlines()[-1] if r["stderr"].strip() else r["returncode"]
+            problems.append(f"{where}: example does not run cleanly: {last}")
+        elif [a.rstrip() for a in actual] != [x.rstrip() for x in claimed]:
+            problems.append(f"{where}: the `# ` comment lines must be exactly what the example prints.\n"
+                            f"claimed: {claimed}\nactual:  {actual}")
+        elif not actual:
+            problems.append(f"{where}: example must print something (show it on `# ` lines)")
+    return "reference:" + t["id"], problems
+
+
 def main():
     data = content.load()
     prefixes = sys.argv[1:]
     jobs = []
+    for t in data["topics"]:
+        if not prefixes or any(("reference:" + t["id"]).startswith(p) or p == "references" for p in prefixes):
+            jobs.append((check_reference, t))
     for ex in data["exercises"].values():
         if not prefixes or any(ex["id"].startswith(p) for p in prefixes):
             jobs.append((check_exercise, ex))

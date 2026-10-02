@@ -14,51 +14,233 @@ TOPIC = {
                  "type coercion", "JSON Schema", "retry with feedback"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["structured output", "json", "json.loads", "jsondecodeerror", "parse",
+                 "code fence", "validate", "isinstance", "bool", "default", "enum", "coercion",
+                 "json schema", "schema", "retry"],
+    "cards": [
+        {
+            "syntax": "json.loads(text)",
+            "explain": "Parses a JSON string into Python data. Raises json.JSONDecodeError for invalid JSON. Its .msg is a short reason.",
+            "example": r'''
+                import json
+                for text in ['{"n": 2}', "Sure!"]:
+                    try:
+                        print(json.loads(text))
+                    except json.JSONDecodeError as error:
+                        print("invalid JSON:", error.msg)
+                # {'n': 2}
+                # invalid JSON: Expecting value
+            ''',
+        },
+        {
+            "syntax": 'reply[reply.find("{"):reply.rfind("}") + 1]',
+            "explain": "The text from the first { to the last }, both included. Removes sentences around a JSON object.",
+            "example": r'''
+                reply = 'Sure! {"a": 1} Hope that helps.'
+                start = reply.find("{")
+                end = reply.rfind("}") + 1
+                print(reply[start:end])
+                # {"a": 1}
+            ''',
+        },
+        {
+            "syntax": "isinstance(value, int) and not isinstance(value, bool)",
+            "explain": "True for an int, False for True and False. bool is a subclass of int, so isinstance(True, int) is True.",
+            "example": r'''
+                for value in [3, True, "3"]:
+                    is_int = isinstance(value, int) and not isinstance(value, bool)
+                    print(repr(value), is_int)
+                # 3 True
+                # True False
+                # '3' False
+            ''',
+        },
+        {
+            "syntax": "{**defaults, **data}",
+            "explain": "A new dict with the keys of both. For a key in both, the value from data replaces the default.",
+            "example": r'''
+                defaults = {"priority": "medium", "tags": []}
+                data = {"title": "Bug", "priority": "high"}
+                print({**defaults, **data})
+                # {'priority': 'high', 'tags': [], 'title': 'Bug'}
+            ''',
+        },
+        {
+            "syntax": "value.strip().lower() in allowed",
+            "explain": "An enum check: remove spaces at both ends, lowercase, then test against the list of allowed values.",
+            "example": r'''
+                allowed = ["low", "medium", "high"]
+                for value in [" HIGH ", "urgent"]:
+                    print(value.strip().lower() in allowed)
+                # True
+                # False
+            ''',
+        },
+        {
+            "syntax": '{"type": "object", "properties": {...}, "required": [...]}',
+            "explain": "A JSON Schema. properties maps each key to a schema for its value. required lists the keys that must be present.",
+            "example": r'''
+                schema = {"type": "object",
+                          "properties": {"age": {"type": "integer"}},
+                          "required": ["age"]}
+                data = {"name": "Ada"}
+                print([key for key in schema["required"] if key not in data])
+                # ['age']
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
-## Structured output - chapter notes
+## Structured output: chapter notes
 
-Your code can't use "Sure! The customer seems unhappy." It needs
-`{"sentiment": "negative", "urgent": true}`. **Structured output** means asking the model
-for data in a fixed shape (usually JSON) and *checking* it before you trust it.
+A model's reply is a string. Your code cannot branch on a sentence such as
+`Sure! The customer seems unhappy.` It can branch on
+`{"sentiment": "negative", "urgent": true}`. **Structured output** means that you ask the
+model for data in a fixed format, usually JSON, and you check that data before you use it.
 
-**Parse.** `json.loads(text)` turns a JSON string into Python (`dict`, `list`, `str`,
-`int`, `float`, `bool`, `None`). Bad JSON raises `json.JSONDecodeError` (a subclass of
-`ValueError`); its `.msg` is a short reason like `"Expecting value"`.
+Models often write replies in **Markdown**, a plain-text format in which symbols mark
+headings, lists and code. In Markdown, a line of three backticks before a block of code and
+another after it is a code fence. A backtick is the slanted quote character on the key
+left of `1` on a US keyboard.
+
+Step through the stages a reply passes through before your code uses it.
+
+```diagram
+{"type":"flow","title":"From reply text to checked data","steps":[
+{"label":"Call the model","detail":"llm(messages) returns the reply as one string. The string can contain extra sentences or a Markdown code fence around the JSON.","code":"reply = 'Sure! {\"sentiment\": \"negative\", \"urgent\": true}'"},
+{"label":"Extract the JSON text","detail":"Take the text inside the code fence if there is one. Otherwise slice from the first { to the last }.","code":"text = '{\"sentiment\": \"negative\", \"urgent\": true}'"},
+{"label":"Parse","detail":"json.loads(text) builds a Python value from the JSON text. It raises json.JSONDecodeError when the text is not valid JSON.","code":"data = {'sentiment': 'negative', 'urgent': True}"},
+{"label":"Validate","detail":"Check that the value is a dict, that every required key is present and that each value has the expected type. Collect each problem as a string.","code":"problems = []"},
+{"label":"Use the data","detail":"When the list of problems is empty, fill in defaults for missing optional keys and return the dict.","code":"result = {'sentiment': 'negative', 'urgent': True, 'tags': []}"}
+],"loop":{"from":3,"to":0,"label":"problems found and attempts remain: send the problems back"}}
+```
+
+### Parsing
+
+`json.loads(text)` parses a JSON string and returns the Python value it describes: a
+`dict`, `list`, `str`, `int`, `float`, `bool` or `None`.
 
 ```python
 import json
-print(json.loads('{"ok": true, "n": 2}'))
+
+data = json.loads('{"ok": true, "n": 2}')
+print(data)
+# {'ok': True, 'n': 2}
 ```
 
-**Extract.** Models wrap JSON in prose or a Markdown code fence (three backticks, often
-followed by `json`). Take the text inside the fence, or from the first `{` to the last
-`}` (slice end is `rfind("}") + 1`).
+Invalid JSON raises `json.JSONDecodeError`, which is a subclass of `ValueError`. Its `.msg`
+attribute is a short reason.
 
-**Check the shape.** Required keys present? Right types? Watch out:
-`isinstance(True, int)` is `True` - exclude bools when you want a number.
+```python
+import json
 
-**Defaults & enums.** Fill optional keys with defaults (`{**defaults, **data}`).
-Restrict fields to allowed values (an *enum*): normalise (`.strip().lower()`), then check
-`in allowed`.
+try:
+    json.loads("Sure!")
+except json.JSONDecodeError as error:
+    print(error.msg)
+# Expecting value
+```
 
-**Coerce.** Models sometimes send `"42"` for `42`. Convert carefully: `int`, then `float`,
-else raise.
+### Extracting the JSON
 
-**JSON Schema** is the standard way to describe a shape:
-`{"type": "object", "properties": {"age": {"type": "integer"}}, "required": ["age"]}`.
-Type names: `string`, `integer`, `number`, `boolean`, `array`, `object`.
-Libraries (`jsonschema`, Pydantic) and provider "structured outputs" features use it.
+Models often surround the JSON with sentences or put it in a Markdown **code fence**: three
+backticks, optionally followed by `json`, then the content, then three backticks. With a
+fence, parse only the text inside it. Without one, slice from the first `{` to the last `}`.
 
-**Retry with feedback.** On a bad reply, append the model's reply (`assistant`) and a
-`user` message that says what was wrong, then call again - up to a max number of
-attempts, then raise. Never loop forever.
+```python
+reply = 'Sure! {"a": 1} Hope that helps.'
+start = reply.find("{")
+end = reply.rfind("}") + 1
+print(reply[start:end])
+# {"a": 1}
+```
 
-## Gotchas
+### Checking keys and types
 
-- Slicing `text[start:end]` with `end = rfind("}")` cuts off the closing brace.
-- Valid JSON is not always a dict - `[1, 2]` and `"hi"` are valid JSON too.
-- Don't mutate the caller's dicts or message lists; build new ones.
-- A retry loop without a limit can burn your whole API budget.
+`key in data` tests whether a dict has a key. `isinstance(value, kind)` tests the type of
+a value.
+
+```python
+data = {"count": 3, "ok": True}
+print("count" in data)
+# True
+print(isinstance(data["count"], int))
+# True
+print(isinstance(data["ok"], int))
+# True
+```
+
+The last line prints `True` because `bool` is a subclass of `int`. When a field must be a
+number, reject `bool` values with a separate check.
+
+### Defaults and enums
+
+`{**defaults, **data}` builds a new dict. A key that is in both dicts gets the value from
+`data`. An **enum** is a fixed list of allowed values for a field. Clean the value with
+`.strip().lower()`, then test it with `in`.
+
+```python
+defaults = {"priority": "medium", "tags": []}
+data = {"title": "Bug", "priority": " HIGH "}
+merged = {**defaults, **data}
+priority = merged["priority"].strip().lower()
+print(priority, priority in ["low", "medium", "high"])
+# high True
+```
+
+### Coercion
+
+**Type coercion** is converting a value from one type to another. Models sometimes send
+`"42"` where you expect `42`. Try `int` first, then `float`, and raise if both fail.
+
+```python
+print(int("42"))
+# 42
+print(float("3.5"))
+# 3.5
+```
+
+### JSON Schema
+
+A **schema** is a description of the shape of data: which keys it has and what type each
+value has. **JSON Schema** is a standard format for writing a schema for JSON data. A
+schema in that format is itself a JSON object. `"properties"` maps each key of the data to
+a schema for its value. `"required"` lists the keys that must be present.
+
+```python
+schema = {"type": "object",
+          "properties": {"age": {"type": "integer"}},
+          "required": ["age"]}
+print(schema["properties"]["age"]["type"])
+# integer
+```
+
+The type names are `string`, `integer`, `number`, `boolean`, `array` and `object`. The
+`jsonschema` and Pydantic libraries (third-party packages that check data against a
+schema) use JSON Schema, and so do the structured output
+features of model providers.
+
+### Retry with feedback
+
+When a reply is invalid, append two messages to the conversation: an `assistant` message
+that holds the invalid reply, and a `user` message that states what was wrong. Then call
+the model again. Stop after a maximum number of attempts and raise an exception.
+
+## Common mistakes
+
+- `text[start:end]` with `end = text.rfind("}")` leaves out the closing brace. Use `end + 1`.
+- Valid JSON is not always an object. `[1, 2]` and `"hi"` are valid JSON, and `json.loads`
+  returns a list and a string for them.
+- `isinstance(True, int)` is `True`, so a number check that uses only `isinstance` accepts
+  `true` from the model.
+- Changing the caller's dict or message list in place affects the caller's later code.
+  Build a new dict or list.
+- A retry loop with no attempt limit keeps calling the API for as long as the replies stay
+  invalid, and every call costs money.
 '''
 
 EXERCISES = [
@@ -69,14 +251,20 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## A form, not a letter
+            ## Structured output
 
-            Imagine asking a hundred people for their name and age. If each writes you a
-            letter, a human must read every one. If each fills in a **form** with a "Name" box
-            and an "Age" box, a computer can sort them in a second.
+            A model's reply is always a string. Your code cannot read a field out of a
+            sentence such as `Paris has about 2 million people.` It can read a field out of
+            JSON.
 
-            A model's reply is always text. When you ask for **JSON**, that text is a form your
-            code can read. `json.loads` ("load from string") turns it into Python data:
+            **JSON** is a text format for data. A JSON object has keys and values inside curly
+            braces, written much as a Python dict is written. **Structured output** means that
+            you ask the model to reply with data in a fixed format, usually JSON, instead of
+            sentences.
+
+            To **parse** a string is to read it and build the Python value it describes.
+            `json.loads(text)` parses a JSON string. The name is short for "load from string".
+            A JSON object becomes a `dict`, and a JSON number becomes an `int` or a `float`.
 
             ```python
             import json
@@ -84,13 +272,16 @@ EXERCISES = [
             reply = '{"city": "Paris", "population": 2100000}'
             data = json.loads(reply)
             print(data["city"])
+            # Paris
             print(data["population"] > 1000000)
+            # True
             print(type(data).__name__)
+            # dict
             ```
 
-            Before `loads`, `reply` is just a `str` - `reply["city"]` would fail. After it,
-            `data` is a real `dict` with a real `int` inside. Getting data back instead of prose
-            is called **structured output**.
+            `type(x).__name__` is the name of the type of `x` as a string. `reply` is a `str`,
+            so `reply["city"]` raises `TypeError`. `data` is a `dict`, and
+            `data["population"]` is an `int` that you can compare with another number.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -124,12 +315,14 @@ EXERCISES = [
         "title": "Parse a reply",
         "difficulty": 0,
         "lesson": r'''
-            ## Opening the envelope
+            ## json.loads and json.dumps
 
-            When a parcel arrives you don't use the box - you open it and use what's inside.
-            A JSON reply is the box: a string. Your code wants the dict inside.
+            A JSON reply from a model is a string. Your code needs the dict that the string
+            describes. The `json` module in the standard library converts in both directions.
 
-            The `json` module from the standard library does the unpacking:
+            `json.loads(text)` takes a JSON string and returns Python data. `json.dumps(data)`
+            takes Python data and returns a JSON string. The "s" at the end of both names
+            stands for "string".
 
             ```python
             import json
@@ -137,14 +330,24 @@ EXERCISES = [
             text = '{"label": "spam", "score": 0.93}'
             result = json.loads(text)
             print(result["label"], result["score"])
+            # spam 0.93
             print(json.dumps(result))
+            # {"label": "spam", "score": 0.93}
             ```
 
-            `json.loads` goes from **text to data**. Its twin `json.dumps` goes from **data to
-            text** ("dump to string"). The "s" at the end of both means *string*.
+            JSON writes three values differently from Python: `true`, `false` and `null`.
+            `json.loads` converts them to `True`, `False` and `None`.
 
-            Watch out: JSON uses `true`, `false` and `null`; after `loads` they become Python's
-            `True`, `False` and `None`.
+            ```python
+            import json
+
+            flags = json.loads('{"cached": true, "error": null}')
+            print(flags)
+            # {'cached': True, 'error': None}
+            ```
+
+            Writing `true` or `null` in Python code raises `NameError`. Those spellings are
+            only valid inside a JSON string.
         ''',
         "prompt": r'''
             A model was told to reply with JSON. Turn its reply into a Python dict. Replace the `___`.
@@ -203,28 +406,39 @@ EXERCISES = [
         "title": "Fix: the missing brace",
         "difficulty": 0,
         "lesson": r'''
-            ## Cutting the JSON out of the chatter
+            ## Extracting the JSON object from a reply
 
-            Even when told "reply with JSON only", models often add polite words:
-            `Sure! {"a": 1} Hope that helps.` It's like a parcel wrapped in newspaper - you cut
-            the newspaper away and keep the parcel.
+            A model that is told to reply with JSON only often adds words around it, as in
+            `OK: {"a": 1}.` Passing that whole string to `json.loads` raises an error. You
+            first have to take out the part that is JSON.
 
-            The JSON object starts at the **first** `{` and ends at the **last** `}`:
+            A JSON object starts at the first `{` and ends at the last `}`.
+            `reply.find("{")` searches from the left and returns the index of the first `{`.
+            `reply.rfind("}")` searches from the right and returns the index of the last `}`.
 
             ```python
-            reply = 'Sure! {"a": 1} Hope that helps.'
+            reply = 'OK: {"a": 1}.'
             start = reply.find("{")
             end = reply.rfind("}")
             print(start, end)
+            # 4 11
             print(reply[start:end])
+            # {"a": 1
             print(reply[start:end + 1])
+            # {"a": 1}
             ```
 
-            `find` searches from the left, `rfind` from the right, and both return a position
-            (an *index*). A slice `text[a:b]` stops **before** index `b` - so to include the
-            character at `end`, you slice up to `end + 1`.
+            A slice `reply[a:b]` stops before index `b`. The character at index `b` is not
+            part of the result. To include the character at `end`, slice up to `end + 1`.
 
-            Watch out: this is the classic *off-by-one* error.
+            Drag the stop handle from 11 to 12 and watch the closing brace join the result.
+
+            ```diagram
+            {"type":"slice","title":"Slicing the JSON object out of reply","name":"reply","value":"OK: {\"a\": 1}.","start":4,"stop":11}
+            ```
+
+            A result that is one position too short or too long is called an **off-by-one
+            error**. Here it produces `{"a": 1`, which is not valid JSON.
         ''',
         "prompt": r'''
             This helper should cut the JSON object out of a chatty reply, but the result is
@@ -284,26 +498,38 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Checking what's in the box
+            ## Type checks with isinstance
 
-            A parsed reply is a dict, but the *values* could be anything. The model might send
-            `"3"` (text) where you wanted `3` (a number). Before using a value you check its
-            type, like a cashier checking a banknote.
+            A parsed reply is a dict, but its values can have any type. The model can send the
+            string `"3"` where you expected the number `3`. Check the type of a value before
+            you use it.
 
-            `isinstance(value, type)` answers "is this value of this type?":
+            `isinstance(value, kind)` returns `True` when `value` has the type `kind`. The
+            second argument can also be a tuple of types. Then the result is `True` when the
+            value has any one of them.
 
             ```python
             print(isinstance(3, int))
+            # True
             print(isinstance("3", int))
+            # False
             print(isinstance(2.5, (int, float)))
-            print(type(2.5) is float)
+            # True
             ```
 
-            You can pass a tuple of types to accept any of them. `type(x) is T` is the strict
-            version: exactly that type, nothing related.
+            `isinstance` also returns `True` for a subclass of `kind`. `type(x) is kind` is
+            stricter: it is `True` only when the type of `x` is exactly `kind`.
 
-            Watch out: in Python, `bool` is a special kind of `int` (`True` behaves like `1`).
-            That surprises everyone once - this step is where it surprises you.
+            ```python
+            print(type(2.5) is float)
+            # True
+            print(type(2.5) is int)
+            # False
+            ```
+
+            In Python, `bool` is a subclass of `int`. `True` equals `1` and `False` equals `0`,
+            so `False + 1` is `1`. This affects what `isinstance` returns for `True` and
+            `False`, which the code below asks you to predict.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -320,10 +546,11 @@ EXERCISES = [
             True
         ''',
         "explanation": r'''
-            `3` is an int. `True` is a `bool`, and `bool` is a subclass of `int`, so
-            `isinstance(True, int)` is **True** - the gotcha. `0.5` is a float, not an int.
-            `type(True) is bool` checks the exact type, so it is `True`. When you validate a
-            number field, exclude bools explicitly.
+            `3` is an int, so the first line prints `True`. `True` is a `bool`, and `bool` is a
+            subclass of `int`, so `isinstance(True, int)` is also `True`. `0.5` is a float,
+            not an int, so the third line prints `False`. `type(True) is bool` compares the
+            exact type, so it is `True`. When you validate a number field, reject `bool`
+            values with a separate check.
         ''',
         "starter": "", "tests": "",
         "hints": [
@@ -337,27 +564,44 @@ EXERCISES = [
         "title": "All keys present?",
         "difficulty": 0,
         "lesson": r'''
-            ## The checklist at the door
+            ## Checking required keys
 
-            A pilot doesn't take off because the plane "looks fine" - they tick a checklist.
-            Before your code uses a parsed reply, tick off the keys it needs. A missing key
-            later becomes a `KeyError` deep inside your app, far from the real cause.
+            A model can leave out a key that your code needs. Reading a missing key with
+            `reply["owner"]` raises `KeyError`. If that happens many lines after the reply was
+            parsed, the traceback points at the line that read the key, not at the reply that
+            lacked it. Check for the keys right after parsing.
 
-            The `in` operator checks whether a dict has a key. `all(...)` is `True` only if
-            every check inside is `True`:
+            The `in` operator tests whether a dict has a key.
 
             ```python
             reply = {"title": "Bug in login", "priority": "high"}
             print("title" in reply)
+            # True
             print("owner" in reply)
-            print(all(key in reply for key in ["title", "priority"]))
-            print(all(key in reply for key in ["title", "owner"]))
+            # False
             ```
 
-            Checking that the right keys exist is the first part of **validating the shape**
-            of structured output.
+            Click a key, or type `owner` and run `key in d` and `d[key]`.
 
-            Watch out: `all([])` is `True` - with nothing to check, nothing failed.
+            ```diagram
+            {"type":"dict","title":"Keys of reply","name":"reply","entries":[["title","Bug in login"],["priority","high"]]}
+            ```
+
+            `all(...)` takes a series of values and returns `True` only when every one of them
+            is true. Give it one `in` test per required key.
+
+            ```python
+            reply = {"title": "Bug in login", "priority": "high"}
+            print(all(key in reply for key in ["title", "priority"]))
+            # True
+            print(all(key in reply for key in ["title", "owner"]))
+            # False
+            ```
+
+            To **validate** data is to check that it has the form your code expects. Checking
+            the keys is the first part of validating structured output.
+
+            `all([])` returns `True`. With no values to test, none of them is false.
         ''',
         "prompt": r'''
             Check that a parsed reply has every key your code needs.
@@ -413,29 +657,33 @@ EXERCISES = [
         "title": "Fill in defaults",
         "difficulty": 0,
         "lesson": r'''
-            ## Pre-printed answers on a form
+            ## Defaults
 
-            Some forms come with answers already filled in: "Country: France" unless you cross
-            it out. Those are **defaults**. Models often skip optional fields, so your code fills
-            them in rather than crashing.
+            A **default** is the value your code uses for a field when the reply does not
+            contain that field. Models often leave out optional fields. Filling in defaults
+            lets the rest of your code read every key without a `KeyError`.
 
-            Unpacking two dicts into a new one with `**` merges them. When a key appears in
-            both, the **later** one wins:
+            Inside a dict literal, `**other` copies every key and value of `other` into the
+            new dict. When the same key is copied twice, the value copied later replaces the
+            earlier one.
 
             ```python
             defaults = {"priority": "medium", "tags": []}
             reply = {"title": "Bug", "priority": "high"}
             merged = {**defaults, **reply}
             print(merged)
+            # {'priority': 'high', 'tags': [], 'title': 'Bug'}
             print(defaults)
+            # {'priority': 'medium', 'tags': []}
             ```
 
-            Putting the defaults first and the reply second means: use the model's value when
-            there is one, the default otherwise. And because this builds a **new** dict,
-            neither original changes.
+            `defaults` is copied first and `reply` second. `"priority"` is in both, so `merged`
+            gets `"high"` from `reply`. `"tags"` is only in `defaults`, so `merged` gets the
+            default. The braces build a new dict, so `defaults` and `reply` are unchanged.
 
-            Watch out: `defaults.update(reply)` would change your defaults dict for every
-            later call.
+            `defaults.update(reply)` gives the same keys and values, but it changes `defaults`
+            itself. Every later use of `defaults` would then contain `"priority": "high"` and
+            `"title": "Bug"`.
         ''',
         "prompt": r'''
             Fill in missing optional fields of a parsed reply with default values.
@@ -495,28 +743,32 @@ EXERCISES = [
         "title": "Only allowed values",
         "difficulty": 0,
         "lesson": r'''
-            ## A multiple-choice question
+            ## Allowed values
 
-            A free-text answer can say anything. A multiple-choice question only accepts A, B
-            or C. When your code branches on a field like `sentiment`, it needs multiple-choice:
-            `"positive"`, `"negative"` or `"neutral"` - not `"kinda good"`.
+            When your code branches on a field such as `sentiment`, it handles a fixed set of
+            values: `"positive"`, `"negative"` and `"neutral"`. A model can reply with any
+            string, for example `"kinda good"`, and no branch of your code handles that.
 
-            A fixed list of allowed values is called an **enum** (short for *enumeration*).
-            Checking a value is one `in` test, and a bad value should stop the program loudly:
+            A fixed list of allowed values is called an **enum**, short for "enumeration".
+            `value in allowed` is `True` when the list `allowed` contains `value`.
 
             ```python
             allowed = ["positive", "negative", "neutral"]
-            for value in ["negative", "kinda good"]:
+            for value in ["negative", "kinda good", "Positive"]:
                 if value in allowed:
                     print("ok:", value)
                 else:
                     print("rejected:", value)
+            # ok: negative
+            # rejected: kinda good
+            # rejected: Positive
             ```
 
-            In a function you'd `raise ValueError(...)` instead of printing, so the caller can
-            catch it (and maybe ask the model again).
+            A function that checks a value raises `ValueError` instead of printing. The
+            caller can then catch the exception and, for example, call the model again.
 
-            Watch out: `"Positive"` is not `"positive"` - comparisons are case-sensitive.
+            String comparison is case-sensitive. `"Positive"` and `"positive"` are different
+            strings, so `"Positive" in allowed` is `False`.
         ''',
         "prompt": r'''
             Make sure a field from the model is one of the allowed values.
@@ -582,14 +834,15 @@ EXERCISES = [
         "title": "Parse without crashing",
         "difficulty": 1,
         "lesson": r'''
-            ## A result slip instead of an alarm
+            ## Handling invalid JSON
 
-            When a lab test fails, the lab doesn't set off the fire alarm - it sends a slip:
-            "sample unreadable, reason: too small". Your app should treat a bad model reply the
-            same way: report *what* went wrong so the next step (retry, log, fallback) can act.
+            An invalid reply from a model is an expected event, not a reason to stop the
+            program. Your code should report what was wrong, so that the next step can retry,
+            log the problem or use a default value.
 
-            `json.loads` raises `json.JSONDecodeError` on bad text. Its `.msg` attribute is a
-            short reason. And valid JSON isn't always a dict:
+            `json.loads` raises `json.JSONDecodeError` when the text is not valid JSON. The
+            `.msg` attribute of the exception is a short reason. Valid JSON is not always an
+            object: `"[1, 2]"` parses to a list.
 
             ```python
             import json
@@ -600,11 +853,52 @@ EXERCISES = [
                     print("parsed a", type(value).__name__)
                 except json.JSONDecodeError as error:
                     print("bad JSON:", error.msg)
+            # parsed a dict
+            # bad JSON: Expecting value
+            # parsed a list
             ```
 
-            Returning a pair `(result, error)` - where exactly one of them is `None` - is a
-            common pattern for "this might fail and that's normal". The caller unpacks it:
-            `data, error = safe_parse(text)`.
+            Step through the loop and watch which lines run for each `text`.
+
+            ```diagram
+            {"type": "trace", "title": "try and except around json.loads", "code": ["import json", "", "for text in ['{\"a\": 1}', \"Sure!\", \"[1, 2]\"]:", "    try:", "        value = json.loads(text)", "        print(\"parsed a\", type(value).__name__)", "    except json.JSONDecodeError as error:", "        print(\"bad JSON:\", error.msg)"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 3, "vars": {}, "out": ""},
+              {"line": 4, "vars": {"text": "'{\"a\": 1}'"}, "out": ""},
+              {"line": 5, "vars": {"text": "'{\"a\": 1}'"}, "out": ""},
+              {"line": 6, "vars": {"text": "'{\"a\": 1}'", "value": "{'a': 1}"}, "out": ""},
+              {"line": 3, "vars": {"text": "'{\"a\": 1}'", "value": "{'a': 1}"}, "out": "parsed a dict\n"},
+              {"line": 4, "vars": {"text": "'Sure!'", "value": "{'a': 1}"}, "out": "parsed a dict\n"},
+              {"line": 5, "vars": {"text": "'Sure!'", "value": "{'a': 1}"}, "out": "parsed a dict\n", "note": "json.loads raises JSONDecodeError here, so line 6 is skipped."},
+              {"line": 7, "vars": {"text": "'Sure!'", "value": "{'a': 1}"}, "out": "parsed a dict\n"},
+              {"line": 8, "vars": {"text": "'Sure!'", "value": "{'a': 1}", "error": "JSONDecodeError('Expecting value: line 1 column 1 (char 0)')"}, "out": "parsed a dict\n"},
+              {"line": 3, "vars": {"text": "'Sure!'", "value": "{'a': 1}"}, "out": "parsed a dict\nbad JSON: Expecting value\n"},
+              {"line": 4, "vars": {"text": "'[1, 2]'", "value": "{'a': 1}"}, "out": "parsed a dict\nbad JSON: Expecting value\n"},
+              {"line": 5, "vars": {"text": "'[1, 2]'", "value": "{'a': 1}"}, "out": "parsed a dict\nbad JSON: Expecting value\n"},
+              {"line": 6, "vars": {"text": "'[1, 2]'", "value": "[1, 2]"}, "out": "parsed a dict\nbad JSON: Expecting value\n"},
+              {"line": 3, "vars": {"text": "'[1, 2]'", "value": "[1, 2]"}, "out": "parsed a dict\nbad JSON: Expecting value\nparsed a list\n"},
+              {"line": null, "vars": {"text": "'[1, 2]'", "value": "[1, 2]"}, "out": "parsed a dict\nbad JSON: Expecting value\nparsed a list\n"}
+            ]}
+            ```
+
+            A function can report a failure without raising. It returns a tuple of two
+            values, `(result, error)`, and exactly one of the two is `None`. The caller
+            unpacks the tuple into two names.
+
+            ```python
+            def to_int(text):
+                try:
+                    return int(text), None
+                except ValueError:
+                    return None, f"not an integer: {text}"
+
+            number, error = to_int("12")
+            print(number, error)
+            # 12 None
+            number, error = to_int("twelve")
+            print(number, error)
+            # None not an integer: twelve
+            ```
         ''',
         "prompt": r'''
             Parse a model reply into a dict, returning an error message instead of raising.
@@ -685,15 +979,21 @@ EXERCISES = [
         "title": "Unwrap a code fence",
         "difficulty": 1,
         "lesson": r'''
-            ## When the parcel comes in a gift box
+            ## Code fences
 
-            Models love Markdown. Ask for JSON and you often get it inside a **code fence**:
-            a line of three backticks (maybe followed by `json`), the JSON, then three
-            backticks again - with chatter around it. The chatter can even contain braces,
-            like "Here is {your} data", which breaks the first-`{` trick.
+            Models often format replies as **Markdown**: a plain-text format in which symbols
+            mark headings, lists and code. A backtick is the slanted quote character on the
+            key left of `1` on a US keyboard. A Markdown **code fence** is three
+            backticks, optionally followed by a word such as `json`, then the content, then
+            three backticks again. A model asked for JSON often puts it inside a code fence
+            and writes sentences around the fence.
 
-            If there *is* a fence, the JSON is exactly what's inside it. A regular expression
-            with a capture group grabs it:
+            Those sentences can contain braces, as in `Here is {your} data`. Slicing from the
+            first `{` to the last `}` then returns text that is not valid JSON. When the reply
+            has a fence, the JSON is the text inside the fence.
+
+            A regular expression with a capture group extracts that text. In the example,
+            `tick` is a string of three backticks.
 
             ```python
             import re
@@ -701,12 +1001,19 @@ EXERCISES = [
             tick = "`" * 3
             reply = f"Here is {{your}} data:\n{tick}json\n{{\"a\": 1}}\n{tick}\nEnjoy!"
             match = re.search(tick + r"(?:json)?\s*(.*?)" + tick, reply, re.DOTALL)
-            print(match.group(1))
+            print(repr(match.group(1)))
+            # '{"a": 1}\n'
             ```
 
-            `(?:json)?` means "optionally the word json" (without capturing it), `.*?` takes as
-            little as possible, and `re.DOTALL` lets `.` match newlines too. No fence? Then
-            `re.search` returns `None`, and you parse the whole (stripped) reply.
+            `(?:json)?` matches the word `json` if it is there and does not capture it. `\s*`
+            matches the whitespace after it. `(.*?)` is the capture group: it matches as few
+            characters as possible, so it stops at the next three backticks. `re.DOTALL` makes
+            `.` match newline characters as well.
+
+            `match.group(1)` still ends with a newline. Call `.strip()` on it before parsing.
+
+            When the reply has no fence, `re.search` returns `None`. In that case parse the
+            whole reply.
         ''',
         "prompt": r'''
             Parse the JSON in a model reply that may be wrapped in a Markdown code fence.
@@ -792,14 +1099,16 @@ EXERCISES = [
         "title": "Check keys and types",
         "difficulty": 1,
         "lesson": r'''
-            ## The customs officer
+            ## Checking keys and types
 
-            A customs officer checks a list: is every required item declared, and is each item
-            what it claims to be? They don't stop at the first problem - they write down
-            everything wrong, so you can fix it all at once.
+            A validator that stops at the first problem reports one problem per run. A
+            validator that collects every problem in a list reports all of them at once, so
+            they can all be fixed in one step.
 
-            You can describe the shape you expect as a dict of **key -> Python type**, then
-            walk it and collect problems in a list:
+            You can describe the data you expect as a dict that maps each key to a Python
+            type. Types such as `str` and `int` are values, so you can store them in a dict
+            and pass them to `isinstance`. Loop over the dict and append one string for each
+            problem.
 
             ```python
             expected = {"name": str, "age": int}
@@ -810,11 +1119,19 @@ EXERCISES = [
                 if not isinstance(value, kind):
                     problems.append(f"{key} should be {kind.__name__}, got {type(value).__name__}")
             print(problems)
+            # ['age should be int, got str']
             ```
 
-            Types are values too: `int.__name__` is the string `"int"`. An empty problem list
-            means "valid". Remember the bool gotcha from earlier: `isinstance(True, int)` is
-            `True`, so number checks must reject bools on purpose.
+            `kind.__name__` is the name of a type as a string: `int.__name__` is `"int"`.
+            `type(value).__name__` is the name of the type of `value`. An empty `problems`
+            list means the data is valid.
+
+            This example reads `data[key]` without testing `key in data` first, so a missing
+            key raises `KeyError`. A complete check tests for the key before it reads the
+            value.
+
+            `isinstance(True, int)` is `True` because `bool` is a subclass of `int`. A check
+            for a number has to reject `bool` values with its own test.
         ''',
         "prompt": r'''
             Validate a parsed reply against a dict of expected Python types, collecting every problem.
@@ -891,30 +1208,38 @@ EXERCISES = [
         "title": "Normalize a ticket",
         "difficulty": 1,
         "lesson": r'''
-            ## Tidying the form before filing it
+            ## Normalizing a reply
 
-            A clerk receiving forms fixes the small stuff before filing: "HIGH" becomes "high",
-            stray spaces go, a blank optional box gets the standard answer. Only truly broken
-            forms are sent back.
+            A reply can be usable without being exact. `"  HIGH "` means `"high"`, and a
+            missing optional field can take its default. To **normalize** a value is to
+            convert it to one standard form, for example by removing spaces and lowercasing.
+            Normalize first, and reject only the values that are still not allowed afterwards.
 
-            Structured output needs the same tidy-up step, combining what you've learned:
-            defaults, a light clean-up (**normalising**), then an enum check.
+            This step combines three things you have already used: defaults, normalizing and
+            an enum check.
 
             ```python
             ALLOWED = ["low", "medium", "high"]
-            raw = {"title": "Login broken", "priority": "  HIGH "}
+            raw = {"title": "Login broken", "priority": "  HIGH ", "mood": "sad"}
             priority = raw.get("priority", "medium").strip().lower()
             print(repr(priority), priority in ALLOWED)
+            # 'high' True
             clean = {"title": raw["title"], "priority": priority}
             print(clean)
+            # {'title': 'Login broken', 'priority': 'high'}
             ```
 
-            `dict.get(key, default)` returns the default when the key is missing - a neat way
-            to apply one default. Building a fresh dict with only the keys you want also drops
-            anything extra the model invented.
+            `raw.get(key, default)` returns `raw[key]` when the key is present and `default`
+            when it is missing. `.strip()` removes the spaces at both ends and `.lower()`
+            lowercases the result.
 
-            Watch out: a list default like `[]` must be a **new** list each time, or two
-            tickets end up sharing one tags list.
+            `clean` is a new dict that contains only the keys you list. The extra key
+            `"mood"` that the model added is not copied, and `raw` is unchanged.
+
+            A default that is a list must be a new list on every call. `raw.get("tags", [])`
+            evaluates `[]` each time it runs, so each call creates its own list. If you store
+            one list in a constant and use it as the default, every ticket refers to the same
+            list object, and appending a tag to one ticket changes all of them.
         ''',
         "prompt": r'''
             Turn a parsed model reply into a clean support ticket.
@@ -1005,14 +1330,16 @@ EXERCISES = [
         "title": "Numbers sent as text",
         "difficulty": 1,
         "lesson": r'''
-            ## Reading a price tag written by hand
+            ## Type coercion
 
-            A handwritten price tag says "12" - to add it up you read it as the number 12.
-            Models do the same thing to you: they sometimes put numbers in quotes, `"42"` or
-            `"3.5"`. Rejecting those outright is harsh; converting them carefully is kinder.
+            Models sometimes put a number in quotes: `"42"` or `"3.5"` instead of `42` or
+            `3.5`. The value is a string, so arithmetic on it fails or gives the wrong result.
+            You can reject such a reply, or you can convert the string to the number it
+            contains. Converting a value from one type to another is called **type coercion**.
 
-            `int("42")` works, `int("3.5")` raises `ValueError`, and `float("3.5")` works.
-            So try `int` first, then `float`, and give up only if both fail:
+            `int("42")` returns `42`. `int("3.5")` raises `ValueError`, because `int` only
+            parses whole numbers. `float("3.5")` returns `3.5`. Try `int` first, then `float`,
+            and report a failure only when both raise.
 
             ```python
             for text in ["42", "3.5", "lots"]:
@@ -1023,11 +1350,17 @@ EXERCISES = [
                         print(float(text))
                     except ValueError:
                         print("not a number:", text)
+            # 42
+            # 3.5
+            # not a number: lots
             ```
 
-            Changing a value from one type to another is called **type coercion**. Only coerce
-            the fields you expect to be numbers, and only when the value is a string - a real
-            number or `True` should be left alone.
+            The order matters. `float("42")` returns `42.0`, so trying `float` first would
+            turn every whole number into a float.
+
+            Coerce only the fields that should hold numbers, and only when the value is a
+            string. `isinstance(value, str)` tests that. A value that is already an `int`, a
+            `float` or a `bool` stays as it is.
         ''',
         "prompt": r'''
             Convert number fields that the model sent as strings into real numbers.
@@ -1126,11 +1459,21 @@ EXERCISES = [
             ],
         },
         "lesson": r'''
-            ## Putting it together: the standard form description
+            ## JSON Schema
 
-            Instead of a home-made `{"age": int}`, the industry describes shapes with **JSON
-            Schema** - the same format providers accept for structured outputs and tool
-            definitions. You'll check a small part of it: `type`, `properties`, `required`, `enum`.
+            A dict such as `{"age": int}` describes expected data in a format that only your
+            own code understands. A **schema** is a description of the shape of data.
+            **JSON Schema** is the standard format for writing one. A schema is a JSON
+            object. `"type"` names the type of the data. `"properties"` maps each key of
+            the data to a schema for its value. `"required"` lists the keys that must be
+            present. `"enum"` lists the allowed values. Model providers accept JSON Schema
+            for structured outputs.
+
+            In this exercise you check a small part of JSON Schema: `type`, `properties`,
+            `required` and `enum`. One trap: in Python `isinstance(True, int)` is `True`,
+            because `bool` is a subclass of `int`. JSON Schema still treats them as
+            different types, so your checks for `"integer"` and `"number"` must reject
+            `True` and `False` explicitly (check for `bool` first).
         ''',
         "prompt": r'''
             Validate data against a small subset of JSON Schema and return every problem found.
@@ -1265,12 +1608,26 @@ EXERCISES = [
             ],
         },
         "lesson": r'''
-            ## Putting it together: "try again, and here's what was wrong"
+            ## Retry with error feedback
 
-            When a reply isn't valid, don't just ask again - tell the model *why*. Append its bad
-            reply as an `assistant` message and your complaint as a `user` message, then call it
-            again. Always cap the number of attempts. In tests, `llm` is a fake function that
-            returns scripted replies.
+            When a reply is not valid, calling the model again with the same messages often
+            produces the same mistake. Tell the model what was wrong. Add the invalid reply
+            as an `assistant` message and the reason as a `user` message, then call the model
+            again with the longer list.
+
+            Step through one failed attempt and see which messages the next call receives.
+
+            ```diagram
+            {"type":"flow","title":"Retry loop with feedback","steps":[
+            {"label":"Call the model","detail":"llm(conversation) returns the reply text. The first call receives a copy of the starting messages.","code":"conversation = [\n  {'role': 'user', 'content': 'Sentiment of \"slow app\" as JSON'}\n]\nreply = 'It is negative.'"},
+            {"label":"Parse and check","detail":"json.loads(reply) raises JSONDecodeError for this reply, and its .msg is the reason. A reply that parses to a dict is valid and is returned at this stage.","code":"reason = 'Expecting value'"},
+            {"label":"Add feedback","detail":"Build a new list: the earlier messages, the invalid reply as an assistant message and the reason as a user message.","code":"conversation = [\n  {'role': 'user', 'content': 'Sentiment of \"slow app\" as JSON'},\n  {'role': 'assistant', 'content': 'It is negative.'},\n  {'role': 'user', 'content': 'Not valid JSON: Expecting value.'}\n]"},
+            {"label":"Stop","detail":"The loop ends in one of two ways. A valid reply is returned as a dict. After the maximum number of calls without a valid reply, the function raises ValueError.","code":"{'sentiment': 'negative'}"}
+            ],"loop":{"from":2,"to":0,"label":"while attempts remain"}}
+            ```
+
+            Always limit the number of attempts. In the tests, `llm` is a plain Python function
+            that returns prepared replies in order. No real model is called.
         ''',
         "prompt": r'''
             Call a model until it returns a JSON object, feeding the parse error back each time.

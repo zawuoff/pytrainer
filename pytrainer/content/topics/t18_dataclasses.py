@@ -13,10 +13,104 @@ TOPIC = {
                  "asdict", "replace", "Enum", "type hints", "Literal", "X | None"],
 }
 
-LESSON = r'''
-## Dataclasses & type hints - chapter notes
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["dataclass", "decorator", "field", "type hint", "annotation", "default_factory",
+                 "post_init", "frozen", "frozeninstanceerror", "asdict", "replace", "enum",
+                 "optional", "literal", "validation"],
+    "cards": [
+        {
+            "syntax": "@dataclass",
+            "explain": "Written above a class. Generates __init__, __repr__ and __eq__ from the name: type field lines.",
+            "example": r'''
+                from dataclasses import dataclass
+                @dataclass
+                class Message:
+                    role: str
+                    name: str | None = None
+                print(Message("user") == Message("user"), Message("tool", "calc"))
+                # True Message(role='tool', name='calc')
+            ''',
+        },
+        {
+            "syntax": "turns: list[str] = field(default_factory=list)",
+            "explain": "A list or dict default. Python calls list() for each new object, so every object gets its own list.",
+            "example": r'''
+                from dataclasses import dataclass, field
+                @dataclass
+                class Chat:
+                    turns: list[str] = field(default_factory=list)
+                a, b = Chat(), Chat()
+                a.turns.append("Hi")
+                print(a.turns, b.turns)
+                # ['Hi'] []
+            ''',
+        },
+        {
+            "syntax": "def __post_init__(self):",
+            "explain": "The generated __init__ calls this method after it stores the fields. Use it to check or convert them.",
+            "example": r'''
+                from dataclasses import dataclass
+                @dataclass
+                class Chunk:
+                    text: str
+                    def __post_init__(self):
+                        self.text = self.text.strip()
+                print(Chunk("  hi "))
+                # Chunk(text='hi')
+            ''',
+        },
+        {
+            "syntax": "@dataclass(frozen=True, order=True)",
+            "explain": "frozen makes instances read-only and usable in sets. order adds < and >, comparing fields in order.",
+            "example": r'''
+                from dataclasses import dataclass
+                @dataclass(frozen=True, order=True)
+                class Version:
+                    major: int
+                    minor: int
+                print(Version(1, 2) < Version(1, 10), len({Version(1, 2)}))
+                # True 1
+            ''',
+        },
+        {
+            "syntax": "asdict(obj)  /  replace(obj, field=value)",
+            "explain": "asdict converts an instance to a dict. replace returns a copy with the given fields changed.",
+            "example": r'''
+                from dataclasses import dataclass, asdict, replace
+                @dataclass
+                class Usage:
+                    tokens: int
+                u = Usage(5)
+                print(asdict(u), replace(u, tokens=9), u)
+                # {'tokens': 5} Usage(tokens=9) Usage(tokens=5)
+            ''',
+        },
+        {
+            "syntax": "class Role(Enum):",
+            "explain": "A fixed set of named members. Role(value) finds a member by its value, or raises ValueError.",
+            "example": r'''
+                from enum import Enum
+                class Role(Enum):
+                    USER = "user"
+                    TOOL = "tool"
+                print(Role("tool"), Role.USER.value)
+                # Role.TOOL user
+            ''',
+        },
+    ],
+}
 
-**`@dataclass`** writes `__init__`, `__repr__` and `__eq__` from the fields you list.
+LESSON = r'''
+## Dataclasses and type hints: chapter notes
+
+### `@dataclass`
+
+A **field** is a line of the form `name: type` in a class body. A **decorator** is a
+function that you apply to a class or a function by writing `@name` on the line above it.
+The `dataclass` decorator reads the fields of a class and adds three generated methods to
+it: `__init__`, `__repr__` and `__eq__`. A class decorated this way is a **dataclass**.
 
 ```python
 from dataclasses import dataclass
@@ -26,41 +120,175 @@ class Message:
     role: str
     content: str
 
-print(Message("user", "Hi"))   # Message(role='user', content='Hi')
+m = Message("user", "Hi")
+print(m)
+# Message(role='user', content='Hi')
+print(m == Message("user", "Hi"))
+# True
 ```
 
-**Type hints** (*annotations*) label what a value should be:
+Step through the stages to see what `@dataclass` generates from the two fields.
 
-| hint | means |
+```diagram
+{"type":"flow","title":"What @dataclass generates for Message","steps":[
+{"label":"Class body runs","detail":"Python runs the class body and creates the class Message. The two field lines are recorded in Message.__annotations__ in the order you wrote them.","code":"class Message:\n    role: str\n    content: str\n\nMessage.__annotations__\n# {'role': <class 'str'>, 'content': <class 'str'>}"},
+{"label":"dataclass(Message) is called","detail":"The line @dataclass makes Python call dataclass(Message). The function reads the fields in order: role, then content.","code":"Message = dataclass(Message)"},
+{"label":"__init__ is generated","detail":"The generated __init__ has one parameter per field, in field order. It stores each argument as an attribute on self.","code":"def __init__(self, role: str, content: str):\n    self.role = role\n    self.content = content"},
+{"label":"__repr__ is generated","detail":"The generated __repr__ returns the class name followed by every field as name=value. Each value is formatted with repr(), so strings appear in single quotes.","code":"def __repr__(self):\n    return f\"Message(role={self.role!r}, content={self.content!r})\"\n\nprint(Message(\"user\", \"Hi\"))\n# Message(role='user', content='Hi')"},
+{"label":"__eq__ is generated","detail":"The generated __eq__ returns True when the other object has the same class and every field is equal. It behaves the same as this code.","code":"def __eq__(self, other):\n    if other.__class__ is self.__class__:\n        return (self.role, self.content) == (other.role, other.content)\n    return NotImplemented\n\nMessage(\"user\", \"Hi\") == Message(\"user\", \"Hi\")\n# True"},
+{"label":"The class is returned","detail":"dataclass returns the same class with the three methods added. The name Message now refers to it.","code":"m = Message(\"user\", \"Hi\")\nm.content\n# 'Hi'"}
+]}
+```
+
+### Type hints
+
+A **type hint**, also called an **annotation**, is a type written in your code to state
+what kind of value is expected. Fields, parameters and return values can all have one.
+
+| hint | meaning |
 | --- | --- |
-| `str`, `int`, `float`, `bool` | a single value of that type |
+| `str`, `int`, `float`, `bool` | one value of that type |
 | `list[str]` | a list of strings |
-| `dict[str, float]` | a dict with str keys and float values |
-| `str \| None` | a string or `None` (optional) |
-| `def f(text: str) -> int:` | parameter and **return** annotations |
+| `dict[str, float]` | a dict with `str` keys and `float` values |
+| `str \| None` | a string or `None` |
+| `def f(text: str) -> int:` | a parameter annotation and a return annotation |
 
-Hints are **not enforced** at runtime - `f(42)` still runs. They document intent and let
-editors and type checkers (mypy, pyright) catch mistakes. Check values yourself if needed.
+Python does not check hints when the program runs. A **type checker** is a tool that reads
+your code without running it and reports type mistakes. `mypy` and `pyright` are type
+checkers. Editors read hints too and show warnings as you type.
 
-**Defaults:** required fields first, then fields with `= default`.
-**Mutable defaults:** `tags: list[str] = field(default_factory=list)` - never `= []`.
-**Methods** work as in any class (`self.field`). `@classmethod` gets `cls` - use it for
-alternative constructors like `from_dict(cls, data)`. `@property` = computed read-only attribute.
-**`__post_init__(self)`** runs after the generated `__init__`: validate, convert, raise.
+In the example below, `double("ab")` breaks the hint `n: int`. Python still runs the body:
+`"ab" * 2` repeats the string.
 
-**Options & helpers**
-- `@dataclass(frozen=True)` - read-only, hashable (usable in sets / as dict keys).
-- `@dataclass(order=True)` - `<`, `sorted()`, `min()` compare field by field in declared order.
-- `asdict(obj)` - to a plain (nested) dict; `replace(obj, x=1)` - a changed copy.
-- `fields(Cls)` lists the fields; `is_dataclass(x)` checks.
-- `Enum`: fixed named values. `Role("user")` looks up by value, `.value` gives it back.
-- `Literal["stop", "length"]` - only these exact values (still not enforced).
+```python
+def double(n: int) -> int:
+    return n * 2
 
-## Gotchas
-- Forgot `@dataclass` -> `TypeError: Message() takes no arguments`.
-- Default before required field -> `TypeError: non-default argument ... follows default argument`.
-- `= []` as a default -> `ValueError: mutable default ... is not allowed`.
-- Assigning to a frozen field -> `dataclasses.FrozenInstanceError`.
+print(double("ab"))
+# abab
+print(double.__annotations__)
+# {'n': <class 'int'>, 'return': <class 'int'>}
+```
+
+`Literal["stop", "length"]` from `typing` is a hint that allows only those exact values.
+Python does not check it while the program runs either.
+
+### Defaults
+
+A field can have a default value: `name: type = value`. Fields without a default must
+come before fields with one. A default that is a list or a dict needs
+`field(default_factory=list)`. Python calls the function you pass, here `list`, once per
+new object. `list()` returns a new empty list, so each object gets its own list.
+
+```python
+from dataclasses import dataclass, field
+
+@dataclass
+class Chat:
+    model: str
+    temperature: float = 0.7
+    turns: list[str] = field(default_factory=list)
+
+a = Chat("gpt-4o")
+b = Chat("gpt-4o")
+a.turns.append("Hi")
+print(a)
+# Chat(model='gpt-4o', temperature=0.7, turns=['Hi'])
+print(b.turns)
+# []
+```
+
+### Methods and `__post_init__`
+
+A dataclass is a normal class, so you can add your own methods and `@property` methods.
+A **class method** is a method decorated with `@classmethod`. Python passes it the class
+as the first argument, named `cls`, instead of an instance. Use one to build an object
+from other data, for example `from_dict(cls, data)`.
+
+If the class defines `__post_init__(self)`, the generated `__init__` calls it after it has
+stored every field. Use it to validate or convert the fields.
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class Chunk:
+    text: str
+    page: int = 1
+
+    def __post_init__(self):
+        if self.page < 1:
+            raise ValueError(f"page must be >= 1, got {self.page}")
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data["text"], data.get("page", 1))
+
+print(Chunk.from_dict({"text": "Hello", "page": 3}))
+# Chunk(text='Hello', page=3)
+try:
+    Chunk("Hello", 0)
+except ValueError as e:
+    print("error:", e)
+# error: page must be >= 1, got 0
+```
+
+### Options and helpers
+
+`@dataclass(frozen=True)` makes instances read-only: assigning to a field raises an error.
+It also makes them **hashable**, which means you can put them in a set or use them as dict
+keys. `@dataclass(order=True)` adds `<`, `<=`, `>` and `>=`, which
+compare the fields one by one in the order you declared them.
+
+`asdict(obj)` converts a dataclass instance to a dict, including nested dataclasses.
+`replace(obj, x=1)` returns a copy with the field `x` changed. `fields(cls)` returns the
+fields of a dataclass. `is_dataclass(x)` returns `True` for a dataclass or an instance of one.
+
+```python
+from dataclasses import dataclass, asdict, replace, fields
+
+@dataclass(frozen=True, order=True)
+class Version:
+    major: int
+    minor: int
+
+v = Version(1, 2)
+print(sorted([Version(2, 0), v]))
+# [Version(major=1, minor=2), Version(major=2, minor=0)]
+print(asdict(v))
+# {'major': 1, 'minor': 2}
+print(replace(v, minor=3))
+# Version(major=1, minor=3)
+print([f.name for f in fields(Version)])
+# ['major', 'minor']
+```
+
+An **Enum** is a class with a fixed set of named members, each with a value. Calling the
+class with a value, as in `Role("user")`, returns the member that has that value.
+
+```python
+from enum import Enum
+
+class Role(Enum):
+    USER = "user"
+    TOOL = "tool"
+
+print(Role("user"))
+# Role.USER
+print(Role.USER.value)
+# user
+```
+
+## Common mistakes
+
+- Without the `@dataclass` line, the class has no generated `__init__`. `Message("user", "Hi")`
+  raises `TypeError: Message() takes no arguments`.
+- A field with a default placed before a field without one raises `TypeError` when the
+  class is created. The message starts with `non-default argument`.
+- `tags: list[str] = []` raises `ValueError` when the class is created. The message says
+  `mutable default <class 'list'> for field tags is not allowed: use default_factory`.
+- Assigning to a field of a frozen dataclass raises `dataclasses.FrozenInstanceError`.
+- An unknown value such as `Role("robot")` raises `ValueError`.
 '''
 
 
@@ -69,13 +297,11 @@ EXERCISES = [
         "id": "dataclasses-s1",
         "title": "What gets printed?",
         "lesson": r'''
-            Think of a paper form: it has labelled boxes (Name, Email, Phone) and every copy of the
-            form has the same boxes, filled in differently. Lots of classes in an AI app are just
-            forms like that - a chat message, a model config, an API response. They hold data and
-            not much else.
+            ## Dataclasses
 
-            Writing `__init__`, a nice print and `==` for every such class is boring. Python can
-            write them for you:
+            Many classes in an AI app only hold data: a chat message, a model config, an API response.
+            Each one needs an `__init__`, a `__repr__` and an `__eq__`. Python can generate those three
+            methods for you.
 
             ```python
             from dataclasses import dataclass
@@ -87,17 +313,28 @@ EXERCISES = [
 
             m = Model("gpt-4o", 128000)
             print(m)
+            # Model(name='gpt-4o', context=128000)
             print(m.name)
+            # gpt-4o
             print(m == Model("gpt-4o", 128000))
+            # True
             ```
 
-            Each `name: type` line inside the class is a **field** (one box on the form). The
-            `@dataclass` line is a **decorator**: it reads your fields and generates three methods -
-            `__init__` (the constructor), `__repr__` (the printed form `Model(name='gpt-4o', ...)`)
-            and `__eq__` (so `==` compares field by field instead of asking "is it the very same
-            object?").
+            Each `name: type` line inside the class is a **field**: one piece of data that every
+            instance stores.
 
-            Watch out: the printed form shows strings in single quotes, like `repr()` does.
+            The `@dataclass` line is a **decorator**: a function that Python applies to the class
+            written below it. `dataclass` reads the fields and adds three methods to the class:
+
+            - `__init__` takes one argument per field, in field order, and stores each one on `self`.
+            - `__repr__` returns the class name and every field as `name=value`.
+            - `__eq__` makes `==` return `True` when two instances have equal values in every field.
+
+            A class without `__eq__` gives `True` for `==` only when both sides are the same object.
+            Two separately created objects are never equal, even with the same values.
+
+            `print(m)` uses `__repr__`, and `__repr__` formats each value with `repr()`. A string field
+            appears in single quotes: `name='gpt-4o'`. `print(m.name)` prints the string itself, without quotes.
         ''',
         "difficulty": 0,
         "mode": "predict",
@@ -123,9 +360,11 @@ EXERCISES = [
             True
         ''',
         "explanation": r'''
-            `@dataclass` wrote a `__repr__` that shows the class name and every field with its
-            value (strings in single quotes), and an `__eq__` that compares field by field -
-            so two messages with the same role and content are equal.
+            `print(m)` calls the `__repr__` that `@dataclass` generated. It returns the class name
+            and every field as `name=value`, with each value formatted by `repr()`, so the strings
+            appear in single quotes. `print(m.content)` prints the string itself: `Hi`. The
+            generated `__eq__` compares the fields of the two objects. Both have the role `"user"`
+            and the content `"Hi"`, so `==` returns `True`.
         ''',
         "starter": "",
         "tests": "",
@@ -139,11 +378,13 @@ EXERCISES = [
         "id": "dataclasses-s2",
         "title": "Add the decorator",
         "lesson": r'''
-            A decorator is like a stamp you press on a class: the class goes in, and comes out with
-            extra powers. You write it with `@` on the line **directly above** `class`.
+            ## The `@dataclass` decorator
 
-            Without the stamp, the field lines are just labels - there is no constructor that
-            accepts them:
+            You apply a decorator by writing `@` and its name on the line directly above `class`.
+
+            Without the decorator, the field lines only record type hints. Python generates no
+            `__init__`, so the class accepts no arguments. This example catches the `TypeError` and
+            prints its message.
 
             ```python
             class Plain:
@@ -153,23 +394,29 @@ EXERCISES = [
                 Plain("Intro")
             except TypeError as e:
                 print("error:", e)
+            # error: Plain() takes no arguments
             ```
 
-            With the stamp, the same class gets a constructor, a readable print and `==`:
+            With the decorator, the same fields produce an `__init__`, a `__repr__` and an `__eq__`.
 
             ```python
             from dataclasses import dataclass
 
             @dataclass
-            class Stamped:
+            class Decorated:
                 title: str
 
-            print(Stamped("Intro"))
+            print(Decorated("Intro"))
+            # Decorated(title='Intro')
             ```
 
-            Vocabulary: `dataclass` is a function from the **standard library** module
-            `dataclasses` - you must import it first (`from dataclasses import dataclass`). Using it
-            as `@dataclass` is called *decorating* the class.
+            `dataclass` is a function in the **standard library** module `dataclasses`. The standard
+            library is the set of modules that is installed with Python. You must import the function
+            before you use it: `from dataclasses import dataclass`.
+
+            Python runs the class body first, then calls `dataclass` with the new class. The function
+            adds the generated methods and returns the class. If you leave out the `@dataclass` line,
+            nothing calls the function and no methods are added.
         ''',
         "difficulty": 0,
         "prompt": r'''
@@ -234,11 +481,10 @@ EXERCISES = [
         "id": "dataclasses-s6",
         "title": "Label a function",
         "lesson": r'''
-            Luggage tags tell everyone what is inside a bag without opening it. **Type hints** are
-            luggage tags for your variables: they say "this parameter should be a string" and "this
-            function gives back an int".
+            ## Type hints on functions
 
-            You already wrote them in dataclass fields (`title: str`). They work on functions too:
+            A **type hint** is a type written in your code to state what kind of value is expected.
+            You already wrote type hints in dataclass fields: `title: str`. Functions take them too.
 
             ```python
             def shout(text: str) -> str:
@@ -248,15 +494,30 @@ EXERCISES = [
                 return len(text.split())
 
             print(shout("hi"))
+            # HI!
             print(word_count("tokens are not words"))
+            # 4
             ```
 
-            - `text: str` - a colon after the parameter name, then the type.
-            - `-> int` - an arrow after the `)`, before the `:`, then the type the function **returns**.
+            A **parameter annotation** is a colon and a type after a parameter name: `text: str`.
+            It states the type of the argument the function expects.
 
-            The proper name is an *annotation* (a *parameter annotation* and a *return annotation*).
-            Python stores them in the function's `__annotations__` dict, which is how the checks can
-            see them. Common simple types: `str`, `int`, `float`, `bool`.
+            A **return annotation** is an arrow and a type after the `)` and before the final `:`.
+            `-> int` states that the function returns an `int`.
+
+            **Annotation** is the formal name for a type hint. Python stores a function's annotations
+            in a dict named `__annotations__`. The return annotation is stored under the key `"return"`.
+
+            ```python
+            def word_count(text: str) -> int:
+                return len(text.split())
+
+            print(word_count.__annotations__)
+            # {'text': <class 'str'>, 'return': <class 'int'>}
+            ```
+
+            The common simple types are `str`, `int`, `float` and `bool`. Write the type name itself,
+            with no quotes: `str`, not `"str"`.
         ''',
         "difficulty": 0,
         "prompt": r'''
@@ -316,35 +577,47 @@ EXERCISES = [
         "id": "dataclasses-s7",
         "title": "Signs, not fences",
         "lesson": r'''
-            A "Please keep off the grass" sign is not a fence. It tells people what you want, but
-            nothing stops them walking on the grass. Type hints are signs, not fences.
+            ## Hints are not checked at runtime
+
+            Python stores type hints but never checks them while the program runs. The time while
+            a program runs is called **runtime**. A call with the wrong type still executes the
+            function body.
 
             ```python
             def add_tokens(a: int, b: int) -> int:
                 return a + b
 
             print(add_tokens(2, 3))
-            print(add_tokens("2", "3"))   # no error at all!
+            # 5
+            print(add_tokens("2", "3"))
+            # 23
             ```
 
-            Python itself **never checks** hints while the program runs. So why write them?
+            The second call passes two strings. Python runs `"2" + "3"`, which joins the strings, and
+            prints `23`. No error is raised.
 
-            - They document your intent for the next reader (often future you).
-            - Your editor uses them for autocomplete and red squiggles.
-            - Tools called *type checkers* (`mypy`, `pyright`) read them and report mistakes
-              **before** you run anything. Real AI codebases run these in CI.
+            Hints are still worth writing, for three reasons:
 
-            Hints are stored, though - you can look at them:
+            - They tell the next reader which types you intended.
+            - Your editor uses them to suggest names and to show warnings as you type.
+            - A **type checker** is a tool that reads your code without running it and reports type
+              mistakes. `mypy` and `pyright` are type checkers. Many AI codebases run one automatically
+              on every change.
+
+            You can read the stored hints from `__annotations__`. Each value is the type object itself.
 
             ```python
             def f(n: int) -> str:
                 return str(n)
 
             print(f.__annotations__)
+            # {'n': <class 'int'>, 'return': <class 'str'>}
+            print(f.__annotations__["n"])
+            # <class 'int'>
             ```
 
-            If a type really matters at runtime (say, API input), you check it yourself - you'll do
-            that later in this chapter with `__post_init__`.
+            If a type must be correct at runtime, for example for API input, you check it yourself.
+            You do that later in this chapter with `__post_init__`.
         ''',
         "difficulty": 0,
         "mode": "predict",
@@ -365,9 +638,10 @@ EXERCISES = [
             <class 'int'>
         ''',
         "explanation": r'''
-            Type hints are not checked when the code runs, so `double("ab")` happily does
-            `"ab" * 2`, which repeats the string: `abab`. The hint is still stored in
-            `__annotations__`; printing the type `int` shows `<class 'int'>`.
+            `double(4)` returns `4 * 2`, which is `8`. Python does not check type hints when the
+            code runs, so `double("ab")` evaluates `"ab" * 2`. Multiplying a string by 2 repeats
+            it: `abab`. The hint is still stored in the dict `double.__annotations__`. The value
+            under the key `"n"` is the type `int`, and printing a type shows `<class 'int'>`.
         ''',
         "starter": "",
         "tests": "",
@@ -381,13 +655,10 @@ EXERCISES = [
         "id": "dataclasses-s3",
         "title": "Fix the bug: field order",
         "lesson": r'''
-            Remember default parameter values in functions? `def ask(prompt, temperature=0.7)`.
-            Dataclass fields can have defaults the same way - and they follow the same rule:
-            **required things first, optional things after.**
+            ## Default values and field order
 
-            Think of a queue at a counter: people who must be served (required fields) line up
-            first; people who may or may not show up (fields with defaults) stand at the back.
-            Otherwise Python can't tell which positional value belongs to which field.
+            A function parameter can have a default value: `def ask(prompt, temperature=0.7)`. A
+            dataclass field can have one too. Write `= value` after the type.
 
             ```python
             from dataclasses import dataclass
@@ -398,15 +669,36 @@ EXERCISES = [
                 max_tokens: int = 256
 
             print(Request("Hi"))
+            # Request(prompt='Hi', max_tokens=256)
             print(Request("Hi", 50))
+            # Request(prompt='Hi', max_tokens=50)
             print(Request("Hi", max_tokens=10))
+            # Request(prompt='Hi', max_tokens=10)
             ```
 
-            If you put a field with a default **before** one without, Python refuses when the class
-            is created: `TypeError: non-default argument 'x' follows default argument`.
+            The order of the fields is the order of the parameters of the generated `__init__`. For
+            `Request` it is `__init__(self, prompt, max_tokens=256)`. The first positional argument
+            goes to `prompt`, the second to `max_tokens`.
 
-            Vocabulary: the order you write the fields in is the order of the constructor's
-            *positional arguments*.
+            Functions require parameters without a default to come before parameters with one. The
+            generated `__init__` is a function, so fields follow the same rule: fields without a
+            default first, fields with a default after them.
+
+            If you break the rule, `@dataclass` raises `TypeError` while the class is being created,
+            before any object exists. This example catches the error and prints its message.
+
+            ```python
+            from dataclasses import dataclass
+
+            try:
+                @dataclass
+                class Broken:
+                    max_tokens: int = 256
+                    prompt: str
+            except TypeError as e:
+                print("error:", e)
+            # error: non-default argument 'prompt' follows default argument 'max_tokens'
+            ```
         ''',
         "difficulty": 0,
         "prompt": r'''
@@ -470,8 +762,10 @@ EXERCISES = [
         "id": "dataclasses-s4",
         "title": "A chunk record",
         "lesson": r'''
-            Now put the pieces together: a decorator, fields with type hints, and a default at the
-            end. This is how a real record looks in a RAG pipeline or an SDK.
+            ## Writing a complete dataclass
+
+            A complete dataclass has three parts: the `@dataclass` decorator, the `class` line, and
+            one line per field. Each field line is `name: type` or `name: type = default`.
 
             ```python
             from dataclasses import dataclass
@@ -484,14 +778,16 @@ EXERCISES = [
 
             e = Embedding("doc-1", "text-embed")
             print(e)
+            # Embedding(doc_id='doc-1', model='text-embed', dims=1536)
             print(Embedding.__annotations__)
+            # {'doc_id': <class 'str'>, 'model': <class 'str'>, 'dims': <class 'int'>}
             ```
 
-            Every field line is `name: type` or `name: type = default`. The class keeps the hints in
-            `__annotations__` (a dict of field name -> type), which is what tools - and our checks -
-            read.
+            The class keeps its type hints in `Embedding.__annotations__`, a dict that maps each field
+            name to its type. Tools read this dict, and so do the checks for this exercise.
 
-            Watch out: write the type itself (`int`), not a value (`1`) and not a string (`"int"`).
+            Write the type itself in a hint: `int`. A value such as `1` or a string such as `"int"` is
+            a different annotation and does not equal `int`.
         ''',
         "difficulty": 0,
         "prompt": r'''
@@ -558,12 +854,13 @@ EXERCISES = [
         "id": "dataclasses-s5",
         "title": "Total tokens",
         "lesson": r'''
-            A dataclass is still a normal class. `@dataclass` only adds methods; you can write your
-            own next to the fields, exactly like in the classes chapter. Inside a method, the fields
-            are attributes on `self` - the particular object the method was called on.
+            ## Methods on a dataclass
 
-            Think of a receipt: it lists the items (fields), and it can also show you a computed
-            line such as "price with tax" (a method).
+            A dataclass is a normal class. `@dataclass` only adds methods to it. You can define your
+            own methods below the fields, the same way as in the classes chapter.
+
+            A **method** is a function defined inside a class. Its first parameter, `self`, is the
+            **instance** the method was called on. Inside a method you read a field as `self.field_name`.
 
             ```python
             from dataclasses import dataclass
@@ -577,11 +874,17 @@ EXERCISES = [
                     return (self.input_per_1k + self.output_per_1k) / 2
 
             print(Price(1.0, 3.0).average())
+            # 2.0
             print(Price(0.5, 0.5).average())
+            # 0.5
             ```
 
-            Vocabulary: a function defined inside a class is a *method*; `self` is the *instance*.
-            Watch out: forgetting `self.` (writing just `input_per_1k`) gives a `NameError`.
+            `Price(1.0, 3.0).average()` creates an instance and calls `average` with that instance as
+            `self`. The method reads `self.input_per_1k` and `self.output_per_1k`, which are `1.0` and
+            `3.0` for this instance. Each instance has its own field values, so the second call returns `0.5`.
+
+            If you write `input_per_1k` without `self.`, Python looks for a variable with that name,
+            finds none, and raises `NameError: name 'input_per_1k' is not defined`.
         ''',
         "difficulty": 0,
         "prompt": r'''
@@ -651,18 +954,20 @@ EXERCISES = [
         "id": "dataclasses-7",
         "title": "Typed cost lookup",
         "lesson": r'''
-            A box labelled just "fruit" is less useful than one labelled "apples". For collections,
-            hints can say what is **inside**:
+            ## Hints for lists and dicts
 
-            | hint | reads as |
+            A hint for a collection can also state the type of the values inside it. Write the inner
+            types in square brackets after the collection type.
+
+            | hint | meaning |
             | --- | --- |
             | `list[str]` | a list of strings |
-            | `dict[str, float]` | a dict: str keys -> float values |
+            | `dict[str, float]` | a dict with `str` keys and `float` values |
             | `tuple[int, int]` | a tuple of exactly two ints |
             | `set[str]` | a set of strings |
 
-            The type in square brackets is the *type parameter*. Such hints are called *generic*
-            types.
+            A type written with square brackets is a **generic type**. The types inside the brackets
+            are its **type parameters**.
 
             ```python
             def longest(words: list[str]) -> str:
@@ -672,12 +977,19 @@ EXERCISES = [
                 return prices.get(name, 0.0)
 
             print(longest(["rag", "agents"]))
+            # agents
             print(lookup({"gpt-4o": 5.0}, "gpt-4o"))
+            # 5.0
+            print(lookup({"gpt-4o": 5.0}, "llama"))
+            # 0.0
             print(longest.__annotations__)
+            # {'words': list[str], 'return': <class 'str'>}
             ```
 
-            Older code writes `List[str]` and `Dict[str, float]` imported from `typing`; since
-            Python 3.9 the built-in lowercase names work and are preferred.
+            `prices.get(name, 0.0)` returns the value for `name`, or `0.0` when the key is missing.
+
+            Older code writes `List[str]` and `Dict[str, float]`, imported from `typing`. Since
+            Python 3.9 the built-in lowercase names work, and they are the preferred form.
         ''',
         "difficulty": 1,
         "hints": [
@@ -754,8 +1066,10 @@ EXERCISES = [
         "id": "dataclasses-1",
         "title": "A message record",
         "lesson": r'''
-            Some form boxes are marked "(optional)". In Python, "this might be a string, or might be
-            nothing at all" is written `str | None` - read the `|` as "or".
+            ## Optional values: `str | None`
+
+            Some values can be absent. The hint `str | None` states that a value is either a string
+            or `None`. Read the `|` as "or". This spelling needs Python 3.10 or newer.
 
             ```python
             from dataclasses import dataclass
@@ -766,21 +1080,27 @@ EXERCISES = [
                 nickname: str | None = None
 
             print(User("u1"))
+            # User(id='u1', nickname=None)
             print(User("u2", "ada"))
+            # User(id='u2', nickname='ada')
 
             def greet(name: str | None) -> str:
-                return "Hi " + (name or "there")
+                if name is None:
+                    return "Hi there"
+                return "Hi " + name
 
             print(greet(None))
+            # Hi there
             ```
 
-            Almost always, an optional field gets the default `None`, so callers can leave it out.
+            An optional field usually gets the default `None`, so callers can leave it out.
+            `User("u1")` passes no nickname, and the generated `__init__` stores `None`.
 
-            Vocabulary: `str | None` is a *union* type (one of several types). Older code writes
-            `Optional[str]` (from `typing`) - it means exactly the same thing.
+            `str | None` is a **union type**: a hint that allows any one of several types. Older code
+            writes `Optional[str]`, imported from `typing`. It means the same thing.
 
-            Watch out: `str | None` is only a hint. Your code still has to handle the `None` case,
-            e.g. with `if name is None:`.
+            `str | None` is only a hint. Python does not check it, and your code still has to handle
+            `None`. `"Hi " + None` raises `TypeError`, so `greet` tests `name is None` first.
         ''',
         "hints": [
             "Import `dataclass` from the `dataclasses` module and put `@dataclass` on the line above the class.",
@@ -857,9 +1177,32 @@ EXERCISES = [
         "id": "dataclasses-2",
         "title": "Mutable defaults",
         "lesson": r'''
-            Imagine an office that gives every new employee a notebook - but it's the **same**
-            notebook, passed around. Whatever one person writes, everyone sees. That is what a
-            shared list default would do, so dataclasses forbid `tags: list[str] = []`:
+            ## Mutable defaults and `default_factory`
+
+            A default value is created once, when the class is defined. If it is a list, every object
+            built without an argument would refer to the same list object.
+
+            ```python
+            a_ids = []
+            b_ids = a_ids
+            b_ids.append(1)
+            print(a_ids)
+            # [1]
+            print(a_ids is b_ids)
+            # True
+            ```
+
+            In the diagram below, run `b_ids.append(1)` in each of the two modes. In the first mode,
+            `b_ids = a_ids` makes both names refer to one list, which is what a shared default list
+            does. In the second mode, `b_ids = a_ids.copy()` gives each name its own list object.
+
+            ```diagram
+            {"type":"alias-copy","title":"One shared list or two separate lists","a":"a_ids","b":"b_ids","items":[],"append":1}
+            ```
+
+            A list, a dict and a set are **mutable**: they can be changed after they are created.
+            Dataclasses refuse a list, dict or set as a default for this reason. `@dataclass` raises
+            `ValueError` when the class is created. This example catches it and prints the message.
 
             ```python
             from dataclasses import dataclass
@@ -870,11 +1213,12 @@ EXERCISES = [
                     tags: list[str] = []
             except ValueError as e:
                 print("error:", e)
+            # error: mutable default <class 'list'> for field tags is not allowed: use default_factory
             ```
 
-            Instead you give the class a *factory*: a function that is called to make a **new**
-            notebook for every object. `list` and `dict` are such functions - `list()` returns a
-            fresh `[]`.
+            `field(...)` from `dataclasses` sets options for one field. Its `default_factory` option
+            takes a **factory**: a function that Python calls, with no arguments, each time an object
+            needs a default. `list()` returns a new `[]` and `dict()` returns a new `{}`.
 
             ```python
             from dataclasses import dataclass, field
@@ -883,13 +1227,16 @@ EXERCISES = [
             class Chat:
                 turns: list[str] = field(default_factory=list)
 
-            a, b = Chat(), Chat()
+            a = Chat()
+            b = Chat()
             a.turns.append("Hi")
-            print(a.turns, b.turns)
+            print(a.turns)
+            # ['Hi']
+            print(b.turns)
+            # []
             ```
 
-            Vocabulary: `field(...)` customises one field; `default_factory=` is the function used to
-            build its default. Note: pass `list`, not `list()`.
+            Pass the function `list`, not the call `list()`.
         ''',
         "hints": [
             "A plain `= []` default is not allowed in a dataclass (it would be shared). Look at `field(default_factory=...)`.",
@@ -977,13 +1324,14 @@ EXERCISES = [
         "id": "dataclasses-8",
         "title": "Reject bad chunks",
         "lesson": r'''
-            The generated `__init__` just stores what it is given - even nonsense like an empty chunk
-            or page `-3`. Hints won't stop it (remember: signs, not fences). So add a quality check
-            at the factory door.
+            ## Validation with `__post_init__`
 
-            If you define a method called `__post_init__(self)`, the dataclass calls it **right after**
-            its own `__init__` has stored all the fields. There you can inspect `self.<field>` and
-            `raise` an error to reject bad data:
+            The generated `__init__` stores whatever it receives, including an empty chunk or page `-3`.
+            Type hints do not stop it, because Python does not check hints at runtime.
+
+            If the class defines a method named `__post_init__(self)`, the generated `__init__` calls it
+            after it has stored all the fields. Inside it you read `self.field_name` and `raise` an
+            error when a value is not acceptable.
 
             ```python
             from dataclasses import dataclass
@@ -997,15 +1345,31 @@ EXERCISES = [
                         raise ValueError(f"temperature out of range: {self.value}")
 
             print(Temperature(0.7))
+            # Temperature(value=0.7)
             try:
                 Temperature(5)
             except ValueError as e:
                 print("rejected:", e)
+            # rejected: temperature out of range: 5
             ```
 
-            Vocabulary: this is *validation*. Rejecting bad data as soon as the object is created
-            means the rest of your app can trust every object it holds. Libraries like Pydantic are
-            built around this idea.
+            Step through what happens during the call `Temperature(5)`.
+
+            ```diagram
+            {"type":"flow","title":"What happens when Temperature(5) is called","steps":[
+            {"label":"Temperature(5) is called","detail":"Python creates a new Temperature object and calls the generated __init__ with value set to 5.","code":"Temperature(5)"},
+            {"label":"__init__ stores the field","detail":"The generated __init__ stores the argument on the object. It does not check the type or the range.","code":"self.value = 5"},
+            {"label":"__post_init__ runs","detail":"The generated __init__ then calls self.__post_init__(). The condition is True because 5 is greater than 2.","code":"if self.value < 0 or self.value > 2:\n# False or True -> True"},
+            {"label":"ValueError is raised","detail":"The raise statement ends __post_init__ and __init__. The call Temperature(5) raises the error instead of returning an object.","code":"ValueError: temperature out of range: 5"},
+            {"label":"Compare: Temperature(0.7)","detail":"With 0.7 the condition is False. __post_init__ returns without raising, and the call returns the new object.","code":"print(Temperature(0.7))\n# Temperature(value=0.7)"}
+            ]}
+            ```
+
+            Checking data and rejecting bad values is called **validation**. When every object is
+            validated at creation, the rest of your app can rely on the values of any object it
+            receives. Pydantic, a library used in many AI codebases, validates objects the same way.
+
+            `__post_init__` needs no `return`. When every check passes, it ends and the object is created.
         ''',
         "difficulty": 1,
         "hints": [
@@ -1097,8 +1461,10 @@ EXERCISES = [
         "id": "dataclasses-3",
         "title": "Roles and validation",
         "lesson": r'''
-            Putting it together, plus one new tool: an **Enum** - a fixed menu of named values, like
-            the buttons on a lift. You can't press floor 99 if it isn't on the panel.
+            ## Enums
+
+            An **Enum** is a class with a fixed set of named **members**, each with a value. You
+            subclass `Enum` and write one `NAME = value` line per member.
 
             ```python
             from enum import Enum
@@ -1107,16 +1473,26 @@ EXERCISES = [
                 SMALL = "small"
                 LARGE = "large"
 
-            print(Size.SMALL, Size.SMALL.value)
+            print(Size.SMALL)
+            # Size.SMALL
+            print(Size.SMALL.value)
+            # small
             print(Size("large") is Size.LARGE)
+            # True
             try:
                 Size("huge")
             except ValueError as e:
                 print("error:", e)
+            # error: 'huge' is not a valid Size
             ```
 
-            `Size("large")` looks a member up **by value**; an unknown value raises `ValueError`.
-            `Size(Size.LARGE)` just gives the member back. Combine this with `__post_init__`.
+            `Size("large")` looks a member up by its value. A value that no member has raises
+            `ValueError`. `Size(Size.LARGE)` receives a member and returns that same member.
+            `.value` gives the plain value of a member.
+
+            Each member exists once, so you compare members with `is`: `Size("large") is Size.LARGE`.
+
+            In this exercise you call the Enum inside `__post_init__` to convert and check a field.
         ''',
         "hints": [
             "An Enum member can be looked up by value: `Role(\"user\")` gives `Role.USER`, and an unknown value raises `ValueError` for you. `__post_init__` runs right after the generated `__init__`.",
@@ -1254,13 +1630,19 @@ EXERCISES = [
         "id": "dataclasses-4",
         "title": "Frozen, ordered options",
         "lesson": r'''
-            Putting it together, plus three decorator options and a helper:
+            ## `frozen`, `order` and `replace`
 
-            - `@dataclass(frozen=True)`: objects are read-only (assigning raises
-              `dataclasses.FrozenInstanceError`) and *hashable*, so they can go in a set.
-            - `@dataclass(order=True)`: `<`, `sorted()` and `min()` compare fields one by one, in the
-              order they are declared.
-            - `replace(obj, field=new)` (from `dataclasses`): a copy with some fields changed.
+            `dataclass` accepts options in parentheses: `@dataclass(frozen=True, order=True)`.
+
+            `frozen=True` makes instances read-only: assigning to a field raises
+            `dataclasses.FrozenInstanceError`. Frozen instances are also **hashable**, which means
+            you can put them in a set or use them as dict keys.
+
+            `order=True` adds `<`, `<=`, `>` and `>=`. They compare the fields one by one, in the
+            order the fields are declared. `sorted()` and `min()` use `<`.
+
+            `replace(obj, field=new)` from `dataclasses` returns a new object with that field changed.
+            The original is not modified.
 
             ```python
             from dataclasses import dataclass, replace
@@ -1272,8 +1654,17 @@ EXERCISES = [
 
             v = Version(1, 2)
             print(sorted([Version(2, 0), v]))
-            print(replace(v, minor=3), v)
+            # [Version(major=1, minor=2), Version(major=2, minor=0)]
+            print(replace(v, minor=3))
+            # Version(major=1, minor=3)
+            print(v)
+            # Version(major=1, minor=2)
+            print(len({v, Version(1, 2)}))
+            # 1
             ```
+
+            The last line builds a set from two `Version(1, 2)` objects. They are equal and
+            hashable, and a set keeps only one of several equal items, so its length is `1`.
         ''',
         "hints": [
             "`@dataclass` accepts options: look at `frozen=True` and `order=True`.",
@@ -1375,32 +1766,51 @@ EXERCISES = [
         "id": "dataclasses-5",
         "title": "Typed completion response",
         "lesson": r'''
-            Putting it together, plus three more tools:
+            ## Properties, `Literal`, class methods and `asdict`
 
-            - `@property` on a method makes it read like an attribute (`u.total`, no brackets). It is
-              computed each time, and it is **not** a field.
-            - `Literal["a", "b"]` (from `typing`) hints "only these exact values"; `typing.get_args`
-              gives the allowed values back as a tuple.
-            - `asdict(obj)` (from `dataclasses`) converts a dataclass - including nested ones - into
-              plain dicts and lists.
+            `@property` on a method lets you read it without parentheses: `r.words`. Python runs the
+            method on every read. A property is not a field, so `asdict` and `__repr__` leave it out.
+
+            `Literal["fast", "slow"]` from `typing` is a hint that allows only those exact values.
+            Python does not check it. `get_args` from `typing` returns the allowed values as a tuple.
+
+            A **class method** is a method decorated with `@classmethod`. Python passes it the class,
+            named `cls`, instead of an instance. Calling `cls(...)` builds a new object.
+
+            `asdict(obj)` from `dataclasses` converts a dataclass instance, including nested
+            dataclasses, into plain dicts and lists.
 
             ```python
             from dataclasses import dataclass, asdict
             from typing import Literal, get_args
 
             Mode = Literal["fast", "slow"]
-            print(get_args(Mode))
 
             @dataclass
-            class Box:
-                w: int
-                h: int
+            class Limits:
+                max_tokens: int
+                mode: Mode
+
+            @dataclass
+            class Request:
+                prompt: str
+                limits: Limits
 
                 @property
-                def area(self) -> int:
-                    return self.w * self.h
+                def words(self) -> int:
+                    return len(self.prompt.split())
 
-            print(Box(2, 3).area, asdict(Box(2, 3)))
+                @classmethod
+                def short(cls, prompt):
+                    return cls(prompt, Limits(50, "fast"))
+
+            r = Request.short("Say hi")
+            print(get_args(Mode))
+            # ('fast', 'slow')
+            print(r.words)
+            # 2
+            print(asdict(r))
+            # {'prompt': 'Say hi', 'limits': {'max_tokens': 50, 'mode': 'fast'}}
             ```
         ''',
         "hints": [
@@ -1626,14 +2036,15 @@ EXERCISES = [
               factory must still give a **fresh** list per object).
             - If the key is missing and the field has no default, raise `ValueError` whose
               message contains the field name (e.g. `"settings"`).
-            - A field whose type hint is a dataclass is converted recursively from its dict.
+            - A field whose type hint is a dataclass is converted from its dict with the same rule
+              applied again to that inner dict (this is called *recursion*).
             - `list[X]` where `X` is a dataclass: convert every element. Lists of plain values
               (e.g. `list[str]`) are used unchanged.
             - `X | None` (or `Optional[X]`) with a dataclass `X`: `None` stays `None`, a dict is converted.
             - Anything else is used as-is. Keys in `data` that are not fields are ignored.
             - Must work from the type hints, not from specific class names. Note that
-              `models.py` uses `from __future__ import annotations`, so its raw annotations are
-              strings - `typing.get_type_hints(cls)` gives the real types.
+              `models.py` starts with `from __future__ import annotations`, a line that makes Python
+              keep annotations as text, so its raw annotations are strings - `typing.get_type_hints(cls)` gives the real types.
 
             The tests use the dataclasses defined in `models.py` (already in your folder):
 

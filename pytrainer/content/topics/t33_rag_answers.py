@@ -10,67 +10,234 @@ TOPIC = {
         full retrieve-then-generate pipeline with fake `embed` and `llm` functions.
     """,
     "concepts": ["numbered sources", "grounded prompt", "context budget", "similarity threshold",
-                 "declining to answer", "citations", "citation validation", "retry with feedback",
+                 "declining to answer",                  "citations", "citation validation", "retry with feedback",
                  "RAG pipeline"],
 }
 
-LESSON = r'''
-## RAG in one picture
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["rag", "citation", "cite", "source", "sources", "grounded", "prompt",
+                 "budget", "threshold", "decline", "hallucination", "numbered",
+                 "findall", "top-k"],
+    "cards": [
+        {
+            "syntax": "enumerate(chunks, start=1)",
+            "explain": "Pairs each item with a counter that starts at 1, so citation [n] refers to item n, not n - 1.",
+            "example": r'''
+                chunks = ["Paris is in France.", "Rome is in Italy."]
+                for n, text in enumerate(chunks, start=1):
+                    print(f"[{n}] {text}")
+                # [1] Paris is in France.
+                # [2] Rome is in Italy.
+            ''',
+        },
+        {
+            "syntax": '"\\n".join(lines)',
+            "explain": "Returns one string with one line per item and a newline between them. It adds no newline at the end.",
+            "example": r'''
+                lines = ["[1] Paris is in France.", "[2] Rome is in Italy."]
+                print(repr("\n".join(lines)))
+                # '[1] Paris is in France.\n[2] Rome is in Italy.'
+            ''',
+        },
+        {
+            "syntax": 're.findall(r"\\[(\\d+)\\]", answer)',
+            "explain": "Returns the digits inside every [n] citation as strings, in order, with duplicates. Convert each with int().",
+            "example": r'''
+                import re
 
-**Retrieve** the best chunks -> **augment** the prompt with them -> **generate** the answer.
-The model answers from *your* documents, like a student in an open-book exam.
+                answer = "Paris is in France [1]. Rome [2][5]."
+                print([int(n) for n in re.findall(r"\[(\d+)\]", answer)])
+                # [1, 2, 5]
+            ''',
+        },
+        {
+            "syntax": "1 <= n <= n_sources",
+            "explain": "Chained comparison: True when n is at least 1 and at most n_sources. A citation outside that range is invalid.",
+            "example": r'''
+                n_sources = 3
+                for n in [0, 1, 3, 4]:
+                    print(n, 1 <= n <= n_sources)
+                # 0 False
+                # 1 True
+                # 3 True
+                # 4 False
+            ''',
+        },
+        {
+            "syntax": "if max(scores) < threshold: decline",
+            "explain": "Decline when the best score is below the threshold. One good chunk is enough, so compare max(scores), not min.",
+            "example": r'''
+                scores = [0.31, 0.72]
+                print(max(scores) >= 0.5)
+                # True
+                print(max([0.12, 0.08]) >= 0.5)
+                # False
+            ''',
+        },
+        {
+            "syntax": "if used + len(chunk) > budget: continue",
+            "explain": "Greedy fill: skip a chunk that does not fit and keep going, so a later, shorter chunk can still be kept.",
+            "example": r'''
+                budget, used, kept = 10, 0, []
+                for text in ["aaaa", "bbbbbbbb", "cc"]:
+                    if used + len(text) > budget:
+                        continue
+                    kept.append(text)
+                    used += len(text)
+                print(kept, used)
+                # ['aaaa', 'cc'] 6
+            ''',
+        },
+    ],
+}
+
+LESSON = r'''
+## The RAG steps
+
+**RAG** (retrieval-augmented generation) is a program that answers a question in three
+steps. It **retrieves** the chunks most similar to the question. It **augments** the prompt:
+it adds those chunks to the prompt text. The model then **generates** an answer from that
+prompt. The answer is based on the text of your documents, which is in the prompt.
+
+Click each stage to see the text the program holds at that point.
+
+```diagram
+{"type":"flow","title":"From question to checked answer","steps":[
+{"label":"Question","detail":"The user sends a question as a string.","code":"How long do refunds take?"},
+{"label":"Retrieve","detail":"The retriever scores every stored chunk against the question and returns the k best ones. Here k is 2.","code":"0.81  Refunds take 5 business days.   (refunds.md)\n0.55  Shipping is free over 50 EUR.   (shipping.md)"},
+{"label":"Number the sources","detail":"enumerate(chunks, start=1) gives each chunk a number. Each line holds the number, the source name and the text.","code":"[1] (refunds.md) Refunds take 5 business days.\n[2] (shipping.md) Shipping is free over 50 EUR."},
+{"label":"Build the prompt","detail":"The prompt has three parts separated by empty lines: the instructions, the numbered sources and the question.","code":"Answer using only the numbered sources. Cite them like [1].\nIf the sources do not contain the answer, say you do not know.\n\nSources:\n[1] (refunds.md) Refunds take 5 business days.\n[2] (shipping.md) Shipping is free over 50 EUR.\n\nQuestion: How long do refunds take?"},
+{"label":"Generate","detail":"The program calls the model once with the prompt. The reply contains citations in square brackets.","code":"Refunds take 5 business days [1]."},
+{"label":"Check citations","detail":"re.findall extracts the numbers. Each one must be between 1 and the number of sources. Valid numbers are mapped back to source names.","code":"cited: [1]\ninvalid: []\nSources: refunds.md"}
+]}
+```
 
 ## The grounded prompt
 
-```text
-Answer using only the numbered sources. Cite them like [1].
-If the sources don't contain the answer, say "I don't know".
+A **source** is a retrieved chunk with a number in front of it. A **citation** is that
+number in square brackets inside the answer, such as `[1]`. A **grounded prompt** tells
+the model to answer only from the numbered sources and to cite them.
 
-Sources:
-[1] (refunds.md) Refunds take 5 business days.
-[2] (shipping.md) Shipping is free over 50 EUR.
-
-Question: How long do refunds take?
+```python
+chunks = [
+    {"text": "Refunds take 5 business days.", "source": "refunds.md"},
+    {"text": "Shipping is free over 50 EUR.", "source": "shipping.md"},
+]
+lines = [f"[{n}] ({c['source']}) {c['text']}" for n, c in enumerate(chunks, start=1)]
+sources = "\n".join(lines)
+question = "How long do refunds take?"
+prompt = (
+    "Answer using only the numbered sources. Cite them like [1].\n"
+    "If the sources do not contain the answer, say you do not know.\n\n"
+    f"Sources:\n{sources}\n\n"
+    f"Question: {question}"
+)
+print(prompt)
+# Answer using only the numbered sources. Cite them like [1].
+# If the sources do not contain the answer, say you do not know.
+#
+# Sources:
+# [1] (refunds.md) Refunds take 5 business days.
+# [2] (shipping.md) Shipping is free over 50 EUR.
+#
+# Question: How long do refunds take?
 ```
 
-- Number sources with `enumerate(chunks, start=1)`: citation `[n]` points at source `n`.
-- Keep instructions, sources and question clearly separated.
-- **Context budget**: prompts have limited room (and cost per token). Pack the best-ranked
-  chunks first; skip a chunk that doesn't fit, a later smaller one may still fit.
+`enumerate(chunks, start=1)` numbers the chunks from 1, so citation `[n]` refers to
+source `n`. The empty lines and the `Sources:` and `Question:` labels separate the
+instructions from the document text.
 
-## Knowing when not to answer
+## Context budget
 
-If the **best** similarity score is below a threshold, retrieval found nothing useful.
-Return a fixed "I don't know" message *without* calling the LLM: cheaper, and it can't
-make something up.
+The **context budget** is the maximum amount of source text you allow in one prompt.
+Go through the chunks in ranked order and keep each one that still fits. `continue`
+skips a chunk that is too long, so a later, shorter chunk can still be kept.
 
-## Checking the answer
+```python
+ranked = ["a" * 30, "b" * 80, "c" * 15]
+budget = 50
+kept, used = [], 0
+for chunk in ranked:
+    if used + len(chunk) > budget:
+        continue
+    kept.append(chunk)
+    used += len(chunk)
+print([len(chunk) for chunk in kept], used)
+# [30, 15] 45
+```
+
+## Declining to answer
+
+A **threshold** is the minimum similarity score you accept. If the best score is below
+it, retrieval found nothing relevant. Return a fixed message and do not call the model.
+That costs nothing, and the model cannot produce an invented answer.
+
+```python
+DECLINE = "I don't know based on the available documents."
+results = [("Our CEO likes cats.", 0.12), ("We are hiring.", 0.08)]
+best = max(score for text, score in results)
+print(best)
+# 0.12
+if best < 0.5:
+    print(DECLINE)
+# I don't know based on the available documents.
+```
+
+## Checking the citations
+
+`re.findall` with one group returns the digits of every citation, in order. A citation
+is valid when `1 <= n <= n_sources`.
 
 ```python
 import re
-answer, n_sources = "Yes [1]. Also [4] and [2][4].", 3
-nums = [int(n) for n in re.findall(r"\[(\d+)\]", answer)]   # citations, in order
+
+answer = "Yes [1]. Also [4] and [2][4]."
+n_sources = 3
+nums = [int(n) for n in re.findall(r"\[(\d+)\]", answer)]
 print(nums)
-print(sorted({n for n in nums if not 1 <= n <= n_sources}))   # invalid ones
+# [1, 4, 2, 4]
+print(sorted({n for n in nums if not 1 <= n <= n_sources}))
+# [4]
 ```
 
-- A citation to a source that doesn't exist (`[7]` with 3 sources) is a **hallucinated
-  citation**: reject it, or retry with feedback ("only cite [1] to [3]").
-- Sentences with no citation at all are unsupported claims worth flagging.
-- Map valid numbers back to source names to show "Sources: refunds.md".
+A **hallucinated citation** is a citation to a source that was not in the prompt, such
+as `[4]` with 3 sources. You can reject the answer, or call the model again with
+feedback such as "Cite only sources [1] to [3]." A sentence with no citation at all is a
+claim that no source supports, so flag it. To display the sources, map each valid
+number back to its source name.
 
-## Testing it
+## Testing with fake models
 
-Inject `embed` and `llm` as functions. In tests, a fake `llm` returns a canned answer and
-records the prompt it received, so you can assert on the prompt *and* the post-processing
-without a network or an API key.
+To **inject** a function means to pass it in as an argument instead of calling a fixed
+one. Pass `embed` and `llm` in as arguments. A test passes a fake `llm` that returns a
+fixed reply and appends the prompt it received to a list. The test then checks both
+the prompt and the result, with no network and no API key.
 
-## Gotchas
+```python
+calls = []
 
-- Numbers in `[n]` are 1-based; Python lists are 0-based: source `n` is `sources[n - 1]`.
-- De-duplicate cited sources but keep first-cited order.
-- Decline based on the **best** score, not the worst.
-- Retries need a limit (`max_attempts`), or a stubborn model loops forever.
+def fake_llm(prompt):
+    calls.append(prompt)
+    return "Refunds take 5 business days [1]."
+
+def answer_question(question, llm):
+    return llm(f"Sources:\n[1] Refunds take 5 business days.\n\nQuestion: {question}")
+
+print(answer_question("How long do refunds take?", fake_llm))
+# Refunds take 5 business days [1].
+print(calls[0].endswith("Question: How long do refunds take?"))
+# True
+```
+
+## Common mistakes
+
+- Citation numbers start at 1 and list indexes start at 0. Source `n` is `sources[n - 1]`.
+- A source cited twice must be listed once. Keep the order in which sources are first cited.
+- Decline when the **best** score is below the threshold. Do not test the worst score.
+- A retry loop needs a limit such as `max_attempts`. Without one, a model that keeps
+  returning bad citations makes the loop run forever.
 '''
 
 EXERCISES = [
@@ -81,25 +248,30 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## The open-book exam
+            ## Numbered sources
 
-            An LLM on its own is a student taking a closed-book exam: it answers from memory,
-            and when memory fails it may confidently make something up. **RAG**
-            (retrieval-augmented generation) turns it into an **open-book** exam: you hand the
-            model a few index cards (the retrieved chunks) and tell it to answer from those.
+            An LLM on its own generates an answer from what it learned before. When what it
+            learned does not contain the answer, the model can still produce text that is
+            wrong. **RAG** (retrieval-augmented generation) is a program that retrieves chunks
+            of your documents and puts them in the prompt. The prompt tells the model to answer
+            from those chunks.
 
-            To let the model say *which* card it used, number the cards. `enumerate` gives you
-            a counter next to each item; `start=1` makes it count like humans do:
+            To let the model state which chunk it used, you number the chunks.
+            `enumerate(chunks, start=1)` pairs each item with a counter that starts at 1.
 
             ```python
-            cards = ["Paris is in France.", "Rome is in Italy."]
-            for n, card in enumerate(cards, start=1):
-                print(n, card)
+            chunks = ["Paris is in France.", "Rome is in Italy."]
+            for n, text in enumerate(chunks, start=1):
+                print(n, text)
+            # 1 Paris is in France.
+            # 2 Rome is in Italy.
             ```
 
-            The numbered cards are called **sources**. The model can then point at a card
-            with a **citation** like `[2]`, and your app can show the user where the answer
-            came from.
+            A numbered chunk is called a **source**. A **citation** is a source number in
+            square brackets inside the answer, such as `[2]`. Your app reads the citations
+            to show the user which document each statement came from.
+
+            Without `start=1`, `enumerate` starts at 0 and the first source gets number 0.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -130,28 +302,35 @@ EXERCISES = [
         "title": "Number the sources",
         "difficulty": 0,
         "lesson": r'''
-            ## One block of numbered cards
+            ## Joining sources into one string
 
-            The prompt needs all the sources as **one string**, one per line. Remember
-            `"\n".join(...)` from the strings chapter: it glues a list of strings together
-            with a newline between them (not after the last one).
+            The prompt needs all the sources as one string, with one source per line.
+            `"\n".join(lines)` returns one string made of the items of `lines` with a newline
+            between them. It adds no newline after the last item.
 
             ```python
             lines = ["[1] alpha", "[2] beta"]
             block = "\n".join(lines)
             print(block)
+            # [1] alpha
+            # [2] beta
             print(repr(block))
+            # '[1] alpha\n[2] beta'
             ```
 
-            You can feed `join` a generator expression directly, no temporary list needed:
+            `join` also accepts a generator expression, so you do not need to build a list first.
+            Joining zero items returns the empty string.
 
             ```python
             words = ["x", "y", "z"]
             print(", ".join(f"<{w}>" for w in words))
+            # <x>, <y>, <z>
+            print(repr("\n".join([])))
+            # ''
             ```
 
-            Watch out: citations are **1-based**. If you number from 0, the model's `[1]`
-            points at the wrong card.
+            Citation numbers start at 1. If you number the sources from 0, the model's `[1]`
+            refers to your second source and every citation is off by one.
         ''',
         "prompt": r'''
             Format retrieved chunks as a numbered list of sources for a prompt.
@@ -206,28 +385,37 @@ EXERCISES = [
         "title": "The grounded prompt",
         "difficulty": 0,
         "lesson": r'''
-            ## The exam rules at the top of the paper
+            ## The grounded prompt
 
-            An open-book exam paper starts with the rules: "Use only the provided material.
-            Cite your sources." A RAG prompt does the same, in a fixed layout:
+            A **grounded prompt** is a prompt that tells the model to answer only from the
+            sources it contains. It has three parts in a fixed order:
 
-            1. the **instructions** (answer only from the sources, cite them),
-            2. the **sources** (the numbered cards),
-            3. the **question**.
+            1. The **instructions**: answer only from the sources and cite them.
+            2. The **sources**: the numbered chunks.
+            3. The **question**.
 
-            Keeping these three parts clearly separated (with blank lines and labels like
-            `Sources:`) helps the model tell *your instructions* apart from *the documents*.
-            A prompt built like this is called a **grounded prompt**: the answer is grounded
-            in (tied to) the sources.
+            You separate the parts with empty lines and labels such as `Sources:`. The model
+            reads the prompt as one string, so the labels are what mark where your
+            instructions end and the document text begins.
 
             ```python
             sources = "[1] Paris is in France."
             question = "Where is Paris?"
             prompt = f"Use the sources.\n\nSources:\n{sources}\n\nQuestion: {question}"
             print(prompt)
+            # Use the sources.
+            #
+            # Sources:
+            # [1] Paris is in France.
+            #
+            # Question: Where is Paris?
             ```
 
-            `\n\n` makes a blank line: one newline ends the line, the second one is the empty line.
+            `\n\n` produces an empty line. The first newline ends the current line. The second
+            newline ends a line that has no characters in it.
+
+            The string above does not end with `\n`. A newline after `{question}` would
+            change the string, and a test that compares exact strings would fail.
         ''',
         "prompt": r'''
             Build the grounded prompt that will be sent to the model.
@@ -299,26 +487,34 @@ EXERCISES = [
         "title": "Fix the confidence check",
         "difficulty": 0,
         "lesson": r'''
-            ## "I'm not sure" is a good answer
+            ## The similarity threshold
 
-            A good doctor says "I don't know, let's run a test" instead of guessing. A RAG app
-            should too. If retrieval found nothing relevant, handing the model weak cards
-            invites it to make something up (a **hallucination**).
+            A **hallucination** is model output that states something no source supports.
+            When retrieval finds nothing relevant, the prompt contains only unrelated chunks,
+            and the model is more likely to hallucinate. In that case a RAG app should
+            reply that it does not know.
 
-            The retriever's scores tell you how good the cards are. The rule is simple: if the
-            **best** card scores below a **threshold** (say `0.5`), don't call the model.
-            Just reply "I don't know based on the available documents."
+            The retriever returns a similarity score for each chunk. A **threshold** is the
+            minimum score you accept, for example `0.5`. If the best score is below the
+            threshold, you do not call the model. You return a fixed message such as
+            "I don't know based on the available documents."
 
             ```python
             scores = [0.31, 0.72, 0.18]
             print(max(scores))
+            # 0.72
             print(max(scores) >= 0.5)
+            # True
             print(min(scores) >= 0.5)
+            # False
             ```
 
-            It only takes **one** good card to answer well, so it's the best score that
-            matters, not the worst. The right threshold depends on your embedding model;
-            you pick it by looking at real examples (that's what evals are for, later).
+            One relevant chunk is enough to answer from, so you compare the best score,
+            `max(scores)`, with the threshold. Comparing `min(scores)` rejects every result
+            list that contains one weak chunk.
+
+            The right threshold depends on your embedding model. You choose it by looking at
+            the scores of real questions.
         ''',
         "prompt": r'''
             `has_good_match` decides whether retrieval found anything worth answering from.
@@ -380,29 +576,38 @@ EXERCISES = [
         "title": "Find the citations",
         "difficulty": 0,
         "lesson": r'''
-            ## Footnotes you can check
+            ## Extracting citations
 
-            The model's answer comes back with citations, like footnotes in a book:
-            `"Refunds take 5 days [1]. Shipping is free [2]."`. To check or display them, your
-            code needs to pull the numbers out.
+            The model's answer is a string with citations in it, such as
+            `"Paris is in France [1]. Rome is in Italy [2]."`. To check or display the
+            citations, your code first extracts the numbers.
 
-            Remember regex groups? With `re.findall`, if the pattern has one group `( )`,
-            you get back only the part inside the group. Square brackets are special in regex,
-            so a literal `[` is written `\[`:
+            When a pattern has one group `( )`, `re.findall` returns only the text matched
+            inside the group. Square brackets have a special meaning in a regex, so you write
+            a literal `[` as `\[` and a literal `]` as `\]`. `\d+` matches one or more digits.
 
             ```python
             import re
 
-            answer = "Refunds take 5 days [1]. Free shipping [2][1]."
+            answer = "Paris is in France [1]. Rome is in Italy [2][1]."
             print(re.findall(r"\[(\d+)\]", answer))
+            # ['1', '2', '1']
             print([int(n) for n in re.findall(r"\[(\d+)\]", answer)])
+            # [1, 2, 1]
             ```
 
-            `\d+` means "one or more digits". `findall` returns **strings**, so convert them
-            with `int()` if you want to compare them with numbers.
+            `findall` returns strings, in the order they appear, with duplicates. Convert
+            each one with `int()` before you compare it with a number.
 
-            Watch out: `"[a]"` or `"[ 1 ]"` are not citations. The pattern only accepts digits
-            directly inside the brackets.
+            The pattern accepts only digits directly between the brackets. `[a]` and `[ 1 ]`
+            do not match.
+
+            ```python
+            import re
+
+            print(re.findall(r"\[(\d+)\]", "See [a] and [ 1 ] and [12]."))
+            # ['12']
+            ```
         ''',
         "prompt": r'''
             Extract the citation numbers from a model's answer.
@@ -469,15 +674,16 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Packing a suitcase
+            ## The context budget
 
-            A prompt is a suitcase with a size limit: the model's **context window**, and your
-            bill (you pay per token). You can't pack every chunk you found. So you pack the
-            most important things first (the best-ranked chunks) and stop when the suitcase
-            is full. The limit is called the **context budget**.
+            A prompt has a size limit. The model's **context window** is the maximum number
+            of tokens it accepts, and you pay for every token you send. You cannot add every
+            retrieved chunk. The **context budget** is the maximum amount of source text you
+            allow in one prompt. You add the best-ranked chunks first and stop when the next
+            one would exceed the budget.
 
-            Real apps count tokens; here we count characters, which is a fine rough stand-in
-            (about 4 characters per token in English).
+            Real apps count tokens. This chapter counts characters with `len`, which is a
+            rough estimate: English text has about 4 characters per token.
 
             ```python
             budget = 12
@@ -485,9 +691,26 @@ EXERCISES = [
             for word in ["pack", "this", "stuff"]:
                 used += len(word)
                 print(word, used, used <= budget)
+            # pack 4 True
+            # this 8 True
+            # stuff 13 False
             ```
 
-            `break` stops a loop immediately, which is one way to "stop when full".
+            `break` ends a loop immediately. Python skips the rest of the loop body and all
+            remaining items, then runs the first line after the loop.
+
+            ```python
+            for n in [3, 5, 9, 2]:
+                if n > 8:
+                    break
+                print(n)
+            # 3
+            # 5
+            print("done")
+            # done
+            ```
+
+            `2` is never printed, because the loop ended at `9`.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -525,14 +748,14 @@ EXERCISES = [
         "title": "Fill the context budget",
         "difficulty": 1,
         "lesson": r'''
-            ## Squeezing in one more small thing
+            ## Skipping a chunk with continue
 
-            In the last step, packing stopped at the first chunk that didn't fit. But
-            suitcases are smarter than that: if the big jumper doesn't fit, you skip it and
-            still squeeze in the socks. With ranked chunks, a lower-ranked but *short* chunk
-            can still carry useful facts.
+            In the last exercise the loop ended at the first chunk that did not fit. A
+            lower-ranked chunk that is short can still fit in the remaining budget, and it
+            can still contain useful facts.
 
-            So instead of `break`, use `continue`: skip this chunk, keep checking the rest.
+            `continue` skips the rest of the loop body for the current item. The loop then
+            moves on to the next item. `break` would end the whole loop instead.
 
             ```python
             sizes = [5, 9, 2]
@@ -542,13 +765,39 @@ EXERCISES = [
                     print("skip", size)
                     continue
                 room -= size
-                print("pack", size, "room left", room)
+                print("keep", size, "room left", room)
+            # keep 5 room left 3
+            # skip 9
+            # keep 2 room left 1
             ```
 
-            This is called a **greedy** fill: go in order of importance, take whatever still
-            fits, never go back. It's simple and good enough for context packing.
+            Step through the loop and watch `room` when `size` is `9`.
 
-            Watch out: keep the chunks in their **ranked order**, don't sort them by size.
+            ```diagram
+            {"type": "trace", "title": "continue skips the item that does not fit", "code": ["sizes = [5, 9, 2]", "room = 8", "for size in sizes:", "    if size > room:", "        print(\"skip\", size)", "        continue", "    room -= size", "    print(\"keep\", size, \"room left\", room)"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"sizes": "[5, 9, 2]"}, "out": ""},
+              {"line": 3, "vars": {"sizes": "[5, 9, 2]", "room": "8"}, "out": ""},
+              {"line": 4, "vars": {"sizes": "[5, 9, 2]", "room": "8", "size": "5"}, "out": ""},
+              {"line": 7, "vars": {"sizes": "[5, 9, 2]", "room": "8", "size": "5"}, "out": ""},
+              {"line": 8, "vars": {"sizes": "[5, 9, 2]", "room": "3", "size": "5"}, "out": ""},
+              {"line": 3, "vars": {"sizes": "[5, 9, 2]", "room": "3", "size": "5"}, "out": "keep 5 room left 3\n"},
+              {"line": 4, "vars": {"sizes": "[5, 9, 2]", "room": "3", "size": "9"}, "out": "keep 5 room left 3\n"},
+              {"line": 5, "vars": {"sizes": "[5, 9, 2]", "room": "3", "size": "9"}, "out": "keep 5 room left 3\n"},
+              {"line": 6, "vars": {"sizes": "[5, 9, 2]", "room": "3", "size": "9"}, "out": "keep 5 room left 3\nskip 9\n"},
+              {"line": 3, "vars": {"sizes": "[5, 9, 2]", "room": "3", "size": "9"}, "out": "keep 5 room left 3\nskip 9\n"},
+              {"line": 4, "vars": {"sizes": "[5, 9, 2]", "room": "3", "size": "2"}, "out": "keep 5 room left 3\nskip 9\n"},
+              {"line": 7, "vars": {"sizes": "[5, 9, 2]", "room": "3", "size": "2"}, "out": "keep 5 room left 3\nskip 9\n"},
+              {"line": 8, "vars": {"sizes": "[5, 9, 2]", "room": "1", "size": "2"}, "out": "keep 5 room left 3\nskip 9\n"},
+              {"line": 3, "vars": {"sizes": "[5, 9, 2]", "room": "1", "size": "2"}, "out": "keep 5 room left 3\nskip 9\nkeep 2 room left 1\n"},
+              {"line": null, "vars": {"sizes": "[5, 9, 2]", "room": "1", "size": "2"}, "out": "keep 5 room left 3\nskip 9\nkeep 2 room left 1\n"}
+            ]}
+            ```
+
+            This method is called a **greedy** fill: you go through the items once in ranked
+            order, take each one that still fits, and never undo a choice.
+
+            Keep the chunks in their ranked order. Do not sort them by size.
         ''',
         "prompt": r'''
             Choose which ranked chunks go into the prompt without going over a character budget.
@@ -623,15 +872,17 @@ EXERCISES = [
         "title": "Ask a fake LLM",
         "difficulty": 1,
         "lesson": r'''
-            ## Rehearsing with a stand-in actor
+            ## Injecting the model as a function
 
-            Theatre companies rehearse with a stand-in before the star arrives. Your RAG code
-            does the same: it **receives** the model as a function (`llm`) instead of calling
-            an API directly. In production you pass a function that calls the real API; in
-            tests you pass a fake that returns a canned reply and remembers what it was sent.
+            Your RAG code does not call an API directly. It takes the model as a parameter
+            named `llm`, which is a function. Passing a dependency in as an argument is called
+            **injecting** it. In production you pass a function that calls the real API. In
+            tests you pass a fake function that returns a fixed reply and appends its
+            argument to a list.
 
-            Remember messages from the LLM chapter: a list of dicts with a `role` and `content`.
-            The system message holds the rules; the user message holds the sources and question.
+            The LLM chapter defined messages: a list of dicts, each with a `"role"` and a
+            `"content"`. The system message holds the instructions. The user message holds
+            the sources and the question.
 
             ```python
             seen = []
@@ -642,11 +893,16 @@ EXERCISES = [
 
             reply = fake_llm([{"role": "user", "content": "Where is the Eiffel Tower?"}])
             print(reply)
+            # Paris [1].
+            print(len(seen))
+            # 1
             print(seen[0][0]["role"])
+            # user
             ```
 
-            Because the fake records its input, a test can check that your code built the
-            prompt correctly, not just that it returned *something*.
+            `seen[0]` is the message list from the first call, and `seen[0][0]` is its first
+            message. Because the fake stores its input, a test can check that your code built
+            the right messages and called the model exactly once.
         ''',
         "prompt": r'''
             Send the question and its sources to an injected LLM function and return the reply.
@@ -738,26 +994,33 @@ EXERCISES = [
         "title": "Answer or decline",
         "difficulty": 1,
         "lesson": r'''
-            ## The bouncer at the door
+            ## Filtering sources by score
 
-            Put a bouncer in front of the model: only good-enough sources get in. Each
-            retrieved chunk arrives with its score. Chunks below the threshold are turned away.
-            If nobody gets in, the bouncer answers for the model: "I don't know based on the
-            available documents." and the model is never called (no cost, no made-up answer).
+            The retriever returns each chunk together with its score, as a `(text, score)`
+            tuple. Before you build the prompt, you remove every chunk whose score is below
+            the threshold. If no chunk is left, you return a fixed message such as "I don't
+            know based on the available documents." and you do not call the model. That call
+            would cost money and could return an invented answer.
 
             ```python
-            results = [("Refunds take 5 days.", 0.81), ("Our CEO likes cats.", 0.12)]
+            results = [("Rome is in Italy.", 0.81), ("Cats sleep a lot.", 0.12)]
             threshold = 0.5
             good = [text for text, score in results if score >= threshold]
             print(good)
-            print(len(good) == 0)
+            # ['Rome is in Italy.']
+            print(not good)
+            # False
             ```
 
-            Looping over `(text, score)` pairs and unpacking them in the `for` is called
-            **tuple unpacking**. It reads much better than `pair[0]` and `pair[1]`.
+            `for text, score in results` uses **tuple unpacking**: Python assigns the first
+            item of each tuple to `text` and the second to `score`. That is easier to read
+            than `pair[0]` and `pair[1]`.
 
-            Watch out: filter out the weak chunks from the prompt too. A weak chunk in the
-            prompt is noise the model may quote as if it were relevant.
+            An empty list is falsy, so `not good` is `True` only when no chunk passed the
+            filter.
+
+            Number the sources after you filter. A low-scoring chunk left in the prompt is
+            unrelated text that the model can cite as a source.
         ''',
         "prompt": r'''
             Only call the model when retrieval found good sources; otherwise decline.
@@ -853,30 +1116,50 @@ EXERCISES = [
         "title": "Catch invented citations",
         "difficulty": 1,
         "lesson": r'''
-            ## Trust, but verify
+            ## Validating citations
 
-            A student who cites "page 400" of a 120-page book has made it up. Models do this
-            too: given 3 sources, they sometimes cite `[4]` or `[0]`. That's a **hallucinated
-            citation**, and showing it to users destroys trust.
+            Given 3 sources, a model sometimes cites `[4]` or `[0]`. A **hallucinated
+            citation** is a citation to a source that was not in the prompt. If you show one
+            to users, it links a statement to a document that does not exist.
 
-            The check is cheap: a valid citation `n` satisfies `1 <= n <= number_of_sources`.
-            Python lets you chain the comparisons, just like in maths:
+            A citation `n` is valid when `1 <= n <= n_sources`. Python accepts chained
+            comparisons: `1 <= n <= n_sources` means `1 <= n and n <= n_sources`.
 
             ```python
             n_sources = 3
             for n in [0, 1, 3, 4]:
                 print(n, 1 <= n <= n_sources)
+            # 0 False
+            # 1 True
+            # 3 True
+            # 4 False
             ```
 
-            To report each bad number once, collect them in a **set** (duplicates vanish),
-            then `sorted()` turns the set into a tidy list:
+            To report each invalid number once, put the numbers in a set. A set keeps one copy
+            of each value. `sorted()` returns a new list with the values in ascending order.
 
             ```python
-            print(sorted({4, 0, 4, 9}))
+            print(sorted({9, 0, 9, 5}))
+            # [0, 5, 9]
             ```
 
-            What to do with bad citations is your choice: drop them, flag the answer, or ask
-            the model to try again (later in this chapter).
+            With two sets, `a - b` gives the values that are in `a` and not in `b`.
+
+            ```python
+            cited = {1, 5, 9}
+            valid = {1, 2, 3}
+            print(sorted(cited - valid))
+            # [5, 9]
+            ```
+
+            Select `-` to see the cited numbers that are not valid, then `&` to see the valid ones.
+
+            ```diagram
+            {"type":"set-ops","title":"Cited numbers and valid source numbers","a":{"name":"cited","items":[1,5,9]},"b":{"name":"valid","items":[1,2,3]}}
+            ```
+
+            You decide what to do with invalid citations: remove them, flag the answer, or
+            call the model again. A later exercise covers the retry.
         ''',
         "prompt": r'''
             Find the citation numbers that point at sources that don't exist.
@@ -948,23 +1231,26 @@ EXERCISES = [
         "title": "Show the cited sources",
         "difficulty": 1,
         "lesson": r'''
-            ## From footnote numbers to a reading list
+            ## Mapping citations to sources
 
-            Users don't want to see `[2]`. They want "Source: shipping.md" with a link. So after
-            the answer comes back, map each citation number back to the source it points at.
+            The text `[2]` alone tells the user nothing. Your app shows the source itself, for example
+            "Source: shipping.md" with a link. After the model replies, you map each citation
+            number back to the source it refers to.
 
-            Careful with counting: citation `[1]` is the **first** source, but Python lists
-            start at index 0. So source `n` lives at `sources[n - 1]`.
+            Citation `[1]` is the first source, and list indexes start at 0. Source `n` is at
+            `sources[n - 1]`.
 
             ```python
-            sources = [{"title": "Refunds"}, {"title": "Shipping"}]
+            sources = [{"title": "France"}, {"title": "Italy"}]
             n = 2
             print(sources[n - 1]["title"])
+            # Italy
             ```
 
-            If the model cites `[2]` three times, list the source once. Keep the order in which
-            they were **first** cited: that usually matches the order of the answer's claims.
-            A set can remember "already added", while a list keeps the order:
+            If the model cites `[2]` three times, you list that source once. Keep the order in
+            which the sources are first cited, which usually matches the order of the
+            statements in the answer. A set records which numbers you have already added. A
+            list keeps the order.
 
             ```python
             seen, order = set(), []
@@ -973,7 +1259,11 @@ EXERCISES = [
                     seen.add(n)
                     order.append(n)
             print(order)
+            # [2, 1]
             ```
+
+            Check the range before you index. With `n = 0`, `sources[n - 1]` is `sources[-1]`.
+            That returns the last source and raises no error.
         ''',
         "research": {
             "note": "Read how Anthropic's API can return citations that point at the exact passages of the documents you provided. Compare it with the [n] markers you parse by hand here.",
@@ -1061,9 +1351,25 @@ EXERCISES = [
         "difficulty": 2,
         "placement": True,
         "lesson": r'''
-            Putting it together: pack the ranked chunks into the budget, number the ones that
-            made it, label each with where it came from, and wrap them in the instructions and
-            the question.
+            ## Budget, numbering and layout together
+
+            This exercise combines three earlier steps. First you select the ranked chunks
+            that fit in the budget. Then you number the kept chunks from 1 and add each
+            chunk's source name to its line. Last you place the lines between the
+            instructions and the question.
+
+            ```python
+            chunks = [
+                {"text": "Paris is in France.", "source": "france.md"},
+                {"text": "Rome is in Italy.", "source": "italy.md"},
+            ]
+            for n, c in enumerate(chunks, start=1):
+                print(f"[{n}] ({c['source']}) {c['text']}")
+            # [1] (france.md) Paris is in France.
+            # [2] (italy.md) Rome is in Italy.
+            ```
+
+            Number the chunks after you select them. A skipped chunk gets no number.
         ''',
         "prompt": r'''
             Build the full grounded prompt from ranked chunks, respecting a character budget.
@@ -1169,9 +1475,25 @@ EXERCISES = [
         "title": "Flag unsupported sentences",
         "difficulty": 2,
         "lesson": r'''
-            Putting it together: a grounded answer should back **every** claim with a source.
-            Split the answer into sentences and flag the ones without any `[n]`: those are the
-            claims the model may have invented.
+            ## Sentences without a citation
+
+            In a grounded answer, every sentence should cite a source. A sentence with no
+            `[n]` is a statement that no source supports, so the model may have invented it.
+            You split the answer into sentences and test each one with `re.search`, which
+            returns `None` when the pattern is not found.
+
+            ```python
+            import re
+
+            sentences = ["Paris is in France [1].", "It is large!"]
+            for s in sentences:
+                print(s, bool(re.search(r"\[\d+\]", s)))
+            # Paris is in France [1]. True
+            # It is large! False
+            ```
+
+            Splitting an empty string still returns one item, the empty string, so skip
+            empty sentences.
         ''',
         "prompt": r'''
             Find the sentences of an answer that don't cite any source.
@@ -1244,9 +1566,32 @@ EXERCISES = [
         "title": "Retry bad citations",
         "difficulty": 2,
         "lesson": r'''
-            Putting it together (remember retries from the structured-output chapter): if the
-            answer cites no sources, or cites sources that don't exist, ask again and tell the
-            model exactly what was wrong. Stop after a fixed number of attempts.
+            ## Retrying with feedback
+
+            The structured-output chapter introduced retries. Here you retry when the reply
+            cites no source, or cites a source that does not exist. The retry prompt states
+            what was wrong. The loop stops after a fixed number of attempts.
+
+            Step through the stages, including the path back to the first stage.
+
+            ```diagram
+            {"type":"flow","title":"Retry loop for bad citations","steps":[
+            {"label":"Call the model","detail":"The first call sends the original prompt. Each retry sends the original prompt plus the feedback text.","code":"llm(current)"},
+            {"label":"Extract citations","detail":"re.findall returns the cited numbers as strings. int() converts them.","code":"reply: Yes [5].\nnums:  [5]"},
+            {"label":"Check citations","detail":"The reply is good when there is at least one number and every number is between 1 and n_sources.","code":"n_sources = 3\nbool([5]) is True\n1 <= 5 <= 3 is False"},
+            {"label":"Return or retry","detail":"A good reply is returned. A bad reply starts another attempt. When no attempts remain, the function raises ValueError.","code":"good reply  -> return it\nbad reply   -> next attempt\nno attempts -> ValueError"}
+            ],"loop":{"from":3,"to":0,"label":"while the citations are bad and attempts remain"}}
+            ```
+
+            `all()` of an empty sequence is `True`, so test separately that the list of
+            numbers is not empty.
+
+            ```python
+            print(all(1 <= n <= 3 for n in []))
+            # True
+            print(bool([]))
+            # False
+            ```
         ''',
         "prompt": r'''
             Call the model, check its citations, and retry with feedback when they're bad.
@@ -1357,10 +1702,24 @@ EXERCISES = [
         "title": "End-to-end RAG pipeline",
         "difficulty": 3,
         "lesson": r'''
-            Putting it together: store chunks with their vectors, retrieve by cosine, decline
-            when nothing is good enough, build the numbered prompt, call the model, and turn
-            its citations into source names. Both models are injected, so the whole pipeline
-            runs in a test with no network.
+            ## The full pipeline
+
+            This exercise combines every step of the chapter in one class. `add` stores each
+            chunk with its vector. `ask` scores the chunks by cosine similarity, declines
+            when no score reaches the threshold, builds the numbered prompt, calls the model
+            and maps the citations to source names. Both `embed` and `llm` are injected, so
+            the whole pipeline runs in a test with no network.
+
+            Sorting `(score, name)` pairs by score with `reverse=True` puts the best first.
+            `sort` keeps the original order of pairs with equal scores.
+
+            ```python
+            scored = [(0.7, "a.md"), (0.2, "b.md"), (1.0, "c.md"), (0.7, "d.md")]
+            good = [pair for pair in scored if pair[0] >= 0.5]
+            good.sort(key=lambda pair: pair[0], reverse=True)
+            print(good[:2])
+            # [(1.0, 'c.md'), (0.7, 'a.md')]
+            ```
         ''',
         "research": {
             "note": "Read Anthropic's write-up on contextual retrieval: how adding context to chunks, hybrid (embeddings + BM25) search and re-ranking reduce failed retrievals. Map each idea to a function you wrote in the retrieval chapter.",

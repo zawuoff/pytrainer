@@ -12,82 +12,293 @@ TOPIC = {
                  ".env files", "precedence", "secret masking", "exit codes"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["environment", "env", "variable", "os.environ", "getenv", "config", "setting",
+                 "default", "api key", "secret", "dotenv", ".env", "keyerror", "runtimeerror", "export"],
+    "cards": [
+        {
+            "syntax": 'os.environ["NAME"]',
+            "explain": "Reads or sets one environment variable. Reading a name that is not set raises KeyError.",
+            "example": r'''
+                import os
+
+                os.environ["APP_MODE"] = "demo"
+                print(os.environ["APP_MODE"])
+                # demo
+                print("APP_MODE" in os.environ)
+                # True
+            ''',
+        },
+        {
+            "syntax": "os.environ.get(name, default)",
+            "explain": "Returns the variable's value, or default when the name is not set. os.getenv does the same.",
+            "example": r'''
+                import os
+
+                os.environ.pop("PT_THEME", None)
+                print(os.environ.get("PT_THEME", "light"))
+                # light
+                print(os.getenv("PT_THEME"))
+                # None
+            ''',
+        },
+        {
+            "syntax": 'int(os.environ.get(name, "256"))',
+            "explain": "Every value is a string. Write the default as a string too, then convert with int() or float().",
+            "example": r'''
+                import os
+
+                os.environ["MAX_TOKENS"] = "512"
+                raw = os.environ.get("MAX_TOKENS", "256")
+                print(raw + "0")
+                # 5120
+                print(int(raw) + 1)
+                # 513
+            ''',
+        },
+        {
+            "syntax": 'os.environ.get(name, "").lower() == "true"',
+            "explain": 'Reads an on/off setting. Do not use bool(): bool("false") is True, as for any non-empty string.',
+            "example": r'''
+                import os
+
+                os.environ["DEBUG"] = "False"
+                print(bool(os.environ["DEBUG"]))
+                # True
+                print(os.environ.get("DEBUG", "").lower() == "true")
+                # False
+            ''',
+        },
+        {
+            "syntax": 'if not os.environ.get(name, "").strip(): raise ...',
+            "explain": "Stops early when a required variable is not set, empty or only spaces. Name the variable in the message.",
+            "example": r'''
+                import os
+                os.environ["PT_KEY"] = "   "
+                try:
+                    if not os.environ.get("PT_KEY", "").strip():
+                        raise RuntimeError("Missing variable: PT_KEY")
+                except RuntimeError as exc:
+                    print(exc)
+                # Missing variable: PT_KEY
+            ''',
+        },
+        {
+            "syntax": 'key, value = line.split("=", 1)',
+            "explain": "Splits one KEY=value line of a .env file at the first = only, so the value may contain = signs.",
+            "example": r'''
+                line = "URL=http://x/?a=b"
+                key, value = line.split("=", 1)
+                print(key)
+                # URL
+                print(value)
+                # http://x/?a=b
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
 ## Chapter notes: Environment & Env Variables
 
-An **environment variable** is a named piece of text the terminal hands to every program
-it starts (`OPENAI_API_KEY=sk-...`, `LLM_MODEL=gpt-4o`). API keys live there, **never in
-your code** - code gets shared and pushed to GitHub.
+An **environment variable** is a named string that the operating system keeps for a
+running program. The full set of them is the program's **environment**. A program gets a
+copy of the environment of the program that started it. That is usually your **terminal**:
+the window where you type commands.
 
-**Terminal side (bash/zsh)**
+An **API key** is a secret string that identifies you to an online service. API keys and
+settings such as the model name go in environment variables, not in your code. Code gets
+shared with other people, and a key written in the code is shared with it.
+
+### Setting variables in the terminal
+
+The **shell** is the program that reads the commands you type in a terminal (bash or zsh).
+In the shell, `$NAME` inserts the value of a variable, and `echo` prints its arguments.
 
 ```bash
 export LLM_MODEL=gpt-4o           # no spaces around =; lasts for this terminal session
-echo $LLM_MODEL                   # gpt-4o
+echo $LLM_MODEL                   # gpt-4o ($LLM_MODEL becomes the value, echo prints it)
 LLM_MODEL=o3-mini python3 app.py  # set it for ONE command only
 unset LLM_MODEL                   # remove it
 printenv                          # list everything
 ```
 
-A new terminal window does not see what you exported in another one.
+A new terminal window does not have the variables you exported in another one.
 
-**Python side**
+### Reading variables in Python
 
-| code | when the name is missing |
-| --- | --- |
-| `os.environ["NAME"]` | `KeyError` |
-| `os.environ.get("NAME")` / `os.getenv("NAME")` | `None` |
-| `os.environ.get("NAME", "dflt")` | `"dflt"` |
-| `"NAME" in os.environ` | `False` |
+A **module** is a file of Python code that you load with `import`. The **standard library**
+is the set of modules that is installed together with Python. `os` is one of them.
+`os.environ` is an object that maps each variable name to its value. You read and set
+entries with the same syntax as a dict.
 
-- Values are **always strings**: `int(...)`, `float(...)` them yourself.
-- `bool("false")` is `True` (any non-empty string) - compare text: `value.lower() == "true"`.
-- Required values (API keys): if missing or blank, `raise RuntimeError(f"Missing ...: {name}")`
-  early, with the variable's name in the message.
-- Read variables **inside** functions (each call), not once at import time.
-- Never print or log a full key: mask it like `sk-...abcd`.
+```python
+import os
 
-**.env files**: `KEY=value` lines (plus `#` comments, blank lines, optional `export ` and
-quotes) kept next to the project, loaded at startup, **never committed** (put `.env` in
-`.gitignore`). Split each line on the **first** `=` only: `line.split("=", 1)`.
-Usual precedence: real environment > `.env` file > default in code.
+os.environ["LLM_MODEL"] = "gpt-4o"
+os.environ["MAX_TOKENS"] = "256"
+print(os.environ["LLM_MODEL"])
+# gpt-4o
+print(os.environ.get("PT_UNSET_VAR"))
+# None
+print(os.environ.get("PT_UNSET_VAR", "gpt-4o-mini"))
+# gpt-4o-mini
+print("PT_UNSET_VAR" in os.environ)
+# False
+```
+
+`os.environ["PT_UNSET_VAR"]` raises `KeyError: 'PT_UNSET_VAR'` because that name is not
+set. `.get` returns `None`, or its second argument, instead of raising.
+`os.getenv(name, default)` returns the same result as `os.environ.get(name, default)`.
+
+Type a name that is not set, then compare `d[key]` with `d.get(key)`.
+
+```diagram
+{"type":"dict","title":"Lookups in os.environ","name":"os.environ","entries":[["LLM_MODEL","gpt-4o"],["MAX_TOKENS","256"]]}
+```
+
+### Values are always strings
+
+Every value in `os.environ` is a `str`. Convert it yourself with `int()` or `float()`.
+`bool()` does not work for on/off settings, because `bool()` of any non-empty string is `True`.
+Compare the text instead.
 
 ```python
 import os
 
 os.environ["MAX_TOKENS"] = "256"
-print(int(os.environ["MAX_TOKENS"]) + 1)
-print(os.environ.get("PT_SURELY_UNSET_VAR", "gpt-4o-mini"))
+os.environ["STREAM"] = "false"
+raw = os.environ["MAX_TOKENS"]
+print(type(raw))
+# <class 'str'>
+print(int(raw) + 1)
+# 257
+print(float(os.environ.get("PT_UNSET_VAR", "0.7")))
+# 0.7
+print(bool(os.environ["STREAM"]))
+# True
+print(os.environ["STREAM"].lower() == "true")
+# False
 ```
+
+### Required values and secrets
+
+A required value such as an API key must be checked early. If it is missing or blank,
+raise `RuntimeError` with the variable's name in the message. Never print or log a full
+key. Print a masked version made from its first and last characters.
+
+```python
+import os
+
+name = "PT_UNSET_API_KEY"
+value = os.environ.get(name, "")
+try:
+    if not value.strip():
+        raise RuntimeError(f"Missing required environment variable: {name}")
+except RuntimeError as exc:
+    print(exc)
+# Missing required environment variable: PT_UNSET_API_KEY
+
+key = "sk-proj-a1b2c3d4abcd"
+print(f"{key[:3]}...{key[-4:]}")
+# sk-...abcd
+```
+
+### .env files
+
+A **`.env` file** is a text file of `KEY=value` lines kept next to the project. It can
+also contain `#` comments, blank lines, an optional `export ` prefix and quotes around the
+value. The program reads it when it starts.
+
+The file holds secrets. Most projects save and share their code with a tool named git.
+Never add the `.env` file to git: list `.env` in the file `.gitignore`, which names the
+files that git must skip.
+
+A value can contain `=`, so split each line on the first `=` only.
+
+```python
+line = "DB_URL=postgres://host/db?sslmode=require"
+print(line.split("="))
+# ['DB_URL', 'postgres://host/db?sslmode', 'require']
+print(line.split("=", 1))
+# ['DB_URL', 'postgres://host/db?sslmode=require']
+```
+
+**Precedence** is the order in which sources are checked. The usual order is: the real
+environment first, then the `.env` file, then the default in the code.
+
+Step through the stages to follow one setting from the shell to an `int`.
+
+```diagram
+{"type":"flow","title":"From the shell to a typed Python value","steps":[
+{"label":"Shell","detail":"You run export in the terminal. The shell stores the name and the string value in its own environment.","code":"export LLM_MAX_TOKENS=1024"},
+{"label":"Program start","detail":"The shell starts python3. The new program gets a copy of the shell's exported variables.","code":"python3 app.py"},
+{"label":"os.environ","detail":"Python fills os.environ when it starts. Every value in it is a str.","code":"os.environ[\"LLM_MAX_TOKENS\"]\n# '1024'"},
+{"label":".env file and default","detail":"If the name is not in os.environ, the loader uses the value it parsed from the .env file. If the file does not have it either, the loader uses the default written in the code.","code":"raw = os.environ.get(\"LLM_MAX_TOKENS\", file_values.get(\"LLM_MAX_TOKENS\", \"256\"))\n# '1024'"},
+{"label":"Typed value","detail":"int() converts the string to an integer. The rest of the program uses the integer.","code":"max_tokens = int(raw)\n# 1024"}
+]}
+```
+
+### Common mistakes
+
+- Writing an API key in the code or adding the `.env` file to git.
+- Doing maths on the raw string: `"256" + "1"` is `"2561"`. Convert with `int()` first.
+- Using `bool(value)` for an on/off setting: `bool("false")` is `True`.
+- Reading a variable once at the top of the file. Read it inside the function, so each
+  call gets the current value.
+- Using `os.environ[name]` for an optional setting. It raises `KeyError` when the name is not set.
+- Splitting a `.env` line with `split("=")` instead of `split("=", 1)`.
 '''
 
 EXERCISES = [
     {
         "id": "env-s1",
         "lesson": r'''
-            Every program starts with a few **sticky notes** attached by the terminal that launched
-            it: `HOME=/home/ada`, `LLM_MODEL=gpt-4o`, `OPENAI_API_KEY=sk-...`. These notes are
-            **environment variables**. Your code reads them instead of having values written into it,
-            so the same code can run with a different model or key on another computer.
+            ## Environment variables
 
-            In Python they live in `os.environ`, which behaves like a dict:
+            An **environment variable** is a named string that a program receives when it starts.
+            The **terminal** is the window where you type commands. A program that you start from
+            the terminal receives the terminal's variables. Examples are `HOME=/home/ada`,
+            `LLM_MODEL=gpt-4o` and `OPENAI_API_KEY=sk-...`. An **API key** is a secret string that
+            identifies you to an online service.
+
+            Your code reads these values instead of having them written into it. The same code can
+            then run with a different model or key on another computer.
+
+            A **module** is a file of Python code that you load with `import`. The **standard
+            library** is the set of modules that is installed together with Python. `os` is one of
+            them. `os.environ` is an object that maps each variable name to its value. You read and
+            set entries with the same syntax as a dict.
 
             ```python
             import os
 
             os.environ["APP_MODE"] = "demo"
+            os.environ["PT_RETRIES"] = "3"
             print(os.environ["APP_MODE"])
-            print(type(os.environ["APP_MODE"]).__name__)
+            # demo
+            print(type(os.environ["PT_RETRIES"]))
+            # <class 'str'>
             print(os.environ.get("PT_NOT_SET_ANYWHERE", "default"))
+            # default
             ```
 
-            Two rules to remember:
-            - The values are **always strings**, even when they look like numbers.
-            - A missing name with `[...]` raises `KeyError`, just like a dict. `.get(name, default)`
-              returns the default instead.
+            Every value in `os.environ` is a string, even when it contains only digits. `"3"` is
+            text, not the integer `3`.
 
-            Setting `os.environ[...]` in your program only changes the notes for *this* program - the
-            terminal is not affected.
+            Square brackets raise `KeyError` for a name that is not set, the same as a dict does.
+            `.get(name, default)` returns the default instead.
+
+            Type a name that is not set, then compare `d[key]` with `d.get(key)`.
+
+            ```diagram
+            {"type":"dict","title":"Lookups in os.environ","name":"os.environ","entries":[["APP_MODE","demo"],["PT_RETRIES","3"]]}
+            ```
+
+            Assigning to `os.environ[...]` changes the variable for this running program only. The
+            terminal that started it is not affected.
         ''',
         "title": "What gets printed?",
         "difficulty": 0,
@@ -111,9 +322,9 @@ EXERCISES = [
             none
         ''',
         "explanation": r'''
-            Environment variables are always strings, so `"512" + "0"` glues text together
-            into `5120`. After `int(...)` it is a real number and `+ 1` gives `513`.
-            `PT_MISSING` was removed, so `.get` returns the default `"none"`.
+            Every value in `os.environ` is a string. `value + "0"` joins the strings `"512"` and
+            `"0"` into `"5120"`. `int(value)` creates the integer `512`, and `512 + 1` is `513`.
+            `PT_MISSING` is not set, so `.get` returns its second argument, `"none"`.
         ''',
         "starter": "", "tests": "",
         "hints": [
@@ -125,27 +336,32 @@ EXERCISES = [
     {
         "id": "env-s2",
         "lesson": r'''
-            Most settings are **optional**: if nobody sets them, the app should use a sensible value.
-            Think of a restaurant order: "the soup, and if there is no soup, the salad".
+            ## Default values
 
-            `os.environ.get(name, default)` is exactly that:
+            Most settings are optional. When nobody sets the variable, the program uses a
+            **default value**: a value written in the code that is used when no other value is
+            given. Another name for it is a **fallback**.
+
+            `os.environ.get(name, default)` looks up `name`. If the variable is set, it returns the
+            variable's value. If it is not set, it returns `default`.
 
             ```python
             import os
 
             os.environ.pop("PT_THEME", None)
             print(os.environ.get("PT_THEME", "light"))
+            # light
             os.environ["PT_THEME"] = "dark"
             print(os.environ.get("PT_THEME", "light"))
+            # dark
             ```
 
-            `os.environ.pop("PT_THEME", None)` removes the variable if it is there (so the example
-            starts clean). With the variable missing you get the default; once it is set, you get its
-            real value.
+            `os.environ.pop("PT_THEME", None)` removes the variable if it is set and does nothing
+            otherwise. The example uses it so that the variable starts unset.
 
-            The default is the second argument of `.get`. Because every environment value is a string,
-            the default is usually a string too. The proper name for this pattern is a **fallback** or
-            **default value**.
+            The default is the second argument of `.get`. Every environment value is a string, so
+            the default is usually a string too. Without a second argument, `.get` returns `None`
+            for a name that is not set.
         ''',
         "title": "A sensible default",
         "difficulty": 0,
@@ -216,9 +432,14 @@ EXERCISES = [
     {
         "id": "env-s3",
         "lesson": r'''
-            Environment values arrive as **text**, like numbers written on a paper form. Before you
-            can do maths with them, you have to **convert** them - `int()` for whole numbers,
-            `float()` for decimals.
+            ## Type conversion
+
+            Every environment value is a string. `+` between two strings joins them. It does not
+            add numbers.
+
+            **Type conversion** creates a value of one type from a value of another type. It is also
+            called **casting**. `int()` converts a string to a whole number. `float()` converts a
+            string to a decimal number.
 
             ```python
             import os
@@ -226,15 +447,28 @@ EXERCISES = [
             os.environ["PT_TEMPERATURE"] = "0.2"
             raw = os.environ["PT_TEMPERATURE"]
             print(raw + raw)
+            # 0.20.2
             print(float(raw) + float(raw))
-            print(float(os.environ.get("PT_TOP_P_UNSET", "1.0")))
+            # 0.4
             ```
 
-            `"0.2" + "0.2"` glues the text together (`0.20.2`); after `float(...)` you get real maths.
+            `raw + raw` joins the two strings into `0.20.2`. After `float(raw)`, `+` adds two numbers.
 
-            The last line shows a handy trick: write the default as a **string** too, and convert the
-            result of `.get` in one go. Then the function returns the same type whether the variable
-            is set or not. The general name for this is **type conversion** (or *casting*).
+            For an optional setting, write the default as a string and convert the result of `.get`.
+
+            ```python
+            import os
+
+            top_p = float(os.environ.get("PT_TOP_P_UNSET", "1.0"))
+            print(top_p)
+            # 1.0
+            print(type(top_p))
+            # <class 'float'>
+            ```
+
+            `.get` returns a string in both cases: the variable's value or the default `"1.0"`.
+            `float()` then converts whichever string it got. The result has the same type whether the
+            variable is set or not.
         ''',
         "title": "Fix the token limit",
         "difficulty": 0,
@@ -306,26 +540,41 @@ EXERCISES = [
     {
         "id": "env-s4",
         "lesson": r'''
-            A variable can be in three states: **missing**, **set but empty** (`KEY=`), or **set to
-            something**. For an API key, both missing and empty mean "no key".
+            ## Missing, empty or set
+
+            A variable is in one of three states: not set, set to the empty string (`KEY=`), or set
+            to some text. For an API key, both "not set" and "empty" mean there is no key.
 
             ```python
             import os
 
             os.environ.pop("PT_TOKEN", None)
             print(os.environ.get("PT_TOKEN", "") != "")
+            # False
             os.environ["PT_TOKEN"] = ""
             print(os.environ.get("PT_TOKEN", "") != "")
+            # False
             os.environ["PT_TOKEN"] = "abc"
-            print("PT_TOKEN" in os.environ, os.environ.get("PT_TOKEN", "") != "")
+            print(os.environ.get("PT_TOKEN", "") != "")
+            # True
             ```
 
-            Reading with an empty-string default makes "missing" and "empty" look the same: both give
-            `""`. A comparison like `!= ""` already *is* a bool - `True` or `False` - so you can return
-            it directly, no `if` needed.
+            With `""` as the default, `.get` returns `""` for a variable that is not set and for one
+            that is empty. One comparison then covers both states.
 
-            `"PT_TOKEN" in os.environ` only tells you whether the name exists, not whether it has a
-            useful value.
+            A comparison such as `!= ""` produces a bool: `True` or `False`. You can return it
+            directly. No `if` is needed.
+
+            ```python
+            import os
+
+            os.environ["PT_TOKEN"] = ""
+            print("PT_TOKEN" in os.environ)
+            # True
+            ```
+
+            `"PT_TOKEN" in os.environ` only tells you that the name is set. It is `True` even when
+            the value is empty.
         ''',
         "title": "Is the key there?",
         "difficulty": 0,
@@ -401,18 +650,21 @@ EXERCISES = [
     {
         "id": "env-s5",
         "lesson": r'''
-            How do variables get set in the first place? In the **terminal**:
+            ## Setting variables and running a script
+
+            You set environment variables in the terminal:
 
             ```bash
             export USER_NAME=Ada          # for this terminal session
             python3 solution.py
-            USER_NAME=Bob python3 solution.py   # just for this one command
+            USER_NAME=Bob python3 solution.py   # for this one command only
             ```
 
-            No spaces around `=`. The variable disappears when you close the terminal.
+            Do not put spaces around `=`. An exported variable is gone when you close the terminal.
 
-            A **script** is a file that does its job from top to bottom - no function needed. It can
-            read the environment directly:
+            A **script** is a Python file that you run directly. Python executes its lines from top
+            to bottom. The code does not need to be inside a function, and it can read the
+            environment directly.
 
             ```python
             import os
@@ -420,13 +672,15 @@ EXERCISES = [
             os.environ["PT_CITY"] = "Lyon"
             city = os.environ.get("PT_CITY", "somewhere")
             print(f"Weather for {city}")
+            # Weather for Lyon
             ```
 
-            (Here we set `PT_CITY` in Python only because the Run button cannot type terminal commands
-            for you. In a real script, the terminal sets it.)
+            This example sets `PT_CITY` in Python only because the Run button cannot type terminal
+            commands. In a real script, the terminal sets it.
 
-            The script finishes with **exit code 0** when nothing went wrong - that is how the terminal
-            knows it succeeded.
+            An **exit code** is a whole number that a program reports to the terminal when it ends.
+            A script that runs to the end without an error has exit code `0`, which means success.
+            A script that stops with an exception that no `except` caught has exit code `1`.
         ''',
         "title": "Greeting script",
         "difficulty": 0,
@@ -486,8 +740,11 @@ EXERCISES = [
     {
         "id": "env-s6",
         "lesson": r'''
-            On/off switches like `DEBUG` or `STREAM` are a classic trap. The variable holds **text**,
-            and in Python any non-empty text counts as true:
+            ## On/off settings
+
+            A **feature flag** is a setting that turns one behaviour on or off, such as `DEBUG` or
+            `STREAM`. The variable holds text, not a bool. `bool()` of a string is `False` only for
+            the empty string. Every other string gives `True`.
 
             ```python
             import os
@@ -495,16 +752,29 @@ EXERCISES = [
             os.environ["PT_VERBOSE"] = "false"
             value = os.environ["PT_VERBOSE"]
             print(bool(value))
-            print(value.lower() == "true")
-            print("FALSE".lower() == "true", "True".lower() == "true")
+            # True
+            print(bool(""))
+            # False
             ```
 
-            `bool("false")` is `True`, because `"false"` is a non-empty string! So never convert with
-            `bool()`. Instead, **compare the text**. Lower-casing first (`.lower()`) makes `TRUE`,
-            `True` and `true` all match.
+            `bool("false")` is `True` because `"false"` is a non-empty string. Do not convert a
+            flag with `bool()`. Compare the text with the word you expect instead.
 
-            Think of a light switch labelled with a word: you must read the word, not just check that
-            a label exists. The general term is a **feature flag**.
+            ```python
+            import os
+
+            os.environ["PT_VERBOSE"] = "false"
+            value = os.environ["PT_VERBOSE"]
+            print(value == "true")
+            # False
+            print("TRUE".lower())
+            # true
+            print("TRUE".lower() == "true")
+            # True
+            ```
+
+            `.lower()` returns a copy of the string with every letter in lower case. Call it before
+            the comparison, so `TRUE`, `True` and `true` all compare equal to `"true"`.
         ''',
         "title": "Debug switch",
         "difficulty": 0,
@@ -584,9 +854,11 @@ EXERCISES = [
     {
         "id": "env-1",
         "lesson": r'''
-            Where you read a variable matters. Imagine checking the weather **once** on Monday and
-            using that forecast all week - that is reading at **import time**. Reading inside the
-            function is checking the forecast every time you go out.
+            ## Read the variable on every call
+
+            **Import time** is the moment Python runs the top-level lines of a file. That happens
+            once, when the file is first run or imported. A variable read there is read once. A
+            variable read inside a function is read each time the function is called.
 
             ```python
             import os
@@ -598,14 +870,33 @@ EXERCISES = [
                 return os.getenv("PT_COLOR", "none")
 
             os.environ["PT_COLOR"] = "blue"
-            print(SAVED, current())
+            print(SAVED)
+            # red
+            print(current())
+            # blue
             ```
 
-            `SAVED` was read once, when that line ran, so it is stuck at `red`. `current()` looks it
-            up on every call and sees `blue`.
+            `SAVED` got the string `"red"` when its line ran. Changing the environment later does not
+            change `SAVED`. `current()` looks the variable up on every call, so it returns `blue`.
 
-            `os.getenv(name, default)` is a shortcut for `os.environ.get(name, default)` - same result.
-            Reading on every call matters in tests, and in long-running apps whose settings change.
+            Step through the code and watch `SAVED` stay `'red'` after line 9 runs.
+
+            ```diagram
+            {"type": "trace", "title": "Read once at the top versus read on every call", "code": ["import os", "", "os.environ[\"PT_COLOR\"] = \"red\"", "SAVED = os.environ[\"PT_COLOR\"]", "", "def current():", "    return os.getenv(\"PT_COLOR\", \"none\")", "", "os.environ[\"PT_COLOR\"] = \"blue\"", "print(SAVED)", "print(current())"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 3, "vars": {}, "out": ""},
+              {"line": 4, "vars": {}, "out": ""},
+              {"line": 6, "vars": {"SAVED": "'red'"}, "out": ""},
+              {"line": 9, "vars": {"SAVED": "'red'"}, "out": ""},
+              {"line": 10, "vars": {"SAVED": "'red'"}, "out": ""},
+              {"line": 11, "vars": {"SAVED": "'red'"}, "out": "red\n"},
+              {"line": 7, "vars": {}, "out": "red\n"},
+              {"line": null, "vars": {"SAVED": "'red'"}, "out": "red\nblue\n"}
+            ]}
+            ```
+
+            `os.getenv(name, default)` returns the same result as `os.environ.get(name, default)`.
+            Reading on every call matters for tests (small programs that check your code), which set variables with `os.environ[...] = ...` before they call the function.
         ''',
         "research": {"note": "Skim the official docs for `os.environ` and `os.getenv` - note what each returns for a missing name.",
          "links": [{"title": "os.environ - Python docs", "url": "https://docs.python.org/3/library/os.html#os.environ"},
@@ -690,32 +981,47 @@ EXERCISES = [
     {
         "id": "env-2",
         "lesson": r'''
-            Some settings are not optional: without an API key, nothing works. A pilot runs a
-            **checklist before take-off**, not in mid-air. Your app should do the same: check required
-            values early and stop with a **clear** message, instead of crashing later with a confusing
-            error deep inside an API call.
+            ## Required variables
 
-            You stop with `raise`. `RuntimeError` is the usual choice for "the program is not set up
-            right":
+            Some settings are not optional. Without an API key, no API call can work. Check required
+            values early and stop with a clear message. Otherwise the program fails later, inside an
+            API call, with an error that does not name the cause.
+
+            A value that contains only spaces is as useless as an empty one. `.strip()` returns the
+            string without leading and trailing whitespace, so a blank value becomes `""`. An empty
+            string is falsy, so `not value.strip()` is `True` for a missing, empty or blank value.
 
             ```python
             import os
 
             os.environ["PT_PORT"] = "   "
             port = os.environ.get("PT_PORT", "")
-            print(repr(port.strip()), bool(port.strip()))
-            try:
-                if not port.strip():
-                    raise RuntimeError("PT_PORT is required")
-            except RuntimeError as exc:
-                print("stopped:", exc)
+            print(repr(port))
+            # '   '
+            print(repr(port.strip()))
+            # ''
+            print(not port.strip())
+            # True
             ```
 
-            A value made only of spaces becomes `""` after `.strip()`, and an empty string is falsy -
-            so `not value.strip()` catches missing, empty **and** blank in one test.
+            You stop the program with `raise`. `RuntimeError` is the usual exception type when the
+            program is not set up correctly.
 
-            Put the variable's **name** in the message: the person reading it needs to know exactly
-            what to set.
+            ```python
+            import os
+
+            os.environ["PT_PORT"] = "   "
+            port = os.environ.get("PT_PORT", "")
+            try:
+                if not port.strip():
+                    raise RuntimeError("Missing required environment variable: PT_PORT")
+            except RuntimeError as exc:
+                print("stopped:", exc)
+            # stopped: Missing required environment variable: PT_PORT
+            ```
+
+            Put the variable's name in the message. The person who reads it needs to know exactly
+            which variable to set.
         ''',
         "hints": [
             "Read with `.get` and a default so a missing variable does not raise `KeyError`; then decide yourself whether to raise.",
@@ -810,9 +1116,11 @@ EXERCISES = [
     {
         "id": "env-7",
         "lesson": r'''
-            Real apps gather all their settings into **one place**: a config dict built at startup.
-            Think of it as the app's **control panel** - every knob has a label (the variable name), a
-            factory setting (the default) and a type.
+            ## A config dict
+
+            Real apps read all their settings in one place. A **config dict** is a dict built when
+            the program starts. It maps each setting name to its value, already converted to the
+            right type.
 
             ```python
             import os
@@ -824,14 +1132,20 @@ EXERCISES = [
                 "timeout": float(os.environ.get("PT_TIMEOUT", "30")),
             }
             print(config)
+            # {'retries': 5, 'timeout': 30.0}
+            print(config["retries"] + 1)
+            # 6
             ```
 
-            Each entry combines what you already know: `.get` with a **string** default, then a
-            conversion to the right type. The rest of the app then reads `config["retries"]` - a real
-            number - and never touches `os.environ` itself.
+            Each entry does two things. `.get` reads the variable with a string default. `int()` or
+            `float()` then converts that string to the right type.
 
-            Keep the defaults visible in one place like this; it doubles as documentation of every
-            setting your app understands.
+            `PT_RETRIES` is set, so `"retries"` is `5`. `PT_TIMEOUT` is not set, so `.get` returns the
+            default `"30"` and `float("30")` gives `30.0`.
+
+            The rest of the app reads `config["retries"]`, which is an `int`, and never reads
+            `os.environ` itself. All the defaults are in one place, so the dict also documents every
+            setting the app accepts.
         ''',
         "title": "Model settings dict",
         "difficulty": 1,
@@ -929,30 +1243,48 @@ EXERCISES = [
     {
         "id": "env-8",
         "lesson": r'''
-            Typing `export` for ten variables every time is tedious, so projects keep them in a
-            **`.env` file** next to the code - a notebook of sticky notes:
+            ## .env files
+
+            Typing `export` for ten variables in every new terminal takes time. Projects keep the
+            variables in a **`.env` file**: a text file next to the code with one `KEY=value` per line.
 
             ```text
             OPENAI_API_KEY=sk-abc123
             LLM_MODEL=gpt-4o
             ```
 
-            It is loaded at startup and **never committed to git** (it holds secrets). Each line is
-            `KEY=value`, so reading one looks like a job for `split("=")`:
+            The program reads the file when it starts. The file holds secrets such as API keys.
+            Most projects save and share their code with a tool named git. The `.env` file is
+            never added to git.
+
+            `str.split("=")` splits a string at every `=` and returns a list of the pieces.
 
             ```python
             line = "DB_URL=postgres://host/db?sslmode=require"
             parts = line.split("=")
             print(parts)
-            print(len(parts), "pieces")
+            # ['DB_URL', 'postgres://host/db?sslmode', 'require']
+            print(len(parts))
+            # 3
             ```
 
-            Problem: the value itself contains `=`, so a plain split cuts it into too many pieces.
-            You only want to split at the **first** `=`. `str.split` can do that with one extra
-            argument - finding it in the docs is part of this step.
+            The value itself contains `=`, so the split produces 3 pieces instead of 2. You need to
+            split at the first `=` only. `str.split` can do that with one extra argument, the same
+            one you used in the strings chapter. Finding it in the docs is part of this step.
 
-            Unpacking a two-item list into two names (`key, value = ...`) raises `ValueError` if the
-            list does not have exactly two items.
+            Unpacking a list into two names raises `ValueError` if the list does not have exactly
+            two items.
+
+            ```python
+            key, value = "PT_MODE=fast".split("=")
+            print(key, value)
+            # PT_MODE fast
+            try:
+                key, value = "no equals sign here".split("=")
+            except ValueError as exc:
+                print("ValueError:", exc)
+            # ValueError: not enough values to unpack (expected 2, got 1)
+            ```
         ''',
         "research": {"note": "Read the `str.split` documentation and find how to limit the number of splits, then come back.",
          "links": [{"title": "str.split - Python docs", "url": "https://docs.python.org/3/library/stdtypes.html#str.split"}]},
@@ -1160,7 +1492,7 @@ EXERCISES = [
         "id": "env-4",
         "hints": [
             "Handle the special cases first (empty/None, then short), then use slicing.",
-            "An empty value or None gives an empty string; 8 characters or fewer gives the fixed mask; otherwise glue the first 3 characters, three dots and the last 4.",
+            "An empty value or None gives an empty string; 8 characters or fewer gives the fixed mask; otherwise join the first 3 characters, three dots and the last 4.",
             "`if not value: return \"\"`. `if len(value) <= 8: return \"****\"`. Otherwise return an f-string built from `value[:3]`, `\"...\"` and `value[-4:]`.",
         ],
         "title": "Mask a secret",
@@ -1255,7 +1587,7 @@ EXERCISES = [
             - In an **unquoted** value, ` #` (space + hash) starts a comment: drop it and everything
               after it, then strip.
             - If a key appears twice, the later line wins.
-            - Do **not** change `os.environ`, and don't use third-party libraries.
+            - Do **not** change `os.environ`, and don't use libraries that you have to install separately.
 
             **Examples**
 

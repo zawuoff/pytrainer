@@ -138,6 +138,7 @@ def api_state(_body=None):
             "id": placement["id"] if placement else None,
         },
         "counts": {"projects": len(data["projects"]), "labs": len(data["labs"])},
+        "library": {"unlocked": sum(p["library_unlocked"] for p in tp.values()), "total": len(tp)},
     }
 
 
@@ -297,6 +298,36 @@ def api_lesson_read(topic_id: str, body: dict):
     else:
         db.ex("INSERT OR REPLACE INTO lesson_state(topic_id, read_at) VALUES(?,?)", (topic_id, db.now()))
     return {"ok": True}
+
+
+# --------------------------------------------------------------------------- library
+
+def _library_entry(t: dict, number: int, unlocked: bool) -> dict:
+    """One Library row. A locked chapter gives away nothing but its title."""
+    entry = {"id": t["id"], "title": t["title"], "module": t["track"], "number": number, "unlocked": unlocked}
+    if unlocked:
+        entry |= {"summary": " ".join(t["summary"].replace("`", "").split()), "concepts": t.get("concepts", []),
+                  "keywords": t["reference"]["keywords"], "cards": t["reference"]["cards"]}
+    return entry
+
+
+def api_library(_=None):
+    """Reference cards for the chapters whose lesson is finished, plus locked placeholders."""
+    data = content.load()
+    tp = progress.topic_progress()
+    entries = [_library_entry(t, i + 1, tp[t["id"]]["library_unlocked"]) for i, t in enumerate(data["topics"])]
+    return {"unlocked": sum(e["unlocked"] for e in entries), "total": len(entries), "entries": entries,
+            "modules": [{"id": m["id"], "title": m["title"]} for m in data["modules"]]}
+
+
+def api_library_entry(topic_id: str):
+    data = content.load()
+    t = data["topics_by_id"].get(topic_id)
+    if not t:
+        raise ApiError("topic not found", 404)
+    if not progress.topic_progress()[topic_id]["library_unlocked"]:
+        raise ApiError("This Library entry is locked. Finish the chapter to unlock it.", 403)
+    return {"entry": _library_entry(t, data["topics"].index(t) + 1, True)}
 
 
 def api_explain_solution(body: dict):
@@ -975,6 +1006,8 @@ ROUTES = [
     ("GET", r"/api/exam/([\w-]+)", api_exam),
     ("POST", r"/api/ai/improve", api_improve),
     ("POST", r"/api/lesson/([\w-]+)/read", api_lesson_read),
+    ("GET", r"/api/library", api_library),
+    ("GET", r"/api/library/([\w-]+)", api_library_entry),
     ("POST", r"/api/ai/explain", api_explain_solution),
     ("POST", r"/api/draft", api_draft),
     ("POST", r"/api/draft/reset", api_reset_draft),

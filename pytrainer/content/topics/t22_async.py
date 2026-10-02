@@ -13,44 +13,299 @@ TOPIC = {
                  "asyncio.wait_for", "return_exceptions", "async generators", "async for"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["async", "await", "asyncio", "coroutine", "event loop", "gather", "concurrent",
+                 "asyncio.run", "asyncio.sleep", "timeout", "timeouterror", "wait_for", "semaphore",
+                 "async for", "async generator", "return_exceptions"],
+    "cards": [
+        {
+            "syntax": "async def name():  /  await coro",
+            "explain": "Calling an async def function returns a coroutine. await runs it and evaluates to its return value.",
+            "example": r'''
+                import asyncio
+                async def greet(name):
+                    return "hello " + name
+                async def main():
+                    print(await greet("Ana"))
+                asyncio.run(main())
+                # hello Ana
+            ''',
+        },
+        {
+            "syntax": "asyncio.run(coro)",
+            "explain": "Runs a coroutine from normal code and returns its result. Inside async def, use await instead.",
+            "example": r'''
+                import asyncio
+                async def slow_add(a, b):
+                    await asyncio.sleep(0.01)
+                    return a + b
+                print(asyncio.run(slow_add(2, 3)))
+                # 5
+            ''',
+        },
+        {
+            "syntax": "await asyncio.gather(a, b)",
+            "explain": "Runs several coroutines so that their waits overlap. Gives a list of results in argument order.",
+            "example": r'''
+                import asyncio
+                async def up(text, delay):
+                    await asyncio.sleep(delay)
+                    return text.upper()
+                async def main():
+                    print(await asyncio.gather(up("a", 0.02), up("b", 0.01)))
+                asyncio.run(main())
+                # ['A', 'B']
+            ''',
+        },
+        {
+            "syntax": "asyncio.gather(a, b, return_exceptions=True)",
+            "explain": "An exception from one coroutine is put in the result list instead of being raised.",
+            "example": r'''
+                import asyncio
+                async def half(n):
+                    return 10 // n
+                async def main():
+                    a, b = half(5), half(0)
+                    print(await asyncio.gather(a, b, return_exceptions=True))
+                asyncio.run(main())
+                # [2, ZeroDivisionError('division by zero')]
+            ''',
+        },
+        {
+            "syntax": "await asyncio.wait_for(coro, seconds)",
+            "explain": "Runs coro. If it has not finished after that many seconds, stops it and raises TimeoutError.",
+            "example": r'''
+                import asyncio
+                async def main():
+                    try:
+                        await asyncio.wait_for(asyncio.sleep(1), 0.01)
+                    except TimeoutError:
+                        print("timed out")
+                asyncio.run(main())
+                # timed out
+            ''',
+        },
+        {
+            "syntax": "async for item in agen():",
+            "explain": "Reads an async generator: an async def function that uses yield. Only allowed inside async def.",
+            "example": r'''
+                import asyncio
+                async def stream():
+                    yield "Hel"
+                    yield "lo"
+                async def main():
+                    print([token async for token in stream()])
+                asyncio.run(main())
+                # ['Hel', 'lo']
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
-## Async Python - chapter notes
+## Async Python: chapter notes
 
-**The idea:** a good waiter doesn't stand at the kitchen while one meal cooks - they take the
-next order. Async lets one program keep working while calls (LLM APIs, HTTP) *wait*.
+A **server** is a remote computer that answers requests sent over a network. A call to a web API
+(an API is a service your program sends requests to), such as an LLM (large language model)
+service that writes text, spends most of its time waiting
+for the server to answer. **Async** code lets one program start a second call while
+the first one is still waiting.
 
-| term | meaning |
-| --- | --- |
-| `async def f()` | a *coroutine function*; calling `f()` gives a *coroutine* (an order ticket), nothing runs yet |
-| `await x` | run/wait for `x`, let other work happen meanwhile; only allowed inside `async def` |
-| `asyncio.run(coro)` | start the *event loop* from normal code, run `coro`, return its result |
-| `asyncio.sleep(s)` | non-blocking wait (never `time.sleep` in async code) |
-| `asyncio.gather(a, b, ...)` | run coroutines *concurrently*; results in the order passed |
-| `gather(..., return_exceptions=True)` | exceptions come back as values instead of being raised |
-| `asyncio.wait_for(coro, t)` | cancel `coro` and raise `TimeoutError` after `t` seconds |
-| `asyncio.Semaphore(n)` + `async with` | at most `n` coroutines inside at once (rate limits) |
-| `async def` + `yield` | an *async generator*; read it with `async for` |
+### Coroutines and await
+
+`async def` defines a **coroutine function**. Calling it does not run its body. The call returns a
+**coroutine**: an object that holds the function body and its arguments, ready to run.
+
+`await coro` runs the coroutine and evaluates to its return value. You can only write `await`
+inside an `async def` function.
+
+`asyncio.run(coro)` starts the **event loop**: the object in the `asyncio` module that runs
+coroutines. It runs `coro` to the end and returns its result. You call it from normal code.
+
+```python
+import asyncio
+
+async def fake_llm(prompt):
+    await asyncio.sleep(0.01)
+    return prompt.upper()
+
+async def main():
+    coro = fake_llm("hi")
+    print(type(coro).__name__)
+    reply = await coro
+    print(reply)
+
+asyncio.run(main())
+# coroutine
+# HI
+```
+
+### The event loop and asyncio.sleep
+
+The event loop runs one coroutine at a time. When that coroutine reaches an `await` that has to
+wait, the event loop pauses it there and runs another coroutine that is ready.
+
+`await asyncio.sleep(s)` pauses only the current coroutine for `s` seconds. `time.sleep(s)` stops
+the whole program, so the event loop cannot run anything else. Preventing the event loop
+from running other coroutines this way is called **blocking** it. Never use `time.sleep`
+in async code.
+
+### asyncio.gather
+
+`asyncio.gather(a, b, ...)` takes several coroutines and runs them **concurrently**: their waiting
+periods overlap. `await` on it gives a list of their results. The list follows the order of the
+arguments, not the order in which the coroutines finished.
 
 ```python
 import asyncio
 
 async def fake_llm(prompt, delay):
     await asyncio.sleep(delay)
+    print("done", prompt)
     return prompt.upper()
 
 async def main():
     replies = await asyncio.gather(fake_llm("a", 0.02), fake_llm("b", 0.01))
-    print(replies)  # ['A', 'B'] - order passed, not order finished
+    print(replies)
 
 asyncio.run(main())
+# done b
+# done a
+# ['A', 'B']
 ```
 
-**Gotchas**
-- Forgot `await`: `reply = call("hi")` is a coroutine object, not the reply.
-- `await` inside a plain `def` is a `SyntaxError`; from normal code use `asyncio.run(...)`.
-- `for p in prompts: await call(p)` is sequential. For speed: `await asyncio.gather(*(call(p) for p in prompts))`.
-- Exceptions travel through `await` like through a normal call: catch them with `try/except` around the `await`.
-- `asyncio.TimeoutError` is the same class as the built-in `TimeoutError` (Python 3.11+).
+Step through the stages to see when each coroutine runs and when it is paused.
+
+```diagram
+{"type":"flow","title":"Order of events in asyncio.gather(fake_llm(\"a\", 0.02), fake_llm(\"b\", 0.01))","steps":[{"label":"main awaits gather","detail":"gather schedules both coroutines on the event loop. main is paused at its await until both have finished.","code":"replies = await asyncio.gather(fake_llm(\"a\", 0.02), fake_llm(\"b\", 0.01))"},{"label":"a runs to its await","detail":"The event loop runs fake_llm(\"a\", 0.02) until it reaches await asyncio.sleep(0.02). That coroutine is now paused for 0.02 seconds.","code":"await asyncio.sleep(0.02)   # a is paused"},{"label":"b runs to its await","detail":"The event loop switches to fake_llm(\"b\", 0.01) and runs it until await asyncio.sleep(0.01). Both coroutines are now paused at the same moment.","code":"await asyncio.sleep(0.01)   # b is paused"},{"label":"b finishes first","detail":"After 0.01 seconds the event loop resumes b. It prints and returns 'B'. gather stores 'B' in position 1 because b was the second argument.","code":"done b\nresults so far: [not ready, 'B']"},{"label":"a finishes","detail":"After 0.02 seconds the event loop resumes a. It prints and returns 'A'. gather stores 'A' in position 0.","code":"done a\nresults so far: ['A', 'B']"},{"label":"main resumes","detail":"Both coroutines are finished, so the await in main evaluates to the list. The order is the argument order.","code":"print(replies)\n# ['A', 'B']"}]}
+```
+
+A loop that awaits each call in turn is sequential: `for p in prompts: reply = await call(p)`
+starts each call only after the previous one has returned. To run them concurrently, write
+`await asyncio.gather(*(call(p) for p in prompts))`. The generator expression creates one
+coroutine per prompt, and the `*` passes each one to `gather` as a separate argument.
+
+### Exceptions and timeouts
+
+An exception raised inside a coroutine is raised again at the `await` that runs it. Catch it with
+`try` / `except` around the `await`.
+
+If one coroutine in a `gather` raises, `await asyncio.gather(...)` raises that exception. With
+`return_exceptions=True`, the exception object is put in the result list instead.
+
+```python
+import asyncio
+
+async def fake_llm(prompt):
+    await asyncio.sleep(0.01)
+    if prompt == "boom":
+        raise ValueError("model refused")
+    return prompt.upper()
+
+async def main():
+    outcomes = await asyncio.gather(
+        fake_llm("a"), fake_llm("boom"), return_exceptions=True
+    )
+    print(outcomes)
+
+asyncio.run(main())
+# ['A', ValueError('model refused')]
+```
+
+`asyncio.wait_for(coro, t)` runs `coro`. If it has not finished after `t` seconds, `wait_for`
+stops it and raises `TimeoutError`. Since Python 3.11, `asyncio.TimeoutError` is the same class as the built-in `TimeoutError`.
+
+```python
+import asyncio
+
+async def slow_llm(prompt):
+    await asyncio.sleep(1)
+    return prompt.upper()
+
+async def main():
+    try:
+        print(await asyncio.wait_for(slow_llm("hi"), 0.01))
+    except TimeoutError:
+        print("timed out")
+    print(asyncio.TimeoutError is TimeoutError)
+
+asyncio.run(main())
+# timed out
+# True
+```
+
+### Limiting concurrency
+
+`asyncio.Semaphore(n)` is an object that lets at most `n` coroutines be inside its `async with`
+block at once. The others pause at `async with` until one leaves the block. `async with` is the
+form of `with` that async code uses. A **rate limit** is the maximum number of requests an API
+accepts in a period of time. Use a semaphore to stay under it.
+
+```python
+import asyncio
+
+active = []
+
+async def fake_llm(prompt, sem):
+    async with sem:
+        active.append(prompt)
+        print(prompt, "started, active:", active)
+        await asyncio.sleep(0.01)
+        active.remove(prompt)
+    return prompt.upper()
+
+async def main():
+    sem = asyncio.Semaphore(2)
+    replies = await asyncio.gather(
+        fake_llm("a", sem), fake_llm("b", sem), fake_llm("c", sem)
+    )
+    print(replies)
+
+asyncio.run(main())
+# a started, active: ['a']
+# b started, active: ['a', 'b']
+# c started, active: ['c']
+# ['A', 'B', 'C']
+```
+
+The list `active` holds the prompts that are inside the block. `c` pauses at `async with` until
+`a` and `b` have left the block. Here both have left before `c` starts, so `active` holds only
+`'c'`. `active` never holds more than 2 prompts.
+
+### Async generators
+
+An `async def` function that contains `yield` is an **async generator**. It can `await` between
+items. You read it with `async for`, inside an `async def` function. In the example,
+`await asyncio.sleep(0)` waits for zero seconds. It takes the place of waiting for a server.
+
+```python
+import asyncio
+
+async def stream_reply():
+    for token in ["Hel", "lo"]:
+        await asyncio.sleep(0)
+        yield token
+
+async def main():
+    async for token in stream_reply():
+        print(token)
+
+asyncio.run(main())
+# Hel
+# lo
+```
+
+### Common mistakes
+
+- `reply = call("hi")` without `await` assigns a coroutine object, not the reply.
+- `await` inside a plain `def` function is a `SyntaxError`. From normal code, use `asyncio.run(...)`.
+- `asyncio.sleep(1)` without `await` creates a coroutine and never waits.
+- A plain `for` loop over an async generator raises `TypeError`. Use `async for`.
+- A `try` that wraps only the line that creates a coroutine catches nothing. The exception is raised at the `await`.
+
+Docs: [asyncio tasks and coroutines](https://docs.python.org/3/library/asyncio-task.html)
 '''
 
 EXERCISES = [
@@ -59,11 +314,12 @@ EXERCISES = [
         "title": "What gets printed?",
         "difficulty": 0,
         "lesson": r'''
-            Picture a waiter. A bad waiter takes one order, walks to the kitchen and **stands there**
-            until the food is ready. A good waiter hands the order in and goes to the next table while
-            the kitchen cooks. Nobody cooks faster - the waiter just stops standing around.
+            ## Coroutines, await and asyncio.run
 
-            An LLM call is mostly waiting for a server. **Async** Python is the good waiter.
+            A **server** is a remote computer that answers requests sent over a network. A call to a
+            web API, such as an LLM (large language model) service that writes text, spends most of
+            its time waiting for the server to answer. **Async** code lets a program do other work
+            during that wait. This lesson covers the three things you need first.
 
             ```python
             import asyncio
@@ -74,18 +330,26 @@ EXERCISES = [
             async def main():
                 text = await greet("Ana")
                 print(text)
+                print("after")
 
             asyncio.run(main())
+            # hello Ana
+            # after
             ```
 
-            The vocabulary:
-            - `async def` makes a *coroutine function*. Calling it gives a *coroutine* - an order ticket.
-            - `await something` means "get me the result of this, and let others work meanwhile".
-              You can only write `await` inside an `async def`.
-            - `asyncio.run(main())` starts the *event loop* (the waiter) from normal code and runs `main`
-              from top to bottom.
+            `async def` defines a **coroutine function**. Calling it does not run its body. The call
+            returns a **coroutine**: an object that holds the function body and its arguments, ready to
+            run.
 
-            `await` does not skip ahead: the next line only runs once the awaited result is back.
+            `await greet("Ana")` runs that coroutine to its `return` and evaluates to the returned
+            value, `"hello Ana"`. You can only write `await` inside an `async def` function.
+
+            `asyncio.run(main())` starts the **event loop**: the object in the `asyncio` module that
+            runs coroutines. It runs `main` from top to bottom and returns its result. You call
+            `asyncio.run` from normal code, outside any `async def`.
+
+            The lines after an `await` wait for it. `print(text)` runs only after `greet` has returned, and
+            `print("after")` runs after that.
         ''',
         "mode": "predict",
         "prompt": r'''Read the code and type exactly what it prints.''',
@@ -109,8 +373,8 @@ EXERCISES = [
         ''',
         "explanation": r'''
             `asyncio.run(main())` runs `main`. It prints `start`, then `await greet("Ana")`
-            runs `greet` to the end and hands back its return value, `"hi Ana"`, which is
-            printed. `await` waits for the result - it does not skip ahead.
+            runs `greet` to the end and evaluates to its return value, `"hi Ana"`, which is
+            printed. `await` waits for the result. It does not skip ahead.
         ''',
         "starter": "", "tests": "",
         "hints": [
@@ -124,10 +388,14 @@ EXERCISES = [
         "title": "Wait politely",
         "difficulty": 0,
         "lesson": r'''
-            If the waiter needs to wait for something, there are two ways to do it. `time.sleep` is the
-            waiter falling asleep on a chair: **nothing** happens in the whole restaurant. The `asyncio`
-            module has its own, polite version: it pauses only *this* coroutine and lets the event loop
-            serve everyone else meanwhile.
+            ## asyncio.sleep
+
+            The event loop runs one coroutine at a time. When a coroutine has to wait, the event loop
+            can run another coroutine during that wait. This only works if the wait is done with
+            `await`.
+
+            `await asyncio.sleep(seconds)` pauses the current coroutine for that many seconds. Only
+            this coroutine is paused. The event loop can run other coroutines in the meantime.
 
             ```python
             import asyncio
@@ -138,13 +406,18 @@ EXERCISES = [
                 print("done after", seconds, "s")
 
             asyncio.run(think(0.1))
+            # thinking...
+            # done after 0.1 s
             ```
 
-            Fake LLMs in this chapter use it to pretend a server is slow. The proper word for what
-            `time.sleep` does is *blocking* the event loop; the `asyncio` version is *non-blocking*.
-            Because it is itself a coroutine, you must `await` it.
+            `time.sleep(seconds)` also waits, but it stops the whole program, so the event loop cannot
+            run anything else. Stopping the event loop is called **blocking** it. `asyncio.sleep` is
+            **non-blocking**. Never use `time.sleep` inside async code.
 
-            Watch out: `asyncio.sleep(1)` without `await` does nothing at all - it just creates a ticket.
+            The fake LLMs in this chapter use `asyncio.sleep` to imitate a slow server.
+
+            `asyncio.sleep` is itself a coroutine function, so you must `await` it.
+            `asyncio.sleep(1)` without `await` creates a coroutine and waits for nothing.
         ''',
         "prompt": r'''
             `fetch_reply` pretends to call an LLM: it waits a moment, then returns a reply.
@@ -209,8 +482,10 @@ EXERCISES = [
         "title": "Fix the missing await",
         "difficulty": 0,
         "lesson": r'''
-            Remember the order ticket? Calling a coroutine function **only writes the ticket**. It does
-            not cook anything. If you forget `await`, you are holding a ticket, not the food.
+            ## A missing await
+
+            Calling a coroutine function only creates a coroutine object. The function body has not
+            run yet, so there is no return value. `await` runs the body and gives you the value.
 
             ```python
             import asyncio
@@ -219,21 +494,42 @@ EXERCISES = [
                 return 7
 
             async def main():
-                ticket = get_score()
-                print(type(ticket).__name__)
-                value = await ticket
+                coro = get_score()
+                print(type(coro).__name__)
+                value = await coro
                 print(value + 1)
 
             asyncio.run(main())
+            # coroutine
+            # 8
             ```
 
-            The first print shows `coroutine`: that's the object you get *before* awaiting. Only `await`
-            turns it into the real return value. Try `ticket + 1` without awaiting and Python raises a
-            `TypeError` (you can't add a number to a coroutine) - plus a `RuntimeWarning: coroutine ...
-            was never awaited`, the classic sign of a missing `await`.
+            The first `print` shows `coroutine`: the type of the object you have before awaiting.
+            `await coro` runs `get_score` and evaluates to `7`, so the second `print` shows `8`.
 
-            Watch out: this is the #1 async bug. When a value "looks weird" in async code, check for a
-            missing `await` first.
+            If you forget `await`, you use the coroutine object where you wanted the value. The next
+            example raises on purpose.
+
+            ```python
+            import asyncio
+
+            async def get_score():
+                return 7
+
+            async def main():
+                score = get_score()
+                print(score + 1)
+
+            asyncio.run(main())
+            # TypeError: unsupported operand type(s) for +: 'coroutine' and 'int'
+            ```
+
+            A number cannot be added to a coroutine, so Python raises `TypeError`. Python also prints
+            `RuntimeWarning: coroutine 'get_score' was never awaited`. That warning always means an
+            `await` is missing.
+
+            This is the most common async bug. When a value in async code has an unexpected type,
+            check for a missing `await` first.
         ''',
         "prompt": r'''
             `double_answer()` should use the number returned by the coroutine `get_answer()`
@@ -292,7 +588,7 @@ EXERCISES = [
         ''',
         "hints": [
             "What does calling an `async def` function give you if you don't wait for it?",
-            "`get_answer()` alone is a coroutine (an order ticket), not the number 42. You must wait for its result.",
+            "`get_answer()` alone is a coroutine, not the number 42. You must wait for its result.",
             "Add the keyword `await` in front of `get_answer()` on the line that assigns `answer`.",
         ],
     },
@@ -301,32 +597,39 @@ EXERCISES = [
         "title": "Who finishes first?",
         "difficulty": 0,
         "lesson": r'''
-            So far each `await` waited for one thing. The real win is to start **several** things and
-            wait for all of them together - the waiter taking orders at three tables before any food is
-            ready.
+            ## asyncio.gather
 
-            `asyncio.gather(a, b, c)` takes several coroutines, runs them *at the same time*, and gives
-            back a list of their results.
+            So far each `await` waited for one coroutine. `asyncio.gather(a, b, c)` takes several
+            coroutines and runs them **concurrently**: their waiting periods overlap in time. `await`
+            on it gives a list of their results.
 
             ```python
             import asyncio
 
-            async def cook(dish, seconds):
+            async def fake_llm(prompt, seconds):
                 await asyncio.sleep(seconds)
-                return dish
+                return prompt.upper()
 
             async def main():
-                meals = await asyncio.gather(cook("soup", 0.2), cook("salad", 0.1))
-                print(meals)
+                replies = await asyncio.gather(fake_llm("long", 0.2), fake_llm("short", 0.1))
+                print(replies)
 
             asyncio.run(main())
+            # ['LONG', 'SHORT']
             ```
 
-            This takes about 0.2 s (the slowest one), not 0.3 s. Running things so they overlap in time
-            is called *concurrency*.
+            The event loop runs the first coroutine until its `await asyncio.sleep(0.2)`, then runs
+            the second one until its `await asyncio.sleep(0.1)`. Both are now waiting at the same
+            moment. The whole program takes about 0.2 seconds, the longest wait, not 0.3 seconds.
 
-            The key rule: the result list is in the order you **passed** the coroutines, not the order
-            they **finished**. Salad was ready first, but `"soup"` is still first in the list.
+            Step through the stages to see which coroutine finishes first and where its result goes.
+
+            ```diagram
+            {"type":"flow","title":"Order of events in asyncio.gather(fake_llm(\"long\", 0.2), fake_llm(\"short\", 0.1))","steps":[{"label":"main awaits gather","detail":"gather schedules both coroutines on the event loop. main is paused at its await until both have finished.","code":"replies = await asyncio.gather(fake_llm(\"long\", 0.2), fake_llm(\"short\", 0.1))"},{"label":"long runs to its await","detail":"The event loop runs fake_llm(\"long\", 0.2) until await asyncio.sleep(0.2). That coroutine is paused for 0.2 seconds.","code":"await asyncio.sleep(0.2)   # long is paused"},{"label":"short runs to its await","detail":"The event loop switches to fake_llm(\"short\", 0.1) and runs it until await asyncio.sleep(0.1). Both coroutines are now paused.","code":"await asyncio.sleep(0.1)   # short is paused"},{"label":"short finishes first","detail":"After 0.1 seconds the event loop resumes short. It returns 'SHORT'. gather stores it in position 1 because short was the second argument.","code":"results so far: [not ready, 'SHORT']"},{"label":"long finishes","detail":"After 0.2 seconds the event loop resumes long. It returns 'LONG'. gather stores it in position 0.","code":"results so far: ['LONG', 'SHORT']"},{"label":"main resumes","detail":"Both coroutines are finished, so the await in main evaluates to the list, in argument order.","code":"print(replies)\n# ['LONG', 'SHORT']"}]}
+            ```
+
+            The result list is in the order you **passed** the coroutines, not the order they
+            **finished**. `"short"` finished first, but `'LONG'` is still first in the list.
         ''',
         "mode": "predict",
         "prompt": r'''Read the code and type exactly what it prints.''',
@@ -358,7 +661,7 @@ EXERCISES = [
         "starter": "", "tests": "",
         "hints": [
             "Both jobs start together. Which `sleep` ends first?",
-            "The `print` inside `job` happens when each job finishes, so the shorter sleep prints first. The final list is a different story.",
+            "The `print` inside `job` happens when each job finishes, so the shorter sleep prints first. The final list follows a different rule.",
             "Line 1-2: the jobs' own prints, shortest delay first. Line 3: the list printed by `main`, in the order the jobs were written in the `gather` call (strings shown with quotes).",
         ],
     },
@@ -367,9 +670,10 @@ EXERCISES = [
         "title": "Two calls at once",
         "difficulty": 0,
         "lesson": r'''
-            Time to write a `gather` yourself. One more ingredient: in real apps the LLM call is usually
-            a function **passed in** as a parameter (so tests can pass a fake). You met this idea in the
-            functions chapter - a function is a value like any other.
+            ## Passing the call as a parameter
+
+            In real apps the function that calls the LLM is usually passed in as a parameter, so
+            tests can pass a fake one. A function is a value, as you saw in the functions chapter.
 
             ```python
             import asyncio
@@ -382,14 +686,50 @@ EXERCISES = [
                 return await call(prompt)
 
             print(asyncio.run(ask(shout, "hi")))
+            # HI
             ```
 
-            `call` is the function; `call(prompt)` makes the coroutine (the ticket); `await` gets the
-            answer. With `gather` you make *several* tickets first, then hand them all over at once:
-            `await asyncio.gather(ticket1, ticket2)`. `gather` already returns a `list`.
+            `call` is the function `shout`. `call(prompt)` creates the coroutine. `await` runs it and
+            gives its return value.
 
-            Watch out: `await call(a)` then `await call(b)` on two lines is *sequential* - the second
-            starts only after the first is done. That is correct, just slow.
+            ## Sequential awaits and gather
+
+            Two `await` lines in a row are **sequential**: the second coroutine starts only after the
+            first has returned. With `gather` you create both coroutines first, then pass them
+            together. `await asyncio.gather(...)` returns a `list`.
+
+            ```python
+            import asyncio
+            import time
+
+            async def shout(text):
+                await asyncio.sleep(0.1)
+                return text.upper()
+
+            async def main():
+                start = time.perf_counter()
+                one = await shout("a")
+                two = await shout("b")
+                print([one, two], round(time.perf_counter() - start, 1))
+
+                start = time.perf_counter()
+                both = await asyncio.gather(shout("a"), shout("b"))
+                print(both, round(time.perf_counter() - start, 1))
+
+            asyncio.run(main())
+            # ['A', 'B'] 0.2
+            # ['A', 'B'] 0.1
+            ```
+
+            `time.perf_counter()` returns the reading of a clock in seconds. Subtracting the
+            reading at the start from a later reading gives the elapsed time. That is the second
+            value on each line. Both versions are correct. The sequential one is slower.
+
+            Step through the stages to compare the two versions.
+
+            ```diagram
+            {"type":"flow","title":"Sequential awaits compared with gather","steps":[{"label":"Sequential: first await","detail":"shout(\"a\") runs and pauses for 0.1 seconds. main is paused at this line too, so shout(\"b\") does not exist yet.","code":"one = await shout(\"a\")   # 0.0 s to 0.1 s"},{"label":"Sequential: second await","detail":"shout(\"a\") has returned 'A'. Only now is shout(\"b\") created and run. It pauses for another 0.1 seconds.","code":"two = await shout(\"b\")   # 0.1 s to 0.2 s"},{"label":"Sequential: total","detail":"The two waits happen one after the other, so the total is their sum.","code":"['A', 'B'] 0.2"},{"label":"gather: both start","detail":"Both coroutines are created before anything is awaited. The event loop runs shout(\"a\") to its sleep, then shout(\"b\") to its sleep.","code":"both = await asyncio.gather(shout(\"a\"), shout(\"b\"))"},{"label":"gather: waits overlap","detail":"Both coroutines are paused during the same 0.1 seconds. Each returns when its sleep ends.","code":"shout(\"a\")   # 0.0 s to 0.1 s\nshout(\"b\")   # 0.0 s to 0.1 s"},{"label":"gather: total","detail":"The total is the longest single wait. The list is in argument order.","code":"['A', 'B'] 0.1"}]}
+            ```
         ''',
         "prompt": r'''
             Sending two prompts to an LLM one after the other wastes time. Send both at once
@@ -469,13 +809,15 @@ EXERCISES = [
         "title": "What gets streamed?",
         "difficulty": 0,
         "lesson": r'''
-            LLM APIs *stream*: the reply arrives in small pieces so the user sees text appear right
-            away. It's like a sushi conveyor belt - plates come one at a time, and you take each as it
-            passes.
+            ## Async generators and async for
 
-            You already know generators (`def` + `yield`). Put `async` in front and you get an **async
-            generator**: it can `await` between pieces. You read it with `async for` (inside an
-            `async def`).
+            LLM APIs **stream**: the reply arrives in small pieces, so the user sees the first words
+            before the whole reply is finished.
+
+            You know generators from the generators chapter: a `def` function that uses `yield`. An
+            `async def` function that uses `yield` is an **async generator**. It can `await` between
+            items. You read it with `async for`, which you can only write inside an `async def`
+            function.
 
             ```python
             import asyncio
@@ -490,12 +832,21 @@ EXERCISES = [
                     print(number)
 
             asyncio.run(main())
+            # 3
+            # 2
+            # 1
             ```
 
-            Each `yield` hands one item to the loop, the loop body runs, then the generator continues
-            where it stopped. When it runs out, the `async for` loop ends.
+            `await asyncio.sleep(0)` waits for zero seconds. It takes the place of waiting for the
+            next piece from a server.
 
-            Watch out: a plain `for` loop can't read an async generator - it must be `async for`.
+            `async for` asks the generator for its next item. The generator runs until its next
+            `yield` and gives that value to the loop variable. The loop body runs. Then the generator
+            continues from the line after the `yield`. When the generator's function body ends, the
+            `async for` loop ends.
+
+            A plain `for` loop cannot read an async generator. `for number in countdown():` raises
+            `TypeError: 'async_generator' object is not iterable`. Write `async for`.
         ''',
         "mode": "predict",
         "prompt": r'''Read the code and type exactly what it prints.''',
@@ -542,9 +893,11 @@ EXERCISES = [
         "title": "Your first coroutine",
         "difficulty": 1,
         "lesson": r'''
-            Most of your program is normal code: scripts, CLIs, plain functions. How does normal code use
-            a coroutine? Through the front door: `asyncio.run(...)`. It opens the restaurant (starts an
-            event loop), runs your coroutine to the end, hands you the return value and closes up.
+            ## Calling async code from normal code
+
+            Most of a program is normal code: scripts and plain `def` functions. Normal code cannot use
+            `await`. It runs a coroutine with `asyncio.run(...)`. That call starts an event loop, runs
+            the coroutine to the end, closes the event loop and returns the coroutine's return value.
 
             ```python
             import asyncio
@@ -557,16 +910,18 @@ EXERCISES = [
                 return asyncio.run(slow_add(a, b))
 
             print(add_now(2, 3))
+            # 5
             ```
 
-            `add_now` is a regular `def`, so its callers never need to know async exists. This is how
-            many libraries offer a "sync" wrapper around an async core.
+            `add_now` is a regular `def` function, so its callers do not need `await` or `asyncio`.
+            Many libraries offer a regular function like this around their async code.
 
-            The vocabulary: code inside `async def` is *async code*; everything else is *sync code*.
-            Sync code enters async code with `asyncio.run`; async code calls async code with `await`.
+            Code inside `async def` is called **async code**. All other code is **sync code**. Sync
+            code runs a coroutine with `asyncio.run`. Async code runs a coroutine with `await`.
 
-            Watch out: `asyncio.run` is only for sync code. Calling it from inside a coroutine that is
-            already running raises a `RuntimeError` - there, just use `await`.
+            `asyncio.run` is only for sync code. Calling it inside a coroutine that is already running
+            raises `RuntimeError: asyncio.run() cannot be called from a running event loop`. Inside a
+            coroutine, use `await`.
         ''',
         "prompt": r'''
             Before calling a real LLM, build a fake one: a coroutine that "thinks" for a
@@ -659,9 +1014,11 @@ EXERCISES = [
         "title": "Streaming tokens",
         "difficulty": 1,
         "lesson": r'''
-            In the streaming predict step you *read* an async generator. Now you'll write one, and a
-            helper that drains any stream into a list - handy in tests, where you want the whole reply at
-            once.
+            ## Writing an async generator
+
+            In the previous step, "What gets streamed?", you read an async generator. Now you write one, plus a
+            function that reads a whole stream into a list. That is useful in tests, where you want
+            the complete reply as one value.
 
             ```python
             import asyncio
@@ -676,17 +1033,39 @@ EXERCISES = [
                 print(got)
 
             asyncio.run(main())
+            # ['a', 'b', 'c']
             ```
 
-            That last form is an *async comprehension*: like a list comprehension, with `async for`.
-            A normal loop with `.append()` works just as well.
+            `[ch async for ch in letters("abc")]` is an **async comprehension**: a list comprehension
+            that uses `async for`. An `async for` loop that calls `.append()` builds the same list.
 
-            Generators are *lazy*: they only produce the next item when someone asks for it. An async
-            generator is lazy too, so the first word can reach the user before the rest is ready - the
-            whole point of streaming.
+            Generators are **lazy**: they produce the next item only when it is requested. An async
+            generator is lazy too.
 
-            Any object you can loop over with `async for` is called an *async iterable*. Async generators
-            are the most common kind, but not the only one, so a good `collect` works on any of them.
+            ```python
+            import asyncio
+
+            async def letters(word):
+                for ch in word:
+                    print("producing", ch)
+                    yield ch
+
+            async def main():
+                async for ch in letters("abc"):
+                    print("got", ch)
+                    break
+
+            asyncio.run(main())
+            # producing a
+            # got a
+            ```
+
+            The loop stops after one item, so the generator never produces `b` or `c`. This is why a
+            stream can show the first word to the user before the rest of the reply exists.
+
+            Any object you can loop over with `async for` is called an **async iterable**. Async
+            generators are the most common kind, but not the only one. A function that reads a stream
+            should accept any async iterable.
         ''',
         "prompt": r'''
             LLM APIs stream their replies piece by piece. Fake a stream, and write a helper
@@ -785,9 +1164,11 @@ EXERCISES = [
         "title": "Catch a failed call",
         "difficulty": 1,
         "lesson": r'''
-            What if the kitchen drops a plate? In async code an exception travels back through `await`
-            exactly like it does through a normal function call. So you catch it the way you already
-            know: `try` / `except` around the `await`.
+            ## Exceptions in coroutines
+
+            An exception raised inside a coroutine is raised again at the `await` that runs it, the
+            same way an exception raised inside a function is raised again at the line that called
+            it. You catch it with `try` / `except` around the `await`.
 
             ```python
             import asyncio
@@ -800,18 +1181,24 @@ EXERCISES = [
                     print(await flaky("hi"))
                 except ValueError as err:
                     print("caught:", err)
+                    print(type(err).__name__)
 
             asyncio.run(main())
+            # caught: model refused
+            # ValueError
             ```
 
-            In an LLM app this is how you turn a failed request into something the rest of the program
-            can handle instead of crashing the whole request.
+            `flaky("hi")` raises `ValueError` when it is awaited. The `except` block catches it, so the
+            program continues instead of stopping with a traceback.
 
-            A handy trick from the errors chapter: `type(err).__name__` gives the exception's class name
-            as a string, e.g. `"ValueError"` - perfect for logs.
+            In an LLM app this is how you turn a failed request into a value that the rest of the
+            program can handle.
 
-            Watch out: the `try` must wrap the `await`. Wrapping only the line that *creates* the
-            coroutine catches nothing, because the error happens while it runs.
+            `type(err).__name__` gives the exception's class name as a string, here `"ValueError"`.
+            You saw it in the errors chapter. It is useful in log messages.
+
+            The `try` must wrap the `await`. A `try` that wraps only the line that creates the
+            coroutine catches nothing, because the exception is raised while the coroutine runs.
         ''',
         "prompt": r'''
             A failed LLM request should become a clear message, not a crash.
@@ -907,31 +1294,49 @@ EXERCISES = [
         "title": "Count the failures",
         "difficulty": 1,
         "lesson": r'''
-            `gather` has a sharp edge: if **one** coroutine raises, `await gather(...)` raises that
-            exception and you lose all the other results. For a batch of 100 LLM calls, one failure
-            should not throw away 99 good answers.
+            ## Exceptions in gather
 
-            A fire alarm metaphor: by default, one alarm evacuates the whole building. You'd rather each
-            room reported "fine" or "had a problem" on a clipboard.
+            By default, if one coroutine passed to `gather` raises, `await asyncio.gather(...)` raises
+            that exception. You get no result list, so the replies of the other coroutines are not
+            available. In a batch of 100 LLM calls, one failure should not make you lose 99 good replies.
 
             ```python
             import asyncio
 
-            async def bad():
-                raise KeyError("oops")
+            async def fake_llm(prompt):
+                await asyncio.sleep(0.01)
+                if prompt == "boom":
+                    raise KeyError("choices")
+                return prompt.upper()
 
             async def main():
                 try:
-                    await asyncio.gather(asyncio.sleep(0.01), bad())
+                    replies = await asyncio.gather(fake_llm("a"), fake_llm("boom"), fake_llm("b"))
+                    print(replies)
                 except KeyError:
                     print("the whole gather raised")
 
             asyncio.run(main())
+            # the whole gather raised
             ```
 
-            `gather` has an option that switches it to clipboard mode: exceptions are **returned** in the
-            result list, in their slot, instead of being raised. You then check each item with
-            `isinstance(item, Exception)`. Finding that option in the docs is this step's research task.
+            `fake_llm("a")` and `fake_llm("b")` both succeed, but `replies` is never assigned and the
+            first `print` never runs.
+
+            `gather` has a keyword argument that changes this. With it, an exception is **returned**
+            in the result list, at the position of the coroutine that raised it, instead of being
+            raised. Finding that argument in the docs is this step's research task.
+
+            You then check each item of the list with `isinstance(item, Exception)`.
+
+            ```python
+            print(isinstance(KeyError("choices"), Exception))
+            print(isinstance("A", Exception))
+            # True
+            # False
+            ```
+
+            An exception object is a value like any other, so it can be stored in a list and counted.
         ''',
         "research": {
             "note": "`asyncio.gather` has a keyword argument that returns exceptions as results instead of raising the first one. Read the `gather` docs, find it, then come back.",
@@ -1361,7 +1766,7 @@ EXERCISES = [
         "title": "Resilient batch",
         "difficulty": 3,
         "prompt": r'''
-            In a batch job, one failing or hanging LLM request must not sink the others.
+            In a batch job, one failing or hanging LLM request must not stop the others.
             Run them all, and report which ones failed and why.
 
             **Write:** the coroutine `async def run_batch(prompts, call, timeout)`

@@ -15,44 +15,236 @@ TOPIC = {
                  "release gate"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["eval", "evaluation", "grader", "exact match", "tolerance", "pass rate",
+                 "metric", "precision", "recall", "mrr", "reciprocal rank", "regression",
+                 "baseline", "release gate", "judge", "jsonl"],
+    "cards": [
+        {
+            "syntax": "output.strip().lower() == expected.strip().lower()",
+            "explain": "Exact-match grader. Removes outer whitespace and lowercases both strings, then compares them.",
+            "example": r'''
+                def exact(output, expected):
+                    return output.strip().lower() == expected.strip().lower()
+
+                print(exact(" paris\n", "Paris"))
+                # True
+                print(exact("Paris.", "Paris"))
+                # False
+            ''',
+        },
+        {
+            "syntax": "abs(float(output) - expected) <= tolerance",
+            "explain": "Numeric grader. Passes when the answer differs from the expected number by at most tolerance.",
+            "example": r'''
+                print(abs(float("3.1416") - 3.14) <= 0.01)
+                # True
+                print(abs(float("3.2") - 3.14) <= 0.01)
+                # False
+            ''',
+        },
+        {
+            "syntax": "sum(results) / len(results)",
+            "explain": "Pass rate: passed cases divided by all cases. sum() counts the True values. Check for an empty list first.",
+            "example": r'''
+                results = [True, False, True, True]
+                print(sum(results), "of", len(results))
+                # 3 of 4
+                print(sum(results) / len(results))
+                # 0.75
+            ''',
+        },
+        {
+            "syntax": "hits / k   and   hits / len(relevant)",
+            "explain": "precision@k and recall@k. hits is how many of the first k retrieved ids are relevant.",
+            "example": r'''
+                top = ["d3", "d1", "d7"]
+                relevant = {"d1", "d2"}
+                hits = len([d for d in top if d in relevant])
+                print(hits)
+                # 1
+                print(round(hits / 3, 2), hits / len(relevant))
+                # 0.33 0.5
+            ''',
+        },
+        {
+            "syntax": "sum(reciprocal_ranks) / len(reciprocal_ranks)",
+            "explain": "MRR. Each query scores 1 / rank of its first relevant result, or 0 with none. MRR is the average.",
+            "example": r'''
+                first_ranks = [1, 2, None]
+                scores = [1 / r if r else 0.0 for r in first_ranks]
+                print(scores)
+                # [1.0, 0.5, 0.0]
+                print(sum(scores) / len(scores))
+                # 0.5
+            ''',
+        },
+        {
+            "syntax": "before[i] and not after[i]",
+            "explain": "A regression: case i passed in the baseline run and fails in the candidate run.",
+            "example": r'''
+                before = {"q1": True, "q2": False}
+                after = {"q1": False, "q2": True}
+                print([i for i in before if before[i] and not after[i]])
+                # ['q1']
+                print([i for i in before if not before[i] and after[i]])
+                # ['q2']
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
 ## Chapter notes: evals
 
-**Why**: trying a few prompts by hand ("vibes") does not scale. An *eval* runs your app on a
-fixed set of questions and scores the answers, so every change gets a number you can compare.
+An **eval** is a program that runs your app on a fixed set of inputs and scores every output.
+Trying a few prompts by hand only tests the inputs you thought of that day. An eval tests the
+same inputs after every change, so each change gets a number you can compare.
 
-**Vocabulary**
-- *Eval case*: one input plus what a good answer looks like (`{"id", "input", "expected", "tags"}`).
-- *Dataset*: many cases, usually stored as **JSONL** (one JSON object per line).
-- *Grader*: a function `grader(output, expected) -> bool` that marks one answer.
-- *Harness*: the loop that runs the model on every case and collects results.
-- *Metric*: a number summarising results: pass rate, per-tag pass rate, precision@k, MRR.
-- *Regression*: a case that passed before and fails now.
-- *Release gate*: rules that must hold before you ship (min pass rate, no regressions).
+### Eval cases and datasets
 
-**Graders, cheapest first**
-| grader | passes when | watch out |
-| --- | --- | --- |
-| exact | `out.strip().lower() == exp.strip().lower()` | too strict for prose |
-| contains | every required phrase is in the output | case-insensitive; empty list passes |
-| regex | `re.search(pattern, out, re.IGNORECASE)` finds a match | return `bool(...)`, not the Match |
-| numeric | `abs(float(out) - exp) <= tol` | `float("four")` raises ValueError: fail, don't crash |
-| LLM judge | a judge model replies `VERDICT: PASS` | parse strictly; unparseable is an error |
+An **eval case** is one input plus a description of a correct answer. A case is usually a dict
+with the keys `"id"`, `"input"`, `"expected"` and `"tags"`. A **dataset** is a list of cases.
+Datasets are usually stored as **JSONL**: a text file with one JSON object per line.
 
-**Metrics**
-- pass rate = passed / total (0.0 for an empty run). `sum(list_of_bools)` counts the Trues.
-- per tag: group results by each tag, then pass rate per group. Averages hide weak spots.
-- precision@k = relevant items in the top k / k. recall@k = relevant items in the top k / all relevant.
-- reciprocal rank = 1 / (position of the first relevant item, counting from 1), 0 if none.
-  MRR = average reciprocal rank over queries.
+### Graders
 
-**Comparing runs**: match cases by `id`. *fixed* = failed before, passes now. *regressed* =
-passed before, fails now. Two runs can have the same pass rate and still behave differently.
+A **grader** is a function `grader(output, expected)` that returns `True` when one answer is
+acceptable and `False` when it is not.
 
-**Gotchas**
-- Inject the model (`model(input) -> str`) so evals run offline with a fake.
-- A model that raises must count as a failed case, not stop the whole run.
-- Keep graders deterministic; if you use an LLM judge, pin its prompt and parse its verdict.
+```python
+def exact(output, expected):
+    return output.strip().lower() == expected.strip().lower()
+
+print(exact(" paris\n", "Paris"))
+# True
+print(exact("Paris.", "Paris"))
+# False
+```
+
+The common graders, from cheapest to most expensive:
+
+- **Exact match** compares both strings after `.strip().lower()`. It is too strict for long answers.
+- **Contains** passes when every required phrase is in the output, ignoring letter case. An
+  empty list of phrases passes.
+- **Regex** passes when `re.search(pattern, output, re.IGNORECASE)` finds a match. Return
+  `bool(...)` of the result, because `re.search` returns a Match object (an object that
+  describes where the pattern matched) or `None`.
+- **Numeric** passes when `abs(float(output) - expected) <= tolerance`, where `tolerance` is the
+  largest difference that still counts as correct. `float("four")` raises
+  `ValueError`, so catch it and return `False`.
+- **LLM-as-judge** sends the question and the answer to a second model, which replies with
+  `VERDICT: PASS` or `VERDICT: FAIL`. Any other reply is an error.
+
+### The eval run
+
+A **harness** is the loop that calls the model on every case, grades each output and collects
+the results. The model is passed in as a function `model(text)` that returns a string. A test
+passes a fake function, so the eval runs without a network call.
+
+```python
+def exact(output, expected):
+    return output.strip().lower() == expected.strip().lower()
+
+def fake_model(text):
+    return {"capital of France?": " paris\n"}.get(text, "five")
+
+cases = [
+    {"id": "q1", "input": "capital of France?", "expected": "Paris"},
+    {"id": "q2", "input": "2 + 2?", "expected": "4"},
+]
+results = []
+for case in cases:
+    output = fake_model(case["input"])
+    results.append({"id": case["id"], "passed": exact(output, case["expected"])})
+print(results)
+# [{'id': 'q1', 'passed': True}, {'id': 'q2', 'passed': False}]
+passed = sum(r["passed"] for r in results)
+print(passed / len(results))
+# 0.5
+```
+
+Step through the stages to see the data that each one produces.
+
+```diagram
+{"type":"flow","title":"One eval run","steps":[
+{"label":"Dataset","detail":"The dataset is a list of cases. Each case has an id, an input and an expected answer.","code":"{\"id\": \"q1\", \"input\": \"capital of France?\", \"expected\": \"Paris\"}\n{\"id\": \"q2\", \"input\": \"2 + 2?\", \"expected\": \"4\"}"},
+{"label":"Run the model","detail":"The harness calls the model once per case with the case input. The return value is the output string.","code":"fake_model(\"capital of France?\")  returns ' paris\\n'\nfake_model(\"2 + 2?\")              returns 'five'"},
+{"label":"Grade each output","detail":"The grader compares each output with the expected answer of the same case and returns True or False.","code":"exact(' paris\\n', 'Paris')  returns True\nexact('five', '4')          returns False"},
+{"label":"Collect results","detail":"The harness stores one result per case, in dataset order, with the case id.","code":"[{'id': 'q1', 'passed': True},\n {'id': 'q2', 'passed': False}]"},
+{"label":"Aggregate","detail":"The pass rate is the number of passed cases divided by the number of cases.","code":"passed = 1\ntotal = 2\npass rate = 1 / 2 = 0.5"}
+]}
+```
+
+### Metrics
+
+A **metric** is one number that summarises the results of a run.
+
+- The **pass rate** is passed cases divided by total cases. Use `0.0` for an empty run.
+  `sum()` of a list of booleans counts the `True` values.
+- The **pass rate per tag** groups the results by tag and computes one pass rate per group. A
+  high overall pass rate can include a tag with a low one.
+
+The next three metrics score a retriever. A document is **relevant** to a question when it
+contains the answer. You write down the relevant ids for each question yourself. `k` is how
+many results you look at, counted from the start of the ranked list.
+
+- **precision@k** is the number of relevant items in the top `k` results divided by `k`.
+- **recall@k** is the number of relevant items in the top `k` results divided by the number
+  of relevant items.
+- The **rank** of a result is its position in the list, counting from 1. The **reciprocal
+  rank** of a query is `1 / rank` of the first relevant result. It is `0` when no result is
+  relevant. **MRR** (mean reciprocal rank) is the average reciprocal rank over all queries.
+
+```python
+retrieved = ["d3", "d1", "d7", "d2"]
+relevant = {"d1", "d2"}
+hits = 0
+for doc in retrieved[:3]:
+    if doc in relevant:
+        hits += 1
+print(hits)
+# 1
+print(round(hits / 3, 2))
+# 0.33
+print(hits / len(relevant))
+# 0.5
+reciprocal_rank = 0.0
+for rank, doc in enumerate(retrieved, start=1):
+    if doc in relevant:
+        reciprocal_rank = 1 / rank
+        break
+print(reciprocal_rank)
+# 0.5
+```
+
+The top 3 results are `d3`, `d1` and `d7`. Only `d1` is relevant, so there is 1 relevant item.
+precision@3 is `1 / 3`, which rounds to `0.33`. There are 2 relevant ids, so recall@3 is
+`1 / 2`. The first relevant result is `d1` at rank 2, so the reciprocal rank is `1 / 2`.
+
+For MRR, take three queries with reciprocal ranks `1`, `0.5` and `0`. The MRR is
+`(1 + 0.5 + 0) / 3`, which is `0.5`.
+
+### Comparing runs
+
+The **baseline** is the run of the current version of your app. The **candidate** is the run
+of the version with your change. Match the cases of the two runs by `"id"`. A case is
+**fixed** when it failed in the baseline and passes in the candidate. A case is a
+**regression** when it passed in the baseline and fails in the candidate. Two runs can have
+the same pass rate and still pass different cases.
+
+A **release gate** is a set of rules that a run must meet before the change is released to
+users, for example a minimum pass rate and zero regressions.
+
+### Common mistakes
+
+- Calling a real API inside the harness. Pass the model in as a function so tests can use a fake.
+- Letting one model error stop the run. Catch the exception and record that case as failed.
+- Checking `"PASS" in reply` for a judge. `"I would not PASS this"` contains it too. Compare the
+  whole last line.
+- Dividing by `len(results)` without checking for an empty list. That raises `ZeroDivisionError`.
 '''
 
 EXERCISES = [
@@ -62,13 +254,15 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Vibes don't scale
+            ## Evals
 
-            When you change a prompt, you probably try two or three questions and think "looks
-            better". That is *vibes*. It misses the question you didn't try.
+            When you change a prompt, you can try two or three questions by hand and read the
+            answers. That only tests the questions you tried. A question you did not try can
+            break without you seeing it.
 
-            An **eval** works like a school exam. You write the questions and the answer key
-            once. Every time the app changes, it sits the same exam and gets a score.
+            An **eval** is a program that runs your app on a fixed list of questions and
+            compares each answer with the expected answer. You write the questions and the
+            expected answers once. After every change you run the same eval and get a score.
 
             ```python
             answer_key = {"capital of France?": "Paris", "2 + 2?": "4"}
@@ -78,13 +272,37 @@ EXERCISES = [
                 if app_answers[question] == answer_key[question]:
                     score += 1
             print("score:", score, "/", len(answer_key))
+            # score: 1 / 2
+            print("pass rate:", score / len(answer_key))
+            # pass rate: 0.5
             ```
 
-            The proper names: each question with its expected answer is an **eval case**, the
-            collection is a **dataset**, the code that marks one answer is a **grader**, and
-            `score / total` is the **pass rate**.
+            Step through the loop and watch `score` change only when the two strings are equal.
 
-            Watch out: `==` is very strict. The marker in this code has no common sense.
+            ```diagram
+            {"type": "trace", "title": "Scoring answers against expected answers", "code": ["answer_key = {\"capital of France?\": \"Paris\", \"2 + 2?\": \"4\"}", "app_answers = {\"capital of France?\": \"Paris\", \"2 + 2?\": \"5\"}", "score = 0", "for question in answer_key:", "    if app_answers[question] == answer_key[question]:", "        score += 1", "print(\"score:\", score, \"/\", len(answer_key))", "print(\"pass rate:\", score / len(answer_key))"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}"}, "out": ""},
+              {"line": 3, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}"}, "out": ""},
+              {"line": 4, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "0"}, "out": ""},
+              {"line": 5, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "0", "question": "'capital of France?'"}, "out": ""},
+              {"line": 6, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "0", "question": "'capital of France?'"}, "out": ""},
+              {"line": 4, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "1", "question": "'capital of France?'"}, "out": ""},
+              {"line": 5, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "1", "question": "'2 + 2?'"}, "out": ""},
+              {"line": 4, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "1", "question": "'2 + 2?'"}, "out": ""},
+              {"line": 7, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "1", "question": "'2 + 2?'"}, "out": ""},
+              {"line": 8, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "1", "question": "'2 + 2?'"}, "out": "score: 1 / 2\n"},
+              {"line": null, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "1", "question": "'2 + 2?'"}, "out": "score: 1 / 2\npass rate: 0.5\n"}
+            ]}
+            ```
+
+            Each question with its expected answer is an **eval case**. The list of all cases
+            is a **dataset**. The code that decides whether one answer is correct is a
+            **grader**. The **pass rate** is the number of passed cases divided by the number
+            of cases.
+
+            `==` on two strings is `True` only when every character is the same, including
+            letter case. `"paris" == "Paris"` is `False`.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -107,8 +325,8 @@ EXERCISES = [
         "explanation": r'''
             Only `"Paris" == "Paris"` is True. `"four"` is not `"4"`, and `"Blue"` is not
             `"blue"` because `==` compares letter case too. So 1 of 3 passes, and `1 / 3`
-            formatted with `:.2f` is `0.33`. A grader this strict marks correct answers as wrong,
-            which is why the next step normalises text first.
+            formatted with `:.2f` is `0.33`. A grader this strict fails correct answers, so the
+            next step converts both strings to the same form before comparing them.
         ''',
         "starter": "", "tests": "",
         "hints": [
@@ -124,24 +342,29 @@ EXERCISES = [
         "lesson": r'''
             ## Normalise before you compare
 
-            A human marker would accept `" Paris\n"` for `"Paris"`. The extra space and the
-            newline are noise, not a wrong answer. So before comparing, we **normalise** both
-            sides: remove whitespace at the ends and make everything lowercase.
+            A model often returns the right answer with extra whitespace or different letter
+            case, such as `" Paris\n"` for `"Paris"`. `==` treats those two strings as
+            different, so a correct answer is graded as failed.
 
-            Think of it as ironing two shirts before checking if they are the same shirt.
+            To **normalise** a string is to convert it to one standard form before you compare
+            it. Here that means two steps: `.strip()` removes whitespace from both ends, and
+            `.lower()` converts every letter to lowercase.
 
             ```python
             output = "  PARIS\n"
             expected = "Paris"
             print(output == expected)
+            # False
             print(output.strip().lower() == expected.strip().lower())
+            # True
             ```
 
-            This is the **exact-match grader** most eval tools start with. It is still strict
-            about the words themselves: `"Paris."` (with a full stop) is not a match.
+            A grader that normalises both strings and then compares them with `==` is an
+            **exact-match grader**. Most eval tools start with it. The remaining characters
+            must still be identical: `"Paris."` with a full stop does not match `"Paris"`.
 
-            Watch out: normalise **both** sides. Only cleaning the output breaks when the
-            expected answer has a capital letter.
+            Normalise both sides. If you only lowercase the output, you compare `"paris"` with
+            `"Paris"`, and that is `False`.
         ''',
         "prompt": r'''
             The simplest grader: does the model's answer equal the expected answer, ignoring
@@ -202,29 +425,36 @@ EXERCISES = [
         "lesson": r'''
             ## Checking for key points
 
-            Long answers never match exactly. Instead, a teacher marking an essay checks a list:
-            "did they mention the date? did they mention the cause?" Every point must be there.
+            A long answer almost never equals the expected text character for character. For
+            long answers you check that the answer mentions each required fact.
 
-            That is a **contains grader**: the answer passes only if **all** required phrases
-            appear in it.
+            A **contains grader** takes a list of required phrases. The answer passes only if
+            every phrase appears in it. Lowercase both strings first so letter case is ignored:
+            `"delivery" in "From Delivery".lower()` is `True`.
+
+            A function that checks "all items" returns `False` inside the loop at the first
+            item that fails the check. It returns `True` only after the loop has finished,
+            because by then every item has been checked.
 
             ```python
-            answer = "The refund window is 30 days from delivery."
-            required = ["30 days", "delivery"]
-            missing = []
-            for phrase in required:
-                if phrase.lower() not in answer.lower():
-                    missing.append(phrase)
-            print("missing:", missing)
-            print("pass:", missing == [])
+            def has_all_digits(text, digits):
+                for digit in digits:
+                    if digit not in text:
+                        return False
+                return True
+
+            print(has_all_digits("model v4.5", ["4", "5"]))
+            # True
+            print(has_all_digits("model v4.5", ["4", "7"]))
+            # False
+            print(has_all_digits("model v4.5", []))
+            # True
             ```
 
-            The pattern "fail as soon as one thing is missing, pass only after checking all of
-            them" is very common. You return `False` early inside the loop, and `True` only
-            **after** the loop has finished.
+            With an empty list the loop body never runs, so the function returns `True`.
 
-            Watch out: returning `True` inside the loop means "at least one phrase is present".
-            That is *any*, not *all*.
+            `return True` inside the loop ends the function at the first item that is present.
+            That checks "at least one item", not "all items".
         ''',
         "prompt": r'''
             This grader should pass an answer only if it mentions **every** required phrase.
@@ -281,7 +511,7 @@ EXERCISES = [
         ''',
         "hints": [
             "Read the loop: when does it return True? After how many phrases have been checked?",
-            "It should give up as soon as one phrase is missing, and only say True once all were checked.",
+            "It should return False as soon as one phrase is missing, and return True only once all were checked.",
             "Flip the test to `not in` and return False inside the loop; after the loop, return True.",
         ],
     },
@@ -290,26 +520,38 @@ EXERCISES = [
         "title": "Pass rate",
         "difficulty": 0,
         "lesson": r'''
-            ## One number to compare
+            ## Pass rate
 
-            After grading you have a list like `[True, False, True, True]`. You want one number
-            that says how good the run was: the **pass rate**, the share of cases that passed.
+            After grading you have one boolean per case, for example
+            `[True, False, True, True]`. The **pass rate** is the number of `True` values
+            divided by the number of cases.
 
-            Handy fact: in Python, `True` counts as `1` and `False` as `0`. So `sum()` of a list
-            of booleans counts the Trues.
+            In arithmetic, Python treats `True` as `1` and `False` as `0`. So `sum()` of a list
+            of booleans returns the number of `True` values.
 
             ```python
             results = [True, False, True, True]
             passed = sum(results)
             print(passed)
+            # 3
             print(passed / len(results))
-            print(round(2 / 3, 2))
+            # 0.75
             ```
 
-            A number that summarises results like this is called a **metric**.
+            `round(value, 2)` rounds a float to 2 decimal places.
 
-            Watch out: an empty run has no cases, and `0 / 0` raises `ZeroDivisionError`.
-            Decide what to return for that case before dividing.
+            ```python
+            print(2 / 3)
+            # 0.6666666666666666
+            print(round(2 / 3, 2))
+            # 0.67
+            ```
+
+            A **metric** is one number that summarises the results of a run. The pass rate is
+            a metric.
+
+            An empty run has no cases. `sum([]) / len([])` is `0 / 0`, which raises
+            `ZeroDivisionError`. Check for the empty list before you divide.
         ''',
         "prompt": r'''
             Turn a list of grader results into a pass rate.
@@ -370,26 +612,33 @@ EXERCISES = [
         "title": "Close enough: numeric grader",
         "difficulty": 0,
         "lesson": r'''
-            ## A ruler with some slack
+            ## Numeric tolerance
 
-            If the expected answer is `3.14` and the model says `"3.1416"`, is that wrong? For
-            most apps, no. Numbers need a **tolerance**: a "close enough" distance.
+            The expected answer is `3.14` and the model returns `"3.1416"`. For most apps that
+            answer is correct, but an exact comparison fails it. A numeric grader uses a
+            **tolerance**: the largest difference between the two numbers that still passes.
 
-            Like a carpenter's measurement: 1 mm off is fine, 1 cm is not.
+            The model's answer is a string, so convert it with `float()` first. `abs()` returns
+            a number without its sign, so `abs(value - expected)` is the difference whichever
+            number is larger.
 
             ```python
             expected = 3.14
             output = "3.1416"
             value = float(output)
-            print(abs(value - expected))
+            print(value)
+            # 3.1416
             print(abs(value - expected) <= 0.01)
+            # True
+            print(abs(3.0 - 3.14) <= 0.01)
+            # False
             ```
 
-            `abs()` gives the distance whatever the sign. The model's answer arrives as **text**,
-            so you convert it with `float()` first.
+            `float()` ignores whitespace around the number: `float(" 105 ")` returns `105.0`.
 
-            Watch out: `float("about 3")` raises `ValueError`. A grader should never crash on a
-            bad answer: catch the error and mark the case as failed.
+            `float("about 3")` raises `ValueError` because the string is not a number. A grader
+            must not stop the eval run because of a bad answer. Catch the error with
+            `try`/`except ValueError` and treat that answer as failed.
         ''',
         "prompt": r'''
             Grade numeric answers with a tolerance.
@@ -454,11 +703,14 @@ EXERCISES = [
         "title": "Load a JSONL dataset",
         "difficulty": 0,
         "lesson": r'''
-            ## A box of index cards
+            ## JSONL datasets
 
-            Eval datasets are usually stored as **JSONL** ("JSON Lines"): one complete JSON
-            object per line. Think of a box of index cards: one card per test case. You can add
-            a card by appending one line, and read them back one at a time.
+            Eval datasets are usually stored as **JSONL** (JSON Lines): a text format with one
+            complete JSON object per line. Each line is one eval case. You add a case by
+            appending one line to the file, and you read the cases back one line at a time.
+
+            `text.splitlines()` returns the lines of a string as a list. Pass each line to
+            `json.loads` separately.
 
             ```python
             import json
@@ -467,13 +719,26 @@ EXERCISES = [
             for line in text.splitlines():
                 case = json.loads(line)
                 print(case["id"], "->", case["input"])
+            # q1 -> 2+2?
+            # q2 -> 3+3?
             ```
 
-            Each line goes through `json.loads` on its own. The whole file is **not** one valid
-            JSON document, so `json.loads(text)` on all of it fails.
+            The whole text is not one valid JSON document. `json.loads(text)` on all of it
+            raises `json.JSONDecodeError`.
 
-            Watch out: files often end with a newline or contain blank lines. `json.loads("")`
-            raises an error, so skip lines that are empty after `.strip()`.
+            Files often contain blank lines. `json.loads("")` also raises
+            `json.JSONDecodeError`, so skip every line that is empty after `.strip()`. An
+            empty string is falsy, so `if line.strip():` is true only for a line with content.
+
+            ```python
+            lines = ["a", "", "   ", "b"]
+            kept = []
+            for line in lines:
+                if line.strip():
+                    kept.append(line)
+            print(kept)
+            # ['a', 'b']
+            ```
         ''',
         "prompt": r'''
             Read an eval dataset stored as JSONL text.
@@ -537,23 +802,30 @@ EXERCISES = [
         "lesson": r'''
             ## Compare case by case
 
-            Imagine two students who both scored 2 out of 3. Did they get the **same** questions
-            right? Not necessarily. One new prompt might fix a question and break another.
+            Two eval runs can pass the same number of cases without passing the same cases. A
+            new prompt can make one case pass and make a different case fail. The pass rate
+            stays the same, but the app now behaves differently.
 
-            So when you compare two eval runs, you don't only compare the scores. You line up
-            the cases by their `id` and look at each one:
+            So you compare two runs case by case. Store each run as a dict that maps a case
+            `id` to its result, then read both dicts with the same `id`.
 
             ```python
             before = {"q1": True, "q2": False}
             after = {"q1": False, "q2": True}
             for case_id in before:
                 print(case_id, before[case_id], "->", after[case_id])
+            # q1 True -> False
+            # q2 False -> True
             print(sum(before.values()), sum(after.values()))
+            # 1 1
             ```
 
             A case that passed before and fails now is a **regression**. A case that failed
-            before and passes now is **fixed**. Regressions are the thing you most want to catch
-            before shipping.
+            before and passes now is **fixed**. Here `q1` is a regression and `q2` is fixed,
+            and both runs pass 1 case. Check for regressions before you release a change.
+
+            The run of the current version is called the **baseline**. The run of the changed
+            version is called the **candidate**.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -572,8 +844,9 @@ EXERCISES = [
         ''',
         "explanation": r'''
             `q2` failed in the baseline and passes in the candidate, so it is *fixed*. `q3`
-            passed before and fails now: a *regression*. Both runs pass 2 cases, so the pass
-            rates are identical - only the per-case comparison reveals that behaviour changed.
+            passed before and fails now: a *regression*. `sum()` counts the `True` values, and
+            both runs have 2, so the pass rates are identical. Only the per-case comparison
+            shows that the behaviour changed.
         ''',
         "starter": "", "tests": "",
         "hints": [
@@ -589,12 +862,12 @@ EXERCISES = [
         "lesson": r'''
             ## Grading by pattern
 
-            Sometimes the answer can be written many ways, but has a shape. "The order number"
-            could appear as `ORD-1234` anywhere in a sentence. Remember regular expressions? A
-            **regex grader** passes the answer if the pattern is found anywhere in it.
+            Some answers can be worded in many ways but must contain text of a fixed form. An
+            order number such as `ORD-1234` can appear anywhere in a sentence. A **regex
+            grader** passes the answer if a regular expression matches anywhere in it.
 
-            It's like a sniffer dog: it doesn't care about the whole bag, only whether the thing
-            it's looking for is inside.
+            `re.search(pattern, text)` scans the whole text for the first match. The optional
+            third argument `re.IGNORECASE` makes the match ignore letter case.
 
             ```python
             import re
@@ -602,15 +875,22 @@ EXERCISES = [
             answer = "Your order ord-1234 has shipped."
             match = re.search(r"ORD-\d{4}", answer, re.IGNORECASE)
             print(match)
+            # <re.Match object; span=(11, 19), match='ord-1234'>
             print(bool(match))
+            # True
+            print(re.search(r"ORD-\d{4}", "no order here"))
+            # None
             print(bool(re.search(r"ORD-\d{4}", "no order here")))
+            # False
             ```
 
-            `re.search` returns a **Match object** (or `None`), not `True`/`False`. Graders
-            should return a real boolean, so wrap it in `bool(...)`.
+            `re.search` returns a **Match object** when it finds the pattern and `None` when it
+            does not. It never returns `True` or `False`. A grader must return a boolean, so
+            pass the result to `bool()`. A Match object is truthy and `None` is falsy.
 
-            Watch out: `re.match` only looks at the **start** of the text. For "anywhere", use
-            `re.search`.
+            `re.match` only tries the pattern at the start of the text.
+            `re.match(r"ORD-\d{4}", "Your order ORD-1234")` returns `None`. Use `re.search` to
+            find the pattern anywhere.
         ''',
         "prompt": r'''
             Grade an answer by checking that a regular expression matches somewhere in it.
@@ -673,31 +953,50 @@ EXERCISES = [
         "title": "The eval harness",
         "difficulty": 1,
         "lesson": r'''
-            ## The exam room
+            ## The eval harness
 
-            You now have graders. The **harness** is the exam room: it hands each question to
-            the model, collects the answer, and gives it to the grader.
+            A **harness** is the loop that runs an eval. For each case it calls the model with
+            the case input, passes the output to the grader, and stores the result.
 
-            To run evals offline (and in tests), the model is **injected** as a plain function
-            `model(text) -> str`. In production it wraps a real API call; in tests it's a fake.
+            The harness receives the model as an argument: a function `model(text)` that
+            returns the answer string. In the real app that function makes a real API call. In
+            tests it is a fake function, so the eval runs without a network.
+
+            Real model calls sometimes raise an exception, for example on a timeout. One
+            exception must not stop a run of 500 cases. Put the model call in
+            `try`/`except Exception` and record that case as failed.
 
             ```python
             def fake_model(question):
+                if question == "9+9?":
+                    raise TimeoutError("model timed out")
                 return {"2+2?": "4"}.get(question, "no idea")
 
             def grader(output, expected):
                 return output == expected
 
-            for case in [{"id": "a", "input": "2+2?", "expected": "4"}]:
-                out = fake_model(case["input"])
-                print(case["id"], out, grader(out, case["expected"]))
+            cases = [
+                {"id": "a", "input": "2+2?", "expected": "4"},
+                {"id": "b", "input": "9+9?", "expected": "18"},
+                {"id": "c", "input": "3+3?", "expected": "6"},
+            ]
+            for case in cases:
+                try:
+                    output = fake_model(case["input"])
+                except Exception:
+                    print(case["id"], None, False)
+                    continue
+                print(case["id"], output, grader(output, case["expected"]))
+            # a 4 True
+            # b None False
+            # c no idea False
             ```
 
-            Real model calls fail sometimes (timeouts, rate limits). One crash must not stop a
-            run of 500 cases. Catch the error, record the case as failed, and move on.
+            Case `b` raises `TimeoutError`. The `except` branch runs, and `continue` moves the
+            loop to case `c`.
 
-            Watch out: keep results in the **same order** as the cases, and keep the `id` so you
-            can compare runs later.
+            Keep the results in the same order as the cases, and keep each case `id` so you
+            can compare two runs later.
         ''',
         "prompt": r'''
             Run a model over a list of eval cases and grade each answer.
@@ -787,30 +1086,43 @@ EXERCISES = [
         "title": "Pass rate per tag",
         "difficulty": 1,
         "lesson": r'''
-            ## Averages hide weak spots
+            ## Pass rate per tag
 
-            A school report shows a grade per subject, not just one average. A student with
-            90% overall might still be failing chemistry.
+            One overall pass rate does not show which kind of question fails. A run can pass
+            90% of all cases and still pass only 20% of the cases about one subject.
 
-            Evals are the same. Tag each case (`"refunds"`, `"math"`, `"multilingual"`) and
-            compute the pass rate **per tag**. An overall 90% can hide a 20% on one kind of
-            question.
+            A **tag** is a short string that names the kind of case, such as `"refunds"`,
+            `"math"` or `"french"`. Each case has a list of tags. You compute one pass rate
+            **per tag**: passed cases with that tag divided by all cases with that tag.
+
+            Use two dicts keyed by tag: one counts the cases, the other counts the passed
+            cases. `int(True)` is `1` and `int(False)` is `0`.
 
             ```python
-            results = [{"passed": True, "tags": ["math"]},
-                       {"passed": False, "tags": ["math", "french"]}]
-            counts = {}
+            results = [
+                {"passed": True, "tags": ["math"]},
+                {"passed": False, "tags": ["math", "french"]},
+                {"passed": True},
+            ]
+            totals = {}
+            passes = {}
             for r in results:
-                for tag in r["tags"]:
-                    total, ok = counts.get(tag, (0, 0))
-                    counts[tag] = (total + 1, ok + int(r["passed"]))
-            print(counts)
+                for tag in r.get("tags", []):
+                    totals[tag] = totals.get(tag, 0) + 1
+                    passes[tag] = passes.get(tag, 0) + int(r["passed"])
+            print(totals)
+            # {'math': 2, 'french': 1}
+            print(passes)
+            # {'math': 1, 'french': 0}
+            print(passes["math"] / totals["math"])
+            # 0.5
             ```
 
-            One case can have several tags, and it counts toward **each** of them. Grouping
-            like this is often called *slicing* the results.
+            A case with several tags counts toward each of its tags.
 
-            Watch out: some cases have no `"tags"` key at all. `r.get("tags", [])` handles that.
+            The third case has no `"tags"` key, so `r["tags"]` would raise `KeyError`.
+            `r.get("tags", [])` returns an empty list instead, and the inner loop runs zero
+            times for that case.
         ''',
         "prompt": r'''
             Break an eval run down by tag.
@@ -892,27 +1204,46 @@ EXERCISES = [
         "lesson": r'''
             ## Grading the retriever
 
-            In RAG, a bad answer often starts with bad retrieval. So we grade the retriever on
-            its own. For each question you know which documents are **relevant**; the retriever
-            returns a ranked list.
+            In RAG, a wrong answer often comes from retrieving the wrong documents, so you
+            grade the retriever separately. For each question you list the ids of the
+            **relevant** documents: the ones that contain the answer. The retriever returns a
+            ranked list of ids, best match first.
 
-            Picture a fishing net pulling up the top `k` items:
-            - **precision@k**: of the `k` items in the net, how many are fish you wanted?
-            - **recall@k**: of all the fish you wanted, how many are in the net?
+            Both metrics look only at the top `k` results, `retrieved[:k]`. A **hit** is an id
+            in the top `k` that is also relevant.
+
+            - **precision@k** is hits divided by `k`. It is the fraction of the top `k` that is
+              relevant. Read `@k` as "in the top k".
+            - **recall@k** is hits divided by the number of relevant ids. It is the fraction of
+              the relevant documents that the top `k` contains.
 
             ```python
             retrieved = ["d3", "d1", "d7", "d2"]
             relevant = {"d1", "d2"}
             top = retrieved[:3]
+            print(top)
+            # ['d3', 'd1', 'd7']
             hits = len([d for d in top if d in relevant])
+            print(hits)
+            # 1
             print("precision@3:", hits / 3)
+            # precision@3: 0.3333333333333333
             print("recall@3:", hits / len(relevant))
+            # recall@3: 0.5
             ```
 
-            Precision divides by `k` (the size of the net), recall by the number of relevant
-            documents. Both are between 0 and 1.
+            The hits are the ids that are in both collections. Click `&` to see the overlap of
+            `top` and `relevant`.
 
-            Watch out: if nothing is relevant, recall would divide by zero. Decide on `0.0`.
+            ```diagram
+            {"type":"set-ops","title":"Top 3 retrieved ids and relevant ids","a":{"name":"top","items":["d3","d1","d7"]},"b":{"name":"relevant","items":["d1","d2"]}}
+            ```
+
+            The overlap has 1 id, so `hits` is 1. `top` has 3 ids, so precision@3 is `1 / 3`.
+            `relevant` has 2 ids, so recall@3 is `1 / 2`. Both metrics are between 0 and 1.
+
+            If no document is relevant, `len(relevant)` is `0` and the recall division raises
+            `ZeroDivisionError`. Return `0.0` in that case.
         ''',
         "prompt": r'''
             Score one retrieval result.
@@ -1005,30 +1336,39 @@ EXERCISES = [
         "title": "LLM-as-judge",
         "difficulty": 1,
         "lesson": r'''
-            ## A second model as the marker
+            ## LLM-as-judge
 
-            Some answers can't be checked with rules: "Is this summary faithful to the
-            article?" For these, teams use **LLM-as-judge**: a second model reads the question
-            and the answer and gives a verdict.
+            Some answers cannot be graded with string rules. Whether a summary agrees with its
+            article is one example. For these cases teams use **LLM-as-judge**: a second model
+            receives the question and the answer in a prompt and replies with a verdict.
 
-            Think of a senior colleague reviewing your work with a checklist. You must tell them
-            exactly how to reply, and then read their reply carefully.
+            Your prompt must state the exact reply format. Ask for the reasoning first and a
+            fixed **verdict line** last, either `VERDICT: PASS` or `VERDICT: FAIL`. Then your
+            code only has to read the last non-blank line of the reply.
 
             ```python
             def fake_judge(prompt):
-                return "The answer cites the source.\nVERDICT: PASS"
+                return "The answer cites the source.\nVERDICT: PASS\n\n"
 
             reply = fake_judge("Question: ...\nAnswer: ...")
             lines = [line for line in reply.splitlines() if line.strip()]
+            print(lines)
+            # ['The answer cites the source.', 'VERDICT: PASS']
             print(lines[-1])
+            # VERDICT: PASS
             print(lines[-1].strip().upper() == "VERDICT: PASS")
+            # True
             ```
 
-            Asking for reasoning first and a fixed **verdict line** last makes the reply easy to
-            parse. Judges are models, so they sometimes ignore the format: treat anything else
-            as an error instead of guessing.
+            The list comprehension keeps only the lines that are not blank. `lines[-1]` is the
+            last of them. If the reply is empty, `lines` is `[]` and `lines[-1]` raises
+            `IndexError`, so check for an empty list first.
 
-            Watch out: `"PASS" in reply` is a trap - `"I would not PASS this"` contains it too.
+            The judge is a model, so it sometimes ignores the format. When the last line is
+            neither verdict, raise an error. Do not guess a verdict.
+
+            Do not test `"PASS" in reply`. That expression is also `True` for the reply
+            `"I would not PASS this"`. Compare the whole verdict line with `==`.
         ''',
         "research": {
             "note": "Read the section on grading methods (code-based, human, LLM-based) and the "
@@ -1291,11 +1631,12 @@ EXERCISES = [
         "title": "Release gate",
         "difficulty": 3,
         "lesson": r'''
-            ## Putting it together: a gate before shipping
+            ## Putting it together: a release gate
 
-            A release gate is the bouncer at the door: a change ships only if the eval numbers
-            meet fixed rules. Teams run it in CI on every pull request, so "is this better?" is
-            answered by code, not by opinion.
+            A **release gate** is a function that checks an eval run against fixed rules, such
+            as a minimum pass rate and a maximum number of regressions. The change is released
+            only if every rule holds. Teams run the gate automatically on every proposed
+            change, so the decision comes from the eval numbers and not from an opinion.
         ''',
         "prompt": r'''
             Decide whether a candidate may ship, and explain why not when it can't.
@@ -1308,7 +1649,7 @@ EXERCISES = [
             - **Returns:** a tuple `(ok, reasons)`: `reasons` is a list of strings, `ok` is
               `True` exactly when `reasons` is empty
 
-            **Rules** - check in this order and add one reason per failed rule:
+            **Rules**: check in this order and add one reason per failed rule:
             1. Missing cases: ids in `baseline` that are not in `candidate`. Reason:
                `"missing cases: q4, q5"` (ids sorted, joined with `", "`).
             2. Pass rate: candidate pass rate (passed / total, `0.0` if empty) below
@@ -1390,9 +1731,10 @@ EXERCISES = [
         "lesson": r'''
             ## Putting it together: a real eval run
 
-            Real datasets mix grader types: some cases need exact answers, others key phrases,
-            others a pattern or a number. Each case says which grader to use, and one report
-            summarises the whole run. This is a small version of what eval frameworks do.
+            Real datasets mix grader types. Some cases need an exact answer, some need required
+            phrases, and some need a pattern or a number. Each case stores the name of its
+            grader, and the harness looks up the grader function by that name. One report dict
+            summarises the whole run. Eval frameworks do the same thing at a larger scale.
         ''',
         "prompt": r'''
             Run a JSONL eval dataset where every case names its own grader, and summarise it.

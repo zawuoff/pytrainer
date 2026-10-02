@@ -13,42 +13,219 @@ TOPIC = {
                  "truncation"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["string", "text", "strip", "split", "join", "replace", "lower", "upper",
+                 "startswith", "endswith", "find", "slice", "whitespace", "words", "lines"],
+    "cards": [
+        {
+            "syntax": "s.strip()  /  s.lower()  /  s.upper()",
+            "explain": "Each returns a new string: without whitespace at both ends, in lower case, in upper case. s itself does not change.",
+            "example": r'''
+                raw = "  Hello World \n"
+                clean = raw.strip()
+                print(clean)
+                # Hello World
+                print(clean.lower(), clean.upper())
+                # hello world HELLO WORLD
+            ''',
+        },
+        {
+            "syntax": "s.replace(old, new)",
+            "explain": "Returns a new string with every occurrence of old replaced by new. Assign the result to keep it.",
+            "example": r'''
+                text = "a-b-a"
+                text.replace("a", "x")
+                print(text)
+                # a-b-a
+                text = text.replace("a", "x")
+                print(text)
+                # x-b-x
+            ''',
+        },
+        {
+            "syntax": "s.split()  /  s.split(sep)  /  s.splitlines()",
+            "explain": "Return a list of pieces: cut at whitespace, cut at each sep, or cut at each line break.",
+            "example": r'''
+                print("the  quick\tfox".split())
+                # ['the', 'quick', 'fox']
+                print("a,b,,c".split(","))
+                # ['a', 'b', '', 'c']
+                print("one\ntwo\n".splitlines())
+                # ['one', 'two']
+            ''',
+        },
+        {
+            "syntax": "sep.join(items)",
+            "explain": "Returns one string with sep between the items. You call it on the separator. Every item must be a string.",
+            "example": r'''
+                words = "Big   Cat".split()
+                print("-".join(words))
+                # Big-Cat
+                print(" ".join(words))
+                # Big Cat
+            ''',
+        },
+        {
+            "syntax": "x in s  /  s.startswith(x)  /  s.endswith(x)",
+            "explain": "Each is True or False: x appears anywhere in s, at the start, at the end. All three are case-sensitive.",
+            "example": r'''
+                name = "Notes.MD"
+                print("otes" in name, name.startswith("notes"))
+                # True False
+                print(name.lower().endswith(".md"))
+                # True
+                print(name.find("."), name.find("?"))
+                # 5 -1
+            ''',
+        },
+        {
+            "syntax": "s[start:stop]",
+            "explain": "Returns the characters from index start up to, but not including, stop. Leave one out to go from the start or to the end.",
+            "example": r'''
+                s = "Hello, model"
+                print(len(s), s[0], s[-1])
+                # 12 H l
+                print(s[:5])
+                # Hello
+                print(s[7:])
+                # model
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
 ## Chapter notes: Strings & Text Processing
 
-**Basics**
-- A string is a sequence of characters: `len(s)`, `s[0]`, `s[-1]`, `s[:5]`, `s[7:]`.
-- Strings are *immutable*: methods return a **new** string. Store it:
-  `text = text.strip()`.
-- Methods are called with a dot and can be *chained*: `raw.strip().lower()`.
+### Strings are sequences
 
-**Cleaning**
-| call | result |
-| --- | --- |
-| `"  Hi \n".strip()` | `"Hi"` (whitespace removed at both ends only) |
-| `"Hi".lower()` / `.upper()` | `"hi"` / `"HI"` |
-| `"a-b-a".replace("a", "x")` | `"x-b-x"` (every occurrence) |
+A **string** is a sequence of characters. Each character has an **index**: a whole
+number that gives its position, starting at `0`. `len(s)` returns the number of
+characters. A **slice** `s[start:stop]` returns a new string with the characters from
+index `start` up to, but not including, index `stop`. Indexes and slices work the same
+way as they do on a list: `s[-1]` is the last character, `s[:5]` starts at index `0`
+and `s[7:]` goes to the end.
 
-**Splitting and joining**
-- `"a  b\tc".split()` gives `['a', 'b', 'c']`: any whitespace, no empty pieces.
-- `"a,b,,c".split(",")` gives `['a', 'b', '', 'c']`: exact separator.
-- `"hf/meta/llama".split("/", 1)` gives `['hf', 'meta/llama']` (*maxsplit*).
-- `" ".join(words)`: the separator comes first and goes only between items.
-- `" ".join(text.split())` collapses every run of whitespace to one space
-  (*whitespace normalisation*).
-- `text.splitlines()` gives the lines without `\n`; `"\n".join(lines)` rebuilds.
+```python
+s = "Hello, model"
+print(len(s))
+# 12
+print(s[0], s[-1])
+# H l
+print(s[:5])
+# Hello
+print(s[7:])
+# model
+```
 
-**Searching**
-- `"key" in text`: anywhere? `text.startswith("Sure")`, `text.endswith(".md")`: edges.
-- `text.find("42")`: position, or `-1` if missing. `text.count("e")`: occurrences.
-- All checks are case-sensitive: compare `word.lower() in text.lower()`.
+Drag the start and stop handles to see which characters a slice returns.
 
-**Gotchas**
-- `text.strip()` alone on a line does nothing useful - the result is thrown away.
-- `words.join(" ")` is wrong; `" ".join(words)` is right.
-- `"a  b".split(" ")` gives `['a', '', 'b']`; use `split()` for words.
-- Unpacking `a, b = s.split("/", 1)` fails if there is no `/`: check with `in` first.
-- An empty string is *falsy*: `if line.strip():` skips blank lines.
+```diagram
+{"type":"slice","title":"Slicing the string s","name":"s","value":"Hello, model","start":7,"stop":12}
+```
+
+### Methods and immutability
+
+A **method** is a function that belongs to a value. You call it with a dot:
+`s.lower()`. A string is **immutable**: its characters cannot change after it is
+created. No string method changes the string. A method such as `strip()` returns a
+new string, so you must store the result.
+
+`repr(text)` returns the string the way you would type it in code: with its quotes,
+and with a newline shown as `\n`. Printing it shows where the string starts and ends.
+
+```python
+text = "  Hi \n"
+text.strip()
+print(repr(text))
+# '  Hi \n'
+text = text.strip()
+print(repr(text))
+# 'Hi'
+```
+
+### Cleaning
+
+**Whitespace** means spaces, tabs (`\t`) and newlines (`\n`). `strip()` returns the
+string without the whitespace at both ends. `lower()` and `upper()` return the string
+with every letter in lower case or upper case. `replace(old, new)` returns the string
+with every occurrence of `old` replaced by `new`. You can **chain** methods: write one
+call directly after another, and each call runs on the result of the call before it.
+
+```python
+raw = "  GPT-4o Mini \n"
+print(raw.strip().lower())
+# gpt-4o mini
+print("a-b-a".replace("a", "x"))
+# x-b-x
+```
+
+### Splitting and joining
+
+A **run** of whitespace is one or more whitespace characters in a row. `split()` with
+no argument cuts at every run of whitespace and returns a list with no empty strings.
+`split(",")` cuts at every `","`. The text you cut at is called the **separator**. A
+second argument, **maxsplit**, limits the number of cuts. `splitlines()` returns a list
+of the lines without their `\n` characters.
+
+```python
+print("a  b\tc".split())
+# ['a', 'b', 'c']
+print("a,b,,c".split(","))
+# ['a', 'b', '', 'c']
+print("hf/meta/llama".split("/", 1))
+# ['hf', 'meta/llama']
+print("one\ntwo\n".splitlines())
+# ['one', 'two']
+```
+
+`sep.join(items)` returns one string with `sep` between the items. You call it on
+the separator, and `items` is a list of strings. Splitting and then joining with one
+space replaces every run of whitespace with a single space. This is called **whitespace normalisation**.
+
+```python
+words = "the   quick\n\nfox".split()
+print(" ".join(words))
+# the quick fox
+print("\n".join(["one", "two"]))
+# one
+# two
+```
+
+### Searching
+
+`in` checks whether one string appears anywhere in another. `startswith` and
+`endswith` check the two ends. `find` returns the index of the first match, or `-1`
+when there is none. `count` returns the number of occurrences.
+
+```python
+text = "the model replied"
+print("model" in text)
+# True
+print(text.startswith("the"), text.endswith(".md"))
+# True False
+print(text.find("model"), text.find("42"))
+# 4 -1
+print(text.count("e"))
+# 4
+```
+
+All of these checks are case-sensitive: `"M"` and `"m"` are different characters.
+Lower-case both sides when case should not matter: `word.lower() in text.lower()`.
+
+### Common mistakes
+
+- `text.strip()` on a line by itself changes nothing. The new string is discarded.
+  Write `text = text.strip()`.
+- `words.join(" ")` raises `AttributeError` (the value has no method with that name),
+  because lists have no `join` method.
+  Write `" ".join(words)`.
+- `"a  b".split(" ")` returns `['a', '', 'b']`. Use `split()` with no argument to get words.
+- `a, b = s.split("/", 1)` raises `ValueError` when `s` has no `/`. Check `"/" in s` first.
+- An empty string is **falsy**: it counts as `False` in an `if`. `if line.strip():`
+  skips blank lines.
 '''
 
 EXERCISES = [
@@ -57,34 +234,55 @@ EXERCISES = [
         "title": "Method chain",
         "difficulty": 0,
         "lesson": r'''
-            ## Text is a row of letter tiles
+            ## Strings and string methods
 
-            Picture a string as a row of Scrabble tiles: `"Hello"` is five tiles side by side.
-            Prompts, documents, model replies - they are all rows of tiles. Like a list, you
-            can count the tiles, pick one, or take a slice.
+            A **string** is a sequence of characters. Prompts, documents and model replies
+            are all strings. Each character has an index that starts at `0`, the same way
+            list items do. A negative index counts from the end, so `word[-1]` is the last
+            character. `len` returns the number of characters, and a slice such as
+            `word[:3]` returns part of the string: here the characters at indexes 0, 1 and 2.
 
             ```python
-            word = "Hello"
-            print(len(word))     # 5 tiles
+            word = "prompt"
+            print(len(word))
+            # 6
             print(word[0], word[-1])
+            # p t
             print(word[:3])
+            # pro
             ```
 
-            Strings also come with built-in tools you call with a dot: `text.lower()`,
-            `text.strip()`, `text.split()`. Those tools are called *methods*: functions that
-            belong to a value.
+            Click a character to see both of its indexes.
+
+            ```diagram
+            {"type":"string-index","title":"Indexes of word","name":"word","value":"prompt"}
+            ```
+
+            A **method** is a function that belongs to a value. You call it with a dot
+            after the value. `strip()` returns the text without the spaces at both ends,
+            `upper()` returns it with every letter in upper case, and `split()` returns a
+            list of the words. `startswith("Hi")` returns `True` when the string begins
+            with `Hi`, and `False` when it does not.
 
             ```python
             text = "  Hi There  "
-            print(text.lower())
+            clean = text.strip()
+            print(clean)
+            # Hi There
+            print(clean.upper())
+            # HI THERE
+            print(clean.split())
+            # ['Hi', 'There']
             print(text.startswith("Hi"))
+            # False
             ```
 
-            One big rule: a string **never changes**. A method always hands back a **new**
-            string and leaves the original alone. The proper word is *immutable*.
+            A string is **immutable**: its characters cannot change after it is created.
+            No method changes the original string. `strip()` and `upper()` each return a
+            new string.
 
-            **Watch out:** in the second example, `text` still starts with two spaces, so
-            `startswith("Hi")` is `False`.
+            `text.strip()` did not change `text`. `text` still starts with two spaces, so
+            `text.startswith("Hi")` is `False`.
         ''',
         "mode": "predict",
         "prompt": r'''Read the code and type exactly what it prints.''',
@@ -120,35 +318,46 @@ EXERCISES = [
         "title": "Tidy a user message",
         "difficulty": 0,
         "lesson": r'''
-            ## Trimming the edges
+            ## strip, lower and upper
 
-            Text from users is like a photo with a messy border: stray spaces, a newline at the
-            end, a tab at the start. `strip()` crops that border off. The middle of the
-            picture is left alone.
+            **Whitespace** is the name for spaces, tabs (`\t`) and newlines (`\n`). Text
+            typed by users often has whitespace at the start or at the end.
+
+            `strip()` returns a new string with all whitespace removed from both ends.
 
             ```python
             raw = "\t  Summarise this document.  \n"
             print(repr(raw.strip()))
-            print("  a  b  ".strip())
+            # 'Summarise this document.'
+            print(repr("  a  b  ".strip()))
+            # 'a  b'
             ```
 
-            (`repr` shows the string with its quotes, so you can see the spaces.)
+            `repr` returns the string the way you would type it in code, with its quotes,
+            so you can see where it starts and ends.
 
-            Case methods make every letter the same size:
+            `lower()` returns a copy with every letter in lower case. `upper()` returns a
+            copy with every letter in upper case.
 
             ```python
             title = "Hello World"
             print(title.lower())
+            # hello world
             print(title.upper())
+            # HELLO WORLD
             ```
 
-            You can *chain* methods: each one works on the result of the previous one,
-            left to right: `raw.strip().lower()`.
+            You can **chain** methods: write one call directly after another. Python runs
+            them left to right, and each method runs on the result of the one before it.
 
-            The spaces, tabs (`\t`) and newlines (`\n`) together are called *whitespace*.
-            `strip()` removes all kinds of whitespace from both ends.
+            ```python
+            raw = "  GPT-4o Mini \n"
+            print(raw.strip().upper())
+            # GPT-4O MINI
+            ```
 
-            **Watch out:** `strip()` never touches the space between two words.
+            `strip()` only removes whitespace at the two ends. The two spaces between `a`
+            and `b` in the first example are still there.
         ''',
         "prompt": r'''
             User messages arrive with stray spaces and random capitals. Tidy them up.
@@ -198,28 +407,40 @@ EXERCISES = [
         "title": "Fix: the redaction does nothing",
         "difficulty": 0,
         "lesson": r'''
-            ## Find and replace makes a new copy
+            ## replace returns a new string
 
-            Imagine a printed page. You can't change the ink - but you can photocopy it with
-            a correction. That's `replace`: it gives you a corrected **copy**; the original
-            page stays as it was.
+            `replace(old, new)` returns a new string in which every occurrence of `old` is
+            replaced by `new`. The original string stays as it was.
 
             ```python
             msg = "hello world, hello again"
             fixed = msg.replace("hello", "hi")
             print(fixed)
+            # hi world, hi again
             print(msg)
+            # hello world, hello again
             ```
 
-            `replace(old, new)` swaps **every** occurrence of `old` for `new`. If `old` isn't
-            there, you get back the same text.
+            If `old` does not appear in the string, `replace` returns the same text.
 
-            Because strings are *immutable* (they can't change), a line like
-            `msg.replace("a", "b")` on its own does nothing useful: the new copy is thrown
-            away. You have to keep it: `msg = msg.replace("a", "b")`.
+            Strings are **immutable**: their characters cannot change after they are
+            created. So a call to `replace` on a line by itself has no effect. Python
+            builds the new string and then discards it, because no name refers to it.
 
-            **Watch out:** this "forgot to store the result" bug is one of the most common
-            string mistakes. It applies to `strip()`, `lower()` and every other string method too.
+            ```python
+            setting = "temperature=0.7"
+            setting.replace("0.7", "0.2")
+            print(setting)
+            # temperature=0.7
+            setting = setting.replace("0.7", "0.2")
+            print(setting)
+            # temperature=0.2
+            ```
+
+            To keep the result, assign it to a name: `setting = setting.replace(...)`.
+
+            The same mistake happens with `strip()`, `lower()` and every other string
+            method. None of them changes the original string.
         ''',
         "prompt": r'''
             Before logging a prompt we hide API keys. The starter's `redact` has one bug:
@@ -276,33 +497,44 @@ EXERCISES = [
         "title": "Count the words",
         "difficulty": 0,
         "lesson": r'''
-            ## Cutting text into words
+            ## Splitting text into words
 
-            `split()` is a pair of scissors that cuts a string wherever there is whitespace,
-            and hands you a **list** of the pieces.
+            `split()` cuts a string at its whitespace and returns a **list** of the pieces.
 
             ```python
             line = "the  quick\tbrown\nfox"
             words = line.split()
             print(words)
+            # ['the', 'quick', 'brown', 'fox']
             print(len(words))
+            # 4
             print("   ".split())
+            # []
             ```
 
-            With no argument, `split()` treats any run of spaces, tabs and newlines as one
-            cut, and never gives you empty pieces. Blank text gives an empty list `[]`.
+            A **run** of whitespace is one or more spaces, tabs or newlines in a row. With
+            no argument, `split()` makes one cut at each run, whatever its length. The
+            list never contains empty strings. Text that is empty or only
+            whitespace gives the empty list `[]`.
 
-            You can also split on a specific separator, like a comma:
+            You can also pass a **separator**: the exact text to cut at.
 
             ```python
             print("a,b,c".split(","))
+            # ['a', 'b', 'c']
             ```
 
-            The pieces are often called *tokens* in everyday code (not quite the same as an
-            LLM's tokens, but a rough word count is a common quick estimate).
+            The number of words is a quick estimate of how long a text is.
 
-            **Watch out:** `split(" ")` (with a space) cuts at every single space, so double
-            spaces create empty strings: `"a  b".split(" ")` is `['a', '', 'b']`.
+            `split(" ")` with a space as the separator cuts at every single space. Two
+            spaces in a row produce an empty string.
+
+            ```python
+            print("a  b".split(" "))
+            # ['a', '', 'b']
+            print("a  b".split())
+            # ['a', 'b']
+            ```
         ''',
         "prompt": r'''
             A rough word count is a quick way to estimate how long a document is.
@@ -357,30 +589,39 @@ EXERCISES = [
         "title": "Make a slug",
         "difficulty": 0,
         "lesson": r'''
-            ## Gluing pieces back together
+            ## Joining a list into one string
 
-            `join` is the opposite of `split`. Think of it as a string of beads: you choose
-            the thread (the separator), and it threads all the pieces onto it.
+            `join` does the reverse of `split`. It takes a list of strings and returns one
+            string, with a separator between the items.
 
             ```python
             parts = ["gpt", "4o", "mini"]
             print("-".join(parts))
+            # gpt-4o-mini
             print(" ".join(["hello", "there"]))
+            # hello there
             print(", ".join(["a", "b", "c"]))
+            # a, b, c
             ```
 
-            The separator comes **first**, and `join` is called on it: `"-".join(parts)`.
-            The separator only goes **between** the pieces, never at the start or end.
+            `join` is a method of the separator string, so the separator comes first:
+            `"-".join(parts)`. Python puts the separator only **between** the items. It
+            never adds one at the start or at the end.
 
-            A very common pair: split text into words, change them, join them again.
+            A common sequence is to split text into words and then join the words with a
+            different separator.
 
             ```python
             words = "Big  Cat".split()
+            print(words)
+            # ['Big', 'Cat']
             print("_".join(words))
+            # Big_Cat
             ```
 
-            **Watch out:** `parts.join("-")` is an error - lists don't have `join`. The
-            separator string does. And every item must be a string.
+            `parts.join("-")` raises `AttributeError: 'list' object has no attribute 'join'`.
+            Lists have no `join` method. Every item in the list must also be a string:
+            `"-".join(["gpt", 4])` raises `TypeError`, because `4` is an int.
         ''',
         "prompt": r'''
             A *slug* is a URL-friendly name, e.g. for saving a prompt as `my-first-prompt`.
@@ -436,30 +677,39 @@ EXERCISES = [
         "title": "Is it Markdown?",
         "difficulty": 0,
         "lesson": r'''
-            ## Checking the ends
+            ## startswith and endswith
 
-            Before opening a file, you glance at its name: does it end in `.txt`? Before
-            trusting a reply, you check: does it start with `"Error"`? Strings have two
-            methods for exactly this.
+            Programs often check one end of a string. A file name that ends with `.txt` is
+            a text file. A reply that starts with `"Error"` is a failed request.
+
+            `startswith(x)` returns `True` if the string begins with `x`. `endswith(x)`
+            returns `True` if the string finishes with `x`. Otherwise they return `False`.
 
             ```python
             name = "notes.TXT"
             print(name.endswith(".txt"))
+            # False
             print(name.lower().endswith(".txt"))
+            # True
             print("/help".startswith("/"))
+            # True
             ```
 
-            `startswith(x)` and `endswith(x)` return `True` or `False` (a *boolean*), so
-            they fit straight into an `if` or a `return`.
+            Both methods return a **boolean**: the value `True` or `False`. You can use
+            the result directly in an `if` or after `return`.
 
-            To check whether some text appears **anywhere**, use `in`:
+            To check whether some text appears **anywhere** in a string, use `in`.
 
             ```python
             print("key" in "my api key")
+            # True
+            print("Key" in "my api key")
+            # False
             ```
 
-            **Watch out:** all these checks are case-sensitive. `"A.MD".endswith(".md")` is
-            `False`. Lower-case first when case shouldn't matter.
+            All of these checks are case-sensitive: `"T"` and `"t"` are different
+            characters. `"notes.TXT".endswith(".txt")` is `False`. Call `lower()` first
+            when upper and lower case should count as the same.
         ''',
         "prompt": r'''
             A document loader only handles Markdown files. Check a file name. Fill in
@@ -514,34 +764,44 @@ EXERCISES = [
         "id": "strings-1",
         "title": "Normalise whitespace",
         "hints": [
-            "Two string methods together solve this: one breaks text into words, the other glues words back together.",
+            "Two string methods together solve this: one breaks text into words, the other joins words back together.",
             "split() with no argument splits on ANY run of whitespace and drops empty pieces. Join the pieces with a single space.",
             "Call text.split() to get the words, then return \" \".join(...) of that list. Empty or whitespace-only text gives an empty list, which joins to \"\".",
         ],
         "difficulty": 1,
         "lesson": r'''
-            ## Squash the gaps
+            ## Whitespace normalisation
 
-            Text copied out of a PDF looks like a badly packed suitcase: clothes (words)
-            with random empty gaps between them. The trick to repack it neatly is to take
-            everything out, then put it back in with the same small gap every time.
+            Text copied out of a PDF has runs of spaces, tabs and newlines between its
+            words. You can replace every run with one separator in two steps: split the
+            text into words, then join the words.
 
             ```python
             messy = "one   two\n\nthree"
             pieces = messy.split()
             print(pieces)
+            # ['one', 'two', 'three']
             print("|".join(pieces))
+            # one|two|three
             ```
 
-            `split()` (no argument) already throws away every gap of any size, including tabs
-            and newlines. `join` then puts back exactly the separator you choose.
+            `split()` with no argument cuts at every run of whitespace, whatever its
+            length, and drops the whitespace. `join` then puts exactly one separator
+            between each pair of words.
 
-            This clean-up has a name: *whitespace normalisation*. It's a standard step
-            before counting, comparing or sending text to a model - it saves tokens and
-            makes two versions of the same text compare equal.
+            Step through the stages to see the value at each one.
 
-            **Watch out:** empty or blank text splits into `[]`, and joining an empty list
-            gives `""` - no special case needed.
+            ```diagram
+            {"type":"flow","title":"From messy to one separator","steps":[{"label":"messy","detail":"The string has three spaces between one and two, and two newlines between two and three.","code":"'one   two\\n\\nthree'"},{"label":"split()","detail":"split() cuts at each run of whitespace. It returns a list of the words and discards the whitespace.","code":"['one', 'two', 'three']"},{"label":"\"|\".join(pieces)","detail":"join builds one string. It puts the separator between the items and nowhere else.","code":"'one|two|three'"}]}
+            ```
+
+            Replacing every run of whitespace with a single separator is called
+            **whitespace normalisation**. It is a standard step before you count text,
+            compare it or send it to a model. It makes the text shorter, and two copies of the
+            same text with different spacing become equal strings.
+
+            Empty or whitespace-only text needs no special case. `"".split()` returns `[]`,
+            and joining an empty list returns the empty string `""`.
         ''',
         "prompt": r'''
             Text pasted from PDFs is full of stray spaces, tabs and newlines. Clean it up
@@ -556,7 +816,7 @@ EXERCISES = [
             **Rules**
             - Text that is empty or only whitespace returns `""`.
             - Text that is already clean comes back unchanged.
-            - Don't use the `re` module (a check looks for `import re`): use string methods.
+            - Don't `import re` (a check looks for it): use string methods only.
 
             **Examples**
             ```python
@@ -606,32 +866,49 @@ EXERCISES = [
         ],
         "difficulty": 1,
         "lesson": r'''
-            ## Split only once
+            ## Splitting once with maxsplit
 
-            Sometimes you only want to cut at the **first** separator. Think of an address
-            like `"hf/meta-llama/llama-3"`: the part before the first `/` is the provider,
-            and everything after it - slashes included - is the name.
+            `split("/")` cuts at every `/`. Sometimes you want to cut only at the
+            **first** separator and keep the rest of the string in one piece.
+
+            The second argument of `split` is **maxsplit**: the maximum number of cuts.
 
             ```python
             path = "docs/2024/report.txt"
             print(path.split("/"))
+            # ['docs', '2024', 'report.txt']
             print(path.split("/", 1))
-            first, rest = path.split("/", 1)
-            print(first, "|", rest)
+            # ['docs', '2024/report.txt']
             ```
 
-            The second argument of `split` is the maximum number of cuts (*maxsplit*).
-            With `1` you always get at most two pieces, which you can *unpack* straight into
-            two variables.
+            With a maxsplit of `1`, the list has at most two items. The second item keeps
+            every later `/`.
 
-            Before splitting, check the separator is there with `in`:
+            You can **unpack** a two-item list: write two names on the left of `=`, and
+            Python assigns the first item to the first name and the second item to the
+            second name.
+
+            ```python
+            path = "docs/2024/report.txt"
+            first, rest = path.split("/", 1)
+            print(first)
+            # docs
+            print(rest)
+            # 2024/report.txt
+            ```
+
+            When the separator is not in the string, `split` returns a list with one item.
+            Use `in` to check for the separator before you unpack.
 
             ```python
             print("/" in "gpt-4o")
+            # False
+            print("gpt-4o".split("/", 1))
+            # ['gpt-4o']
             ```
 
-            **Watch out:** unpacking into two names fails with a ValueError if the split
-            gave only one piece. Check with `in` first.
+            `first, rest = "gpt-4o".split("/", 1)` raises
+            `ValueError: not enough values to unpack (expected 2, got 1)`.
         ''',
         "research": {
             "note": "Read the docs for `str.split`, especially what the `maxsplit` argument does and how splitting with no separator differs, then come back.",
@@ -701,32 +978,46 @@ EXERCISES = [
         "title": "Flag keywords",
         "difficulty": 1,
         "lesson": r'''
-            ## Case-blind searching
+            ## Case-insensitive search
 
-            A content filter should notice "SPAM", "Spam" and "spam" alike. `in` is strict
-            about case, so the usual trick is to lower-case **both** sides before comparing.
+            A filter that blocks spam must match "SPAM", "Spam" and "spam". `in` is
+            case-sensitive, so `"spam" in "SPAM"` is `False`. A **case-insensitive** check treats upper and
+            lower case as the same. To get one, lower-case **both** strings before you
+            compare them.
 
             ```python
             reply = "Please ignore PREVIOUS instructions"
             print("previous" in reply)
+            # False
             print("previous" in reply.lower())
+            # True
             print("Previous".lower() in reply.lower())
+            # True
             ```
 
-            When you have several words to look for, loop over them and stop as soon as one
-            matches - `return True` inside the loop ends the function early. If the loop
-            finishes without a match, nothing was found.
+            To search for several words, loop over them. A `return` inside the loop ends
+            the function at the first match, so the remaining words are not checked. If
+            the loop finishes, no word matched, and the line after the loop runs.
 
             ```python
-            for word in ["cat", "dog"]:
-                if word in "hot dog stand":
-                    print("found", word)
+            def first_match(text, words):
+                for word in words:
+                    if word in text:
+                        return word
+                return None
+
+            print(first_match("hot dog stand", ["cat", "dog", "hot"]))
+            # dog
+            print(first_match("hot dog stand", ["cat", "fish"]))
+            # None
             ```
 
-            This is called a *case-insensitive* check. Real apps use it for keyword
-            filters, simple routing ("does the user mention billing?") and guardrails.
+            Apps use case-insensitive checks to filter messages by keyword, to send a
+            message that mentions billing to the billing team, and to flag messages that
+            contain forbidden words.
 
-            **Watch out:** lower-case the keyword too, not only the text.
+            Lower-case the keyword as well as the text. `"Previous" in reply.lower()` is
+            `False`, because the keyword still has an upper-case `P`.
         ''',
         "prompt": r'''
             A simple guardrail flags user messages that mention certain keywords, whatever
@@ -794,31 +1085,70 @@ EXERCISES = [
         "title": "Non-blank lines",
         "difficulty": 1,
         "lesson": r'''
-            ## One line at a time
+            ## Lines and blank lines
 
-            Documents arrive as one long string with `\n` (newline) characters in it.
-            Reading them line by line is like reading a shopping list: one item per line,
-            skipping the blank ones.
+            A document is one long string with `\n` (newline) characters in it.
+            `splitlines()` cuts the string at every line break and returns a list of the
+            lines, without the `\n` characters.
 
             ```python
             doc = "apples\n\n  milk  \nbread"
-            lines = doc.splitlines()
-            print(lines)
-            for line in lines:
-                if line.strip():
-                    print("->", line.strip())
+            print(doc.splitlines())
+            # ['apples', '', '  milk  ', 'bread']
             ```
 
-            `splitlines()` cuts at every line break and gives a list of lines, without the
-            `\n` characters. Blank lines become empty strings `""` (or strings of spaces).
+            A blank line becomes an empty string `""` or a string that holds only spaces.
+            `line.strip()` removes those spaces, so it returns `""` for both.
 
-            `line.strip()` is empty for a blank line, and an empty string counts as
-            `False` in an `if`. That makes "skip blank lines" a one-liner.
+            An empty string is **falsy**: it counts as `False` in an `if`. Any other
+            string counts as `True`. So `if line.strip():` runs its block only for lines
+            that contain text.
 
-            An empty string being false is called being *falsy*.
+            ```python
+            doc = "apples\n\n  milk  \nbread"
+            for line in doc.splitlines():
+                item = line.strip()
+                if item:
+                    print(item)
+            # apples
+            # milk
+            # bread
+            ```
 
-            **Watch out:** `split("\n")` is similar but leaves an extra `""` at the end when
-            the text ends with a newline. `splitlines()` doesn't.
+            Step through the loop and watch `item` on the blank line.
+
+            ```diagram
+            {"type": "trace", "title": "Skipping the blank line", "code": ["doc = \"apples\\n\\n  milk  \\nbread\"", "for line in doc.splitlines():", "    item = line.strip()", "    if item:", "        print(item)"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'"}, "out": ""},
+              {"line": 3, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'apples'"}, "out": ""},
+              {"line": 4, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'apples'", "item": "'apples'"}, "out": ""},
+              {"line": 5, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'apples'", "item": "'apples'"}, "out": ""},
+              {"line": 2, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'apples'", "item": "'apples'"}, "out": "apples\n"},
+              {"line": 3, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "''", "item": "'apples'"}, "out": "apples\n"},
+              {"line": 4, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "''", "item": "''"}, "out": "apples\n", "note": "item is the empty string, which is falsy, so line 5 is skipped."},
+              {"line": 2, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "''", "item": "''"}, "out": "apples\n"},
+              {"line": 3, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'  milk  '", "item": "''"}, "out": "apples\n"},
+              {"line": 4, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'  milk  '", "item": "'milk'"}, "out": "apples\n"},
+              {"line": 5, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'  milk  '", "item": "'milk'"}, "out": "apples\n"},
+              {"line": 2, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'  milk  '", "item": "'milk'"}, "out": "apples\nmilk\n"},
+              {"line": 3, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'bread'", "item": "'milk'"}, "out": "apples\nmilk\n"},
+              {"line": 4, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'bread'", "item": "'bread'"}, "out": "apples\nmilk\n"},
+              {"line": 5, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'bread'", "item": "'bread'"}, "out": "apples\nmilk\n"},
+              {"line": 2, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'bread'", "item": "'bread'"}, "out": "apples\nmilk\nbread\n"},
+              {"line": null, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'bread'", "item": "'bread'"}, "out": "apples\nmilk\nbread\n"}
+            ]}
+            ```
+
+            `split("\n")` also cuts at newlines, but it returns an extra `""` at the end
+            when the text ends with a newline. `splitlines()` does not.
+
+            ```python
+            print("a\nb\n".split("\n"))
+            # ['a', 'b', '']
+            print("a\nb\n".splitlines())
+            # ['a', 'b']
+            ```
         ''',
         "prompt": r'''
             Before chunking a document you want its real lines: trimmed, with blank lines

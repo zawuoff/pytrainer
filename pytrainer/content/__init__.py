@@ -51,6 +51,16 @@ def _norm_exercise(ex: dict, topic_id: str | None = None) -> dict:
     return out
 
 
+def _norm_reference(ref: dict | None) -> dict:
+    """A topic's Library entry: search keywords plus short syntax cards (see CONTENT_GUIDE.md)."""
+    ref = ref or {}
+    return {
+        "keywords": [str(k).strip() for k in ref.get("keywords", [])],
+        "cards": [{"syntax": str(c.get("syntax", "")).strip(), "explain": " ".join(str(c.get("explain", "")).split()),
+                   "example": _clean(c.get("example", "")).rstrip("\n")} for c in ref.get("cards", [])],
+    }
+
+
 @lru_cache(maxsize=1)
 def load() -> dict:
     topics, exercises = [], {}
@@ -62,6 +72,7 @@ def load() -> dict:
         topic.setdefault("requires", [])
         topic["summary"] = _clean(topic.get("summary", "")).strip()
         topic["lesson"] = _clean(getattr(mod, "LESSON", ""))
+        topic["reference"] = _norm_reference(getattr(mod, "REFERENCE", None))
         topic["exercise_ids"] = []
         for ex in mod.EXERCISES:
             ex = _norm_exercise(ex, topic["id"])

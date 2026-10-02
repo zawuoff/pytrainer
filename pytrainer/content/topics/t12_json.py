@@ -13,33 +13,231 @@ TOPIC = {
                  "round-tripping"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["json", "loads", "dumps", "parse", "serialize", "indent", "sort_keys",
+                 "jsondecodeerror", "invalid json", "jsonl", "nested", "null", "true false",
+                 "import"],
+    "cards": [
+        {
+            "syntax": "data = json.loads(text)",
+            "explain": "Parses JSON text and returns the Python value: object to dict, array to list, true/false/null to True/False/None.",
+            "example": r'''
+                import json
+                data = json.loads('{"name": "Ada", "ok": true, "tags": []}')
+                print(type(data).__name__, data["name"])
+                # dict Ada
+                print(data["ok"], data["tags"])
+                # True []
+            ''',
+        },
+        {
+            "syntax": "text = json.dumps(value)",
+            "explain": "Returns the value as JSON text, a string. Keys and strings get double quotes. True and None become true and null.",
+            "example": r'''
+                import json
+                text = json.dumps({"lang": "fr", "beta": True, "limit": None})
+                print(text)
+                # {"lang": "fr", "beta": true, "limit": null}
+                print(type(text).__name__)
+                # str
+            ''',
+        },
+        {
+            "syntax": "json.dumps(value, indent=2, sort_keys=True)",
+            "explain": "indent=2 puts each item on its own line, indented 2 spaces per level. sort_keys=True writes keys in alphabetical order.",
+            "example": r'''
+                import json
+                print(json.dumps({"b": 1, "a": [2]}, indent=2, sort_keys=True))
+                # {
+                #   "a": [
+                #     2
+                #   ],
+                #   "b": 1
+                # }
+            ''',
+        },
+        {
+            "syntax": 'data["choices"][0]["message"]',
+            "explain": "Reads nested data one level per pair of brackets: a key for a dict, an index for a list. .get(key, default) for a key that may be missing.",
+            "example": r'''
+                import json
+                data = json.loads('{"choices": [{"message": "Hello!"}]}')
+                print(data["choices"][0]["message"])
+                # Hello!
+                print(data.get("usage", {}).get("total_tokens", 0))
+                # 0
+            ''',
+        },
+        {
+            "syntax": "except json.JSONDecodeError as exc:",
+            "explain": "json.loads raises JSONDecodeError for text that is not valid JSON. exc.pos is the index where parsing failed.",
+            "example": r'''
+                import json
+                try:
+                    json.loads('{"city": Paris}')
+                except json.JSONDecodeError as exc:
+                    print("invalid JSON at index", exc.pos)
+                # invalid JSON at index 9
+            ''',
+        },
+        {
+            "syntax": "for line in text.splitlines(): json.loads(line)",
+            "explain": "JSONL is one JSON value per line. Parse each line on its own. To write it, add a newline after each json.dumps result.",
+            "example": r'''
+                import json
+                text = '{"id": 1}\n{"id": 2}\n'
+                for line in text.splitlines():
+                    print(json.loads(line)["id"])
+                # 1
+                # 2
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
 ## Chapter notes: JSON
 
-**JSON** is a text format for data. It looks like Python dicts and lists, but it is one
-string. LLM APIs, tool calls, config files and structured outputs all speak JSON.
+**JSON** is a text format for data. A JSON document is one string. It can describe
+objects (written `{...}`, the same shape as a dict), arrays (written `[...]`, the same
+shape as a list), strings, numbers, `true`, `false` and `null`. The APIs of language
+models send and receive JSON, and files that hold settings often contain JSON.
 
-| direction | function | memory trick |
-| --- | --- | --- |
-| text -> Python | `json.loads(text)` | **load** from a **s**tring |
-| Python -> text | `json.dumps(value)` | **dump** to a **s**tring |
-| file -> Python | `json.load(fh)` | no "s": works on an open file |
-| Python -> file | `json.dump(value, fh)` | no "s": works on an open file |
+### The four functions
 
-**Spellings** (translated for you): `true`/`false` <-> `True`/`False`, `null` <-> `None`,
-array <-> list, object <-> dict. JSON strings always use **double quotes**.
+A **module** is a file of Python code that you can use from your own program. The
+`json` module comes with Python. The line `import json` loads it. After that line you
+call its functions with the module name and a dot, as in `json.loads(...)`.
 
-**`json.dumps` options**
-- `indent=2` - pretty, multi-line output
-- `sort_keys=True` - keys in alphabetical order, at every level
-- `ensure_ascii=False` - keep `é`, emoji etc. readable instead of `é`
-- `default=fn` - called for values JSON cannot store (like a `set`); return something it can
+The `json` module converts between JSON text and Python values.
 
-**Nested data**: go one step at a time: `data["choices"][0]["message"]["content"]`.
-Use `.get(key, default)` for keys that may be missing: `data.get("usage", {}).get("total_tokens", 0)`.
+- `json.loads(text)` reads JSON text from a string and returns a Python value. This is called **parsing**.
+- `json.dumps(value)` takes a Python value and returns JSON text as a string. This is called **serializing**.
+- `json.load(fh)` parses JSON text read from an open file `fh`. `fh` is a file object.
+  The next chapter covers files and file objects. Until then, use only `loads` and `dumps`.
+- `json.dump(value, fh)` serializes `value` and writes the text to an open file `fh`.
+  This is a preview. The next chapter shows `fh` in action.
 
-**Broken JSON** raises `json.JSONDecodeError` (a kind of `ValueError`); `.pos` is the index
-where parsing failed.
+The `s` at the end of `loads` and `dumps` stands for "string". The next chapter covers
+files. This chapter uses `loads` and `dumps`.
+
+```python
+import json
+
+message = {"role": "user", "content": "Hi"}
+text = json.dumps(message)
+print(text)
+# {"role": "user", "content": "Hi"}
+back = json.loads(text)
+print(back)
+# {'role': 'user', 'content': 'Hi'}
+print(back == message)
+# True
+```
+
+Step through the stages to see the value and its type at each one.
+
+```diagram
+{"type":"flow","title":"Round trip of message","steps":[
+{"label":"Python dict","detail":"message is a dict in memory. You can read message[\"role\"].","code":"message = {'role': 'user', 'content': 'Hi'}\ntype: dict"},
+{"label":"json.dumps","detail":"json.dumps(message) builds a new string. It writes each key and each string value in double quotes.","code":"text = json.dumps(message)"},
+{"label":"JSON text","detail":"text is a str. You can send it or save it. You cannot read text[\"role\"], because a string has no keys.","code":"text = '{\"role\": \"user\", \"content\": \"Hi\"}'\ntype: str"},
+{"label":"json.loads","detail":"json.loads(text) reads the string from left to right and builds new Python values from it.","code":"back = json.loads(text)"},
+{"label":"Python dict","detail":"back is a new dict. It is equal to message, so back == message is True.","code":"back = {'role': 'user', 'content': 'Hi'}\ntype: dict"}
+]}
+```
+
+### JSON values and Python values
+
+`json.loads` and `json.dumps` convert these spellings in both directions.
+
+| JSON | Python |
+| --- | --- |
+| object `{...}` | dict |
+| array `[...]` | list |
+| `true` / `false` | `True` / `False` |
+| `null` | `None` |
+
+JSON strings always use double quotes.
+
+```python
+import json
+
+print(json.dumps({"ok": True, "stop": None, "ids": [1, 2]}))
+# {"ok": true, "stop": null, "ids": [1, 2]}
+```
+
+### json.dumps options
+
+`indent=2` puts each item on its own line, indented 2 spaces per level.
+`sort_keys=True` writes the keys in alphabetical order at every level.
+
+```python
+import json
+
+cfg = {"zeta": 1, "alpha": {"y": 2, "b": 3}}
+print(json.dumps(cfg, indent=2, sort_keys=True))
+# {
+#   "alpha": {
+#     "b": 3,
+#     "y": 2
+#   },
+#   "zeta": 1
+# }
+```
+
+**ASCII** is a set of 128 characters: the plain English letters, the digits and common
+punctuation. An accented letter such as the last letter of the word in the next example
+is a **non-ASCII** character. By default `json.dumps` writes every non-ASCII character
+as a `\uXXXX` code. `ensure_ascii=False` writes the character itself.
+
+```python
+import json
+
+print(json.dumps({"reply": "café"}))
+# {"reply": "caf\u00e9"}
+print(json.dumps({"reply": "café"}, ensure_ascii=False))
+# {"reply": "café"}
+```
+
+`default=fn` gives `json.dumps` a function to call for a value that JSON cannot
+store, such as a set. The function returns a value that JSON can store. Here the
+function is `sorted`, which returns the items of the set as a sorted list.
+
+```python
+import json
+
+print(json.dumps({"ids": {3, 1, 2}}, default=sorted))
+# {"ids": [1, 2, 3]}
+```
+
+### Nested data
+
+Read nested data one level at a time, from left to right. Use a key for a dict and
+an index for a list. Use `.get(key, default)` for a key that may be missing.
+
+```python
+import json
+
+data = json.loads('{"choices": [{"message": {"content": "Hello!"}}]}')
+print(data["choices"][0]["message"]["content"])
+# Hello!
+print(data.get("usage", {}).get("total_tokens", 0))
+# 0
+```
+
+The key `"usage"` is missing, so the first `.get` returns its default, the empty dict
+`{}`. The second `.get` runs on that empty dict and returns its own default, `0`.
+
+### Invalid JSON
+
+`json.loads` raises `json.JSONDecodeError` when the text is not valid JSON.
+`JSONDecodeError` is a sub-type of `ValueError`, so `except ValueError` also catches it.
+`except ... as exc` assigns the exception to the name `exc`. An **attribute** is a named
+value that belongs to an object. You read it with a dot and no parentheses. The
+attribute `exc.pos` is the index of the character where parsing failed.
 
 ```python
 import json
@@ -48,42 +246,85 @@ try:
     json.loads('{"city": Paris}')
 except json.JSONDecodeError as exc:
     print("broken at", exc.pos)
+# broken at 9
 ```
 
-**Round trip**: `json.loads(json.dumps(d)) == d` - parse, change the Python value, dump again.
+### JSONL
 
-**JSONL** (JSON Lines): one JSON object per line - common for logs and eval datasets.
+**JSONL** (JSON Lines) is a text format with one JSON value per line. Files of saved records and
+datasets often use it. You parse each line separately.
 
-**Gotchas**
-- `json.dumps(text)` does not parse - it wraps your string in quotes.
-- `'{"ok": True}'` is not JSON (use `true`), `"{'a': 1}"` is not JSON (use double quotes).
+```python
+import json
+
+lines = '{"id": 1, "ok": true}\n{"id": 2, "ok": false}\n'
+for line in lines.splitlines():
+    print(json.loads(line))
+# {'id': 1, 'ok': True}
+# {'id': 2, 'ok': False}
+```
+
+### Common mistakes
+
+- `json.dumps(text)` does not parse `text`. It returns a new string with `text` inside double quotes.
+- `'{"ok": True}'` is not valid JSON. JSON spells it `true`.
+- `"{'a': 1}"` is not valid JSON. JSON strings need double quotes.
 - After parsing, index the result (`data["x"]`), not the original text.
-- Models often wrap JSON in prose or code fences - find the JSON part before parsing.
+- A model often puts sentences or a line of three backticks around its JSON. Find the JSON part before you parse.
 '''
 
 EXERCISES = [
     {
         "id": "json-s1",
         "lesson": r'''
-            Think of JSON as a **parcel of data sent through the post**. On the outside it is just
-            text (a string). To use what is inside, you unpack it. Python's `json` module does the
-            unpacking with `json.loads` - read it as "**load** from a **s**tring".
+            ## Parsing JSON with json.loads
+
+            **JSON** is a text format for data. A JSON document is a string. You cannot read a
+            key from it until you convert it to Python values. That conversion is called
+            **parsing** (also *deserializing*).
+
+            A **module** is a file of Python code that you can use from your own program.
+            The `json` module comes with Python. The line `import json` loads it. After that
+            line you call its functions with the module name and a dot.
+
+            `json.loads(text)` parses a string and returns the Python value it describes. The
+            `s` in `loads` stands for "string".
 
             ```python
             import json
 
             text = '{"name": "Ada", "active": true, "boss": null}'
             data = json.loads(text)
-            print(type(text).__name__, "->", type(data).__name__)
-            print(data["name"], data["active"], data["boss"])
+            print(type(text).__name__)
+            # str
+            print(type(data).__name__)
+            # dict
+            print(data["name"])
+            # Ada
             ```
 
-            JSON is not Python, so a few words are spelled differently. `json.loads` translates them:
-            `true` -> `True`, `false` -> `False`, `null` -> `None`, and a JSON array `[...]` becomes a list.
+            JSON spells three values differently from Python. `json.loads` converts `true` to
+            `True`, `false` to `False` and `null` to `None`. A JSON object `{...}` becomes a
+            dict and a JSON array `[...]` becomes a list.
 
-            The proper name for turning text into data is **parsing** (you will also hear
-            *deserializing*). The text coming back from every LLM API is JSON, so this is the first
-            thing you do with a reply.
+            ```python
+            import json
+
+            data = json.loads('{"name": "Ada", "active": true, "boss": null}')
+            print(data["active"])
+            # True
+            print(data["boss"])
+            # None
+            ```
+
+            Click a key to read its value from the parsed dict.
+
+            ```diagram
+            {"type":"dict","title":"Keys of the parsed dict data","name":"data","entries":[["name","Ada"],["active",true],["boss",null]]}
+            ```
+
+            The APIs of language models send their replies as JSON text, so parsing is the
+            first step when you handle a reply.
         ''',
         "title": "What gets printed?",
         "difficulty": 0,
@@ -108,38 +349,59 @@ EXERCISES = [
             dict
         ''',
         "explanation": r'''
-            `json.loads` turns the JSON text into a Python dict. On the way, JSON's `false`
-            becomes Python's `False` and `null` becomes `None`. The strings print without
-            quotes, and the type of the result is `dict`.
+            `json.loads` parses the JSON text and returns a Python dict. It converts JSON
+            `false` to Python `False` and `null` to `None`. `print` shows a string without
+            its quotes, and the type of the result is `dict`.
         ''',
         "starter": "", "tests": "",
         "hints": [
             "`json.loads` turns JSON text into Python values. Think about what each JSON value becomes.",
-            "JSON `false` and `null` are not Python words - they get translated to Python's own spellings.",
+            "JSON `false` and `null` are not Python words: they get translated to Python's own spellings.",
             "Line 1 is the model string, line 2 is what `false` becomes (`False`), line 3 is what `null` becomes (`None`), line 4 is the type name of a parsed JSON object.",
         ],
     },
     {
         "id": "json-s2",
         "lesson": r'''
-            Unpacking has a mirror: **packing**. `json.dumps` ("**dump** to a **s**tring") takes a
-            Python dict or list and writes it out as JSON text, ready to send or save.
+            ## Writing JSON with json.dumps
+
+            `json.dumps(value)` takes a Python dict or list and returns JSON text as a string.
+            The `s` in `dumps` stands for "string". Converting data to text is called
+            **serializing**.
 
             ```python
             import json
 
             settings = {"lang": "fr", "beta": True, "limit": None}
-            print(json.dumps(settings))
-            print(json.dumps(settings, indent=4))
+            text = json.dumps(settings)
+            print(text)
+            # {"lang": "fr", "beta": true, "limit": null}
+            print(type(text).__name__)
+            # str
             ```
 
-            By default everything lands on one line. For humans that is hard to read, so `dumps`
-            takes extra **keyword arguments** that change the layout. `indent=4` puts each item on
-            its own line, indented 4 spaces per level. Notice the Python words were translated back:
-            `True` -> `true`, `None` -> `null`.
+            `json.dumps` converts the Python spellings to the JSON ones: `True` becomes `true`
+            and `None` becomes `null`. By default it writes the whole value on one line.
 
-            The proper name for turning data into text is **serializing**. Pretty-printed JSON is
-            what you want when you log an API request to debug it.
+            ### The indent argument
+
+            `json.dumps` accepts keyword arguments that change the layout of the text.
+            `indent=4` puts each item on its own line and indents each level by 4 spaces.
+
+            ```python
+            import json
+
+            settings = {"lang": "fr", "beta": True, "limit": None}
+            print(json.dumps(settings, indent=4))
+            # {
+            #     "lang": "fr",
+            #     "beta": true,
+            #     "limit": null
+            # }
+            ```
+
+            Indented JSON is easier to read when you print an API request to debug it. The
+            data is the same in both layouts. Only the whitespace differs.
         ''',
         "title": "Pretty print",
         "difficulty": 0,
@@ -202,26 +464,39 @@ EXERCISES = [
     {
         "id": "json-s3",
         "lesson": r'''
-            The two functions look alike, so the classic bug is using the wrong one. Picture a
-            **one-way door** for each direction:
+            ## loads or dumps
 
-            - `loads`: text **in**, Python **out**
-            - `dumps`: Python **in**, text **out**
+            The two function names differ by a few letters, so a common bug is calling the
+            wrong one. Each function works in one direction only.
+
+            - `json.loads` takes JSON text and returns a Python value.
+            - `json.dumps` takes a Python value and returns JSON text.
+
+            ```python
+            import json
+
+            text = '{"n": 1}'
+            right = json.loads(text)
+            print(type(right).__name__, right)
+            # dict {'n': 1}
+            ```
+
+            A Python string is also a value that JSON can store. So `json.dumps(text)` does
+            not raise an error. It returns a new string: the old text inside double quotes,
+            with a backslash before each inner quote.
 
             ```python
             import json
 
             text = '{"n": 1}'
             wrong = json.dumps(text)
-            right = json.loads(text)
             print(type(wrong).__name__, wrong)
-            print(type(right).__name__, right)
+            # str "{\"n\": 1}"
             ```
 
-            `json.dumps` on a string does not fail - it happily wraps your text in *another* layer of
-            quotes and gives you a string back. That is why this bug is sneaky: nothing crashes, you
-            just get the wrong **type**. When a result looks right but `data["key"]` fails, check
-            `type(data)` first.
+            The result has the wrong type: `str` instead of `dict`. The error appears later,
+            when `wrong["n"]` raises `TypeError`. When `data["key"]` fails on a value that
+            prints as JSON text, check `type(data)` first.
         ''',
         "title": "Fix the parser",
         "difficulty": 0,
@@ -277,8 +552,10 @@ EXERCISES = [
     {
         "id": "json-s4",
         "lesson": r'''
-            API replies are **Russian dolls**: a dict inside a dict inside a list. You open them one
-            layer at a time, each `[...]` going one level deeper.
+            ## Nested data
+
+            API replies are **nested**: a dict can hold another dict or a list as a value.
+            After parsing, each pair of square brackets reads one level deeper.
 
             ```python
             import json
@@ -286,16 +563,30 @@ EXERCISES = [
             raw = '{"user": {"profile": {"city": "Lyon"}}, "tags": ["a", "b"]}'
             data = json.loads(raw)
             print(data["user"])
+            # {'profile': {'city': 'Lyon'}}
+            print(data["user"]["profile"])
+            # {'city': 'Lyon'}
             print(data["user"]["profile"]["city"])
-            print(data["tags"][1])
+            # Lyon
             ```
 
-            Read a chain like `data["user"]["profile"]["city"]` from left to right: "in `data`, take
-            `user`; in that, take `profile`; in that, take `city`". Use a **key** (a string) for a
-            dict and a **position** (an int) for a list.
+            Python evaluates `data["user"]["profile"]["city"]` from left to right.
+            `data["user"]` returns a dict. `["profile"]` reads a key of that dict and returns
+            another dict. `["city"]` reads a key of that one and returns the string `"Lyon"`.
 
-            Watch out: you can only index after parsing. `raw["user"]` fails, because `raw` is still a
-            string - one flat parcel, not the dolls inside.
+            Use a key (a string) to read from a dict. Use an index (an int) to read from a list.
+
+            ```python
+            import json
+
+            raw = '{"user": {"profile": {"city": "Lyon"}}, "tags": ["a", "b"]}'
+            data = json.loads(raw)
+            print(data["tags"][1])
+            # b
+            ```
+
+            You can only read keys after parsing. `raw` is still a string, so `raw["user"]`
+            raises `TypeError: string indices must be integers, not 'str'`.
         ''',
         "title": "Dig out the content",
         "difficulty": 0,
@@ -354,26 +645,38 @@ EXERCISES = [
     {
         "id": "json-s5",
         "lesson": r'''
-            Models are chatty and sometimes send **broken JSON**: a missing quote, a cut-off reply.
-            `json.loads` then raises an error instead of guessing. Think of a strict **customs
-            officer**: anything that is not perfectly valid gets stopped at the border.
+            ## Invalid JSON
 
-            The error has a specific name: `json.JSONDecodeError`. You catch it with `try` / `except`,
-            exactly like the errors you have caught before.
+            A model sometimes sends text that is not valid JSON: a quote is missing, or the
+            reply stops halfway. `json.loads` does not guess what the text meant. It raises
+            an exception named `json.JSONDecodeError`.
+
+            You catch it with `try` / `except`, the same way you caught `ValueError` and
+            `KeyError` in the errors topic.
 
             ```python
             import json
 
-            for text in ['{"ok": true}', "{'ok': true}"]:
+            for text in ['{"ok": true}', "{'ok': true}", '{"ok": tru']:
                 try:
                     print("parsed:", json.loads(text))
                 except json.JSONDecodeError as exc:
                     print("rejected at position", exc.pos)
+            # parsed: {'ok': True}
+            # rejected at position 1
+            # rejected at position 7
             ```
 
-            `exc.pos` is the character index where parsing failed - handy for error messages.
-            Single quotes are the most common reason for rejection: JSON strings **must** use double
-            quotes. Catch the specific error, not every error, so real bugs are not hidden.
+            `except ... as exc` assigns the exception to the name `exc`. An **attribute** is
+            a named value that belongs to an object. You read it with a dot and no
+            parentheses. The attribute `exc.pos` is the index of the character where parsing
+            failed. You can put it in an error message.
+
+            The second text fails at index 1 because of the single quote. JSON strings must
+            use double quotes. The third text fails at index 7 because `tru` is not a JSON value.
+
+            Catch `json.JSONDecodeError` and not every exception. A broad `except` also
+            catches unrelated bugs, such as a misspelled variable name, and hides them.
         ''',
         "title": "Is it valid JSON?",
         "difficulty": 0,
@@ -455,26 +758,48 @@ EXERCISES = [
     {
         "id": "json-s6",
         "lesson": r'''
-            When you call an LLM API, you send a **request body**: a JSON object with the model name
-            and a list of messages. The easy, safe way to build it is to build a normal Python dict
-            first, then pack it with `json.dumps`.
+            ## Building a request body
+
+            When you call the API of a language model, you send a **request body**: JSON
+            text that holds, for example, the model name and a list of messages. Build the body
+            as a Python dict first. Then convert it to text with `json.dumps`.
 
             ```python
             import json
 
             body = {"name": "search", "args": {"query": 'the "best" pizza', "limit": 3}}
             print(json.dumps(body))
+            # {"name": "search", "args": {"query": "the \"best\" pizza", "limit": 3}}
             ```
 
-            Look at the output: `dumps` added the double quotes, the `\"` escape for the quotes
-            inside the text, and the standard spacing: `", "` between items and `": "` after each key.
-            Keys come out in the order you wrote them.
+            `json.dumps` writes every key and string in double quotes. It writes `, ` between
+            items and `: ` after each key. Keys appear in the order you wrote them in the dict.
 
-            Watch out: never build JSON by gluing strings together with an f-string. As soon as the
-            user's text contains a quote, your "JSON" breaks. Let `json.dumps` do the escaping.
+            The query contains double quotes. `json.dumps` writes each one as `\"`. This is
+            called **escaping**: the backslash marks the quote as part of the string, not
+            the end of it.
 
-            A dict inside a list inside a dict is completely normal - that is exactly the shape of a
-            chat message list: `{"messages": [{"role": ..., "content": ...}]}`.
+            ### Do not build JSON by joining strings
+
+            Joining strings with `+` or an f-string copies the text in without escaping it.
+            A quote inside the text then ends the JSON string too early.
+
+            ```python
+            import json
+
+            query = 'the "best" pizza'
+            glued = '{"query": "' + query + '"}'
+            print(glued)
+            # {"query": "the "best" pizza"}
+            try:
+                json.loads(glued)
+            except json.JSONDecodeError as exc:
+                print("invalid JSON at position", exc.pos)
+            # invalid JSON at position 16
+            ```
+
+            A dict can hold a list of dicts. A chat request has that shape:
+            `{"messages": [{"role": ..., "content": ...}]}`.
         ''',
         "title": "Build a request body",
         "difficulty": 0,
@@ -543,26 +868,44 @@ EXERCISES = [
     {
         "id": "json-1",
         "lesson": r'''
-            Two more `dumps` options make saved config files pleasant to read and to compare:
+            ## sort_keys and the round trip
 
-            - `indent=2` - one item per line
-            - `sort_keys=True` - keys in **alphabetical order**, inside nested dicts too
+            Two `json.dumps` arguments make a saved config file easier to read and compare.
+
+            - `indent=2` puts each item on its own line, indented 2 spaces per level.
+            - `sort_keys=True` writes the keys in alphabetical order, in nested dicts too.
 
             ```python
             import json
 
             cfg = {"zeta": 1, "alpha": {"y": 2, "b": 3}}
+            print(json.dumps(cfg))
+            # {"zeta": 1, "alpha": {"y": 2, "b": 3}}
             print(json.dumps(cfg, sort_keys=True))
-            back = json.loads(json.dumps(cfg))
-            print(back == cfg)
+            # {"alpha": {"b": 3, "y": 2}, "zeta": 1}
             ```
 
-            Sorted keys mean the same config always produces the same text, so a `git diff` shows only
-            real changes. Think of it as filing papers in alphabetical order.
+            With sorted keys, two dicts with the same keys and values always produce the same
+            text. When you compare two saved versions of a file line by line, only the lines
+            with changed values differ.
 
-            The second idea here is the **round trip**: pack a value with `dumps`, unpack it with
-            `loads`, and you get an equal dict back. If a round trip changes your data, something is
-            wrong. Remember: layout options change how the text *looks*, never what it *means*.
+            ### Round trip
+
+            A **round trip** converts a value to JSON text with `dumps` and back with `loads`.
+            The result is a new dict that is equal to the original.
+
+            ```python
+            import json
+
+            cfg = {"zeta": 1, "alpha": {"y": 2, "b": 3}}
+            text = json.dumps(cfg, indent=2, sort_keys=True)
+            back = json.loads(text)
+            print(back == cfg)
+            # True
+            ```
+
+            `indent` and `sort_keys` change the layout of the text. They do not change the
+            data. Two dicts are equal when they have the same keys and values, in any order.
         ''',
         "hints": [
             "Both functions are one-liners with the `json` module: one goes dict -> text, the other text -> dict.",
@@ -650,31 +993,55 @@ EXERCISES = [
     {
         "id": "json-2",
         "lesson": r'''
-            A real chat completion reply is a set of Russian dolls with a **list** in the middle:
+            ## Lists and optional keys in a reply
+
+            The reply of a chat API, once parsed, is a dict that holds a list of dicts:
 
             ```json
             {"choices": [{"message": {"role": "assistant", "content": "..."}}],
              "usage": {"total_tokens": 12}}
             ```
 
-            `choices` is a list because you can ask for several answers; you usually want item `0`.
-            Some keys are optional. For those, use `.get(key, default)` so a missing key gives a
-            default instead of a `KeyError`. You can even chain two `.get` calls by using an empty dict
-            as the first default:
+            `choices` is a list because you can ask the API for several answers. You usually
+            read the item at index `0`. The next example has the same shape with other names.
 
             ```python
             import json
 
-            data = json.loads('{"results": [{"title": "RAG"}]}')
+            data = json.loads('{"results": [{"title": "RAG"}, {"title": "Agents"}]}')
             print(data["results"][0]["title"])
-            meta = data.get("meta", {})
-            print(meta.get("page", 1))
-            print(data.get("meta", {}).get("page", 1))
+            # RAG
             ```
 
-            The empty dict `{}` is a stand-in: "if there is no `meta`, pretend it is an empty one",
-            and then the second `.get` falls back to its own default. Returning two values at once is
-            done with a **tuple**: `return a, b`.
+            ### Optional keys
+
+            Some keys are optional. `data["meta"]` raises `KeyError` when the key is missing.
+            `data.get("meta", {})` returns the default, an empty dict, and raises nothing.
+
+            Try `data["meta"]` and `data.get("meta")` on the parsed dict.
+
+            ```diagram
+            {"type":"dict","title":"Keys of the parsed dict data","name":"data","entries":[["results",[{"title":"RAG"},{"title":"Agents"}]]]}
+            ```
+
+            Because the first `.get` always returns a dict, you can call `.get` on its result.
+
+            ```python
+            import json
+
+            data = json.loads('{"results": [{"title": "RAG"}, {"title": "Agents"}]}')
+            meta = data.get("meta", {})
+            print(meta)
+            # {}
+            print(meta.get("page", 1))
+            # 1
+            print(data.get("meta", {}).get("page", 1))
+            # 1
+            ```
+
+            The key `"page"` is not in the empty dict, so the second `.get` returns its own
+            default, `1`. This exercise returns two values from one function. Write
+            `return a, b`. Python returns them as one tuple, a fixed group of values.
         ''',
         "hints": [
             "`raw` is text: parse it first, then walk down the nested dicts and lists one step at a time.",
@@ -769,12 +1136,10 @@ EXERCISES = [
     {
         "id": "json-7",
         "lesson": r'''
-            Changing JSON text is like **editing a paper form**: you cannot write into the middle of
-            the text safely, so you copy it into Python, edit it there, and print a fresh form.
+            ## Changing JSON text
 
-            1. `loads` - text -> Python list/dict
-            2. change the Python value (append, set a key, ...)
-            3. `dumps` - Python -> new text
+            A string cannot be changed in place, and it has no keys or `append` method. To
+            change JSON text, you parse it, change the Python value, and serialize it again.
 
             ```python
             import json
@@ -783,14 +1148,30 @@ EXERCISES = [
             data = json.loads(raw)
             data["tags"].append("json")
             print(json.dumps(data))
+            # {"tags": ["rag", "json"]}
+            print(raw)
+            # {"tags": ["rag"]}
             ```
 
-            This pattern is everywhere in AI apps: a chat history stored as JSON text is loaded,
-            the new message is appended, and the whole list is saved or sent again. The new text is
-            built by `dumps`, so its spacing is always the standard one: `", "` and `": "`.
+            `json.dumps` returns a new string. The original `raw` string is unchanged.
 
-            Watch out: `list.append` changes the list and returns `None`. Don't write
-            `data = data.append(...)`.
+            Step through the three stages to see the data at each one.
+
+            ```diagram
+            {"type":"flow","title":"Parse, change, serialize","steps":[
+            {"label":"JSON text","detail":"raw is a str. It has no keys and no append method.","code":"raw = '{\"tags\": [\"rag\"]}'"},
+            {"label":"json.loads","detail":"json.loads(raw) returns a dict. Its value for \"tags\" is a list.","code":"data = json.loads(raw)\ndata is {'tags': ['rag']}"},
+            {"label":"Change the value","detail":"append adds one item to the list inside the dict. raw is not affected.","code":"data[\"tags\"].append(\"json\")\ndata is {'tags': ['rag', 'json']}"},
+            {"label":"json.dumps","detail":"json.dumps(data) builds a new string from the changed dict.","code":"json.dumps(data)\nreturns '{\"tags\": [\"rag\", \"json\"]}'"}
+            ]}
+            ```
+
+            AI apps use this pattern often. A chat history stored as JSON text is parsed, the
+            new message is appended, and the whole list is serialized again. `json.dumps`
+            writes the new text with its normal spacing: `, ` between items and `: ` after keys.
+
+            `list.append` changes the list and returns `None`. If you write
+            `data = data.append(...)`, the name `data` refers to `None` afterwards.
         ''',
         "title": "Append to a chat history",
         "difficulty": 1,
@@ -866,27 +1247,42 @@ EXERCISES = [
     {
         "id": "json-8",
         "lesson": r'''
-            Try this and look closely at the output:
+            ## Non-ASCII characters in JSON
+
+            **ASCII** is a set of 128 characters: the plain English letters, the digits and
+            common punctuation. Accented letters, emoji, Chinese and Arabic characters are
+            outside it. They are called **non-ASCII** characters.
+
+            By default `json.dumps` writes every non-ASCII character as an **escape code**:
+            a backslash, the letter `u` and a four-character code.
 
             ```python
             import json
 
-            print(json.dumps({"city": "Zürich"}))
-            print(json.loads(json.dumps({"city": "Zürich"})))
+            text = json.dumps({"city": "Zürich"})
+            print(text)
+            # {"city": "Z\u00fcrich"}
             ```
 
-            By default `json.dumps` plays it safe and writes every non-English character as an
-            **escape code**: `ü` becomes `ü`. It is still the same data (loading it gives `Zürich`
-            back), but a log full of `é` and `😀` is hard for humans to read, and the
-            text is longer.
+            The u with two dots in the city name is written as `\u00fc`. The data is the
+            same. `json.loads` converts the escape code back to the character. Some
+            characters, such as most emoji, are written as two of these codes.
 
-            The ASCII table covers plain English letters, digits and punctuation. Anything outside it
-            (accents, emoji, Chinese, Arabic...) is what gets escaped. Model replies are full of such
-            characters.
+            ```python
+            import json
 
-            `json.dumps` has a keyword argument that switches this escaping off. We have not used it
-            yet - finding it in the documentation is part of this step. Reading the docs for a function
-            you already know is how you discover its extra powers.
+            text = json.dumps({"city": "Zürich"})
+            print(json.loads(text))
+            # {'city': 'Zürich'}
+            ```
+
+            Model replies contain many non-ASCII characters. Printed output full of `\u00e9` codes is
+            hard to read, and the text is longer: `\u00e9` takes 6 characters instead of 1.
+
+            `json.dumps` has a keyword argument that turns this escaping off. This lesson
+            does not name it. Finding it in the documentation is part of the exercise. The
+            documentation of a function lists every argument it accepts, including ones you
+            have not used yet.
         ''',
         "research": {"note": "Open the `json.dumps` documentation and find the parameter that controls whether non-ASCII characters are escaped. Then come back and use it.",
          "links": [{"title": "json.dumps - Python docs", "url": "https://docs.python.org/3/library/json.html#json.dumps"}]},
@@ -971,7 +1367,7 @@ EXERCISES = [
             **Write:** `parse_tool_args(text)`
 
             - `text`: the tool call's `arguments` string, e.g. `'{"city": "Paris", "days": 3}'`
-            - **Returns:** a dict (either the parsed arguments, or an error dict - see Rules)
+            - **Returns:** a dict (either the parsed arguments, or an error dict: see Rules)
 
             **Rules**
             - Valid JSON **object** (`{...}`) -> return the parsed dict.
@@ -1047,7 +1443,7 @@ EXERCISES = [
         "id": "json-4",
         "hints": [
             "Both directions work line by line: one `json.dumps` per record going out, one `json.loads` per non-blank line coming in.",
-            "To build the text, turn each record into a compact JSON string (keeping non-ASCII characters readable) and add a newline after each. To read it, split the text into lines, skip blank ones, and parse the rest - turning a parse error into a `ValueError` that says which line broke.",
+            "To build the text, turn each record into a compact JSON string (keeping non-ASCII characters readable) and add a newline after each. To read it, split the text into lines, skip blank ones, and parse the rest, turning a parse error into a `ValueError` that says which line broke.",
             "to_jsonl: start with an empty string (or list of parts) and, for each record, add `json.dumps(record, ensure_ascii=False)` plus `\"\\n\"`. from_jsonl: loop over `enumerate(text.splitlines(), start=1)`, skip lines whose `.strip()` is empty, `try` to `json.loads` the line and append it, `except json.JSONDecodeError` raise `ValueError` with an f-string containing `line {n}`.",
         ],
         "title": "JSONL eval log",

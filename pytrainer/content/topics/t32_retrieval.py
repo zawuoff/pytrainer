@@ -15,49 +15,259 @@ TOPIC = {
                  "vector store"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["retrieval", "search", "score", "rank", "top-k", "tokenize", "keyword",
+                 "set intersection", "bag of words", "embed", "batch", "min-max", "hybrid",
+                 "metadata filter", "re-ranking", "vector store"],
+    "cards": [
+        {
+            "syntax": "sorted(scores, key=scores.get, reverse=True)[:k]",
+            "explain": "Top-k: sorts the ids of a {id: score} dict by score, highest first, and keeps at most k. Equal scores keep dict order.",
+            "example": r'''
+                scores = {"intro": 0.10, "pricing": 0.92, "faq": 0.55}
+                ranked = sorted(scores, key=scores.get, reverse=True)
+                print(ranked[:2])
+                # ['pricing', 'faq']
+            ''',
+        },
+        {
+            "syntax": 're.findall(r"[a-z0-9]+", text.lower())',
+            "explain": "Tokenizes: returns the runs of letters and digits of the lowercased text as a list. Punctuation is dropped.",
+            "example": r'''
+                import re
+
+                print(re.findall(r"[a-z0-9]+", "Is GPT-4o cheaper?".lower()))
+                # ['is', 'gpt', '4o', 'cheaper']
+            ''',
+        },
+        {
+            "syntax": "len(set(query_tokens) & set(doc_tokens))",
+            "explain": "Keyword score: the number of different words that the query and the document share.",
+            "example": r'''
+                query_tokens = ["refund", "policy", "refund"]
+                doc_tokens = ["our", "refund", "policy", "is", "simple"]
+                print(sorted(set(query_tokens) & set(doc_tokens)))
+                # ['policy', 'refund']
+                print(len(set(query_tokens) & set(doc_tokens)))
+                # 2
+            ''',
+        },
+        {
+            "syntax": "[tokens.count(word) for word in vocab]",
+            "explain": "Bag of words vector: one count per vocabulary word, in vocabulary order. A fake embedding for tests.",
+            "example": r'''
+                vocab = ["refund", "shipping", "days"]
+                tokens = ["refund", "in", "5", "days", "refund"]
+                print([tokens.count(word) for word in vocab])
+                # [2, 0, 1]
+            ''',
+        },
+        {
+            "syntax": "(score - low) / (high - low)",
+            "explain": "Min-max normalisation: rescales scores to the range 0 to 1. Check high == low first, or it divides by zero.",
+            "example": r'''
+                scores = {"a": 2, "b": 12, "c": 7}
+                low, high = min(scores.values()), max(scores.values())
+                print({c: (s - low) / (high - low) for c, s in scores.items()})
+                # {'a': 0.0, 'b': 1.0, 'c': 0.5}
+            ''',
+        },
+        {
+            "syntax": "alpha * semantic + (1 - alpha) * keyword",
+            "explain": "Hybrid score: a weighted average of two normalised scores. alpha, between 0 and 1, is the share of the semantic score.",
+            "example": r'''
+                alpha = 0.7
+                keyword, semantic = 1.0, 0.2
+                print(round(alpha * semantic + (1 - alpha) * keyword, 2))
+                # 0.44
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
-## Retrieval in one sentence
+## Retrieval and top-k
 
-Give every chunk a **score** for the question, sort by score, keep the best `k`
-(**top-k**). Everything else in this chapter is a different way to compute the score.
-
-## Two kinds of score
-
-| kind | how | good at | bad at |
-| --- | --- | --- | --- |
-| **keyword** (lexical) | count shared words; TF-IDF / BM25 weigh rare words higher | exact names, codes, error ids | synonyms ("refund" vs "money back") |
-| **semantic** (vector) | `embed(text)` -> vector, cosine similarity with the question vector | meaning, paraphrases | exact rare tokens |
-
-**Hybrid** search combines both: normalise each score to 0..1 (min-max), then
-`alpha * semantic + (1 - alpha) * keyword`. **Reciprocal rank fusion** combines ranked lists
-instead of scores: `sum(1 / (60 + rank))`.
-
-## Key syntax
+**Retrieval** is the step that selects the chunks most relevant to a question. You give
+every chunk a **score**: a number that is higher when the chunk is more relevant. You sort
+the chunk ids by score and keep the first `k`. Keeping the best `k` is called **top-k**
+retrieval.
 
 ```python
-import math, re
-scores = {"a": 0.2, "b": 0.9, "c": 0.5}
-print(sorted(scores, key=scores.get, reverse=True)[:2])   # top-k ids
-q = re.findall(r"[a-z0-9]+", "Refund policy?".lower())    # simple tokenizer
-d = re.findall(r"[a-z0-9]+", "Our REFUND rules".lower())
-print(set(q) & set(d))                                    # keyword overlap
-print(math.log(10 / 2))                                   # idf = log(n_docs / df)
+scores = {"intro": 0.10, "pricing": 0.92, "faq": 0.55}
+ranked = sorted(scores, key=scores.get, reverse=True)
+print(ranked)
+# ['pricing', 'faq', 'intro']
+print(ranked[:2])
+# ['pricing', 'faq']
 ```
 
-- `cosine(a, b) = dot(a, b) / (norm(a) * norm(b))`; return `0.0` if a norm is 0.
-- Pass the embedding model in as a function (`embed`) so tests can use a **fake** one.
-- Embedding APIs take **batches** of texts: send slices of at most `batch_size`.
-- **Metadata filters** (`{"source": "faq.md"}`) run **before** ranking: only matching chunks compete.
-- **Re-ranking**: a cheap first stage finds ~20-50 candidates, a slower, smarter scorer
-  re-orders them and you keep the top few.
+`sorted(scores, ...)` sorts the keys of the dict. `key=scores.get` makes Python compare the
+keys by their values. `reverse=True` puts the highest score first.
 
-## Gotchas
+The rest of this chapter covers different ways to compute the score.
 
-- `sorted(..., reverse=True)` is **stable**: ties keep their original order. Rely on it.
-- Normalise before mixing scores: raw keyword counts (0..10) swamp cosine (-1..1).
-- min-max with all-equal scores divides by zero: handle it.
-- Lowercase **both** the query and the document before comparing words.
-- A word that appears in every document has `idf = log(1) = 0`: it can't help rank.
+## Keyword scores
+
+A **keyword score** counts the words that the question and the chunk share. First split
+both texts into **tokens**: here, the runs of letters and digits in the lowercased text.
+Then convert both token lists to sets. `&` returns the items that are in both sets.
+
+```python
+import re
+
+query = re.findall(r"[a-z0-9]+", "Refund policy?".lower())
+doc = re.findall(r"[a-z0-9]+", "Our REFUND rules".lower())
+print(query)
+# ['refund', 'policy']
+print(set(query) & set(doc))
+# {'refund'}
+print(len(set(query) & set(doc)))
+# 1
+```
+
+Keyword scores find exact names, codes and error ids. They miss synonyms: `"refund"` does
+not match `"money back"`.
+
+**TF-IDF** multiplies each word count (the term frequency) by a weight called **idf**,
+short for inverse document frequency. The formula is
+`idf = log(number_of_docs / docs_containing_word)`. A rare word gets a high weight. A word
+that appears in every document gets `0.0`.
+
+```python
+import math
+
+print(round(math.log(10 / 2), 2))
+# 1.61
+print(math.log(10 / 10))
+# 0.0
+```
+
+`math.log` is the natural logarithm from the vectors chapter. A word found in 2 of 10
+documents gets the weight `1.61`. A chunk that contains that word twice gets
+`2 * 1.61 = 3.22` for it.
+
+## Semantic scores
+
+A **semantic score** compares meaning. An **embedding function** `embed(text)` returns a
+vector for a text. The score is the cosine similarity between the question vector and the
+chunk vector: `dot(a, b) / (norm(a) * norm(b))`. The dot product is the sum of the products
+of the numbers at the same position. The norm is the square root of the sum of the squares.
+Return `0.0` when a norm is `0`, because
+dividing by zero raises `ZeroDivisionError`.
+
+```python
+import math
+
+def cosine(a, b):
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(x * x for x in b))
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return sum(x * y for x, y in zip(a, b)) / (norm_a * norm_b)
+
+chunks = {"refunds": [4, 1], "shipping": [1, 4], "returns": [3, 2]}
+query_vec = [3, 1]
+scores = {cid: round(cosine(query_vec, vec), 2) for cid, vec in chunks.items()}
+print(scores)
+# {'refunds': 1.0, 'shipping': 0.54, 'returns': 0.96}
+ranked = sorted(scores, key=scores.get, reverse=True)
+print(ranked[:2])
+# ['refunds', 'returns']
+```
+
+For `refunds` the dot product is `3 * 4 + 1 * 1 = 13`. The norms are about `3.16` and
+`4.12`, and their product is about `13.04`. The score is `13 / 13.04`, about `0.997`, which
+`round` turns into `1.0`.
+
+Step through the stages to see the data that this example produces at each one.
+
+```diagram
+{"type":"flow","title":"Semantic top-k search","steps":[
+{"label":"Embed the query","detail":"The embedding function turns the question text into a vector. Every chunk was embedded earlier and stored with its vector.","code":"query_vec = [3, 1]"},
+{"label":"Score every chunk","detail":"Compute the cosine similarity between query_vec and each chunk vector. The result is one score per chunk id.","code":"chunks = {'refunds': [4, 1], 'shipping': [1, 4], 'returns': [3, 2]}\nscores = {'refunds': 1.0, 'shipping': 0.54, 'returns': 0.96}"},
+{"label":"Sort by score","detail":"sorted() orders the chunk ids by their score. reverse=True puts the highest score first.","code":"ranked = ['refunds', 'returns', 'shipping']"},
+{"label":"Take the top k","detail":"The slice ranked[:2] keeps the first 2 ids. These chunks go into the prompt.","code":"ranked[:2] = ['refunds', 'returns']"}
+]}
+```
+
+Semantic scores find texts that say the same thing in different words. They can miss exact
+rare tokens such as an error id.
+
+Pass the embedding function to your code as an argument named `embed`. A test can then
+pass a **fake**: a small function with the same parameters and the same kind of return
+value, which needs no network and no API key.
+
+Embedding APIs accept a **batch**: a list of texts in one request, up to a maximum size.
+Slice the list into pieces of at most `batch_size` texts.
+
+```python
+texts = ["a", "b", "c", "d", "e"]
+for start in range(0, len(texts), 2):
+    print(texts[start:start + 2])
+# ['a', 'b']
+# ['c', 'd']
+# ['e']
+```
+
+## Hybrid scores
+
+**Hybrid search** combines a keyword score and a semantic score. First rescale each score
+to the range 0 to 1 with **min-max normalisation**: `(score - lowest) / (highest - lowest)`.
+Then compute `alpha * semantic + (1 - alpha) * keyword`, where `alpha` is a weight between
+0 and 1.
+
+```python
+keyword = {"a": 2, "b": 12, "c": 7}
+semantic = {"a": 0.9, "b": 0.1, "c": 0.5}
+low, high = min(keyword.values()), max(keyword.values())
+norm = {cid: (s - low) / (high - low) for cid, s in keyword.items()}
+print(norm)
+# {'a': 0.0, 'b': 1.0, 'c': 0.5}
+alpha = 0.7
+print({cid: round(alpha * semantic[cid] + (1 - alpha) * norm[cid], 2) for cid in norm})
+# {'a': 0.63, 'b': 0.37, 'c': 0.5}
+```
+
+The lowest keyword score is `2` and the highest is `12`. For `"c"` the normalised score is
+`(7 - 2) / (12 - 2) = 0.5`. For `"a"` it is `0.0`, so the hybrid score of `"a"` is
+`0.7 * 0.9 + 0.3 * 0.0 = 0.63`.
+
+**Reciprocal rank fusion** combines ranked lists instead of scores. Each list gives an id
+`1 / (60 + rank)` points, where `rank` is `1` for the first id. You add up the points per id.
+An id that is first in one list and second in another gets `1 / 61 + 1 / 62`, about `0.0325`.
+
+## Metadata filters and re-ranking
+
+**Metadata** is extra data stored with a chunk, such as `{"source": "faq.md"}`. A
+**metadata filter** removes the chunks that do not match before any scoring happens. Only
+the matching chunks are ranked.
+
+```python
+chunks = [
+    {"id": "c1", "metadata": {"source": "faq.md"}},
+    {"id": "c2", "metadata": {"source": "blog.md"}},
+]
+print([c["id"] for c in chunks if c["metadata"]["source"] == "faq.md"])
+# ['c1']
+```
+
+**Re-ranking** uses two stages. A fast first stage returns 20 to 50 **candidates**: chunks
+that may be relevant. A slower,
+more accurate scoring function scores only those candidates, and you keep the top few.
+
+## Common mistakes
+
+- `sorted` is **stable**: items with equal scores keep their original order. This also
+  holds with `reverse=True`. Do not add your own tie handling unless the task asks for it.
+- Raw keyword counts (0 to 10) are much larger than cosine scores (-1 to 1). Normalise both
+  before you add them, or the keyword score decides every result.
+- Min-max normalisation divides by zero when all scores are equal. Check for that case first.
+- `"Refund"` and `"refund"` are different strings. Lowercase both the query and the
+  document before you compare words.
+- A word that appears in every document has `idf = log(1) = 0`. It adds nothing to any score.
 '''
 
 EXERCISES = [
@@ -68,29 +278,32 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## The librarian
+            ## Scores and ranking
 
-            Imagine asking a librarian: "How do refunds work?" They don't read you every book.
-            They glance at each shelf, judge how *relevant* each book is, and hand you the best
-            two or three. That is **retrieval**, the "R" in RAG.
+            **Retrieval** is the step that selects the chunks most relevant to a question. It
+            is the "R" in RAG. A retriever does not send every chunk to the model. It sends
+            the few chunks that are most relevant.
 
-            In code, "judging relevance" means giving every chunk a **score** (a number: bigger
-            = more relevant). Then you sort the chunk ids by score, biggest first, and keep the
-            first few.
+            To measure relevance, you give every chunk a **score**: a number that is higher
+            when the chunk is more relevant to the question. Then you sort the chunk ids by
+            score, highest first, and keep the first few.
 
             ```python
             scores = {"intro": 0.10, "pricing": 0.92, "faq": 0.55}
             ranked = sorted(scores, key=scores.get, reverse=True)
             print(ranked)
+            # ['pricing', 'faq', 'intro']
             print(ranked[:1])
+            # ['pricing']
             ```
 
-            `sorted(scores, ...)` sorts the dict's **keys**. `key=scores.get` means "compare
-            the keys by their value". `reverse=True` puts the biggest first.
+            `sorted(scores, ...)` returns a new list of the dict's keys. `key=scores.get` makes
+            Python call `scores.get` on each key and compare the returned values. `reverse=True`
+            puts the highest value first. The dict `scores` is not changed.
 
             Keeping only the best `k` results is called **top-k** retrieval. `k` is usually
-            small (3 to 10): the chosen chunks will be pasted into a prompt, and prompts
-            have limited room.
+            small (3 to 10). The chosen chunks are added to a prompt, and a prompt has a
+            maximum size.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -122,28 +335,36 @@ EXERCISES = [
         "lesson": r'''
             ## Keep the best k
 
-            Back to the librarian: you asked for "the best 3 books". If the library only has
-            2 relevant ones, you get 2, not an error. If you ask for 0, you get nothing.
+            A top-k function returns at most `k` ids. If there are fewer than `k` chunks, it
+            returns all of them. If `k` is `0`, it returns an empty list.
 
-            A list slice behaves exactly like that. `items[:k]` gives *at most* `k` items and
-            never complains:
+            A list slice already works this way. `items[:k]` returns a new list with at most
+            `k` items. A slice never raises `IndexError`, even when `k` is larger than the list.
 
             ```python
             ranked = ["pricing", "faq", "intro"]
             print(ranked[:2])
+            # ['pricing', 'faq']
             print(ranked[:10])
+            # ['pricing', 'faq', 'intro']
             print(ranked[:0])
+            # []
             ```
 
-            One more useful fact: Python's `sorted` is **stable**. When two items tie, they
-            keep the order they already had. For a dict, that's the order the keys were added.
+            By default, `sorted` puts the lowest value first. Python's `sorted` is also
+            **stable**: when two items have equal sort values, they keep the order they had
+            before the sort. For a dict, that is the order in which the keys were added.
 
             ```python
             scores = {"a": 0.5, "b": 0.9, "c": 0.5}
+            print(sorted(scores, key=scores.get))
+            # ['a', 'c', 'b']
             print(sorted(scores, key=scores.get, reverse=True))
+            # ['b', 'a', 'c']
             ```
 
-            `"a"` and `"c"` tie at 0.5, so `"a"` stays before `"c"`.
+            `"a"` and `"c"` both have the score 0.5. `"a"` was added first, so `"a"` stays
+            before `"c"` in both results.
         ''',
         "prompt": r'''
             A retriever has scored every chunk. Return the ids of the best `k` chunks.
@@ -206,30 +427,41 @@ EXERCISES = [
         "title": "Tokenize a query",
         "difficulty": 0,
         "lesson": r'''
-            ## Cutting text into word tiles
+            ## Tokenizing text
 
-            Before a computer can compare words, it has to cut the text into pieces, like
-            tipping Scrabble tiles out of a bag: `"How do I get a REFUND?"` becomes
-            `how`, `do`, `i`, `get`, `a`, `refund`. Punctuation and capital letters would only
-            get in the way ("Refund" and "refund?" should match), so we drop them.
+            Keyword search compares words, so the text must first be split into words.
+            **Tokenizing** is splitting a text into pieces. Each piece is called a **token**.
+            Here a token is a lowercase word or number: `"How do I get a REFUND?"` becomes
+            `how`, `do`, `i`, `get`, `a`, `refund`. You remove punctuation and capital letters
+            so that `"Refund"` and `"refund?"` produce the same token.
 
-            Remember `re.findall` from the regex chapter? It returns every piece of text that
-            matches a pattern. The pattern `[a-z0-9]+` means "one or more letters or digits in
-            a row", so anything else (spaces, `?`, `-`, `$`) acts as a separator.
+            `re.findall(pattern, text)` from the regex chapter returns a list of every part
+            of `text` that matches `pattern`. The pattern `[a-z0-9]+` matches one or more
+            lowercase letters or digits in a row. Every other character (a space, `?`, `-`,
+            `$`) ends the current match, so it separates two tokens.
 
             ```python
             import re
 
             text = "Is GPT-4o cheaper?"
             print(text.lower())
+            # is gpt-4o cheaper?
             print(re.findall(r"[a-z0-9]+", text.lower()))
+            # ['is', 'gpt', '4o', 'cheaper']
             ```
 
-            Each piece is called a **token**, and this step is called **tokenizing**. (LLMs use
-            a fancier tokenizer that cuts words into sub-word pieces, but the idea is the same.)
+            An LLM uses a different tokenizer that splits words into smaller pieces. The
+            purpose is the same: turn text into a list of units.
 
-            Watch out: lowercase *first*. The pattern only matches lowercase letters, so
-            capital letters would be treated as separators.
+            Lowercase the text before you call `re.findall`. The pattern matches only
+            lowercase letters, so a capital letter separates tokens and is lost.
+
+            ```python
+            import re
+
+            print(re.findall(r"[a-z0-9]+", "Is GPT-4o cheaper?"))
+            # ['s', '4o', 'cheaper']
+            ```
         ''',
         "prompt": r'''
             Keyword search starts by turning text into a list of lowercase words.
@@ -296,27 +528,38 @@ EXERCISES = [
         "title": "Fix the keyword score",
         "difficulty": 0,
         "lesson": r'''
-            ## The highlighter test
+            ## Keyword overlap
 
-            The simplest relevance score: take a highlighter, mark every word of the question
-            that also appears in the document, and count the marked words. More shared words =
-            more relevant. This is **keyword** (or *lexical*) search.
+            The simplest relevance score counts the words of the question that also appear in
+            the document. More shared words means a higher score. This is **keyword search**,
+            also called **lexical** search.
 
-            A **set** is perfect for this. It keeps each word once, and `&` gives the words two
-            sets have in common (the *intersection*):
+            A **set** is a collection that keeps each value once. The `&` operator returns the
+            **intersection**: a new set with the values that are in both sets.
 
             ```python
             question = {"refund", "policy", "refund"}
             document = {"our", "refund", "policy", "is", "simple"}
-            print(question)
-            print(question & document)
+            print(len(question))
+            # 2
+            print(sorted(question & document))
+            # ['policy', 'refund']
             print(len(question & document))
+            # 2
             ```
 
-            Because a set keeps each word once, asking "refund refund?" doesn't count double.
+            `"refund"` is written twice in `question`, but the set stores it once. A repeated
+            question word therefore counts once. A set has no fixed order, so the example
+            sorts the intersection before printing it.
 
-            Watch out: `"Refund"` and `"refund"` are different strings. Both sides must be
-            lowercased, or real matches get missed.
+            Click `&` to see the shared words.
+
+            ```diagram
+            {"type":"set-ops","title":"Words shared by question and document","a":{"name":"question","items":["refund","policy"]},"b":{"name":"document","items":["our","refund","policy","is","simple"]}}
+            ```
+
+            `"Refund"` and `"refund"` are different strings, so `"Refund" == "refund"` is
+            `False`. Lowercase both texts before you build the sets, or matching words are missed.
         ''',
         "prompt": r'''
             `overlap_score` should count how many **different** query words also appear in the
@@ -387,27 +630,34 @@ EXERCISES = [
         "title": "Bag of words vector",
         "difficulty": 0,
         "lesson": r'''
-            ## A tally sheet as a vector
+            ## Bag of words vectors
 
-            Cosine similarity needs vectors (lists of numbers), but we have text. Real
-            embedding models are big neural networks. You can fake one with a **tally sheet**:
-            write a fixed list of words down the side (the **vocabulary**), then for a text,
-            count how often each word appears.
+            Cosine similarity needs vectors (lists of numbers), but a retriever starts with
+            text. An **embedding model** is a model that turns a text into a vector.
+            You can build a much smaller replacement with word counts.
+
+            Choose a fixed list of words, called the **vocabulary**. For a text, count how
+            many times each vocabulary word appears in its tokens. `tokens.count(word)` returns
+            the number of items in the list `tokens` that are equal to `word`.
 
             ```python
             vocab = ["refund", "shipping", "days"]
             tokens = ["refund", "in", "5", "days", "refund"]
+            print(tokens.count("refund"))
+            # 2
             vector = [tokens.count(word) for word in vocab]
             print(vector)
+            # [2, 0, 1]
             ```
 
-            Every text becomes a list of the same length (one number per vocabulary word), so
-            any two texts can be compared with cosine. This is called a **bag of words**:
-            the order of the words is thrown away, only the counts remain.
+            The vector has one number per vocabulary word, in the order of `vocab`. Every text
+            produces a vector of the same length, so you can compare any two texts with cosine
+            similarity. This vector is called a **bag of words**: it stores the counts and
+            drops the order of the words.
 
-            In tests and prototypes, a function like this plays the role of `embed(text)`.
-            It's a *fake embedding*: it matches exact words only, while a real one also
-            understands synonyms.
+            In tests and prototypes, a function like this replaces `embed(text)`. It is a
+            **fake embedding**. It matches whole, exact tokens only: the token `"refunds"` does
+            not count as `"refund"`. A real embedding model also gives similar vectors to synonyms.
         ''',
         "prompt": r'''
             Turn a text into a count vector over a fixed vocabulary (a fake embedding).
@@ -476,11 +726,12 @@ EXERCISES = [
         "title": "Filter by source",
         "difficulty": 0,
         "lesson": r'''
-            ## Only search the right shelf
+            ## Metadata filtering
 
-            If a user asks about the *billing* docs, the librarian doesn't search the cookbook
-            shelf at all. Chunks usually carry **metadata**: extra facts about where they came
-            from, stored next to the text.
+            A question about billing should only search the billing documents. To make that
+            possible, each chunk stores **metadata**: extra data about the chunk, such as the
+            file it came from. The metadata is a dict stored inside the chunk dict, next to
+            the text.
 
             ```python
             chunk = {
@@ -489,15 +740,32 @@ EXERCISES = [
                 "metadata": {"source": "billing.md", "year": 2026},
             }
             print(chunk["metadata"]["source"])
+            # billing.md
             print(chunk["metadata"]["year"] > 2025)
+            # True
             ```
 
-            **Metadata filtering** throws away the chunks that don't match *before* any scoring
-            happens. It's cheap, and it stops a great-sounding chunk from the wrong document
-            (an old policy, another customer's file) from sneaking into the answer.
+            `chunk["metadata"]` returns the inner dict. The second pair of square brackets
+            reads a key from that inner dict.
 
-            A list comprehension with an `if` is all it takes:
-            `[c for c in chunks if <condition on c>]`.
+            **Metadata filtering** removes the chunks that do not match a condition before any
+            scoring happens. It costs little, because it only compares stored values. It also
+            keeps chunks from the wrong document (an old policy, another customer's file) out
+            of the answer, even when their text is similar to the question.
+
+            A list comprehension with an `if` builds the filtered list. It keeps the chunks
+            for which the condition is `True`, in their original order.
+
+            ```python
+            chunks = [
+                {"id": "c7", "metadata": {"year": 2026}},
+                {"id": "c8", "metadata": {"year": 2023}},
+                {"id": "c9", "metadata": {"year": 2026}},
+            ]
+            recent = [c for c in chunks if c["metadata"]["year"] > 2025]
+            print([c["id"] for c in recent])
+            # ['c7', 'c9']
+            ```
         ''',
         "prompt": r'''
             Keep only the chunks that came from one source document.
@@ -563,11 +831,16 @@ EXERCISES = [
         "title": "Safe cosine similarity",
         "difficulty": 1,
         "lesson": r'''
-            ## Arrows pointing the same way
+            ## Cosine similarity in a retriever
 
-            Remember the vectors chapter: think of each vector as an arrow. **Cosine
-            similarity** asks "how much do these two arrows point the same way?", ignoring how
-            long they are. `1.0` = same direction, `0.0` = unrelated, `-1.0` = opposite.
+            The vectors chapter introduced **cosine similarity**: a number that measures how
+            closely two vectors point in the same direction. It does not depend on how long
+            the vectors are. `1.0` means the same direction, `0.0` means perpendicular (no
+            similarity) and `-1.0` means opposite directions.
+
+            The formula is `dot(a, b) / (norm(a) * norm(b))`. The **dot product** is the sum of
+            the products of matching items. The **norm** of a vector is the square root of the
+            sum of its squared items.
 
             ```python
             import math
@@ -576,18 +849,33 @@ EXERCISES = [
             dot = sum(x * y for x, y in zip(a, b))
             norm_a = math.sqrt(sum(x * x for x in a))
             norm_b = math.sqrt(sum(x * x for x in b))
-            print(dot / (norm_a * norm_b))
+            print(dot)
+            # 10
+            print(round(dot / (norm_a * norm_b), 2))
+            # 1.0
             ```
 
-            In a retriever this runs thousands of times, on real data. Two things go wrong:
+            The dot product is `1 * 2 + 2 * 4 = 10`. The norms are the square roots of `5` and
+            `20`. Their product is the square root of `100`, which is `10`, so the score is
+            `10 / 10`. `[2, 4]` is `[1, 2]` times 2, so both vectors have the same direction.
 
-            - A text with no known words gives an all-zero vector (a bag of words with no hits).
-              Its length is 0, so you'd divide by zero. A retriever should not crash on that:
-              the sensible score is `0.0` ("no similarity").
-            - Vectors from two different embedding models have different lengths. Comparing
-              them is a bug, so fail loudly with a `ValueError`.
+            Drag either vector to see the dot product, the norms and the cosine change.
 
-            Watch out: `zip` silently stops at the shorter list, so check the lengths yourself.
+            ```diagram
+            {"type":"vectors","title":"Cosine similarity of a and b","a":[1,2],"b":[2,4]}
+            ```
+
+            A retriever runs this calculation on every chunk, so it must handle two cases.
+
+            - A text with no vocabulary words gives a vector of zeros. Its norm is `0.0`, and
+              dividing by `0.0` raises `ZeroDivisionError`. Return `0.0` in that case, which
+              means "no similarity".
+            - Vectors from two different embedding models can have different lengths.
+              Comparing them is a bug, so raise `ValueError`.
+
+            `zip` stops at the end of the shorter list and reports no error:
+            `list(zip([1, 2], [1, 2, 3]))` is `[(1, 1), (2, 2)]`. Compare the lengths with
+            `len` yourself before you compute anything.
         ''',
         "prompt": r'''
             A retriever-safe cosine similarity.
@@ -674,30 +962,43 @@ EXERCISES = [
         "title": "Semantic search",
         "difficulty": 1,
         "lesson": r'''
-            ## Asking by meaning
+            ## Semantic search
 
-            Semantic search is the librarian who understands what you *mean*. The recipe:
+            **Semantic search** ranks chunks by meaning instead of by shared words. It uses
+            the vectors that an embedding model produces. The steps are:
 
-            1. Every chunk was embedded once, ahead of time, and stored with its vector.
-            2. When a question comes in, embed the question too (the **query vector**).
-            3. Score every chunk: `cosine(query_vector, chunk_vector)`.
-            4. Sort by score, keep the top `k`.
+            1. Every chunk is embedded once, ahead of time, and stored with its vector.
+            2. When a question arrives, you embed the question too. The result is the **query vector**.
+            3. You score every chunk with `cosine(query_vector, chunk_vector)`.
+            4. You sort by score and keep the top `k`.
 
             ```python
             chunks = [{"id": "a", "vector": [1, 0]}, {"id": "b", "vector": [0.6, 0.8]}]
             query_vec = [0.8, 0.6]
+            scored = []
             for c in chunks:
                 dot = sum(x * y for x, y in zip(query_vec, c["vector"]))
-                print(c["id"], round(dot, 2))
+                scored.append((c["id"], round(dot, 2)))
+            print(scored)
+            # [('a', 0.8), ('b', 0.96)]
+            scored.sort(key=lambda pair: pair[1], reverse=True)
+            print(scored)
+            # [('b', 0.96), ('a', 0.8)]
             ```
 
-            (Here every vector already has length 1, so the dot product *is* the cosine.)
+            Every vector in this example has norm 1, so the dot product equals the cosine. With
+            other vectors you must divide by the norms. Without that division, a long vector
+            gets a high score only because its numbers are large.
 
-            Returning `(id, score)` pairs instead of bare ids is common: the score is useful
-            later, for example to refuse to answer when even the best match is weak.
+            Each result is a **tuple**: a fixed group of values written in parentheses, such as
+            `("b", 0.96)`. `pair[0]` is the id and `pair[1]` is the score.
+            `key=lambda pair: pair[1]` makes `sort` compare the tuples by their score only, so
+            tuples with equal scores keep their original order. (`lambda pair: ...` defines
+            a small inline function. It takes one pair and returns its score. `sort` calls
+            it once per tuple and compares the results.)
 
-            A **tuple** is a good fit for a pair: `("b", 0.96)`. Sorting a list of pairs by
-            the score uses `key=lambda pair: pair[1]`, or a small named function.
+            Returning `(id, score)` pairs instead of ids alone is common. The caller can use
+            the score later, for example to refuse to answer when the best score is low.
         ''',
         "prompt": r'''
             Rank stored chunks by cosine similarity to a query vector.
@@ -798,12 +1099,13 @@ EXERCISES = [
         "title": "Embed in batches",
         "difficulty": 1,
         "lesson": r'''
-            ## The stunt double and the grocery bags
+            ## Injected embed functions and batches
 
-            A real embedding model lives behind an API: it costs money, needs a network and
-            an API key. So your code shouldn't create the client itself. It should **receive**
-            the embed function as an argument. In production you pass the real one; in tests
-            you pass a **fake** (a stunt double that looks the same from the outside).
+            A real embedding model is reached through an API. Each call costs money and needs
+            a network connection and an API key. Your code should therefore not create the API
+            client itself. It should receive the embed function as an argument. In the real app
+            you pass the real function. In tests you pass a **fake**: a small function that
+            takes the same arguments and returns the same kind of value, with no network call.
 
             ```python
             def fake_embed(texts):
@@ -813,19 +1115,48 @@ EXERCISES = [
                 return embed(texts)
 
             print(embed_all(["banana", "kiwi"], fake_embed))
+            # [[6, 3], [4, 0]]
             ```
 
-            Embedding APIs take a **list** of texts per request (a *batch*), with a maximum
-            batch size. With 1,000 chunks and a limit of 100, you carry the groceries in 10
-            bags: slice the list into pieces of at most 100 and call the API once per piece.
+            `embed_all` calls whatever function it receives in `embed`. Passing a function in
+            as an argument like this is called **dependency injection**.
+
+            An embedding API takes a list of texts per request, called a **batch**, and
+            returns one vector per text in the same order. The API sets a maximum batch size.
+            With 1,000 chunks and a limit of 100, you slice the list into 10 pieces of 100
+            texts and call the API once per piece.
+
+            `range(0, len(items), 2)` produces the start positions 0, 2 and 4. The slice
+            `items[start:start + 2]` returns at most 2 items from each position. Step through
+            the loop to see each batch.
+
+            ```diagram
+            {"type": "trace", "title": "Slicing items into batches of 2", "code": ["items = [\"a\", \"b\", \"c\", \"d\", \"e\"]", "for start in range(0, len(items), 2):", "    batch = items[start:start + 2]", "    print(batch)"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"items": "['a', 'b', 'c', 'd', 'e']"}, "out": ""},
+              {"line": 3, "vars": {"items": "['a', 'b', 'c', 'd', 'e']", "start": "0"}, "out": ""},
+              {"line": 4, "vars": {"items": "['a', 'b', 'c', 'd', 'e']", "start": "0", "batch": "['a', 'b']"}, "out": ""},
+              {"line": 2, "vars": {"items": "['a', 'b', 'c', 'd', 'e']", "start": "0", "batch": "['a', 'b']"}, "out": "['a', 'b']\n"},
+              {"line": 3, "vars": {"items": "['a', 'b', 'c', 'd', 'e']", "start": "2", "batch": "['a', 'b']"}, "out": "['a', 'b']\n"},
+              {"line": 4, "vars": {"items": "['a', 'b', 'c', 'd', 'e']", "start": "2", "batch": "['c', 'd']"}, "out": "['a', 'b']\n"},
+              {"line": 2, "vars": {"items": "['a', 'b', 'c', 'd', 'e']", "start": "2", "batch": "['c', 'd']"}, "out": "['a', 'b']\n['c', 'd']\n"},
+              {"line": 3, "vars": {"items": "['a', 'b', 'c', 'd', 'e']", "start": "4", "batch": "['c', 'd']"}, "out": "['a', 'b']\n['c', 'd']\n"},
+              {"line": 4, "vars": {"items": "['a', 'b', 'c', 'd', 'e']", "start": "4", "batch": "['e']"}, "out": "['a', 'b']\n['c', 'd']\n"},
+              {"line": 2, "vars": {"items": "['a', 'b', 'c', 'd', 'e']", "start": "4", "batch": "['e']"}, "out": "['a', 'b']\n['c', 'd']\n['e']\n"},
+              {"line": null, "vars": {"items": "['a', 'b', 'c', 'd', 'e']", "start": "4", "batch": "['e']"}, "out": "['a', 'b']\n['c', 'd']\n['e']\n"}
+            ]}
+            ```
+
+            The last batch is shorter because only one item is left. `list.extend` adds every
+            item of another list to the end of a list, so you can collect the vectors of all
+            batches in one list.
 
             ```python
-            items = ["a", "b", "c", "d", "e"]
-            for start in range(0, len(items), 2):
-                print(items[start:start + 2])
+            vectors = [[1]]
+            vectors.extend([[2], [3]])
+            print(vectors)
+            # [[1], [2], [3]]
             ```
-
-            Passing a function in like this is called **dependency injection**.
         ''',
         "research": {
             "note": "Skim the embeddings guide: see how an embeddings request takes a list of inputs and returns one vector per input, in the same order.",
@@ -840,7 +1171,8 @@ EXERCISES = [
 
             - `texts`: a list of strings
             - `embed`: a function that takes a **list** of strings and returns a list of
-              vectors (one per text, same order), like a real embeddings API
+              vectors (one per text, same order). This matches a real embeddings API: it
+              takes a list and returns one vector per text in order.
             - `batch_size`: maximum number of texts per `embed` call (`int`)
             - **Returns:** one list with all the vectors, in the same order as `texts`
 
@@ -924,29 +1256,45 @@ EXERCISES = [
         "title": "Min-max normalisation",
         "difficulty": 1,
         "lesson": r'''
-            ## Apples and oranges
+            ## Scores on different scales
 
-            Two judges score the same chunks. The keyword judge gives points from 0 to 12. The
-            semantic judge gives cosine scores between -1 and 1. If you just add them, the
-            keyword judge wins every time, simply because its numbers are bigger.
+            Two scorers rate the same chunks. The keyword scorer returns counts from 0 to 12.
+            The semantic scorer returns cosine scores between -1 and 1. If you add the two
+            numbers, the keyword score decides almost every result, because its numbers are larger.
 
-            The fix: put both on the same 0-to-1 ruler first. **Min-max normalisation** maps
-            the lowest score to `0.0`, the highest to `1.0`, and everything else in between:
+            To fix this, rescale both sets of scores to the range 0 to 1 first. **Min-max
+            normalisation** maps the lowest score to `0.0`, the highest score to `1.0` and
+            every other score to a value in between. The formula is:
 
             `(score - lowest) / (highest - lowest)`
 
             ```python
             scores = {"a": 2, "b": 12, "c": 7}
             low, high = min(scores.values()), max(scores.values())
+            print(low, high)
+            # 2 12
             for cid, s in scores.items():
                 print(cid, (s - low) / (high - low))
+            # a 0.0
+            # b 1.0
+            # c 0.5
             ```
 
-            Watch out: if every score is the same, `highest - lowest` is `0` and you'd divide
-            by zero. All chunks are equally good then, so give each one `1.0`.
+            If every score is the same, `highest - lowest` is `0` and the division raises
+            `ZeroDivisionError`. All chunks are equally relevant in that case, so give each
+            one `1.0`.
 
-            A **dict comprehension** (`{k: ... for k, v in d.items()}`) builds the new dict and
-            leaves the original untouched.
+            A **dict comprehension** builds a new dict from a loop. `{k: v * 2 for k, v in
+            d.items()}` creates one key and value per item of `d`. The original dict is not changed.
+
+            ```python
+            scores = {"a": 2, "b": 12, "c": 7}
+            doubled = {cid: s * 2 for cid, s in scores.items()}
+            print(doubled)
+            # {'a': 4, 'b': 24, 'c': 14}
+            print(scores)
+            # {'a': 2, 'b': 12, 'c': 7}
+            ```
         ''',
         "prompt": r'''
             Rescale scores to the range 0..1 so different scorers can be combined.
@@ -1025,30 +1373,46 @@ EXERCISES = [
         "title": "Hybrid score",
         "difficulty": 1,
         "lesson": r'''
-            ## Two judges, one verdict
+            ## Hybrid search
 
-            Keyword search is great at exact things: product codes, error ids, names
-            ("ERR_4012"). Semantic search is great at meaning ("money back" finds "refund").
-            Each misses what the other catches, so good retrievers ask **both** judges and
-            blend the verdicts. This is **hybrid search**.
+            Keyword search finds exact strings: product codes, error ids and names such as
+            `"ERR_4012"`. Semantic search finds meaning: the question "money back" finds a
+            chunk about refunds. Each method misses results that the other finds. **Hybrid
+            search** computes both scores and combines them into one.
 
-            After min-max normalisation, both scores are on a 0-to-1 ruler, so you can take a
-            weighted average. The weight `alpha` says how much you trust the semantic judge:
+            After min-max normalisation, both scores are in the range 0 to 1, so you can take
+            a weighted average. The weight `alpha` is the share of the semantic score. The
+            keyword score gets the remaining share, `1 - alpha`.
 
             `hybrid = alpha * semantic + (1 - alpha) * keyword`
 
             ```python
             alpha = 0.7
             keyword, semantic = 1.0, 0.2
-            print(alpha * semantic + (1 - alpha) * keyword)
+            print(round(alpha * semantic + (1 - alpha) * keyword, 2))
+            # 0.44
             print(0.5 * semantic + 0.5 * keyword)
+            # 0.6
             ```
 
-            A chunk might be found by only one judge (it had zero shared words, or it wasn't
-            in the semantic top list). Treat the missing score as `0`. `d.get(key, 0)`
-            does exactly that.
+            The first result is `0.7 * 0.2 + 0.3 * 1.0`, which is `0.14 + 0.3`. With equal
+            weights it is `0.1 + 0.5`.
 
-            Watch out: `alpha` must stay between 0 and 1, or one judge gets a negative weight.
+            A chunk can have only one of the two scores. It may share no words with the
+            question, or it may be missing from the semantic results. Treat the missing score
+            as `0`. `d.get(key, 0)` returns the value for `key`, or `0` when the key is not in
+            the dict.
+
+            ```python
+            keyword = {"c1": 1.0}
+            print(keyword.get("c1", 0))
+            # 1.0
+            print(keyword.get("c2", 0))
+            # 0
+            ```
+
+            `alpha` must be between 0 and 1. With `alpha = 1.5`, the keyword weight
+            `1 - alpha` is `-0.5`, so a higher keyword score would lower the result.
         ''',
         "prompt": r'''
             Blend already-normalised keyword and semantic scores into one hybrid score.
@@ -1130,8 +1494,22 @@ EXERCISES = [
         "difficulty": 2,
         "placement": True,
         "lesson": r'''
-            Putting it together: filter by metadata first (only the right shelf), then rank the
-            survivors by cosine similarity and keep the top `k`.
+            ## Filter, then rank
+
+            This exercise combines two earlier steps. First filter the chunks by metadata.
+            Then rank the remaining chunks by cosine similarity and keep the top `k`.
+
+            `all(...)` returns `True` when every value it receives is true. It also returns
+            `True` when it receives no values, so an empty filter matches every chunk.
+
+            ```python
+            print(all(n > 0 for n in [3, 1, 2]))
+            # True
+            print(all(n > 0 for n in [3, 0, 2]))
+            # False
+            print(all([]))
+            # True
+            ```
         ''',
         "prompt": r'''
             Search only the chunks whose metadata matches a filter, ranked by cosine similarity.
@@ -1242,11 +1620,26 @@ EXERCISES = [
         "title": "TF-IDF keyword search",
         "difficulty": 2,
         "lesson": r'''
-            Putting it together: plain word overlap treats "the" and "invoice" as equally
-            useful. **TF-IDF** weighs each query word by how rare it is across all documents:
-            `idf = log(number_of_docs / docs_containing_word)`. A word in every document gets
-            `log(1) = 0` and stops mattering; a rare word counts a lot. The score of a document
-            adds up `count of the word in the doc * idf` over the query words.
+            ## TF-IDF
+
+            Plain word overlap gives "the" and "invoice" the same value. **TF-IDF** multiplies
+            each query word by a weight that is higher when the word is rare across all documents:
+            `idf = log(number_of_docs / docs_containing_word)`. `log` is the natural logarithm,
+            `math.log`. The score of a document is the sum of `count of the word in the doc * idf`
+            over the query words. In this exercise the count is not divided by the document length.
+
+            ```python
+            import math
+
+            print(math.log(3 / 3))
+            # 0.0
+            print(round(math.log(3 / 1), 2))
+            # 1.1
+            ```
+
+            A word found in all 3 documents gets the weight `0.0`, so it adds nothing to any
+            score. A word found in 1 of 3 documents gets the weight `1.1`. A document that
+            contains that word twice gets `2 * 1.1 = 2.2` for it.
         ''',
         "prompt": r'''
             Rank documents with a small TF-IDF keyword scorer.
@@ -1359,10 +1752,24 @@ EXERCISES = [
         "title": "Re-rank candidates",
         "difficulty": 2,
         "lesson": r'''
-            Putting it together: the first retrieval stage is fast but rough, so it fetches a
-            generous list of candidates. A **re-ranker** (a slower, smarter model that reads
-            the question and a candidate together) scores only those candidates, and you keep
-            the best few. The re-ranker is injected as a function, so tests can fake it.
+            ## Re-ranking
+
+            The first retrieval stage is fast but imprecise, so it returns a long list of
+            **candidates**: chunks that may be relevant. A **re-ranker** is a slower, more
+            accurate model that reads the question and one candidate together and returns a
+            score. You score only the candidates and keep the best few. The re-ranker is
+            passed in as a function, so a test can pass a fake one.
+
+            Store each score next to its id in a tuple, then sort by the score only. Without
+            a `key`, Python also compares the ids, which changes the order of equal scores.
+
+            ```python
+            scored = [(2, "p"), (0, "q"), (2, "r")]
+            print(sorted(scored, key=lambda pair: pair[0], reverse=True))
+            # [(2, 'p'), (2, 'r'), (0, 'q')]
+            print(sorted(scored, reverse=True))
+            # [(2, 'r'), (2, 'p'), (0, 'q')]
+            ```
         ''',
         "prompt": r'''
             Re-order first-stage candidates with a (slow) scoring function and keep the best.
@@ -1451,10 +1858,26 @@ EXERCISES = [
         "title": "Reciprocal rank fusion",
         "difficulty": 2,
         "lesson": r'''
-            Putting it together: instead of mixing *scores* (which live on different scales),
-            **reciprocal rank fusion** (RRF) mixes *positions*. Each ranked list gives an id
+            ## Reciprocal rank fusion
+
+            Scores from different scorers use different scales. **Reciprocal rank fusion**
+            (RRF) combines positions instead of scores. Each ranked list gives an id
             `1 / (k + rank)` points, where `rank` starts at 1 and `k` is a constant (60 is
-            the usual choice). Ids near the top of several lists win.
+            the usual choice). An id near the top of several lists gets the highest total.
+
+            `enumerate(ranking, start=1)` produces each rank together with its id.
+
+            ```python
+            ranking = ["a", "b", "c"]
+            for rank, cid in enumerate(ranking, start=1):
+                print(cid, rank, round(1 / (60 + rank), 4))
+            # a 1 0.0164
+            # b 2 0.0161
+            # c 3 0.0159
+            ```
+
+            An id that is rank 1 in one list and rank 2 in another list gets
+            `0.0164 + 0.0161 = 0.0325` points. This `k` is not the `k` of top-k.
         ''',
         "prompt": r'''
             Merge several ranked lists of ids (e.g. keyword results and semantic results) with RRF.
@@ -1527,10 +1950,28 @@ EXERCISES = [
         "title": "In-memory vector store",
         "difficulty": 3,
         "lesson": r'''
-            Putting it together: a **vector store** keeps chunks with their vectors and
-            metadata, and answers "which chunks are closest to this text?". Real ones (pgvector,
-            Chroma, provider-hosted stores) add indexes to stay fast with millions of chunks,
-            but the interface is the same as the class you'll write here.
+            ## Vector stores
+
+            A **vector store** keeps chunks together with their vectors and metadata. Given a
+            query text, it returns the chunks whose vectors are most similar to the query
+            vector. It is another name for a vector database. Real vector stores (pgvector,
+            Chroma, provider-hosted stores) add an **index**: extra stored data that lets a
+            search skip most of the vectors, so it stays fast with millions of chunks. They
+            offer the same two operations as the class you write here: add a chunk, then search.
+
+            A class supports `len(obj)` when it defines the method `__len__`.
+
+            ```python
+            class Notes:
+                def __init__(self):
+                    self.items = ["a", "b"]
+
+                def __len__(self):
+                    return len(self.items)
+
+            print(len(Notes()))
+            # 2
+            ```
         ''',
         "research": {
             "note": "Look at how a hosted vector store is used for retrieval (adding files, searching with a query, filtering by attributes, reading scores). Your class is a tiny version of the same idea.",

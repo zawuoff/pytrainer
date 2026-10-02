@@ -13,12 +13,105 @@ TOPIC = {
                  "retries", "input validation"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["error", "exception", "try", "except", "finally", "raise", "traceback", "catch",
+                 "valueerror", "typeerror", "keyerror", "custom exception", "validate", "retry"],
+    "cards": [
+        {
+            "syntax": "try: ...  except ValueError: ...",
+            "explain": "Runs the try block. If a line in it raises ValueError, Python runs the except block and the program continues.",
+            "example": r'''
+                try:
+                    print(int("abc"))
+                except ValueError:
+                    print("not a number")
+                print("still running")
+                # not a number
+                # still running
+            ''',
+        },
+        {
+            "syntax": "except (TypeA, TypeB) as e:",
+            "explain": "Catches either type and assigns the exception object to e. str(e) and print(e) give its message.",
+            "example": r'''
+                try:
+                    float("abc")
+                except (ValueError, TypeError) as e:
+                    print("failed:", e)
+                # failed: could not convert string to float: 'abc'
+            ''',
+        },
+        {
+            "syntax": "try: ...  except E: ...  finally: ...",
+            "explain": "The finally block runs in every case, with or without an exception. An else block runs only when try raises nothing.",
+            "example": r'''
+                try:
+                    print(10 / 0)
+                except ZeroDivisionError:
+                    print("cannot divide")
+                finally:
+                    print("always runs")
+                # cannot divide
+                # always runs
+            ''',
+        },
+        {
+            "syntax": 'raise ValueError("message")',
+            "explain": "Stops the function and raises the exception. Use TypeError for a wrong type, ValueError for an unacceptable value.",
+            "example": r'''
+                t = 5
+                try:
+                    if t > 2:
+                        raise ValueError(f"must be at most 2, got {t}")
+                except ValueError as e:
+                    print("error:", e)
+                # error: must be at most 2, got 5
+            ''',
+        },
+        {
+            "syntax": "class MyError(Exception): pass",
+            "explain": "Defines your own exception type. You raise it and catch it by name, the same way as a built-in type.",
+            "example": r'''
+                class TooLongError(Exception):
+                    pass
+
+                try:
+                    raise TooLongError("prompt too long")
+                except TooLongError as e:
+                    print("caught:", e)
+                # caught: prompt too long
+            ''',
+        },
+        {
+            "syntax": 'raise NewError("message") from e',
+            "explain": "Raises a new exception inside an except block and stores the caught one, e, as its __cause__.",
+            "example": r'''
+                try:
+                    try:
+                        int("hi")
+                    except ValueError as e:
+                        raise RuntimeError("bad prompt") from e
+                except RuntimeError as err:
+                    print(err, "| cause:", type(err.__cause__).__name__)
+                # bad prompt | cause: ValueError
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
 ## Chapter notes: Error Handling
 
-**Exception** = Python's way of saying "I can't do this". It has a **type** and a
-**message**; the last line of a traceback shows both:
-`ValueError: invalid literal for int() with base 10: 'abc'`.
+### Exceptions
+
+An **exception** is an object Python creates when a line of code cannot finish its work.
+Creating and sending that object is called **raising** the exception. If nothing handles
+it, the program stops and Python prints a **traceback**: the list of lines that were
+running. The last line of the traceback shows the exception **type** and its **message**:
+
+`ValueError: invalid literal for int() with base 10: 'abc'`
 
 | Code | Raises |
 | --- | --- |
@@ -28,72 +121,234 @@ LESSON = r'''
 | `[1, 2][5]` | `IndexError` |
 | `1 / 0` | `ZeroDivisionError` |
 
-**Catching**
+### try, except, else, finally
+
+A `try` statement runs a block of code and **catches** exceptions raised inside it.
+Catching means running an `except` block instead of stopping the program.
+
 ```python
-try:
-    n = int("abc")            # only the risky line
-except (ValueError, TypeError) as e:
-    print("bad value:", e)    # str(e) is the message
-else:
-    print("no error:", n)     # runs only if try raised nothing
-finally:
-    print("always runs")      # cleanup, even when an error escapes
+for text in ["8", "abc"]:
+    try:
+        n = int(text)
+    except ValueError as e:
+        print("bad value:", e)
+    else:
+        print("no error:", n)
+    finally:
+        print("always runs")
+# no error: 8
+# always runs
+# bad value: invalid literal for int() with base 10: 'abc'
+# always runs
 ```
 
-- `except X` catches `X` **and its sub-types**; the first matching `except` wins,
-  so list specific types before general ones.
-- An exception you don't catch keeps going up to the caller (it *propagates*).
+- The `except` block runs only when the `try` block raises a matching exception.
+  `as e` assigns the exception object to `e`, and `str(e)` is its message.
+- The `else` block runs only when the `try` block raises nothing.
+- The `finally` block runs in every case, even when an exception is not caught.
 
-**Raising**
-- `raise ValueError("max_tokens must be at least 1")` - stop and report bad input.
-- `TypeError` = wrong kind of value, `ValueError` = right kind, bad value.
-- Bare `raise` inside `except` re-raises the same exception object.
-- `raise NewError("...") from e` chains: the new error's `__cause__` is `e`.
+Step through the code to see which lines run for `"8"` and which run for `"abc"`.
 
-**Custom exceptions** (one-line classes)
+```diagram
+{"type": "trace", "title": "Which lines run with and without an exception", "code": ["for text in [\"8\", \"abc\"]:", "    try:", "        n = int(text)", "    except ValueError as e:", "        print(\"bad value:\", e)", "    else:", "        print(\"no error:\", n)", "    finally:", "        print(\"always runs\")"], "steps": [
+  {"line": 1, "vars": {}, "out": ""},
+  {"line": 2, "vars": {"text": "'8'"}, "out": ""},
+  {"line": 3, "vars": {"text": "'8'"}, "out": ""},
+  {"line": 7, "vars": {"text": "'8'", "n": "8"}, "out": ""},
+  {"line": 9, "vars": {"text": "'8'", "n": "8"}, "out": "no error: 8\n"},
+  {"line": 1, "vars": {"text": "'8'", "n": "8"}, "out": "no error: 8\nalways runs\n"},
+  {"line": 2, "vars": {"text": "'abc'", "n": "8"}, "out": "no error: 8\nalways runs\n"},
+  {"line": 3, "vars": {"text": "'abc'", "n": "8"}, "out": "no error: 8\nalways runs\n"},
+  {"line": 4, "vars": {"text": "'abc'", "n": "8"}, "out": "no error: 8\nalways runs\n"},
+  {"line": 5, "vars": {"text": "'abc'", "n": "8", "e": "ValueError(\"invalid literal for int() with base 10: 'abc'\")"}, "out": "no error: 8\nalways runs\n"},
+  {"line": 9, "vars": {"text": "'abc'", "n": "8"}, "out": "no error: 8\nalways runs\nbad value: invalid literal for int() with base 10: 'abc'\n"},
+  {"line": 1, "vars": {"text": "'abc'", "n": "8"}, "out": "no error: 8\nalways runs\nbad value: invalid literal for int() with base 10: 'abc'\nalways runs\n"},
+  {"line": null, "vars": {"text": "'abc'", "n": "8"}, "out": "no error: 8\nalways runs\nbad value: invalid literal for int() with base 10: 'abc'\nalways runs\n"}
+]}
+```
+
+`except (ValueError, TypeError):` catches either type. A **sub-type** is a more
+specific kind of another type: `KeyError` and `IndexError` are sub-types of
+`LookupError`, and almost every exception type is a sub-type of `Exception`. `except X`
+also catches every sub-type of `X`. Python checks the `except` lines from top to bottom and runs the first
+one that matches, so write specific types before general ones.
+
+### Propagation
+
+When no `except` matches, the function stops and the exception moves to the line that
+called the function. This is called **propagation**. It repeats for each caller until
+an `except` matches or the program stops.
+
+```python
+def parse(text):
+    return int(text)
+
+def load(text):
+    return parse(text) + 1
+
+try:
+    print(load("41"))
+    print(load("abc"))
+except ValueError as e:
+    print("caught:", e)
+# 42
+# caught: invalid literal for int() with base 10: 'abc'
+```
+
+Click each stage to follow the exception raised by `load("abc")`.
+
+```diagram
+{"type": "flow", "title": "How the ValueError propagates from parse to the except block", "steps": [{"label": "int raises", "detail": "Inside parse, int(\"abc\") cannot build a number. It creates a ValueError object and raises it.", "code": "def parse(text):\n    return int(text)   # ValueError raised here"}, {"label": "parse stops", "detail": "The raising line is not inside a try block in parse. parse stops at that line without returning a value. The exception moves to the line that called parse.", "code": "def load(text):\n    return parse(text) + 1   # the exception arrives here"}, {"label": "load stops", "detail": "That line is not inside a try block in load either. load stops too. The + 1 never runs. The exception moves to the line that called load.", "code": "try:\n    print(load(\"abc\"))   # the exception arrives here"}, {"label": "except matches", "detail": "This line is inside a try block. Python compares the exception type with each except line. ValueError matches except ValueError, so that block runs.", "code": "except ValueError as e:\n    print(\"caught:\", e)\n# caught: invalid literal for int() with base 10: 'abc'"}, {"label": "Program continues", "detail": "The exception is handled. The program continues with the first line after the try statement. If no except had matched, Python would stop the program and print a traceback."}]}
+```
+
+### Raising
+
+`raise` followed by an exception object stops the function and raises that exception.
+Calling the type with a string, as in `ValueError("too high")`, creates an exception
+object with that message.
+
+```python
+def check_temperature(t):
+    if t > 2:
+        raise ValueError(f"temperature must be at most 2, got {t}")
+    return t
+
+print(check_temperature(0.7))
+# 0.7
+try:
+    check_temperature(5)
+except ValueError as e:
+    print("error:", e)
+# error: temperature must be at most 2, got 5
+```
+
+Use `TypeError` when the value has the wrong type. Use `ValueError` when the type is
+right but the value is not acceptable.
+
+`raise` with nothing after it, inside an `except` block, raises the same exception
+object again. `raise NewError("...") from e` raises a new exception and stores `e` in
+it. You read the stored exception by writing `.__cause__` after the new one. This is
+called **exception chaining**.
+
+```python
+try:
+    try:
+        int("hi")
+    except ValueError as e:
+        raise RuntimeError("bad prompt") from e
+except RuntimeError as err:
+    print(err, "| cause:", type(err.__cause__).__name__)
+# bad prompt | cause: ValueError
+```
+
+The inner `except` catches the `ValueError` and raises a `RuntimeError`. The outer
+`except` catches that one. `err.__cause__` is the original `ValueError` object.
+
+### Custom exceptions
+
+A **custom exception** is an exception type you define yourself. `class` is a statement
+that creates a new type. Write `class`, a name, an existing exception type in
+parentheses, and `pass` as the body. `pass` is a statement that does nothing. It is
+there because the body cannot be empty. The new type is a sub-type of the type in the
+parentheses. Classes get their own topic later. For now, copy this form and change the names.
+
 ```python
 class APIError(Exception):
     pass
 
-class RateLimitError(APIError):   # a sub-type: except APIError catches it too
+class RateLimitError(APIError):
     pass
+
+try:
+    raise RateLimitError("slow down")
+except APIError as e:
+    print(type(e).__name__, e)
+# RateLimitError slow down
 ```
 
-**Gotchas**
-- Bare `except:` / `except Exception` hide real bugs - name the types you expect.
-- Keep `try` blocks small, so you only catch errors from the line you meant.
-- Raise, don't `return "error..."`: callers can't tell an error string from data.
-- `True`/`False` pass `isinstance(x, int)` - reject bools explicitly when validating.
-- Retry only *temporary* errors (`TimeoutError`, `ConnectionError`), with a limit
-  and growing waits (exponential backoff: 1, 2, 4...).
+`except APIError` catches `RateLimitError` because `RateLimitError` is a sub-type of
+`APIError`.
+
+### Common mistakes
+
+- `except:` with no type or `except Exception:` also catches exceptions caused by bugs in your
+  own code, such as `NameError`, which Python raises for a name that is misspelled or not defined.
+  Name the types you expect.
+- A large `try` block catches exceptions from lines you did not intend to cover. Put
+  only the line that can fail inside `try`.
+- `return "error: ..."` gives the caller a string that looks like normal data. Raise an
+  exception instead.
+- `isinstance(x, int)` checks a type: it is `True` when `x` is an int. `isinstance(True, int)` is also
+  `True`, because `bool` is a sub-type of `int`. Reject bools
+  with a separate `isinstance(x, bool)` check when you validate numbers.
+- Retry only temporary errors such as `TimeoutError` and `ConnectionError`. Set a
+  maximum number of attempts and double the wait each time (1, 2, 4 seconds). This is
+  called **exponential backoff**.
+
+Docs: https://docs.python.org/3/tutorial/errors.html
 '''
 
 EXERCISES = [
     {
         "id": "errors-s1",
         "lesson": r'''
-            Think of `try` as a trapeze act with a **safety net**. You try the risky move. If
-            you fall, the net (`except`) catches you and the show goes on. Without a net, one
-            fall ends the whole show - that is your program crashing.
+            ## try and except
+
+            Some lines of code can fail. `int("three")` fails because `"three"` is not a number.
+            When a line fails, Python creates an **exception**: an object that describes what went
+            wrong. We say the line **raises** the exception.
+
+            If nothing handles the exception, the program stops and prints a **traceback**: the
+            list of lines that were running, followed by the error.
+
+            A `try` statement handles the exception instead. Put the line that can fail in the
+            `try` block. Put the code to run on failure in the `except` block. We say `except`
+            **catches** the exception.
 
             ```python
             for text in ["3", "three"]:
                 try:
-                    print("converted:", int(text))
+                    tokens = int(text)
+                    print("converted:", tokens)
                 except ValueError:
                     print("could not convert", text)
             print("still running")
+            # converted: 3
+            # could not convert three
+            # still running
             ```
 
-            When a line inside `try` fails, Python **jumps straight** to the `except` block. The
-            rest of the `try` block is skipped. After the `except` block, the program carries
-            on as normal.
+            `ValueError` is the kind of exception that `int("three")` raises.
 
-            The proper name for "something went wrong" is an **exception**. We say a line
-            *raises* an exception, and `except` *catches* (or *handles*) it. An exception
-            nobody catches stops the program and prints a *traceback*.
+            Python does this, in order:
 
-            Watch out: lines in `try` **after** the failing line never run.
+            1. It runs the lines in the `try` block from the top.
+            2. If a line raises an exception, Python stops the `try` block at that line and runs
+               the `except` block.
+            3. If no line raises, Python skips the `except` block.
+            4. The program continues with the code after the `try` statement.
+
+            Step through the code and watch which line runs after `int("three")` raises.
+
+            ```diagram
+            {"type": "trace", "title": "Where Python jumps when int(text) raises", "code": ["for text in [\"3\", \"three\"]:", "    try:", "        tokens = int(text)", "        print(\"converted:\", tokens)", "    except ValueError:", "        print(\"could not convert\", text)", "print(\"still running\")"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"text": "'3'"}, "out": ""},
+              {"line": 3, "vars": {"text": "'3'"}, "out": ""},
+              {"line": 4, "vars": {"text": "'3'", "tokens": "3"}, "out": ""},
+              {"line": 1, "vars": {"text": "'3'", "tokens": "3"}, "out": "converted: 3\n"},
+              {"line": 2, "vars": {"text": "'three'", "tokens": "3"}, "out": "converted: 3\n"},
+              {"line": 3, "vars": {"text": "'three'", "tokens": "3"}, "out": "converted: 3\n"},
+              {"line": 5, "vars": {"text": "'three'", "tokens": "3"}, "out": "converted: 3\n"},
+              {"line": 6, "vars": {"text": "'three'", "tokens": "3"}, "out": "converted: 3\n"},
+              {"line": 1, "vars": {"text": "'three'", "tokens": "3"}, "out": "converted: 3\ncould not convert three\n"},
+              {"line": 7, "vars": {"text": "'three'", "tokens": "3"}, "out": "converted: 3\ncould not convert three\n"},
+              {"line": null, "vars": {"text": "'three'", "tokens": "3"}, "out": "converted: 3\ncould not convert three\nstill running\n"}
+            ]}
+            ```
+
+            The lines in `try` after the failing line never run. For `"three"`, the
+            `print("converted:", tokens)` line is skipped.
         ''',
         "title": "Where does it jump?",
         "difficulty": 0,
@@ -128,32 +383,43 @@ EXERCISES = [
     {
         "id": "errors-s2",
         "lesson": r'''
-            Every exception has a **name tag**, like a warning light on a car dashboard: "oil",
-            "battery", "brakes". Each light means a different problem. Python's warning lights
-            are exception *types*.
+            ## Exception types
 
-            You find the name on the **last line** of the traceback, before the colon:
+            Every exception has a **type**: a name that says which kind of problem happened. It
+            also has a **message**: text with the details.
+
+            This program raises on purpose. Read the last line of the error it prints.
+
+            ```python
+            print(int("abc"))
+            # ValueError: invalid literal for int() with base 10: 'abc'
+            ```
+
+            The part before the colon is the exception type, `ValueError`. The part after the colon
+            is the message.
+
+            After `except` you write the type you want to catch.
 
             ```python
             try:
                 print(10 / 2)
                 print(int("abc"))
-            except ValueError as e:
-                print("type: ValueError | message:", e)
+            except ValueError:
+                print("that text is not a number")
+            # 5.0
+            # that text is not a number
             ```
 
-            If you ran `int("abc")` without the `try`, the last line of the error would read
-            `ValueError: invalid literal for int() with base 10: 'abc'`. The part before the
-            colon is the **exception type**; the part after is the **message**.
+            These are the types you meet most often:
 
-            Common types you will meet:
-            - `ValueError` - right kind of value, but unusable (`int("abc")`)
-            - `TypeError` - wrong kind of value (`int(None)`)
-            - `KeyError` - dict key not found
-            - `ZeroDivisionError` - dividing by zero
+            - `ValueError`: the value has the right type but cannot be used, as in `int("abc")`.
+            - `TypeError`: the value has the wrong type, as in `int(None)`.
+            - `KeyError`: a dict does not have the key you asked for.
+            - `ZeroDivisionError`: you divided by zero.
 
-            After `except` you write the **type name** you want to catch. To discover a type,
-            make the error happen on purpose and read the last line.
+            To find out which type a line raises, run the line without `try` and read the last
+            line of the traceback. Copy the type name exactly. No type is called `ZeroDivision`, so
+            `except ZeroDivision:` raises `NameError` as soon as an exception reaches that line, because Python looks up the name `ZeroDivision` and does not find it.
         ''',
         "title": "Catch the right error",
         "difficulty": 0,
@@ -210,25 +476,42 @@ EXERCISES = [
     {
         "id": "errors-s3",
         "lesson": r'''
-            `except` is like a **bouncer checking names on a list**. He only stops the people
-            whose name is on his list. Anyone else walks straight past him - into your program,
-            which crashes.
+            ## except only catches the type it names
+
+            An `except ValueError:` block catches `ValueError` exceptions. It does not catch a
+            `KeyError` or a `TypeError`.
+
+            When a line in `try` raises, Python compares the exception's type with the type written
+            after `except`. If they match, the `except` block runs.
+
+            ```python
+            try:
+                print(int("oops"))
+            except ValueError:
+                print("not a number")
+            # not a number
+            ```
+
+            If they do not match, the `except` block does not run and the exception is not
+            caught. It moves on to the code that called this code.
+            This is called **propagation**. If nothing there catches it either, the program stops.
+
+            The next program raises on purpose. `int("oops")` raises `ValueError`, but the `except`
+            line names `KeyError`.
 
             ```python
             try:
                 print(int("oops"))
             except KeyError:
                 print("never printed")
+            # ValueError: invalid literal for int() with base 10: 'oops'
             ```
 
-            Run it: the program still crashes with `ValueError`, because the `except` only
-            names `KeyError`. The names don't match, so the "net" isn't there.
+            The program stops with a traceback. Its last line names `ValueError`, which is the type
+            the `except` line needed.
 
-            So an `except TypeName:` block catches **only that type** (and its sub-types, which
-            you'll meet later). Everything else keeps going up - we say it **propagates**.
-
-            Watch out: when a `try`/`except` "doesn't work", the first thing to check is
-            whether the type in `except` matches the type in the traceback.
+            When a `try` statement does not catch an error, compare two things: the type on the
+            last line of the traceback, and the type after `except`. They must be the same.
         ''',
         "title": "Fix: wrong exception type",
         "difficulty": 0,
@@ -284,34 +567,46 @@ EXERCISES = [
     {
         "id": "errors-s4",
         "lesson": r'''
-            So far Python raised errors for you. You can raise them **yourself**. It's like a
-            machine with an emergency **stop button**: when the input is dangerous, you press
-            it instead of carrying on and producing garbage.
+            ## Raising an exception
+
+            So far Python raised the exceptions. Your own code can raise them too, with the `raise`
+            keyword. Use it when a function receives a value it cannot work with.
 
             ```python
-            def set_volume(level):
-                if level > 10:
-                    raise ValueError(f"volume must be at most 10, got {level}")
-                return level
+            def check_temperature(t):
+                if t > 2:
+                    raise ValueError(f"temperature must be at most 2, got {t}")
+                return t
 
-            print(set_volume(7))
+            print(check_temperature(0.7))
+            # 0.7
             try:
-                set_volume(99)
+                check_temperature(5)
             except ValueError as e:
                 print("error:", e)
+            # error: temperature must be at most 2, got 5
             ```
 
-            The keyword is **`raise`**, followed by an exception type called like a function
-            with a message: `raise ValueError("...")`. The function stops right there - no
-            `return` runs after it. The caller can catch it with `try`/`except`, or let it
-            crash the program.
+            After `raise` you write the exception type, then the message in parentheses:
+            `raise ValueError("...")`.
 
-            Pick the type that fits: `ValueError` when a value is the right kind but not
-            acceptable (a negative count), `TypeError` when it's the wrong kind (a string
-            where a number belongs).
+            `as e` on the `except` line assigns the caught exception to the name `e`.
+            Printing `e` prints its message. A later step covers this.
 
-            Watch out: don't `return "error: ..."`. A string looks like normal data; an
-            exception can't be missed.
+            `raise` stops the function at that line. No later line in the function runs, so the
+            `return t` is skipped. The exception goes to the code that called the function. That
+            code can catch it with `try` and `except`. If it does not, the program stops with a
+            traceback.
+
+            Choose the type that describes the problem:
+
+            - `ValueError`: the type is right but the value is not acceptable, such as a negative
+              count.
+            - `TypeError`: the type is wrong, such as a string where a number is required.
+
+            Do not write `return "error: too high"` instead. The caller receives a string and
+            cannot tell it apart from a normal result. An exception that is not caught stops the
+            program, so the problem is always visible.
         ''',
         "title": "Raise on bad input",
         "difficulty": 0,
@@ -377,9 +672,11 @@ EXERCISES = [
     {
         "id": "errors-s5",
         "lesson": r'''
-            A dict is a coat check: you give a ticket (the key), you get a coat (the value).
-            Hand over a ticket that doesn't exist and the attendant doesn't shrug - he raises
-            the alarm. With square brackets, that alarm is a **`KeyError`**.
+            ## KeyError
+
+            Reading a dict with square brackets raises `KeyError` when the key is not in the dict.
+            The exception's message is the missing key. For a string key, the message
+            includes the quotes.
 
             ```python
             settings = {"temperature": 0.2}
@@ -387,18 +684,33 @@ EXERCISES = [
                 print(settings["max_tokens"])
             except KeyError as e:
                 print("missing key:", e)
-            print("carry on")
+            print("program continues")
+            # missing key: 'max_tokens'
+            # program continues
             ```
 
-            Remember the safety net? You can put a dict lookup inside `try` and catch the
-            `KeyError` to use a **fallback value** instead.
+            You can use this to supply a **fallback value**: a value to use when the real one is
+            missing. Put the lookup in `try`, and return the fallback in `except KeyError`.
 
-            You already know `.get(key, default)` does something similar. Both are fine
-            Python; the `try` version is called "**EAFP**" - *easier to ask forgiveness than
-            permission*: just try it, and handle the failure if it happens.
+            ```python
+            def get_max_tokens(settings):
+                try:
+                    return settings["max_tokens"]
+                except KeyError:
+                    return 256
 
-            Watch out: a `KeyError` is not a `ValueError` - the bouncer only stops the name
-            on his list.
+            print(get_max_tokens({"max_tokens": 100}))
+            # 100
+            print(get_max_tokens({"temperature": 0.2}))
+            # 256
+            ```
+
+            `settings.get("max_tokens", 256)` gives the same result. Both forms are correct Python.
+            The `try` form has a name: **EAFP**, short for "easier to ask forgiveness than
+            permission". You run the operation first and handle the exception if it happens.
+
+            The type after `except` must be `KeyError`. `except ValueError:` does not catch a
+            missing key, and the program stops with a traceback.
         ''',
         "title": "Missing config key",
         "difficulty": 0,
@@ -455,34 +767,49 @@ EXERCISES = [
         "hints": [
             "Looking up a missing key with square brackets raises KeyError. Wrap that lookup in try.",
             "Return the lookup inside try; in the except KeyError block return the default model name.",
-            "try: return config[\"model\"]  -  then except KeyError: return \"gpt-4o-mini\".",
+            "try: return config[\"model\"]. Then except KeyError: return \"gpt-4o-mini\".",
         ],
     },
     {
         "id": "errors-s6",
         "lesson": r'''
-            When the safety net catches you, you can also **read the incident report**: what
-            exactly went wrong. Add `as e` to the `except` line and `e` holds the exception
-            object.
+            ## Reading the exception message
+
+            Add `as e` to the `except` line to get the exception object. Python assigns the caught
+            exception to the name `e`. You can then read its message.
 
             ```python
             try:
                 int("ten")
             except ValueError as e:
-                print("caught it!")
+                print("caught it")
                 print(str(e))
+            # caught it
+            # invalid literal for int() with base 10: 'ten'
             ```
 
-            `str(e)` turns the exception into its **message** - the same text you see after
-            the colon in a traceback. Here that is `invalid literal for int() with base 10: 'ten'`.
+            `str(e)` returns the exception's **message** as a string. It is the same text that
+            appears after the colon on the last line of a traceback.
 
-            The name `e` is just a variable name (people also use `err` or `exc`). It only
-            exists inside the `except` block.
+            `e` is an ordinary variable name. `err` and `exc` are also common. The name exists only
+            inside the `except` block. Python deletes it when the block ends, so using `e` after
+            the block raises `NameError`.
 
-            This matters in AI apps: when an API call fails, you want to log *why* it failed,
-            or show the message to the user, not just "something broke".
+            An f-string converts the exception the same way, so you can build a longer message.
 
-            Watch out: `print(e)` and `str(e)` show the message only, not the type name.
+            ```python
+            try:
+                int("ten")
+            except ValueError as e:
+                print(f"request failed: {e}")
+            # request failed: invalid literal for int() with base 10: 'ten'
+            ```
+
+            In an AI app, an API call can fail for many reasons. Printing the message, or showing it
+            to the user, tells them which reason it was.
+
+            `print(e)` and `str(e)` give the message only. They do not include the type name
+            `ValueError`.
         ''',
         "title": "Read the error message",
         "difficulty": 0,
@@ -551,8 +878,11 @@ EXERCISES = [
                        "url": "https://docs.python.org/3/library/exceptions.html#concrete-exceptions"}],
         },
         "lesson": r'''
-            One net can catch **several kinds of falls**. Put the exception types in brackets,
-            separated by commas - a *tuple* of types.
+            ## Catching several types
+
+            One `except` line can catch more than one exception type. Write the types in round
+            brackets, separated by commas. This comma-separated group in round brackets is a
+            **tuple**.
 
             ```python
             def to_number(value):
@@ -561,18 +891,39 @@ EXERCISES = [
                 except (ValueError, TypeError):
                     return None
 
-            print(to_number("1.5"), to_number("abc"), to_number([1]))
+            print(to_number("1.5"))
+            # 1.5
+            print(to_number("abc"))
+            # None
+            print(to_number([1]))
+            # None
             ```
 
-            Here `float("abc")` raises `ValueError` and `float([1])` raises `TypeError`; the
-            single `except` handles both the same way.
+            `float("abc")` raises `ValueError`. `float([1])` raises `TypeError`. The `except` block
+            runs for either one.
 
-            Why not catch *everything* with a bare `except:` or `except Exception:`? Because
-            that net also catches your own bugs - a typo in a variable name (`NameError`)
-            would silently turn into "return None" and you'd never find it.
+            ### Why not catch everything
 
-            The rule of thumb: **catch the specific exceptions you expect**, and let the rest
-            crash loudly so you can fix them.
+            `except:` with no type and `except Exception:` catch almost every exception. That
+            includes exceptions caused by bugs in your own code.
+
+            ```python
+            def count_chars(text):
+                try:
+                    return len(txt)
+                except Exception:
+                    return 0
+
+            print(count_chars("three short words"))
+            # 0
+            ```
+
+            The name `txt` is a typing mistake for `text`, so the line raises `NameError`.
+            `except Exception:` catches it and the function returns `0`. No error is shown, and the
+            caller cannot tell this `0` from a correct count.
+
+            Catch only the types you expect. Any other exception then stops the program with a
+            traceback that shows you the line to fix.
         ''',
         "title": "Safe token count",
         "hints": [
@@ -587,7 +938,7 @@ EXERCISES = [
 
             **Write:** `parse_tokens(value)`
 
-            - `value`: anything - usually a string like `"42"` or an int like `7`, but it
+            - `value`: anything, usually a string like `"42"` or an int like `7`, but it
               can be junk like `"n/a"` or `None`
             - **Returns:** `int(value)` as an int, or `0` when the conversion fails
 
@@ -642,36 +993,52 @@ EXERCISES = [
     {
         "id": "errors-2",
         "lesson": r'''
-            Validating input is like a **bouncer at the door with a checklist**: check each
-            rule in order, and turn someone away at the *first* failed rule, saying why.
+            ## Validating input
+
+            To **validate** a value is to check that it is acceptable before you use it. Write one
+            `if` per rule. Each `if` raises an exception when its rule is broken. The first broken
+            rule stops the function, so later checks do not run.
+
+            `isinstance(value, int)` returns `True` when `value` is an int. Pass a tuple of types
+            to accept any of them.
 
             ```python
-            def check_age(age):
-                if not isinstance(age, int) or isinstance(age, bool):
-                    raise TypeError("age must be an int")
-                if age < 0:
-                    raise ValueError("age must not be negative")
-
-            check_age(30)
-            try:
-                check_age("30")
-            except TypeError as e:
-                print(e)
+            print(isinstance(5, int))
+            # True
+            print(isinstance("5", int))
+            # False
+            print(isinstance(0.5, (int, float)))
+            # True
             ```
 
-            `isinstance(value, int)` asks "is this an int?". You can pass a tuple of types:
-            `isinstance(x, (int, float))` means "int or float".
+            Raise `TypeError` when the value has the wrong type, such as a string where a number
+            is required. Raise `ValueError` when the type is right but the value is out of range.
 
-            Two kinds of "no":
-            - **`TypeError`**: wrong *kind* of thing (a string where a number belongs).
-            - **`ValueError`**: right kind, bad *value* (a number out of range).
+            ```python
+            def check_top_k(top_k):
+                if not isinstance(top_k, int) or isinstance(top_k, bool):
+                    raise TypeError("top_k must be an int")
+                if top_k < 1:
+                    raise ValueError("top_k must be at least 1")
 
-            Put the parameter's name in the message: `"max_tokens must be an int"` tells the
-            caller exactly what to fix. This is called *failing fast*: stop at the door, before
-            the bad value causes a confusing error deep inside your program.
+            check_top_k(40)
+            print("40 is valid")
+            # 40 is valid
+            try:
+                check_top_k("40")
+            except TypeError as e:
+                print(e)
+            # top_k must be an int
+            ```
 
-            Watch out: `isinstance(True, int)` is `True` - Python treats bools as ints. Reject
-            them with an extra `isinstance(x, bool)` check.
+            Put the parameter's name in the message. `"top_k must be an int"` tells the caller
+            which argument to fix.
+
+            Checking at the start of a function is called **failing fast**. The error appears at
+            the call with the bad value, not later in a line that only uses it.
+
+            `isinstance(True, int)` returns `True`, because Python defines `bool` as a
+            **sub-type** of `int`: every bool also counts as an int. To reject `True` and `False`, add the `isinstance(x, bool)` check shown above.
         ''',
         "title": "Validate generation params",
         "hints": [
@@ -772,11 +1139,14 @@ EXERCISES = [
     {
         "id": "errors-7",
         "lesson": r'''
-            Built-in exception names are generic. Your app can have **its own warning lights**
-            with names that mean something in *your* world: `RateLimitError`,
-            `BudgetExceededError`.
+            ## Custom exceptions
 
-            Making one takes two lines - a *class* that is based on `Exception`:
+            The built-in exception names are general. A **custom exception** is an exception type
+            you define yourself, with a name that describes a problem in your program, such as
+            `RateLimitError` or `TooLongError`.
+
+            You define one with a **class**: a statement that creates a new type. Write `class`,
+            the new name, and `Exception` in parentheses. The body is the single word `pass`.
 
             ```python
             class TooLongError(Exception):
@@ -787,19 +1157,30 @@ EXERCISES = [
                     raise TooLongError("prompt too long")
                 return text
 
+            print(check_prompt("hi"))
+            # hi
             try:
                 check_prompt("a very long prompt")
             except TooLongError as e:
                 print("caught:", e)
+            # caught: prompt too long
             ```
 
-            We haven't studied classes yet, and you don't need to: treat
-            `class Name(Exception): pass` as a recipe. `pass` means "nothing else to add".
-            The new type behaves like any other exception: you `raise` it with a message and
-            catch it by name.
+            `(Exception)` makes the new type a kind of `Exception`, so it works with `raise` and
+            `except`. `pass` is a statement that does nothing. It is there because a class body
+            cannot be empty.
 
-            The proper name is a **custom exception**. Callers can now write
-            `except TooLongError:` and be sure they only catch *that* problem.
+            Classes are covered in a later topic. For now, copy the two-line form and change the
+            name.
+
+            The new type works the same way as the built-in ones. You raise it with a message,
+            catch it by name, and read the message with `str(e)`.
+
+            `except TooLongError:` catches only that type. A `ValueError` raised by the same code
+            is not caught, so callers can handle each problem separately.
+
+            Python runs the file from top to bottom. Define the class before the first line that
+            raises it runs. Raising a name that is not defined yet raises `NameError`.
         ''',
         "title": "Your own exception",
         "difficulty": 1,
@@ -860,7 +1241,7 @@ EXERCISES = [
                 return budget - cost
         ''',
         "hints": [
-            "First create the exception type with the two-line class recipe, then use raise inside spend.",
+            "First create the exception type with the two-line class form, then use raise inside spend.",
             "Define the class above the function. In spend, check whether cost is bigger than budget before doing the subtraction.",
             "Write class BudgetExceededError(Exception): with pass inside. In spend: if cost > budget, raise BudgetExceededError with the message \"budget exceeded\"; otherwise return budget minus cost.",
         ],
@@ -868,9 +1249,10 @@ EXERCISES = [
     {
         "id": "errors-8",
         "lesson": r'''
-            Imagine borrowing a library book. Whatever happens while you read - you finish
-            it, you fall asleep, the fire alarm goes off - **you always return the book**.
-            That's `finally`: code that runs no matter how the `try` block ends.
+            ## finally
+
+            A `finally` block holds code that runs every time the `try` block ends, whichever way
+            it ends.
 
             ```python
             def risky(n):
@@ -881,20 +1263,56 @@ EXERCISES = [
                     print("close")
 
             print(risky(2))
+            # open
+            # close
+            # 5.0
             try:
                 risky(0)
             except ZeroDivisionError:
                 print("error reached the caller")
+            # open
+            # close
+            # error reached the caller
             ```
 
-            `finally` runs when the `try` block finishes normally, when it `return`s, **and**
-            when an exception flies out of it. It doesn't stop the exception: after `finally`
-            runs, the error keeps going to the caller.
+            The `finally` block runs in all three cases:
 
-            You can use `try` + `finally` with no `except` at all. That's the pattern for
-            **cleanup**: closing a file, stopping a timer, writing "done" to a log.
+            - The `try` block reaches its end.
+            - The `try` block runs `return`. Python runs `finally` first, then returns the value.
+            - The `try` block raises an exception. Python runs `finally` first, then the exception
+              continues to the caller.
 
-            Watch out: don't `return` from inside `finally` - it would swallow the error.
+            `finally` does not catch the exception. `risky(0)` prints `close` and the
+            `ZeroDivisionError` still reaches the caller.
+
+            Step through both calls and watch line 6 run after line 4 each time.
+
+            ```diagram
+            {"type": "trace", "title": "finally runs on return and on an exception", "code": ["def risky(n):", "    print(\"open\")", "    try:", "        return 10 / n", "    finally:", "        print(\"close\")", "", "print(risky(2))", "try:", "    risky(0)", "except ZeroDivisionError:", "    print(\"error reached the caller\")"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 8, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"n": "2"}, "out": ""},
+              {"line": 3, "vars": {"n": "2"}, "out": "open\n"},
+              {"line": 4, "vars": {"n": "2"}, "out": "open\n"},
+              {"line": 6, "vars": {"n": "2"}, "out": "open\n"},
+              {"line": 9, "vars": {}, "out": "open\nclose\n5.0\n"},
+              {"line": 10, "vars": {}, "out": "open\nclose\n5.0\n"},
+              {"line": 2, "vars": {"n": "0"}, "out": "open\nclose\n5.0\n"},
+              {"line": 3, "vars": {"n": "0"}, "out": "open\nclose\n5.0\nopen\n"},
+              {"line": 4, "vars": {"n": "0"}, "out": "open\nclose\n5.0\nopen\n"},
+              {"line": 6, "vars": {"n": "0"}, "out": "open\nclose\n5.0\nopen\n"},
+              {"line": 11, "vars": {}, "out": "open\nclose\n5.0\nopen\nclose\n"},
+              {"line": 12, "vars": {}, "out": "open\nclose\n5.0\nopen\nclose\n"},
+              {"line": null, "vars": {}, "out": "open\nclose\n5.0\nopen\nclose\nerror reached the caller\n"}
+            ]}
+            ```
+
+            A `try` statement can have `finally` and no `except`. Use this form for **cleanup**:
+            work that must happen in every case, such as closing a file, stopping a timer or
+            printing a "done" message.
+
+            Do not write `return` inside `finally`. That `return` discards the exception, and the
+            caller never sees the error.
         ''',
         "title": "Always log the end",
         "difficulty": 1,
@@ -991,7 +1409,7 @@ EXERCISES = [
         "title": "API error hierarchy",
         "hints": [
             "Custom exceptions are one-line classes: class Name(Parent): pass. Using another custom exception as the parent makes a sub-type. except catches the named type AND its sub-types.",
-            "raise_for_status picks which exception to raise based on the status code. describe_failure calls it inside try and has one except block per type - the specific ones (AuthError, RateLimitError) must come before APIError.",
+            "raise_for_status picks which exception to raise based on the status code. describe_failure calls it inside try and has one except block per type. The specific ones (AuthError, RateLimitError) must come before APIError.",
             "Define APIError(Exception), RateLimitError(APIError), AuthError(APIError), each with pass. raise_for_status: return None for 200..299; message = body.get(\"error\", \"unknown error\"); raise AuthError(message) for 401/403, RateLimitError(message) for 429, otherwise APIError(message). describe_failure: try raise_for_status and return \"ok\"; except AuthError as e: return f\"auth: {e}\"; then RateLimitError, then APIError.",
         ],
         "difficulty": 2,
@@ -1162,7 +1580,7 @@ EXERCISES = [
               `None` (the error is swallowed).
             - If `step()` succeeds: in the `else` block, append `"ok"` to `log` and return
               the result. Because this is in `else`, a `KeyError` raised while appending
-              `"ok"` is **not** caught - it propagates to the caller.
+              `"ok"` is **not** caught: it propagates to the caller.
             - Any other exception from `step()` (e.g. `ZeroDivisionError`) is **not**
               caught: it propagates to the caller.
             - In **every** case, `"done"` is appended to `log` last (in `finally`), even
@@ -1287,7 +1705,7 @@ EXERCISES = [
             - Between two attempts, if `sleep` is not `None`, call `sleep(delay)` with
               delays `1`, then `2`, then `4`, ... (doubling). Never sleep after the final
               attempt.
-            - If every attempt fails, re-raise the **last** exception - the very same
+            - If every attempt fails, re-raise the **last** exception: the very same
               exception object, not a new one.
             - Any **other** exception (e.g. `KeyError`) propagates immediately, with no
               retry.

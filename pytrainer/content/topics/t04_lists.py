@@ -13,43 +13,281 @@ TOPIC = {
                  "nested lists"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["list", "square brackets", "index", "negative index", "slice", "append", "pop",
+                 "insert", "remove", "sort", "sorted", "copy", "alias", "len", "indexerror",
+                 "nested"],
+    "cards": [
+        {
+            "syntax": "items[i]  /  items[-1]",
+            "explain": "Reads the item at index i. The first index is 0. A negative index counts from the end, so -1 is the last item.",
+            "example": r'''
+                models = ["gpt-4o", "claude", "llama"]
+                print(models[0], models[-1])
+                # gpt-4o llama
+                print(len(models))
+                # 3
+            ''',
+        },
+        {
+            "syntax": "items[start:stop]",
+            "explain": "A new list with the items from index start up to, but not including, stop. Both parts are optional.",
+            "example": r'''
+                chunks = ["a", "b", "c", "d", "e"]
+                print(chunks[1:3])
+                # ['b', 'c']
+                print(chunks[:2], chunks[-2:])
+                # ['a', 'b'] ['d', 'e']
+            ''',
+        },
+        {
+            "syntax": "items.append(x)  /  items.pop()",
+            "explain": "append adds x at the end and returns None. pop removes the last item and returns it. Both change the list.",
+            "example": r'''
+                tools = ["search"]
+                tools.append("email")
+                print(tools)
+                # ['search', 'email']
+                print(tools.pop())
+                # email
+            ''',
+        },
+        {
+            "syntax": "items.insert(i, x)  /  items.remove(x)",
+            "explain": "insert puts x at index i. remove deletes the first item equal to x and raises ValueError if there is none.",
+            "example": r'''
+                models = ["gpt-4o", "claude", "llama"]
+                models.remove("claude")
+                models.insert(0, "mistral")
+                print(models)
+                # ['mistral', 'gpt-4o', 'llama']
+            ''',
+        },
+        {
+            "syntax": "x in items",
+            "explain": "True when some item of the list equals x. x not in items gives the opposite result.",
+            "example": r'''
+                tools = ["search", "calculator"]
+                print("search" in tools)
+                # True
+                print("email" not in tools)
+                # True
+            ''',
+        },
+        {
+            "syntax": "sorted(items)  /  items.sort()",
+            "explain": "sorted returns a new sorted list. sort reorders the existing list and returns None. Both accept reverse=True.",
+            "example": r'''
+                scores = [0.2, 0.9, 0.5]
+                print(sorted(scores, reverse=True))
+                # [0.9, 0.5, 0.2]
+                scores.sort()
+                print(scores)
+                # [0.2, 0.5, 0.9]
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
 ## Chapter notes: Lists
 
-A **list** is an ordered, changeable collection: `models = ["gpt-4o", "claude", "llama"]`.
-`[]` is the empty list. Items can be anything, even other lists or tuples.
+A **list** is a value that holds other values in a fixed order. You write a list with
+square brackets and separate the items with commas. `[]` is the empty list. An item can
+be any value, including another list or a tuple.
 
-**Reading**
-- `len(models)` - how many items (3).
-- `models[0]` - first item (indexes start at **0**). `models[2]` - third.
-- `models[-1]` - last item, `models[-2]` - second to last.
-- `models[3]` on a 3-item list -> `IndexError`.
+```python
+models = ["gpt-4o", "claude", "llama"]
+print(models)
+# ['gpt-4o', 'claude', 'llama']
+print(len(models))
+# 3
+```
 
-**Slicing** `items[start:stop]` - a **new** list from `start` up to but **not including**
-`stop`. `items[:2]` first two, `items[-2:]` last two, `items[:]` a copy of everything.
-Slices never raise errors: out-of-range bounds are simply clipped. Careful: `items[-0:]`
-is the *whole* list (because `-0 == 0`).
+`len(models)` returns the number of items in the list.
 
-**Changing in place** (these return `None`!)
-- `items.append(x)` - add at the end. `items.extend(other)` - add every item of `other`.
-- `items.insert(i, x)` - add at position `i`.
-- `items.remove(x)` - delete the first `x` (`ValueError` if missing).
-- `items.pop()` - remove and **return** the last item; `items.pop(0)` the first.
-- `items.sort()` / `items.sort(reverse=True)` - sort the list itself.
+### Indexes
 
-**Asking questions**
-- `x in items` / `x not in items` - `True` or `False`.
-- `items.count(x)` - how many times `x` appears. `items.index(x)` - position of first `x`.
+An **index** is a whole number that gives the position of an item. The first item has
+index `0`. A negative index counts from the end, so `-1` is the last item.
 
-**New lists** - `sorted(items)` (and `reverse=True`), `a + b`, `items.copy()`, slices.
+```python
+models = ["gpt-4o", "claude", "llama"]
+print(models[0])
+# gpt-4o
+print(models[2])
+# llama
+print(models[-1])
+# llama
+print(models[-2])
+# claude
+```
 
-**Copy vs alias** - `b = a` gives the *same* list two names; changing one changes "both".
-Use `b = a.copy()` (or `a[:]`) for an independent copy.
+A list with 3 items has the indexes 0, 1 and 2. `models[3]` stops
+the program with `IndexError: list index out of range`. (The proper verb for this is
+**raises**: the index lookup raises an `IndexError`.)
 
-**Gotchas**
-- `tools = tools.append("x")` sets `tools` to `None`. Call `tools.append("x")` on its own.
-- `best = scores.sort()` is `None`; use `best = sorted(scores)`.
-- Don't modify a list the caller gave you unless the spec says to - copy first.
+A list inside a list is a **nested list**. Use one index after the other: the first index
+picks the inner list (or tuple) and the second picks an item of it.
+
+```python
+history = [("user", "hi"), ("assistant", "hello")]
+print(history[0])
+# ('user', 'hi')
+print(history[0][0])
+# user
+```
+
+### Slices
+
+A **slice** `items[start:stop]` builds a new list. It holds the items from index `start`
+up to, but not including, index `stop`. If you leave out `start`, the slice begins at
+index 0. If you leave out `stop`, the slice runs to the end of the list.
+
+```python
+chunks = ["a", "b", "c", "d", "e"]
+print(chunks[1:3])
+# ['b', 'c']
+print(chunks[:2])
+# ['a', 'b']
+print(chunks[-2:])
+# ['d', 'e']
+print(chunks[:10])
+# ['a', 'b', 'c', 'd', 'e']
+```
+
+A slice never raises `IndexError`. When `start` or `stop` is past the end of the list,
+Python uses the end of the list instead. `chunks[:]` is a copy of the whole list.
+
+Drag the start and stop handles to see which items the slice takes.
+
+```diagram
+{"type":"slice","title":"Slicing chunks","name":"chunks","items":["a","b","c","d","e"],"start":1,"stop":3}
+```
+
+### Methods that change the list
+
+A **method** is a function that you call on a value with a dot, as in
+`tools.append("email")`. The methods below change the list **in place**: they modify the
+existing list, do not create a new one and return `None`. Only `pop` returns something else.
+
+```python
+tools = ["search"]
+tools.append("calculator")
+tools.extend(["weather", "email"])
+tools.insert(0, "browser")
+tools.remove("weather")
+print(tools)
+# ['browser', 'search', 'calculator', 'email']
+print(tools.pop())
+# email
+print(tools.pop(0))
+# browser
+print(tools)
+# ['search', 'calculator']
+```
+
+- `append(x)` adds `x` at the end.
+- `extend(other)` adds every item of the list `other` at the end.
+- `insert(i, x)` puts `x` at index `i` and moves the later items one position right.
+- `remove(x)` deletes the first item equal to `x`. It raises `ValueError` if no item is equal to `x`.
+- `pop()` removes the last item and returns it. `pop(0)` removes and returns the first item.
+
+### Sorting
+
+`sorted(items)` returns a new sorted list and leaves `items` unchanged. `items.sort()`
+sorts the list in place and returns `None`. Both accept `reverse=True` to put the
+largest value first. `reverse=True` is a **keyword argument**: you pass it by name.
+
+```python
+scores = [0.2, 0.9, 0.5]
+print(sorted(scores, reverse=True))
+# [0.9, 0.5, 0.2]
+print(scores)
+# [0.2, 0.9, 0.5]
+scores.sort()
+print(scores)
+# [0.2, 0.5, 0.9]
+```
+
+### Questions about a list
+
+`x in items` is `True` when some item equals `x`, and `x not in items` is the opposite.
+`items.count(x)` returns how many items equal `x`. `items.index(x)` returns the index of
+the first item equal to `x`.
+
+```python
+calls = ["search", "search", "weather"]
+print("search" in calls)
+# True
+print("email" not in calls)
+# True
+print(calls.count("search"))
+# 2
+print(calls.index("weather"))
+# 2
+```
+
+### New lists
+
+An **object** is one value stored in the computer's memory. These expressions create a new
+list object and leave the original unchanged:
+`sorted(items)`, `a + b`, `items.copy()` and any slice.
+
+```python
+calls = ["search", "search", "weather"]
+print(calls + ["email"])
+# ['search', 'search', 'weather', 'email']
+print(calls)
+# ['search', 'search', 'weather']
+```
+
+### Copy and alias
+
+`backup = history` does not create a list. It makes the name `backup` refer to the same
+list object that `history` refers to. Two names for one object are called **aliases**.
+`history.copy()` creates a second list object with the same items. `a is b` is `True` when
+both names refer to the same object.
+
+```python
+history = [12, 40, 7]
+backup = history
+backup.append(99)
+print(history)
+# [12, 40, 7, 99]
+print(history is backup)
+# True
+saved = history.copy()
+saved.append(5)
+print(history)
+# [12, 40, 7, 99]
+print(saved)
+# [12, 40, 7, 99, 5]
+```
+
+Switch between `backup = history` and `backup = history.copy()`, then run the statements.
+
+```diagram
+{"type":"alias-copy","title":"Alias or copy of history","a":"history","b":"backup","items":[12,40,7],"append":99}
+```
+
+### Common mistakes
+
+`append` returns `None`, so assigning its result replaces your list with `None`.
+
+```python
+tools = ["search"]
+tools = tools.append("email")
+print(tools)
+# None
+```
+
+- Call `tools.append("email")` as its own statement, without `tools =` in front.
+- `best = scores.sort()` sets `best` to `None`. Write `best = sorted(scores)`.
+- `items[-0:]` is the whole list, because `-0` equals `0`.
+- A function that receives a list receives the caller's list object. Copy it first unless the task says to change it.
 
 Docs: [More on Lists](https://docs.python.org/3/tutorial/datastructures.html#more-on-lists).
 '''
@@ -58,33 +296,58 @@ EXERCISES = [
     {
         "id": "lists-s1",
         "lesson": r'''
-            ## A numbered shelf
+            ## Lists and indexes
 
-            So far each variable held one value. A **list** holds many values, in order, in
-            one variable - like a shelf with numbered slots. You write it with square brackets
-            and commas. To take something off the shelf, give its slot number in square
-            brackets. The first slot is number **0**, not 1.
+            A **list** is a value that holds other values in a fixed order. You write a list with
+            square brackets and separate the items with commas.
+
+            ```python
+            models = ["gpt-4o", "claude", "llama"]
+            print(models)
+            # ['gpt-4o', 'claude', 'llama']
+            ```
+
+            Python prints the strings inside a list with single quotes.
+
+            Each item in a list has an **index**: a whole number that gives its position. Python
+            starts counting at `0`, so the first item has index `0`. To read an item, write the
+            list name followed by the index in square brackets.
 
             ```python
             models = ["gpt-4o", "claude", "llama"]
             print(models[0])
+            # gpt-4o
             print(models[1])
-            print(len(models))
-            models.append("mistral")
-            print(len(models))
-            print(models[1:3])
+            # claude
+            print(models[-1])
+            # llama
             ```
 
-            - `models[0]` is the first item, `models[1]` the second.
-            - `len(models)` counts the items.
-            - `.append(...)` puts a new item at the end of the shelf.
-            - `models[1:3]` takes the items from slot 1 up to (not including) slot 3.
+            A negative index counts from the end of the list, so `models[-1]` is the last item.
 
-            Vocabulary: a slot number is an *index* (plural *indexes* or *indices*); reading
-            `models[0]` is *indexing*; `[1:3]` is a *slice*. Python prints a list of strings
-            with single quotes: `['claude', 'llama']`.
+            Click a cell to read that item.
 
-            **Watch out:** a 3-item list has indexes 0, 1, 2. `models[3]` is an `IndexError`.
+            ```diagram
+            {"type":"list-index","title":"Indexes of models","name":"models","items":["gpt-4o","claude","llama"]}
+            ```
+
+            `len(models)` returns the number of items. `models.append(x)` is a **method** call: it
+            adds `x` at the end of the list. The step "Methods that change the list" explains methods.
+
+            A **slice** `models[0:2]` is a new list with the items from index 0 up to,
+            but not including, index 2.
+
+            ```python
+            models = ["gpt-4o", "claude", "llama"]
+            models.append("mistral")
+            print(len(models))
+            # 4
+            print(models[0:2])
+            # ['gpt-4o', 'claude']
+            ```
+
+            A list with 3 items has the indexes 0, 1 and 2. `models[3]` **raises** an error: it
+            stops the program with `IndexError: list index out of range`.
         ''',
         "title": "What gets printed?",
         "difficulty": 0,
@@ -121,29 +384,36 @@ EXERCISES = [
     {
         "id": "lists-s2",
         "lesson": r'''
-            ## Counting from the back
+            ## Negative indexes
 
-            In a queue you can say "the first person" or "the last person" without knowing how
-            long the queue is. Lists work the same way: **negative indexes** count from the
-            end. `-1` is the last item, `-2` the one before it.
+            A **negative index** counts from the end of the list. Index `-1` is the last item and
+            index `-2` is the item before it.
 
             ```python
             messages = ["hi", "hello", "how are you?"]
             print(messages[-1])
+            # how are you?
             print(messages[-2])
-            messages.append("fine, thanks")
-            print(messages[-1])
+            # hello
             ```
 
-            Notice that `messages[-1]` always means "the newest one", however many messages
-            were added. That's why chat apps use it constantly: the latest message, the most
-            recent tool result, the last chunk.
+            `messages[-1]` is the last item of any list that has at least one item. You do not
+            need to know how many items the list has.
 
-            Vocabulary: this is *negative indexing*. `items[-1]` is the same item as
-            `items[len(items) - 1]`, just shorter and harder to get wrong.
+            ```python
+            messages = ["hi", "hello", "how are you?"]
+            messages.append("fine, thanks")
+            print(messages[-1])
+            # fine, thanks
+            print(messages[len(messages) - 1])
+            # fine, thanks
+            ```
 
-            **Watch out:** there is no `-0` for the last item - `items[-0]` is `items[0]`,
-            the **first** item.
+            Python reads a negative index `-n` as `len(messages) - n`. Both lines above read the
+            same item. The negative form is shorter. Chat code uses it often to read the newest
+            message in a conversation.
+
+            `-0` equals `0`, so `messages[-0]` is the first item, not the last one.
         ''',
         "title": "Latest message",
         "difficulty": 0,
@@ -199,28 +469,37 @@ EXERCISES = [
         "lesson": r'''
             ## Methods that change the list
 
-            Adding a page to a ring binder changes *the binder*. You don't get a new binder
-            back - you get nothing back. `.append()` works the same way: it changes the list
-            you call it on, and returns `None` ("nothing").
+            A **method** is a function that you call on a value with a dot, as in
+            `tools.append("email")`. A list is **mutable**: its items can change after the list is
+            created.
+
+            `append` adds one item at the end of the list. It changes the list **in place**, which
+            means it modifies the existing list and does not create a new one. It returns
+            `None`.
 
             ```python
             tools = ["search"]
             tools.append("calculator")
             print(tools)
+            # ['search', 'calculator']
             result = tools.append("weather")
             print(result)
+            # None
             print(tools)
+            # ['search', 'calculator', 'weather']
             ```
 
-            The second `print` shows `None`: that's what `append` gives back. The list itself
-            has all three tools.
+            `result` is `None` because that is what `append` returns. The list `tools` has all
+            three items.
 
-            Vocabulary: a function attached to a value, called with a dot (`tools.append(...)`),
-            is a *method*. A method that changes the object itself works *in place*; the
-            list is *mutable* (changeable).
+            `pop()` removes the last item and returns it. Add values and remove them to see the order.
 
-            **Watch out:** `tools = tools.append("x")` replaces your list with `None`. Call
-            in-place methods on their own line.
+            ```diagram
+            {"type":"stack-queue","title":"append and pop on tools","mode":"stack","name":"tools","items":["search","calculator","weather"],"push":["email","browser"]}
+            ```
+
+            `tools = tools.append("x")` assigns `None` to `tools`, so the name no longer refers to
+            the list. Write `tools.append("x")` as its own statement.
         ''',
         "title": "Fix add_tool",
         "difficulty": 0,
@@ -273,28 +552,38 @@ EXERCISES = [
     {
         "id": "lists-s6",
         "lesson": r'''
-            ## Is it on the list?
+            ## The in operator
 
-            A bouncer with a guest list doesn't care *where* your name is on the list - only
-            whether it is there. The `in` operator asks exactly that question and answers
-            `True` or `False`.
+            `x in items` checks whether a list contains a value. Python compares `x` with each item
+            using `==`. The result is `True` if any item is equal and `False` if none is.
 
             ```python
             tools = ["search", "calculator"]
             print("search" in tools)
+            # True
             print("email" in tools)
+            # False
             print("Search" in tools)
+            # False
             print("email" not in tools)
+            # True
             ```
 
-            `in` compares each item for **equality**, so `"Search"` (capital S) is not the
-            same as `"search"`. `not in` is the opposite question.
+            `"Search"` and `"search"` are different strings, so the third line prints `False`.
+            `not in` gives the opposite result of `in`.
 
-            Vocabulary: `in` is the *membership* operator, and its result is a *boolean*
-            (`True`/`False`) - so you can return it directly, or use it in an `if`.
+            `in` is called the **membership operator**. Its result is a boolean, so you can store
+            it in a variable, return it or use it as the condition of an `if`.
 
-            **Watch out:** no need for `if ... : return True else: return False` - the
-            expression `name in tools` already *is* `True` or `False`.
+            ```python
+            tools = ["search", "calculator"]
+            found = "calculator" in tools
+            print(found)
+            # True
+            ```
+
+            You do not need `if ...: return True` and `else: return False` around it. The
+            expression `"calculator" in tools` is already `True` or `False`.
         ''',
         "title": "Is this tool allowed?",
         "difficulty": 0,
@@ -351,34 +640,51 @@ EXERCISES = [
         "hints": [
             "There is an operator that checks whether a value is in a list.",
             "The expression 'value in some_list' already evaluates to True or False, so you can return it directly.",
-            "Return name in tools - one line, no if needed.",
+            "Return name in tools: one line, no if needed.",
         ],
     },
     {
         "id": "lists-s4",
         "lesson": r'''
-            ## Cutting a slice
+            ## Slices
 
-            Think of a loaf of bread with numbered slices. "Give me slices 1 up to 3" means
-            slices 1 and 2 - you stop *before* 3. A list **slice** `items[start:stop]` works
-            the same way, and gives you a **new** list.
+            A **slice** `items[start:stop]` builds a new list from part of a list. It takes the
+            items from index `start` up to, but not including, index `stop`. The original list
+            does not change.
 
             ```python
             chunks = ["a", "b", "c", "d", "e"]
             print(chunks[1:3])
-            print(chunks[:2])
-            print(chunks[3:])
-            print(chunks[:10])
-            print(chunks[:0])
+            # ['b', 'c']
+            print(chunks)
+            # ['a', 'b', 'c', 'd', 'e']
             ```
 
-            - Leave out `start` to begin at the start; leave out `stop` to go to the end.
-            - `chunks[:2]` means "the first 2 items".
-            - A slice **never** raises an error: `[:10]` on 5 items just gives all 5.
-            - `[:0]` is an empty list `[]`.
+            `chunks[1:3]` takes indexes 1 and 2. `start` is **inclusive** (the item at that index
+            is taken) and `stop` is **exclusive** (the item at that index is not taken).
 
-            Vocabulary: `start` is *inclusive*, `stop` is *exclusive*. The original list is
-            not changed - a slice is a copy of that part.
+            Drag the handles to change `start` and `stop`.
+
+            ```diagram
+            {"type":"slice","title":"Slicing chunks","name":"chunks","items":["a","b","c","d","e"],"start":1,"stop":3}
+            ```
+
+            If you leave out `start`, the slice begins at index 0. If you leave out `stop`, it runs
+            to the end of the list.
+
+            ```python
+            chunks = ["a", "b", "c", "d", "e"]
+            print(chunks[:2])
+            # ['a', 'b']
+            print(chunks[3:])
+            # ['d', 'e']
+            print(chunks[:10])
+            # ['a', 'b', 'c', 'd', 'e']
+            print(chunks[:0])
+            # []
+            ```
+
+            A slice never raises `IndexError`. `chunks[:10]` on 5 items returns all 5.
         ''',
         "title": "First n chunks",
         "difficulty": 0,
@@ -435,30 +741,43 @@ EXERCISES = [
     {
         "id": "lists-s5",
         "lesson": r'''
-            ## Sorted copy vs sorting in place
+            ## sorted() and .sort()
 
-            Imagine a stack of exam papers. You can photocopy them in sorted order (the
-            original pile stays as it was), or shuffle the original pile itself into order.
-            Python gives you both:
+            Python has two ways to sort a list. `sorted(scores)` is a built-in function that
+            returns a **new** sorted list. The original list keeps its order.
 
             ```python
             scores = [0.2, 0.9, 0.5]
             print(sorted(scores))
-            print(sorted(scores, reverse=True))
+            # [0.2, 0.5, 0.9]
             print(scores)
-            scores.sort()
-            print(scores)
+            # [0.2, 0.9, 0.5]
             ```
 
-            - `sorted(scores)` is a built-in function that **returns a new** sorted list.
-              The original is untouched.
-            - `scores.sort()` is a method that sorts the list **in place** and returns `None`.
-            - Both take `reverse=True` to put the biggest first.
+            `scores.sort()` is a list method. It reorders the items of the existing list in place
+            and returns `None`.
 
-            Vocabulary: `reverse=True` is a *keyword argument* - an argument passed by name.
+            ```python
+            scores = [0.2, 0.9, 0.5]
+            print(scores.sort())
+            # None
+            print(scores)
+            # [0.2, 0.5, 0.9]
+            ```
 
-            **Watch out:** when you are given a list, prefer `sorted(...)`, so you don't
-            reorder the caller's data behind their back.
+            Both sort from smallest to largest. Pass `reverse=True` to sort from largest to
+            smallest. An **argument** is a value you pass to a function. `reverse=True` is a
+            **keyword argument**: an argument that you pass by name.
+
+            ```python
+            scores = [0.2, 0.9, 0.5]
+            scores.sort(reverse=True)
+            print(scores)
+            # [0.9, 0.5, 0.2]
+            ```
+
+            When a function receives a list from its caller, `.sort()` reorders the caller's list.
+            Use `sorted(...)` unless the task asks you to change the list.
         ''',
         "title": "Best scores first",
         "difficulty": 0,
@@ -513,33 +832,49 @@ EXERCISES = [
     {
         "id": "lists-7",
         "lesson": r'''
-            ## Two name tags, one box
+            ## Aliases and copies
 
-            `b = a` does **not** copy a list. It sticks a second name tag on the *same* box.
-            Put something in through one name and you'll see it through the other.
+            `backup = history` does not copy a list. An **object** is one value stored in the
+            computer's memory. The assignment makes the name `backup` refer to the same list
+            object that `history` refers to. No new list is created. Two names that refer to
+            one object are called **aliases**, and this situation is called **aliasing**.
 
             ```python
-            a = ["search"]
-            b = a
-            b.append("weather")
-            print(a)
-            c = a.copy()
-            c.append("email")
-            print(a)
-            print(c)
-            print(a + ["x"])
+            history = [12, 40, 7]
+            backup = history
+            backup.append(99)
+            print(history)
+            # [12, 40, 7, 99]
+            print(history is backup)
+            # True
             ```
 
-            After `b.append(...)`, `a` has changed too - there is only one list. `a.copy()`
-            makes a real second box, so changing `c` leaves `a` alone. `a + [...]` also builds
-            a brand-new list.
+            `history is backup` is `True` when both names refer to the same object.
 
-            Vocabulary: two names for one object is called *aliasing*. A parameter works the
-            same way: inside a function, `tools` is an alias for the caller's list, so
-            `tools.append(...)` changes **their** list.
+            `history.copy()` creates a second list object with the same items. A change to the copy
+            does not change the original. `history + [5]` also creates a new list.
 
-            **Watch out:** to give back "the list plus one item" without side effects, work
-            on a copy (or use `+`).
+            ```python
+            history = [12, 40, 7]
+            saved = history.copy()
+            saved.append(5)
+            print(history)
+            # [12, 40, 7]
+            print(saved)
+            # [12, 40, 7, 5]
+            print(history + [5])
+            # [12, 40, 7, 5]
+            ```
+
+            Switch between the two assignments, then run the statements.
+
+            ```diagram
+            {"type":"alias-copy","title":"backup = history or backup = history.copy()","a":"history","b":"backup","items":[12,40,7],"append":99}
+            ```
+
+            A function parameter is an alias too. Inside a function, the parameter refers to the
+            caller's list object, so `append` on it changes the caller's list. To return a list
+            with one more item and leave the caller's list unchanged, append to a copy or use `+`.
         ''',
         "title": "Don't touch the caller's list",
         "difficulty": 1,
@@ -600,7 +935,7 @@ EXERCISES = [
                 return new_tools
         ''',
         "hints": [
-            "new_tools = tools does not make a copy - both names point at the same list.",
+            "new_tools = tools does not make a copy: both names refer to the same list.",
             "Make a real copy before appending, so the append only changes the copy.",
             "Change the first line to new_tools = tools.copy() (or build the result with tools + [name]). Keep the append and the return.",
         ],
@@ -608,30 +943,34 @@ EXERCISES = [
     {
         "id": "lists-8",
         "lesson": r'''
-            ## Reading the docs for more methods
+            ## List methods in the docs
 
-            You've met `append`, `insert`, `remove`, `pop` and `sort`. Lists have a few more
-            methods, and part of being an engineer is knowing *where to look* rather than
-            memorising. The Python tutorial has a short section listing every list method,
-            one line each.
+            You have used `append`, `pop`, `sort` and `copy`. Lists have more methods
+            than these. You do not need to memorise them. The Python tutorial has a short section
+            that describes every list method.
+
+            Two more methods from that section are `index` and `extend`.
 
             ```python
             calls = ["search", "search", "weather"]
             print(len(calls))
+            # 3
             print(calls.index("weather"))
+            # 2
             calls.extend(["email", "search"])
             print(calls)
+            # ['search', 'search', 'weather', 'email', 'search']
             ```
 
-            Here `index` tells you where an item first appears, and `extend` adds all items
-            of another list.
+            `calls.index(x)` returns the index of the first item equal to `x`. `calls.extend(other)`
+            adds every item of the list `other` at the end of `calls`.
 
-            A good way to read that page: skim the method names, read the one-line
-            description of any that sound useful, then try it in the editor.
+            To read the docs section, skim the method names first. Read the description of each
+            method that looks useful. Then try the method in the editor.
 
-            For this step, find the method that tells you **how many times** a value
-            appears in a list. Vocabulary: this is a method that *returns* a value (unlike
-            `append`, which returns `None`).
+            For this exercise, find the method that reports how many times a value appears in a
+            list. That method **returns** a value: the call produces a result you can use.
+            `append` is different, because it returns `None`.
         ''',
         "title": "How often was a tool called?",
         "difficulty": 1,
@@ -707,29 +1046,37 @@ EXERCISES = [
     {
         "id": "lists-1",
         "lesson": r'''
-            ## Chaining steps
+            ## Chaining operations
 
-            An assembly line passes the product from one station to the next. You can do the
-            same with list operations: the result of one step is a list, so you can slice it,
-            sort it or pass it on straight away.
+            `sorted(...)` returns a list, and a slice of a list is a list. You can apply the next
+            operation directly to the result of the previous one. Writing one operation right
+            after another is called **chaining**.
 
             ```python
             scores = [0.2, 0.9, 0.5, 0.7]
             ranked = sorted(scores, reverse=True)
             print(ranked)
+            # [0.9, 0.7, 0.5, 0.2]
             print(ranked[:2])
-            print(sorted(scores)[:1])
-            print(scores)
+            # [0.9, 0.7]
             ```
 
-            The two-line version (a named `ranked` variable, then a slice) and the one-line
-            version (`sorted(...)[:1]`) do the same thing. Choose whichever reads better.
+            This version stores the sorted list in the variable `ranked`, then slices it. The next
+            version slices the result of `sorted(...)` without a variable in between.
 
-            Remember: `sorted` builds a new list and slices build new lists, so the original
-            `scores` never changes. And a slice is safe when it asks for more items than exist.
+            ```python
+            scores = [0.2, 0.9, 0.5, 0.7]
+            print(sorted(scores)[:1])
+            # [0.2]
+            print(scores)
+            # [0.2, 0.9, 0.5, 0.7]
+            ```
 
-            Vocabulary: writing one operation right after another like this is called
-            *chaining*.
+            Python evaluates `sorted(scores)` first, then applies `[:1]` to the new list. Both
+            versions give the same kind of result. Use the one that is easier to read.
+
+            `sorted` builds a new list and a slice builds a new list, so `scores` never changes. A
+            slice that asks for more items than exist returns all the items and raises no error.
         ''',
         "hints": [
             'You need two list tools from the lesson: one that sorts into a new list and one that takes the first few items.',
@@ -797,31 +1144,48 @@ EXERCISES = [
     {
         "id": "lists-2",
         "lesson": r'''
-            ## Moving items around
+            ## remove and insert
 
-            Picture a stack of recently used apps: when you open one, it jumps to the top and
-            everything else shifts down. Lists have two in-place methods for that:
+            `remove(x)` deletes the **first** item equal to `x`. The items after it move one index
+            to the left.
 
             ```python
             models = ["gpt-4o", "claude", "llama"]
             models.remove("claude")
             print(models)
-            models.insert(0, "claude")
-            print(models)
-            models.insert(1, "mistral")
-            print(models)
-            print(models.remove("mistral"))
+            # ['gpt-4o', 'llama']
             ```
 
-            - `remove(x)` deletes the **first** item equal to `x`. If `x` isn't there, it
-              raises a `ValueError` - so check with `in` first when it might be missing.
-            - `insert(i, x)` puts `x` at index `i` and shifts the rest to the right.
-              `insert(0, x)` puts it at the front.
-            - Both return `None`: they change the list in place.
+            `insert(i, x)` puts `x` at index `i`. The items from index `i` onward move one index
+            to the right. `insert(0, x)` puts `x` at the front.
 
-            Vocabulary: a function that changes its argument instead of returning a new value
-            is said to have a *side effect*. When a spec says "modify the list in place and
-            return `None`", this is what it means.
+            ```python
+            models = ["gpt-4o", "llama"]
+            models.insert(0, "claude")
+            print(models)
+            # ['claude', 'gpt-4o', 'llama']
+            print(models.insert(1, "mistral"))
+            # None
+            print(models)
+            # ['claude', 'mistral', 'gpt-4o', 'llama']
+            ```
+
+            Both methods change the list in place and return `None`.
+
+            `remove(x)` raises `ValueError` when no item equals `x`. Check with `in` first when the
+            value may be missing.
+
+            ```python
+            models = ["claude", "gpt-4o"]
+            if "gemini" in models:
+                models.remove("gemini")
+            print(models)
+            # ['claude', 'gpt-4o']
+            ```
+
+            A function that changes its argument has a **side effect**: the caller's list is
+            different after the call. A task that says "modify the list in place and return
+            `None`" asks for a side effect and no `return` value.
         ''',
         "hints": [
             'Use the in operator plus the list methods that remove an item and insert at a position.',

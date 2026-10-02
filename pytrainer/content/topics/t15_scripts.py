@@ -13,29 +13,170 @@ TOPIC = {
                  "stderr"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["script", "cli", "command line", "argument", "sys.argv", "argparse", "main guard",
+                 "__name__", "__main__", "exit code", "sys.exit", "stdin", "stdout", "stderr",
+                 "option", "flag"],
+    "cards": [
+        {
+            "syntax": "sys.argv[1:]",
+            "explain": "The list of command-line arguments, all strings. sys.argv[0] is the script name.",
+            "example": r'''
+                import sys
+
+                sys.argv = ["ask.py", "hello", "21"]
+                print(sys.argv[1:])
+                # ['hello', '21']
+                print(int(sys.argv[2]) * 2)
+                # 42
+            ''',
+        },
+        {
+            "syntax": 'if __name__ == "__main__":',
+            "explain": "The main guard. The code under it runs when the file is run directly, not when it is imported.",
+            "example": r'''
+                def main():
+                    print("running")
+
+                if __name__ == "__main__":
+                    main()
+                # running
+            ''',
+        },
+        {
+            "syntax": "print(msg, file=sys.stderr)  /  sys.exit(code)",
+            "explain": "Writes an error message to stderr, not stdout. sys.exit stops the script with that exit code; 0 means success.",
+            "example": r'''
+                import sys
+
+                print("error: missing prompt", file=sys.stderr)
+                try:
+                    sys.exit(1)
+                except SystemExit as exc:
+                    print("exit code", exc.code)
+                # exit code 1
+            ''',
+        },
+        {
+            "syntax": 'parser.add_argument("--days", type=int, default=3)',
+            "explain": "Declares an option. A name with no dashes is a required positional argument. Read both from args.",
+            "example": r'''
+                import argparse
+
+                parser = argparse.ArgumentParser()
+                parser.add_argument("city")
+                parser.add_argument("--days", type=int, default=3)
+                args = parser.parse_args(["Oslo", "--days", "5"])
+                print(args.city, args.days)
+                # Oslo 5
+            ''',
+        },
+        {
+            "syntax": 'parser.add_argument("--fast", action="store_true")',
+            "explain": "Declares a flag: True when it is on the command line, False when it is absent. It takes no value.",
+            "example": r'''
+                import argparse
+
+                parser = argparse.ArgumentParser()
+                parser.add_argument("--fast", action="store_true")
+                print(parser.parse_args(["--fast"]).fast)
+                # True
+                print(parser.parse_args([]).fast)
+                # False
+            ''',
+        },
+        {
+            "syntax": "for line in sys.stdin:",
+            "explain": "Reads the script's input one line at a time. Each line ends with a newline character.",
+            "example": r'''
+                import io
+                import sys
+
+                sys.stdin = io.StringIO("hi\nbye\n")
+                for line in sys.stdin:
+                    print(line.strip().upper())
+                # HI
+                # BYE
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
 ## Chapter notes: Running Scripts & CLIs
 
-A **script** is a Python file you run from the terminal: `python3 ask.py "Explain RAG" --model gpt-4o`.
-It gets input from **command-line arguments**, prints results, and reports success or
-failure with an **exit code**.
-
-**Terminal side**
+A **script** is a Python file that you run from the terminal. A **CLI** (command-line
+interface) is a program that takes its input from the text typed after its name.
 
 ```bash
-python3 ask.py summarize "the report.txt" --fast   # quotes glue words into ONE argument
-echo $?                                           # exit code of the last command: 0 = success
-echo "hi" | python3 ask.py                        # send text to the script's stdin
+python3 ask.py "Explain RAG" --fast
 ```
 
-**sys.argv** - the command line as a list of strings
-- `sys.argv[0]` is the script name; real arguments are `sys.argv[1:]`
-- number of arguments: `len(sys.argv) - 1`
-- always strings: `int(sys.argv[1])` for numbers
-- check `len(sys.argv) > 1` before `sys.argv[1]` (else `IndexError`)
+The words after the file name are the **command-line arguments**. The script prints its
+results and finishes with an **exit code**: a whole number that reports success or failure.
 
-**Main guard** - `__name__` is `"__main__"` when the file is run, the module name when
-imported. Run the program only under the guard so imports stay silent:
+Click a stage to see what happens between the command and the exit code. The stages
+name `sys.argv`, the main guard, stdout and stderr. The sections below explain each one.
+
+```diagram
+{"type":"flow","title":"From the command line to the exit code","steps":[
+{"label":"Type the command","detail":"The shell splits the command line at spaces. Quotes keep several words together as one argument.","code":"python3 ask.py \"Explain RAG\" --fast"},
+{"label":"Fill sys.argv","detail":"Python stores the script name and the arguments in the list sys.argv. Every item is a string.","code":"sys.argv == ['ask.py', 'Explain RAG', '--fast']"},
+{"label":"Run the file","detail":"Python runs the file from top to bottom. A def statement creates a function. It does not run the function body.","code":"import sys\n\ndef main(argv):\n    ..."},
+{"label":"Check the main guard","detail":"The file was run directly, so __name__ is '__main__'. The condition is True and main is called.","code":"if __name__ == \"__main__\":\n    sys.exit(main(sys.argv[1:]))"},
+{"label":"Write output","detail":"print writes results to stdout. print with file=sys.stderr writes error messages to stderr.","code":"print(answer)\nprint(\"error: missing prompt\", file=sys.stderr)"},
+{"label":"Exit","detail":"sys.exit(code) stops the script with that exit code. A script that reaches the end of the file exits with code 0.","code":"sys.exit(0)   # success\nsys.exit(1)   # error"}
+]}
+```
+
+### sys.argv
+
+`sys` is a standard library module. `sys.argv` is a list of strings that holds the command
+line. Index `0` is the script name.
+The arguments start at index `1`, so `sys.argv[1:]` is the list of arguments and
+`len(sys.argv) - 1` is their number.
+
+```python
+import sys
+
+sys.argv = ["ask.py", "Explain RAG", "--fast"]
+print(sys.argv[0])
+# ask.py
+print(sys.argv[1:])
+# ['Explain RAG', '--fast']
+print(len(sys.argv) - 1)
+# 2
+```
+
+The first line of the example assigns a list to `sys.argv`. In a terminal, Python fills it
+for you.
+
+Click a cell to read that item of `sys.argv`.
+
+```diagram
+{"type":"list-index","title":"sys.argv for python3 ask.py \"Explain RAG\" --fast","name":"sys.argv","items":["ask.py","Explain RAG","--fast"]}
+```
+
+Every argument is a string. Convert it with `int()` or `float()` before you do arithmetic.
+
+```python
+import sys
+
+sys.argv = ["ask.py", "256"]
+print(sys.argv[1] + "1")
+# 2561
+print(int(sys.argv[1]) + 1)
+# 257
+```
+
+### The main guard
+
+Python sets the variable `__name__` in every file. It is `"__main__"` when the file is run
+directly. It is the module name (the file name without `.py`) when the file is imported. The line
+`if __name__ == "__main__":` is the **main guard**. Code under it runs only when the file
+is run directly, so importing the file prints nothing.
 
 ```python
 def main():
@@ -43,52 +184,136 @@ def main():
 
 if __name__ == "__main__":
     main()
+# running
 ```
 
-**Output channels and exit codes**
-- normal output: `print(...)` -> **stdout**
-- errors: `print(..., file=sys.stderr)` -> **stderr**
-- `sys.exit(code)`: `0` success, `1` general error, `2` usage error (argparse uses 2)
-- pattern: `def main(argv) -> int` and `sys.exit(main(sys.argv[1:]))`
+### stdout, stderr and exit codes
 
-**argparse** - flags, defaults, types, `--help` for free
-- positional: `add_argument("prompt")`; optional positional: `nargs="?", default=...`
-- option: `add_argument("--max-tokens", type=int, default=256)` -> `args.max_tokens`
-- flag: `add_argument("--stream", action="store_true")`
-- limited values: `choices=["openai", "anthropic"]`
-- `parser.parse_args()` reads `sys.argv`; `parser.parse_args(["x", "--n", "2"])` for tests
-- bad input: argparse prints `usage: ...` to stderr and exits with code 2
+A script can write text to two separate outputs, called **streams**. `print(...)` writes to
+**stdout**, which is for results. `print(..., file=sys.stderr)` writes to **stderr**, which
+is for error messages.
 
-**stdin**: `for line in sys.stdin:` or `sys.stdin.read()` - read piped input.
+`sys.exit(code)` stops the script with that exit code. By convention `0` means success,
+`1` means a general error and `2` means the command line was wrong. A common pattern is a `main`
+function that returns the exit code.
 
-**Gotchas**: counting the script name; forgetting arguments are text; no main guard so
-importing runs the program; error messages on stdout instead of stderr.
+```python
+import sys
+
+def main(argv):
+    if len(argv) < 1:
+        print("error: missing prompt", file=sys.stderr)
+        return 1
+    print("prompt:", argv[0])
+    return 0
+
+print(main(["Explain RAG"]))
+# prompt: Explain RAG
+# 0
+print(main([]))
+# 1
+```
+
+The second call also writes `error: missing prompt` to stderr. In a real script the last
+line is `sys.exit(main(sys.argv[1:]))` under the main guard. In bash, `echo $?` prints the
+exit code of the last command: `$?` is the shell's name for that code.
+
+### argparse
+
+`argparse` is a standard library module that reads the command line for you. You declare
+each argument once with `add_argument`, then call `parse_args`.
+
+```python
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("prompt")
+parser.add_argument("--max-tokens", type=int, default=256)
+parser.add_argument("--stream", action="store_true")
+parser.add_argument("--provider", choices=["openai", "anthropic"], default="openai")
+args = parser.parse_args(["Explain RAG", "--max-tokens", "64", "--stream"])
+print(args.prompt, args.max_tokens, args.stream, args.provider)
+# Explain RAG 64 True openai
+```
+
+- `"prompt"` has no dashes, so it is a **positional argument**: it is required and is found by its position.
+- `"--max-tokens"` is an **option**. `type=int` converts the string, and `default=256` is used when the option is absent. You read it as `args.max_tokens`: argparse drops the leading dashes and replaces the other dash with an underscore.
+- `action="store_true"` makes a **flag**: `True` when present, `False` when absent, with no value after it.
+- `choices=[...]` limits the allowed values.
+- `nargs="?"` means "zero or one value". Together with `default=...` it makes a positional
+  argument optional: when the user leaves it out, the default is used.
+
+`parser.parse_args()` with no list reads `sys.argv[1:]`. Pass a list to test the parser. On
+bad input, argparse prints a `usage: ...` message to stderr and exits with code `2`.
+argparse also adds a `--help` option that prints the list of arguments.
+
+### stdin
+
+**stdin** (standard input) is the stream that a script reads its input from. In
+`echo "hi" | python3 ask.py`, the `|` character is a **pipe**: it sends the output of the
+command on its left to the stdin of the command on its right. Without a pipe, stdin is the
+text that the user types in the terminal. `for line in sys.stdin:` reads it one line at a
+time. `sys.stdin.read()` returns all of it as one string.
+
+```python
+import io
+import sys
+
+sys.stdin = io.StringIO("user: hi\nassistant: hello\n")
+for line in sys.stdin:
+    print(line.strip().upper())
+# USER: HI
+# ASSISTANT: HELLO
+```
+
+`io.StringIO(text)` creates an object that you read in the same way as a file, but its
+content comes from the string `text`. The example assigns it to `sys.stdin` so that it runs
+without a pipe.
+
+### Common mistakes
+
+- `len(sys.argv)` counts the script name. The number of arguments is `len(sys.argv) - 1`.
+- `sys.argv[1]` raises `IndexError` when no argument was given. Check `len(sys.argv) > 1` first.
+- Arguments are strings. `"21" * 2` is `"2121"`, and `int("21") * 2` is `42`.
+- Without a main guard, `import` runs the whole program.
+- An error message printed to stdout ends up mixed with the results. Print it to stderr.
 '''
 
 EXERCISES = [
     {
         "id": "scripts-s1",
         "lesson": r'''
-            Running a script is like handing an **order slip** to a kitchen:
-            `python3 ask.py summarize report.txt` means "run `ask.py`, and here are two extra words".
-            Python hands the whole slip to your code as a list of strings called `sys.argv`
-            (*argument vector*).
+            ## The `sys.argv` list
+
+            A **script** is a Python file that you run from a terminal. The command
+            `python3 weather.py Paris tomorrow` runs the file `weather.py`. The words after the
+            file name are the **command-line arguments**.
+
+            Python stores the command line in `sys.argv`, a list of strings. `sys` is a standard library module, so you write `import sys` first.
 
             ```python
             import sys
 
             sys.argv = ["weather.py", "Paris", "tomorrow"]
             print(sys.argv)
+            # ['weather.py', 'Paris', 'tomorrow']
             print(sys.argv[0])
+            # weather.py
             print(sys.argv[2])
+            # tomorrow
             ```
 
-            (The first line fakes a command line. The Run button starts your code without extra
-            words, so we set the list ourselves. In a real terminal, Python fills it for you.)
+            The first line assigns a list to `sys.argv`, because the Run button starts the code
+            with no arguments. In a terminal, Python fills the list for you.
 
-            Item `0` is always the **script's own name**. The words you typed after it - the
-            **command-line arguments** - start at index `1`. Everything you know about lists works:
-            `len()`, indexing, slicing.
+            Index `0` is always the script's own name. The arguments start at index `1`.
+            `sys.argv` is a normal list, so `len()`, indexes and slices work on it.
+
+            Click a cell to read that item of `sys.argv`.
+
+            ```diagram
+            {"type":"list-index","title":"sys.argv for python3 weather.py Paris tomorrow","name":"sys.argv","items":["weather.py","Paris","tomorrow"]}
+            ```
         ''',
         "title": "What is in sys.argv?",
         "difficulty": 0,
@@ -125,26 +350,34 @@ EXERCISES = [
     {
         "id": "scripts-s2",
         "lesson": r'''
-            In the terminal, **spaces separate** arguments and **quotes glue** words into one:
+            ## Arguments and quotes
+
+            The shell (the program that reads what you type in the terminal) splits the
+            command line at spaces. Each piece becomes one item of
+            `sys.argv`. Quotes keep several words together as one argument.
 
             ```bash
-            python3 solution.py hello             # sys.argv == ["solution.py", "hello"]
-            python3 solution.py "hello world" x   # sys.argv == ["solution.py", "hello world", "x"]
+            python3 tool.py hello             # sys.argv == ["tool.py", "hello"]
+            python3 tool.py "hello world" x   # sys.argv == ["tool.py", "hello world", "x"]
             ```
 
-            So the first real argument is always at index `1`:
+            The script name is at index `0`, so the first argument is always at index `1`.
 
             ```python
             import sys
 
             sys.argv = ["tool.py", "hello world", "x"]
-            print("script :", sys.argv[0])
-            print("first  :", sys.argv[1])
-            print("second :", sys.argv[2])
+            print("script:", sys.argv[0])
+            # script: tool.py
+            print("first:", sys.argv[1])
+            # first: hello world
+            print("second:", sys.argv[2])
+            # second: x
             ```
 
-            A program that reads its input this way is a **CLI** (*command-line interface*). Tools
-            like `git`, `pip` and every eval runner you will write work like this.
+            A program that reads its input from the command line is a **CLI** (command-line
+            interface). The `python3` command is a CLI: it reads the file name that you type
+            after it.
         ''',
         "title": "Echo the first argument",
         "difficulty": 0,
@@ -199,24 +432,30 @@ EXERCISES = [
     {
         "id": "scripts-s3",
         "lesson": r'''
-            Counting arguments is a classic **off-by-one** trap. `len(sys.argv)` counts the script
-            name too - like counting the envelope as one of the letters inside.
+            ## Counting arguments
+
+            `len(sys.argv)` counts every item of the list, and the script name at index `0` is
+            one of them. The result is 1 higher than the number of arguments. A count that is
+            1 too high or 1 too low is called an **off-by-one error**.
 
             ```python
             import sys
 
             sys.argv = ["tool.py", "a", "b"]
             print(len(sys.argv))
+            # 3
             print(sys.argv[1:])
+            # ['a', 'b']
             print(len(sys.argv[1:]))
+            # 2
             ```
 
-            The slice `sys.argv[1:]` means "everything from index 1 on": exactly the real arguments.
-            Its length is the real count. With no arguments, the slice is an empty list `[]` and its
-            length is `0`.
+            The slice `sys.argv[1:]` is a new list with every item from index `1` to the end.
+            Those items are exactly the arguments, so the length of the slice is their number.
+            With no arguments, the slice is the empty list `[]` and its length is `0`.
 
-            Two equivalent ways to say "number of arguments": `len(sys.argv) - 1` or
-            `len(sys.argv[1:])`.
+            There are two equivalent ways to get the number of arguments: `len(sys.argv) - 1`
+            and `len(sys.argv[1:])`.
         ''',
         "title": "Fix the counter",
         "difficulty": 0,
@@ -273,8 +512,11 @@ EXERCISES = [
     {
         "id": "scripts-s4",
         "lesson": r'''
-            Users forget arguments. Reading `sys.argv[1]` when there is none raises `IndexError` - the
-            script crashes with an ugly traceback. So **look before you grab**: check the length first.
+            ## Missing arguments
+
+            A user can run a script without any argument. Then `sys.argv` has one item, the
+            script name, and `sys.argv[1]` raises `IndexError`. The script stops and prints a
+            traceback. To avoid that, check the length of the list before you read index `1`.
 
             ```python
             import sys
@@ -286,13 +528,17 @@ EXERCISES = [
                 else:
                     who = "nobody"
                 print("argument:", who)
+            # argument: Lin
+            # argument: nobody
             ```
 
-            `len(sys.argv) > 1` means "there is at least one real argument". If not, fall back to a
-            **default**, just like `.get(key, default)` for dicts.
+            `len(sys.argv) > 1` is `True` when there is at least one argument. When it is
+            `False`, the `else` branch assigns a **default**: a value to use when none was given.
+            `.get(key, default)` does the same for a missing key in a dict.
 
-            A script that ends normally, without an exception, finishes with **exit code 0**, which
-            tells the terminal "success".
+            A script finishes with an **exit code**: a whole number that tells the terminal how
+            the run ended. A script that ends without an exception has exit code `0`, which
+            means success. An exception that no `except` catches gives exit code `1`.
         ''',
         "title": "Hello, argument",
         "difficulty": 0,
@@ -354,26 +600,48 @@ EXERCISES = [
     {
         "id": "scripts-s5",
         "lesson": r'''
-            Every Python file has a hidden variable called `__name__` - a **name badge** that says how
-            the file is being used:
+            ## The `__name__` variable and the main guard
 
-            - run directly (`python3 tool.py`) -> the badge says `"__main__"`
-            - imported by another file (`import tool`) -> the badge says `"tool"`
+            Python sets a variable called `__name__` in every file before it runs the file. Its
+            value depends on how the file is used:
+
+            - When you run the file directly (`python3 tool.py`), `__name__` is `"__main__"`.
+            - When another file imports it (`import tool`), `__name__` is `"tool"`.
 
             ```python
             def main():
-                print("the program runs")
+                mode = "run directly"
+                print("main runs:", mode)
 
             print("__name__ is", __name__)
+            # __name__ is __main__
             if __name__ == "__main__":
                 main()
+            # main runs: run directly
+            print("end of file")
+            # end of file
             ```
 
-            The `if __name__ == "__main__":` line is called the **main guard**. Code under it runs only
-            when the file is the program being started - never when it is imported.
+            The line `if __name__ == "__main__":` is called the **main guard**. The code under it
+            runs only when the file is run directly. It does not run when the file is imported.
 
-            Also remember: Python runs a file **top to bottom**, and `def` only *defines* a function.
-            Nothing inside `main` happens until something calls `main()`.
+            Python runs a file from top to bottom. A `def` statement creates the function and
+            does not run its body. The body of `main` runs only when a later line calls `main()`.
+
+            Step through the program to see the order in which the lines run.
+
+            ```diagram
+            {"type": "trace", "title": "Running a file with a main guard", "code": ["def main():", "    mode = \"run directly\"", "    print(\"main runs:\", mode)", "", "print(\"__name__ is\", __name__)", "if __name__ == \"__main__\":", "    main()", "print(\"end of file\")"], "steps": [
+              {"line": 1, "vars": {}, "out": "", "note": "def creates the function main. Its body does not run yet."},
+              {"line": 5, "vars": {}, "out": ""},
+              {"line": 6, "vars": {}, "out": "__name__ is __main__\n", "note": "The file is run directly, so the condition is True."},
+              {"line": 7, "vars": {}, "out": "__name__ is __main__\n"},
+              {"line": 2, "vars": {}, "out": "__name__ is __main__\n"},
+              {"line": 3, "vars": {"mode": "'run directly'"}, "out": "__name__ is __main__\n"},
+              {"line": 8, "vars": {}, "out": "__name__ is __main__\nmain runs: run directly\n"},
+              {"line": null, "vars": {}, "out": "__name__ is __main__\nmain runs: run directly\nend of file\n"}
+            ]}
+            ```
         ''',
         "title": "Run or import?",
         "difficulty": 0,
@@ -412,8 +680,10 @@ EXERCISES = [
     {
         "id": "scripts-s6",
         "lesson": r'''
-            Command-line arguments are **always strings** - even `42` arrives as the text `"42"`. Like
-            numbers written on a form: to add them up, you first read them as numbers.
+            ## Arguments are strings
+
+            Every item of `sys.argv` is a string. If you type `42` on the command line, the
+            script receives the string `"42"`, not the integer `42`.
 
             ```python
             import sys
@@ -421,15 +691,23 @@ EXERCISES = [
             sys.argv = ["calc.py", "7"]
             raw = sys.argv[1]
             print(raw * 3)
+            # 777
             print(int(raw) * 3)
+            # 21
             print(type(raw).__name__, type(int(raw)).__name__)
+            # str int
             ```
 
-            `"7" * 3` repeats the text (`777`); `int("7") * 3` is real maths (`21`). The bug is sneaky
-            because nothing crashes - you just get the wrong answer.
+            `type(raw).__name__` is the name of the type as text, so the last line prints `str int`.
 
-            Convert with `int()` for whole numbers and `float()` for decimals, right where you read the
-            argument.
+            `"7" * 3` repeats the string three times and gives `"777"`. `int("7")` builds the
+            integer `7` from the string, so `int("7") * 3` multiplies numbers and gives `21`.
+
+            The string version raises no exception. The script runs to the end and prints a
+            wrong result, so the bug is easy to miss.
+
+            Convert with `int()` for whole numbers and `float()` for numbers with a decimal
+            point. Do it on the line where you read the argument.
         ''',
         "title": "Fix the budget doubler",
         "difficulty": 0,
@@ -487,9 +765,11 @@ EXERCISES = [
     {
         "id": "scripts-1",
         "lesson": r'''
-            A good script is a **toolbox with an on-switch**. The tools are functions (other files and
-            tests can borrow them with `import`). The on-switch is the main guard, which starts the
-            program only when the file is run.
+            ## Functions plus a main guard
+
+            A well-structured script has two parts. The first part is function definitions,
+            which other files and tests can use with `import`. The second part is the main
+            guard, which calls `main()` only when the file is run directly.
 
             ```python
             def shout(text):
@@ -500,13 +780,17 @@ EXERCISES = [
 
             if __name__ == "__main__":
                 main()
+            # READY!
             ```
 
-            Why bother? Tests `import` your file to call your functions. Without the guard, importing
-            would also run the whole program - printing, reading input, maybe calling an API.
+            `import` runs every top-level line of the imported file. Tests import your file to
+            call its functions. Without the guard, the import would also run the whole program:
+            it would print, read input and perhaps call an API. With the guard, `__name__` is
+            the module name during an import, the condition is `False`, and `main()` is not called.
 
-            Notice the split of jobs: `shout` **returns** a value (easy to test), `main` does the
-            **printing** (the part users see). Keep that habit: logic returns, `main` prints.
+            The two functions have different roles. `shout` **returns** a value, so a test can
+            call it and compare the result. `main` **prints**, which is the part the user sees.
+            Keep that split: functions with logic return values, and `main` prints them.
         ''',
         "hints": [
             "`greet` should `return` the string; `main` prints it; the main guard decides when `main` runs.",
@@ -589,8 +873,11 @@ EXERCISES = [
     {
         "id": "scripts-2",
         "lesson": r'''
-            Looping over the arguments works like any list loop. When you also want a position number,
-            `enumerate(..., start=1)` hands you `(number, item)` pairs, counting from 1 like humans do.
+            ## Looping over the arguments
+
+            The arguments are items of a list, so a `for` loop can visit them one by one. When
+            you also need the position of each item, use `enumerate(args, start=1)`. It produces
+            `(number, item)` pairs, and `start=1` makes the numbers begin at 1 instead of 0.
 
             ```python
             import sys
@@ -598,15 +885,21 @@ EXERCISES = [
             sys.argv = ["show.py", "alpha", "beta gamma"]
             args = sys.argv[1:]
             print("got", len(args))
+            # got 2
             for pos, word in enumerate(args, start=1):
                 print(f"#{pos} -> {word}")
+            # #1 -> alpha
+            # #2 -> beta gamma
             ```
 
-            Slice off the script name **once**, into a variable like `args`, then work with that list.
-            The loop body runs zero times when there are no arguments - no special case needed.
+            Take the slice `sys.argv[1:]` once and store it in a variable such as `args`. After
+            that, use only `args`, and the script name is never counted or printed by mistake.
 
-            Printing exactly what a script received is a quick debugging trick when a CLI "ignores"
-            your input: often a missing quote split one argument into two.
+            With no arguments, `args` is the empty list. The loop body runs zero times, so you
+            need no extra `if` for that case.
+
+            Printing exactly what a script received is a quick way to debug a CLI that seems to
+            ignore its input. A missing quote often turns one argument into two.
         ''',
         "hints": [
             "The real arguments are `sys.argv[1:]` (everything after the script name).",
@@ -680,32 +973,39 @@ EXERCISES = [
     {
         "id": "scripts-7",
         "lesson": r'''
-            A script has **two output channels**, like a restaurant with a dining room and a
-            complaints desk:
+            ## stdout, stderr and exit codes
 
-            - **stdout** (standard output) - the real results. `print(...)` goes here.
-            - **stderr** (standard error) - error and warning messages: `print(..., file=sys.stderr)`.
+            A script can write text to two separate outputs, called **streams**:
 
-            Keeping them apart means a user can save results to a file (`python3 tool.py > out.txt`)
-            and still see errors on screen.
+            - **stdout** (standard output) is for results. `print(...)` writes to it.
+            - **stderr** (standard error) is for error and warning messages. You write to it
+              with `print(..., file=sys.stderr)`.
 
-            The script also reports how it went with an **exit code**: `0` = success, anything else =
-            failure. `sys.exit(code)` stops the script right there with that code. In a terminal,
-            `echo $?` shows the last code.
+            Both streams appear in the terminal. They can be redirected separately: with
+            `python3 tool.py > out.txt` the `>` sends stdout into the file `out.txt`, and the
+            error messages still appear on screen.
+
+            A script also reports how the run ended with an **exit code**. `0` means success and
+            any other number means failure. `sys.exit(code)` stops the script at that line with
+            that code. In bash, `echo $?` prints the exit code of the last command.
 
             ```python
             import sys
 
             print("result: 42")
-            print("warning: cache is cold", file=sys.stderr)
+            # result: 42
+            print("warning: cache is empty", file=sys.stderr)
+            # warning: cache is empty
             try:
                 sys.exit(3)
             except SystemExit as exc:
                 print("sys.exit stopped with code", exc.code)
+            # sys.exit stopped with code 3
             ```
 
-            (`sys.exit` works by raising a special exception, `SystemExit`; we catch it here only so
-            the demo can print the code. Normally you let it stop the script.)
+            The second `print` writes its line to stderr. `sys.exit` works by raising the
+            exception `SystemExit`. The example catches it only to print the code. In a real
+            script you do not catch it, and the script stops.
         ''',
         "title": "Errors go to stderr",
         "difficulty": 1,
@@ -776,10 +1076,12 @@ EXERCISES = [
     {
         "id": "scripts-8",
         "lesson": r'''
-            Checking `sys.argv` by hand gets messy once you have options like `--model` or `--times`.
-            The standard library's **argparse** is a **form builder**: you describe each field once,
-            and it reads the command line, converts types, fills in defaults and writes a `--help`
-            page and error messages for you.
+            ## Parsing arguments with `argparse`
+
+            Reading `sys.argv` yourself needs many `if` checks once a script has options such as
+            `--model` or `--days`. **argparse** is a standard library module that does this work.
+            You declare each argument once. argparse then reads the command line, converts the
+            types, applies the defaults, and generates the error messages and a `--help` text.
 
             ```python
             import argparse
@@ -789,15 +1091,21 @@ EXERCISES = [
             parser.add_argument("--days", type=int, default=3)
             args = parser.parse_args(["Oslo", "--days", "5"])
             print(args.city, args.days, type(args.days).__name__)
+            # Oslo 5 int
             ```
 
-            - `"city"` (no dashes) is a **positional** argument: required, found by position.
-            - `"--days"` is an **option**: optional, with `type=int` conversion and a default.
-            - The results are attributes: `args.city`, `args.days`.
+            - `"city"` has no dashes, so it is a **positional argument**. It is required, and
+              argparse finds it by its position on the command line.
+            - `"--days"` starts with two dashes, so it is an **option**. The user may leave it
+              out. `type=int` converts the string `"5"` to the integer `5`, and `default=3` is
+              the value when the option is absent.
+            - `parse_args` returns an object that stores each value under the argument's name.
+              You read the values as `args.city` and `args.days`.
 
-            Here we pass a list to `parse_args` so the demo runs; in a real script call
-            `parser.parse_args()` with no list and it reads `sys.argv`. When a user forgets a required
-            argument, argparse prints `usage: ...` on stderr and exits with code **2**.
+            The example passes a list to `parse_args` so that it runs without a terminal. In a
+            real script you call `parser.parse_args()` with no list, and it reads `sys.argv[1:]`.
+            When a required argument is missing, argparse prints `usage: ...` to stderr and
+            exits with code `2`.
         ''',
         "research": {"note": "Skim the official argparse tutorial (positional arguments, optional arguments, `type=`) - it is short and shows exactly what argparse does for you.",
          "links": [{"title": "Argparse Tutorial - Python docs", "url": "https://docs.python.org/3/howto/argparse.html"},

@@ -12,56 +12,195 @@ TOPIC = {
                  "error messages", "reading test output"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["print", "output", "comment", "string", "function", "call", "argument",
+                 "parameter", "def", "return", "indentation", "len", "none", "nameerror",
+                 "syntaxerror", "indentationerror"],
+    "cards": [
+        {
+            "syntax": "print(value, value)",
+            "explain": "Writes the values on one line of output, with one space between them.",
+            "example": r'''
+                print("Hello, AI!")
+                # Hello, AI!
+                print("tokens:", 2 + 3)
+                # tokens: 5
+            ''',
+        },
+        {
+            "syntax": '"text" + "text"',
+            "explain": "Between two strings, + joins them into one new string. Between two numbers, + adds them.",
+            "example": r'''
+                print("Hello, " + "Ada" + "!")
+                # Hello, Ada!
+                print("2" + "3")
+                # 23
+                print(2 + 3)
+                # 5
+            ''',
+        },
+        {
+            "syntax": "name(argument, argument)",
+            "explain": "Calls a function with input values. An inner call runs first and its result is passed on.",
+            "example": r'''
+                print(len("hi there"))
+                # 8
+                print(max(3, 9, 4))
+                # 9
+                print(round(2.567, 1))
+                # 2.6
+            ''',
+        },
+        {
+            "syntax": "def name(parameter):",
+            "explain": "Defines a function. The indented lines are its body. They run each time the function is called.",
+            "example": r'''
+                def double(n):
+                    return n * 2
+
+                print(double(4))
+                # 8
+                print(double(10))
+                # 20
+            ''',
+        },
+        {
+            "syntax": "return value",
+            "explain": "Ends the function and sends value to the code that called it. Without return, the call gives None.",
+            "example": r'''
+                def shows(n):
+                    print(n + 1)
+
+                result = shows(4)
+                # 5
+                print(result)
+                # None
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
 ## Chapter notes: Python Basics
 
-**Running code.** A program runs top to bottom, one line at a time. **Run** (Alt+Enter)
-runs your file and shows what it prints. **Check** (Ctrl+Enter) runs hidden tests that
-call your function and lists each check as pass or fail.
+### Running code
 
-**print()** shows values. Text goes in quotes, numbers don't. Commas put one space
-between values. Each `print` makes one line.
+A **program** is a text file of instructions. Python runs it from top to bottom, one line
+at a time. **Run** (Alt+Enter) runs your file and shows its **output**: the text it prints.
+**Check** (Ctrl+Enter) runs the **tests** of the step. A test is a small piece of code that
+uses your code and compares the result with the expected result. Each test is listed as a
+**check** that passes or fails.
+
+### print()
+
+`print()` writes values to the screen. A **value** is a piece of data, such as a number or
+a piece of text. A piece of text is called a **string**. Strings go inside quotes and
+numbers do not. Commas between values put one space between them in the output. Each
+`print(...)` writes one line.
 
 ```python
 print("Hello, AI!")
+# Hello, AI!
 print("tokens:", 2 + 3)
+# tokens: 5
 ```
 
-**Comments** start with `#`. Python skips everything after `#` on that line.
+### Comments
 
-**Text vs numbers.** `"2" + "3"` glues text into `"23"`; `2 + 3` adds to `5`.
+A **comment** starts with `#`. Python ignores everything after `#` on that line.
 
-**Calling a function**: its name, then parentheses with the inputs (*arguments*).
-`len("hello")` is `5`, `max(3, 9, 4)` is `9`, `round(2.567, 1)` is `2.6`.
-Calls can be nested: `print(len("hi"))`.
+### Strings and numbers
 
-**Defining a function** - the answer format of almost every exercise:
+`+` adds two numbers. `+` joins two strings end to end.
+
+```python
+print(2 + 3)
+# 5
+print("2" + "3")
+# 23
+```
+
+### Calling a function
+
+A **function** is a named piece of code that takes input values and produces a result. To
+use a function, you **call** it. A call is the function name followed by parentheses that
+hold the input values. The input values are called **arguments**. `print` is a function, and
+`print("hi")` is a call with one argument.
+
+A call can be written inside another call. Python runs the inner call first and passes its
+result to the outer call as an argument.
+
+```python
+print(len("hello"))
+# 5
+print(max(3, 9, 4))
+# 9
+print(round(2.567, 1))
+# 2.6
+```
+
+`len` counts the characters in a string. `max` gives the largest of its arguments. `round`
+rounds a number, here to 1 digit after the decimal point.
+
+### Defining a function
+
+You can write your own functions. Almost every exercise asks you to define a function with
+`def` and `return`.
 
 ```python
 def add(a, b):
     return a + b
 
+print("start")
 print(add(2, 3))
+print(add(100, 28))
 ```
 
-- `def name(parameters):` ends with a colon.
-- The body is indented 4 spaces.
-- `return value` hands the value back and ends the function.
-- `a` and `b` are *parameters*; each call fills them with *arguments*.
+- The `def name(parameters):` line ends with a colon.
+- The lines that belong to the function start with 4 spaces. Spaces at the start of a line are called **indentation**.
+- `return value` ends the function and sends `value` back to the code that called it.
+- `a` and `b` are **parameters**. Each call sets them to the arguments of that call.
 
-**return vs print.** `print` only shows text. `return` gives the value back to the code
-that called the function (the tests!). No `return` means the function returns `None`.
+Step through the program to see which line runs next and what `a` and `b` are in each call.
 
-**Reading errors.** An error names the file, the **line number** and the problem:
-- `SyntaxError: expected ':'` - a missing colon (or other typo) on that line.
-- `IndentationError: expected an indented block` - the body is not indented.
-- `NameError: name 'Name' is not defined` - a typo, or capital letters that don't match.
+```diagram
+{"type": "trace", "title": "Defining add and calling it twice", "code": ["def add(a, b):", "    return a + b", "", "print(\"start\")", "print(add(2, 3))", "print(add(100, 28))"], "steps": [
+  {"line": 1, "vars": {}, "out": "", "note": "The def line creates the function. It does not run the indented line."},
+  {"line": 4, "vars": {}, "out": ""},
+  {"line": 5, "vars": {}, "out": "start\n"},
+  {"line": 2, "vars": {"a": "2", "b": "3"}, "out": "start\n", "note": "The call add(2, 3) sets a to 2 and b to 3."},
+  {"line": 6, "vars": {}, "out": "start\n5\n"},
+  {"line": 2, "vars": {"a": "100", "b": "28"}, "out": "start\n5\n"},
+  {"line": null, "vars": {}, "out": "start\n5\n128\n"}
+]}
+```
 
-**Reading a failing check.** `add(2, 3) returned None` means "I called your function with
-these inputs and got this back". `None` almost always means a missing `return`.
+### return and print
 
-**Docs.** Every built-in has an entry at docs.python.org (e.g. *Built-in Functions*).
-Reading them is a real engineering skill.
+`print` only writes text to the screen. `return` sends the value back to the code that called
+the function. The tests are that code, so they need a `return`. A function that ends without
+`return` returns `None`, the value Python uses for "no value".
+
+### Common mistakes
+
+An error message names the file, the **line number** and the problem.
+
+- `SyntaxError: expected ':'` means a colon is missing on that line.
+- `IndentationError: expected an indented block` means the lines under `def` are not indented.
+- `NameError: name 'Name' is not defined` means a name is misspelled or its capital letters do not match.
+
+A failing check such as `add(2, 3) returned None` means the test called your function with
+those arguments and got that value back. `None` almost always means a missing `return`.
+
+Anything inside quotes is a string. `print("2 + 3")` prints the characters `2 + 3` and does no maths.
+
+### Docs
+
+Every built-in function (built-in means it comes with Python, with no setup needed)
+has an entry at docs.python.org, on the page *Built-in Functions*.
+Reading these entries is a normal part of an engineer's work.
 '''
 
 EXERCISES = [
@@ -71,30 +210,55 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            A program is a **recipe**: Python reads it from the top, one line at a time, and does
-            what each line says.
+            ## print() and comments
 
-            The first instruction you need is `print()`. Whatever you put between the parentheses
-            is shown on the screen. Text goes inside quotes. Maths is worked out *before* printing.
-            Commas let you show several values on one line, with a space between them.
+            A **program** is a text file of instructions. Python runs it from the top, one line at a
+            time. Each instruction is called a **statement**.
+
+            `print()` writes a value to the screen. A **value** is a piece of data, such as a number
+            or a piece of text. You put the value between the parentheses.
+
+            - Text goes inside quotes. Text in quotes is called a **string**.
+            - Python calculates a sum such as `2 + 3` first and prints the result, not the sum.
+            - Commas separate several values. Python prints them on one line with one space between them.
 
             ```python
             print("Hello, AI!")
+            # Hello, AI!
+            print(2 + 3)
+            # 5
+            print("tokens:", 120)
+            # tokens: 120
+            ```
+
+            The lines that start with `#` are **comments**: notes for the people who read the code.
+            Python ignores everything from the `#` to the end of the line. In these lessons, a comment
+            under a `print` shows what that `print` writes.
+
+            The examples use words from AI work, such as `tokens`. A **token** is a small piece of text
+            that an AI model reads. Here it is only a label, and you need no AI knowledge to follow the code.
+
+            A comment is ignored even when its text is valid code.
+
+            ```python
+            print("loading model")
+            # print("skipped")
             print(2 + 3)
             print("tokens:", 120)
             ```
 
-            A line that starts with `#` is a **comment**: a note for humans. Python skips it
-            completely, even if it looks like code.
+            Step through the program. Line 2 never becomes the next line to run.
 
-            ```python
-            # print("this never runs")
-            print("this runs")  # a comment can sit at the end of a line too
+            ```diagram
+            {"type": "trace", "title": "Python skips the comment on line 2", "code": ["print(\"loading model\")", "# print(\"skipped\")", "print(2 + 3)", "print(\"tokens:\", 120)"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 3, "vars": {}, "out": "loading model\n", "note": "Line 2 is a comment, so Python goes from line 1 to line 3."},
+              {"line": 4, "vars": {}, "out": "loading model\n5\n"},
+              {"line": null, "vars": {}, "out": "loading model\n5\ntokens: 120\n"}
+            ]}
             ```
 
-            Vocabulary: a line of code is a *statement*; the text in quotes is a *string*.
-
-            Watch out: comments are skipped, so they print nothing at all.
+            A comment prints nothing. This program has four lines and prints three lines.
         ''',
         "prompt": r'''
             Read the code and type exactly what it prints, one line per `print`.
@@ -129,28 +293,34 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "script",
         "lesson": r'''
-            So far you ran code by reading it. Now you write a whole **script**: a file that does its
-            job when you run it, like a to-do list Python works through from top to bottom.
+            ## Scripts and output
 
-            Each `print()` call makes **one line** of output. Two calls, two lines:
+            A **script** is a file of Python code that does its work when you run it. Python runs the
+            statements in the file from top to bottom.
+
+            Writing `print(...)` runs the `print` function. This is called a **call** to `print`. Each call
+            writes one line. Two calls write two lines, in the order they appear in the file.
 
             ```python
             print("loading model")
+            # loading model
             print("done")
+            # done
             ```
 
-            Try the **Run** button (Alt+Enter) on your own file: it runs the file like a real
-            program and shows exactly what it printed. Use it before you press **Check**, so you can
-            compare your output with what the task asks for.
+            The text a program prints is called its **output**. You will also see the name **stdout**,
+            which is another name for the output.
 
-            Vocabulary: what a program prints is called its *output* (sometimes *stdout*, short for
-            "standard output").
+            The **Run** button (Alt+Enter) runs your file and shows its output. The **Check** button
+            (Ctrl+Enter) runs the **checks** of the step: small tests that decide whether your code
+            does what the task asks. Press Run before you press Check, and compare your output with
+            the output the task asks for.
 
-            Watch out: output must match exactly - capital letters, spelling and spaces all count.
-            `Ready` is not `ready`.
+            A check of a script compares the output character by character. Capital letters, spelling and spaces
+            all count. `Ready` and `ready` are different strings, so one does not pass for the other.
         ''',
         "prompt": r'''
-            A *script* is a file that does its work when you run it - no function needed.
+            A *script* is a file that does its work when you run it. No function is needed.
 
             **Write a script** that prints two lines.
 
@@ -199,31 +369,36 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            Values come in different kinds. A **number** is something you can do maths
-            with. **Text** is a row of characters, like letters on a name badge, even if some
-            of those characters happen to be digits. Quotes are what make something text.
+            ## Strings and numbers
+
+            A **string** is a piece of text: a sequence of characters. You write a string inside
+            quotes. A number is written without quotes. A whole number is called an **integer**, or
+            **int**.
+
+            The `+` sign does a different thing for each kind of value. Between two numbers, it adds
+            them. Between two strings, it joins them end to end into one new string. Joining strings
+            is called **concatenation**.
 
             ```python
-            print(2 + 3)
-            print("2" + "3")
+            print(7 + 1)
+            # 8
+            print("7" + "1")
+            # 71
             ```
 
-            The first line adds two numbers and prints `5`. The second line *glues* two
-            pieces of text together and prints `23`. Same `+` sign, different job - it depends
-            on what kind of values are on each side.
+            `"7"` is a string that contains the character `7`. It is not the number `7`. So
+            `"7" + "1"` joins two characters and gives the string `"71"`.
 
-            Gluing is handy for building messages:
+            Concatenation builds a message from parts. Python adds no spaces between the parts, so
+            any space must be inside one of the strings.
 
             ```python
             print("Hello, " + "Ada" + "!")
+            # Hello, Ada!
             ```
 
-            Vocabulary: text in Python is called a *string* (a string of characters). A whole
-            number is an *integer*, or *int*. Gluing strings together is called
-            *concatenation*.
-
-            Watch out: anything inside quotes is printed as-is. `print("2 + 3")` shows the
-            characters `2 + 3`, it does no maths.
+            Python does no maths on the characters inside quotes. `print("7 + 1")` prints the
+            characters `7 + 1` exactly as written.
         ''',
         "prompt": r'''
             Read the code and type exactly what it prints, one line per `print`.
@@ -241,16 +416,16 @@ EXERCISES = [
             AI app
         ''',
         "explanation": r'''
-            `2 + 3` adds numbers. `"2" + "3"` glues two strings into `23`. `"2 + 3"` is one
-            string, printed exactly as written. The last line glues three strings, and the
-            middle one is a single space.
+            `2 + 3` adds two numbers. `"2" + "3"` joins two strings into `23`. `"2 + 3"` is one
+            string, so Python prints it exactly as written. The last line joins three strings,
+            and the middle one is a single space.
         ''',
         "starter": "",
         "tests": "",
         "hints": [
             "Look for quotes: values in quotes are text, values without quotes are numbers.",
-            "+ adds numbers but glues text end to end. Text inside quotes is printed exactly as written.",
-            "Line 1: the sum. Line 2: the two characters stuck together. Line 3: the text between the quotes. Line 4: the three pieces glued, including the space.",
+            "+ adds numbers but joins text end to end. Text inside quotes is printed exactly as written.",
+            "Line 1: the sum. Line 2: the two characters joined together. Line 3: the text between the quotes. Line 4: the three pieces joined, including the space.",
         ],
     },
     {
@@ -259,28 +434,31 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "script",
         "lesson": r'''
-            Python ships with ready-made tools you can use straight away. Think of them as
-            **kitchen appliances**: you don't build a blender, you put ingredients in and
-            press the button.
+            ## Calling a built-in function
 
-            `len()` is one of them. Give it some text, and it counts the characters:
+            A **function** is a named piece of code that takes input values and produces a result.
+            Python comes with many functions that are ready to use. They are called **built-in
+            functions**, or **built-ins**. `print` is one of them.
+
+            To use a function, you **call** it: you write its name, then parentheses with the input
+            inside. An input value that you pass in a call is called an **argument**.
+
+            `len()` is a built-in that counts the characters in a string.
 
             ```python
             print(len("hello"))
+            # 5
             print(len("hi there"))
+            # 8
             ```
 
-            That prints `5` and then `8` - the space counts as a character too.
+            `"hi there"` has 8 characters because the space counts as a character.
 
-            Notice the shape: `len("hello")` is the tool's name, then parentheses with the
-            input inside. And you can put one call inside another: `print(len("hello"))`
-            first counts, then prints the count.
+            `print(len("hello"))` contains two calls. Python runs the inner call first:
+            `len("hello")` produces `5`. Then Python calls `print` with `5` as its argument.
 
-            Vocabulary: using a function is called *calling* it. The input between the
-            parentheses is an *argument*. Tools that come with Python are *built-in
-            functions* (or *built-ins*).
-
-            Watch out: don't count by hand and type the number - let `len` do the work.
+            Do not count the characters by hand and type the number. Call `len`, and Python counts
+            them when the program runs.
         ''',
         "prompt": r'''
             Before sending a prompt you check its size.
@@ -331,27 +509,30 @@ EXERCISES = [
         "title": "Fill in the return",
         "difficulty": 0,
         "lesson": r'''
-            A **function** is a small machine with a name. You build it once, then use it as often
-            as you like. This is the answer format of almost every exercise here: you write the
-            machine, the checks switch it on and look at what comes out.
+            ## def and return
+
+            You can define your own functions. Almost every exercise here asks you to write one. The
+            checks then call your function and compare the value it produces with the expected value.
 
             ```python
             def model_name():
                 return "gpt-4o-mini"
 
             print(model_name())
+            # gpt-4o-mini
             ```
 
-            How to read it:
-            - `def model_name():` means "define a function called model_name". The line ends with a colon `:`.
-            - The line below is pushed in by 4 spaces. That *indentation* says "this belongs to the function".
-            - `return` hands a value back to whoever called the function.
+            - `def model_name():` defines a function named `model_name`. The line ends with a colon `:`.
+            - The next line starts with 4 spaces. Spaces at the start of a line are called **indentation**. The indentation tells Python that the line is part of the function.
+            - `return` ends the function and sends a value back to the code that called it. That value is called the **return value**.
 
-            `model_name()` (name + parentheses) *calls* the function: it runs the body and gives back
-            the returned value. The proper name for that value is the *return value*.
+            The `def` statement creates the function. It does not run it. `model_name()` is the name
+            plus parentheses, and that calls the function: Python runs the indented line, and the
+            call produces the return value `"gpt-4o-mini"`. `print` then writes it to the screen.
 
-            Watch out: text must be inside quotes. `return Hello` (no quotes) makes Python look for
-            a name called Hello and fail.
+            A string must be inside quotes. Without quotes, `Hello` is read as a **name**, like the
+            name `model_name` above. With `return Hello`, Python looks for something called
+            `Hello`. No such name exists, so the call stops with `NameError: name 'Hello' is not defined`.
         ''',
         "prompt": r'''
             A function that always gives back the same greeting text.
@@ -402,28 +583,53 @@ EXERCISES = [
         "title": "Write add()",
         "difficulty": 0,
         "lesson": r'''
-            Most machines need something to work on. A coffee machine needs beans; `add` needs two
-            numbers. You list the inputs inside the parentheses of the `def` line.
+            ## Parameters and arguments
+
+            A function can take inputs. You name the inputs inside the parentheses of the `def` line.
+            These names are called **parameters**.
 
             ```python
             def double(n):
                 return n * 2
 
             print(double(4))
+            # 8
             print(double(10))
+            # 20
             ```
 
-            `n` is a placeholder. Each call fills it in: `double(4)` runs the body with `n` being 4,
-            `double(10)` runs it again with `n` being 10.
+            `n` is a parameter. The values `4` and `10` are **arguments**: the values you pass in a
+            call. For each call, Python sets `n` to the argument and then runs the indented line.
+            `*` means multiply, so `n * 2` is `n` times 2. `double(4)` runs with `n` set to `4`. `double(10)` runs again with `n` set to `10`.
 
-            Vocabulary: the placeholder names in the `def` line are *parameters*. The actual values
-            you pass in a call are *arguments*. A function can have several parameters, separated by
-            commas: `def area(width, height):`.
+            Step through the program to see the value of `n` in each call.
 
-            The maths signs work as you expect: `+` add, `-` subtract, `*` multiply, `/` divide.
+            ```diagram
+            {"type": "trace", "title": "Each call sets the parameter n", "code": ["def double(n):", "    return n * 2", "", "print(double(4))", "print(double(10))"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 4, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"n": "4"}, "out": "", "note": "The call double(4) sets n to 4."},
+              {"line": 5, "vars": {}, "out": "8\n"},
+              {"line": 2, "vars": {"n": "10"}, "out": "8\n", "note": "The call double(10) sets n to 10."},
+              {"line": null, "vars": {}, "out": "8\n20\n"}
+            ]}
+            ```
 
-            Watch out: use the parameter names in the body, not fixed numbers. `return 2 + 3` would
-            give 5 for every call.
+            A function can have several parameters, separated by commas. Python matches the arguments
+            to the parameters by position: the first argument goes to the first parameter.
+
+            ```python
+            def area(width, height):
+                return width * height
+
+            print(area(3, 5))
+            # 15
+            ```
+
+            The arithmetic signs are `+` for add, `-` for subtract, `*` for multiply and `/` for divide.
+
+            Use the parameter names in the function, not fixed numbers. A function that contains
+            `return 4 * 2` returns `8` for every call, whatever argument you pass.
         ''',
         "prompt": r'''
             Your first real function: it takes two numbers and hands back their total.
@@ -435,7 +641,7 @@ EXERCISES = [
             - **Returns:** the sum `a + b`, as a number (not text), e.g. `5`
 
             **Rules**
-            - **Return** the result (don't just `print` it) - the checks call `add(...)` and look at what comes back.
+            - **Return** the result (don't just `print` it): the checks call `add(...)` and look at what comes back.
             - Negative numbers must work too.
 
             **Examples**
@@ -474,11 +680,14 @@ EXERCISES = [
         "title": "Fix: print is not return",
         "difficulty": 0,
         "lesson": r'''
-            `print` and `return` look similar but do very different jobs. `print` is like **saying
-            the answer out loud** in an empty room: it shows up on screen, but nobody can use it.
-            `return` is **handing the answer to the person who asked**, so they can use it.
+            ## print is not return
 
-            The checks are that person. They call your function and look at what it hands back.
+            `print` and `return` do different things. `print` writes a value to the screen. The code
+            that called the function receives nothing from it. `return` sends the value back to the
+            code that called the function, so that code can use the value.
+
+            The checks call your function and compare its return value with the expected value. They
+            do not read what your function prints.
 
             ```python
             def shows(n):
@@ -488,14 +697,37 @@ EXERCISES = [
                 return n * 2
 
             print(gives(4))
+            # 8
             print(shows(4))
+            # 8
+            # None
             ```
 
-            The last line prints `8` (said out loud inside `shows`) and then `None` - what `shows`
-            handed back. A function with no `return` gives back `None`, Python's "nothing here" value.
+            `print(gives(4))` writes `8`, the return value of `gives`.
 
-            Vocabulary: a check message like `double(4) returned None` means "I called it with 4
-            and got nothing back". That almost always means a missing `return`.
+            `print(shows(4))` writes two lines. First the `print` inside `shows` writes `8`. Then
+            `shows` ends without a `return`, so the call produces `None`, and the outer `print`
+            writes `None`.
+
+            **`None`** is the value Python uses for "no value". A function that ends without `return`
+            returns `None`.
+
+            Step through the program and watch when each line of output appears.
+
+            ```diagram
+            {"type": "trace", "title": "A function without return gives None", "code": ["def shows(n):", "    print(n * 2)", "", "def gives(n):", "    return n * 2", "", "print(gives(4))", "print(shows(4))"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 4, "vars": {}, "out": ""},
+              {"line": 7, "vars": {}, "out": ""},
+              {"line": 5, "vars": {"n": "4"}, "out": "", "note": "gives returns 8 to line 7, and line 7 prints it."},
+              {"line": 8, "vars": {}, "out": "8\n"},
+              {"line": 2, "vars": {"n": "4"}, "out": "8\n", "note": "shows prints 8 itself and then ends with no return."},
+              {"line": null, "vars": {}, "out": "8\n8\nNone\n", "note": "The call shows(4) produced None, so line 8 printed None."}
+            ]}
+            ```
+
+            A check message like `double(4) returned None` means the check called the function with
+            `4` and got `None` back. The usual cause is a missing `return`.
         ''',
         "prompt": r'''
             `double(n)` should hand back twice its input, but Check says it returns `None`.
@@ -547,30 +779,34 @@ EXERCISES = [
         "title": "Fix: indent the body",
         "difficulty": 0,
         "lesson": r'''
-            Python uses **indentation** (spaces at the start of a line) the way a book uses
-            paragraphs: it shows which lines belong together. Everything that belongs to a
-            function is pushed in by 4 spaces under its `def` line.
+            ## Indentation
+
+            **Indentation** is the spaces at the start of a line. Python uses indentation to decide
+            which lines belong to a function. The lines that belong to a function are called its
+            **body**. You indent each of them by 4 spaces under the `def` line.
 
             ```python
             def excited(text):
                 return text + "!"
 
             print(excited("ready"))
+            # ready!
             ```
 
-            The `return` line is indented, so it is part of `excited`. The `print` line is
-            back at the left edge, so it is *not* part of the function - it runs on its own.
+            The `return` line is indented, so it is part of `excited`. The `print` line starts at
+            the left edge, so it is not part of the function. It runs when Python reaches it in the file.
 
-            If the body is not indented, Python stops before running anything:
+            If the line after `def` is not indented, Python stops before it runs any line and reports
+            this error:
 
             ```text
             IndentationError: expected an indented block after function definition on line 1
             ```
 
-            Vocabulary: the indented lines under `def` are the function's *body*, and a group
-            of lines with the same indentation is a *block*.
+            A group of lines with the same indentation is called a **block**. The error says that
+            Python expected a block after the `def` line and did not find one.
 
-            Watch out: use the same amount of indentation (4 spaces) for every line in a block.
+            Use the same indentation, 4 spaces, for every line in a block.
         ''',
         "prompt": r'''
             `shout(text)` should add an exclamation mark to a piece of text, but Check fails
@@ -624,31 +860,40 @@ EXERCISES = [
         "title": "Count the characters",
         "difficulty": 1,
         "lesson": r'''
-            Python comes with a toolbox of ready-made functions called **built-ins**. You call them
-            like your own functions: name, parentheses, inputs inside.
+            ## Built-ins inside your functions
+
+            Python's **built-in functions** are available in every program without any setup. You
+            call them the same way you call your own functions: the name, then parentheses with the
+            arguments inside.
 
             ```python
             print(len("hello"))
+            # 5
             print(max(3, 9, 4))
+            # 9
             print(min(3, 9, 4))
+            # 3
             ```
 
-            - `len(text)` counts the characters in a text, spaces and punctuation included.
-            - `max(...)` gives the biggest of its inputs, `min(...)` the smallest.
+            - `len(text)` returns the number of characters in a string. Spaces and punctuation count.
+            - `max(...)` returns the largest of its arguments. `min(...)` returns the smallest.
 
-            You can use a built-in inside your own function and return what it gives back:
+            You can call a built-in inside your own function and return its result.
 
             ```python
             def biggest(a, b):
                 return max(a, b)
 
             print(biggest(7, 12))
+            # 12
             ```
 
-            Vocabulary: when a function gives a value back, people say it *returns* that value, and
-            calling `len("hello")` *evaluates to* `5`.
+            When a call produces a value, you say the call **evaluates to** that value.
+            `len("hello")` evaluates to `5`.
 
-            Watch out: `len` counts characters in text. `len(5)` (a number) is an error.
+            `len` does not accept a number. `len(5)` stops the program with
+            `TypeError: object of type 'int' has no len()`. A `TypeError` means the operation
+            does not work for that kind of value.
         ''',
         "prompt": r'''
             Before sending a prompt to a model you often check how long it is.
@@ -704,38 +949,41 @@ EXERCISES = [
         "title": "Read the failing check",
         "difficulty": 1,
         "lesson": r'''
-            When your code runs but gives the wrong answer, there is no error message. Instead
-            the **check** tells you what happened, like a teacher writing next to your sum:
-            "you said -70, look again".
+            ## Reading a failing check
 
-            A failing check reads like this:
+            Code can run without an error and still return the wrong value. This is called a
+            **logic error**, or a **bug**. Python shows no error message for it. The failing
+            **check** tells you what happened.
 
             ```text
             FAIL  subtracts used from limit
                   tokens_left(100, 30) returned -70
             ```
 
-            Read it as three facts:
-            1. **What was tested**: the check's name, "subtracts used from limit".
-            2. **The call**: your function was called with `100` and `30`.
-            3. **What came back**: `-70`.
+            The message contains three facts:
 
-            Now compare with the Examples in the task. If the task says `tokens_left(100, 30)`
-            should be `70`, the sign is flipped - so the subtraction is the wrong way round.
+            1. **What was tested**: the name of the check, "subtracts used from limit".
+            2. **The call**: the check called your function with the arguments `100` and `30`.
+            3. **The return value**: your function returned `-70`.
 
-            You can test the same call yourself: add a `print(...)` of the call at the bottom
-            of the file and press Run.
+            Compare the return value with the Examples in the task. The task says that
+            `tokens_left(100, 30)` returns `70`. The digits are right and the sign is wrong. That
+            happens when the two values of a subtraction are in the wrong order.
+
+            You can run the same call yourself. Add a `print(...)` of the call at the bottom of the
+            file and press Run.
 
             ```python
             def gap(a, b):
                 return a - b
 
             print(gap(100, 30))
+            # 70
             print(gap(30, 100))
+            # -70
             ```
 
-            Vocabulary: a wrong result without an error is called a *logic error* (or just a
-            *bug*).
+            Subtraction depends on the order of its values. `a - b` and `b - a` have opposite signs.
         ''',
         "prompt": r'''
             Your app tracks how many tokens are left in a limit. The code runs, but Check fails.
@@ -792,31 +1040,41 @@ EXERCISES = [
         "title": "Fix the broken welcome",
         "difficulty": 1,
         "lesson": r'''
-            Error messages are not scary - they are **a note from Python pointing at the problem**.
-            Read them from the bottom: the last line says what went wrong, and the message also
-            names the **line number**.
+            ## Reading error messages
+
+            When Python cannot run your code, it prints an **error message**. The message names the
+            file, the **line number** and the problem. When the message has several lines, find the line
+            with the error name, such as `SyntaxError`: it states what went wrong.
 
             ```text
             SyntaxError in solution.py line 1: expected ':'
                 def add(a, b)
             ```
 
-            The three errors you will meet most on day one:
+            A **syntax error** means the code breaks the grammar rules of Python. Python reads the
+            whole file before it runs it, so with a syntax error no line runs at all.
 
-            - `SyntaxError: expected ':'` - something is missing, often the colon at the end of a `def` line.
-            - `IndentationError: expected an indented block` - the body of a function is not indented.
-            - `NameError: name 'Total' is not defined` - you used a name Python has never seen.
-              Names are case-sensitive: `Total` and `total` are different names.
+            These are the three errors you see most often at the start:
+
+            - `SyntaxError: expected ':'` means a colon `:` is missing on that line. Often it is the colon at the end of a `def` line.
+            - `IndentationError: expected an indented block` means the body of a function is not indented.
+            - `NameError: name 'Total' is not defined` means you used a name that Python does not know. A name is a word in your code, such as `print`, `add` or a parameter name like `total`.
+
+            Names are **case-sensitive**: an uppercase letter and its lowercase letter are different
+            characters. `total` and `Total` are two different names.
 
             ```python
-            text = "hello"
-            print(text)
-            # print(Text)  <- this would be a NameError: capital T
+            def show(total):
+                return total
+
+            print(show(5))
+            # 5
             ```
 
-            Fix one error, run again, read the next one. Errors often come one at a time.
+            With `return Total` in the body, the call stops with
+            `NameError: name 'Total' is not defined. Did you mean: 'total'?`.
 
-            Vocabulary: a *syntax error* means the code breaks Python's grammar, so nothing runs at all.
+            Fix one error, run again and read the next message. Python reports one error at a time.
         ''',
         "prompt": r'''
             A greeting for a new user of your AI app. The file has **three** small bugs.
@@ -868,27 +1126,30 @@ EXERCISES = [
         "title": "Round a score",
         "difficulty": 1,
         "lesson": r'''
-            Nobody memorises every tool. Real engineers **look things up** all the time, the
-            way a cook checks a recipe book. Python's official docs at docs.python.org describe
-            every built-in: what inputs it takes and what it gives back.
+            ## Reading the docs
 
-            A doc entry starts with a *signature*, like `round(number, ndigits=None)`. It tells
-            you the function's name and its inputs. An input shown with `=` has a default, so
-            you may leave it out:
+            Python's official **documentation**, or **docs**, is at docs.python.org. It describes
+            every built-in function: the arguments it takes and the value it returns. Engineers look
+            functions up there all the time. You do not need to memorise them.
+
+            A docs entry starts with a **signature**: the function's name followed by its parameters
+            in parentheses. The signature of `round` is `round(number, ndigits=None)`.
+
+            A parameter written with `=` has a **default value**. Python uses the default when you
+            leave that argument out. An argument that you may leave out is called an **optional argument**.
 
             ```python
             print(round(2.567))
+            # 3
             print(max(3, 9, 4))
+            # 9
             ```
 
-            `round(2.567)` gives the nearest whole number, `3`. The docs tell you what the
-            second input changes - that is exactly what this step asks you to find out.
+            `round(2.567)` passes one argument, so `ndigits` keeps its default. The call returns the
+            nearest whole number, `3`. The docs entry explains what a second argument changes. Read
+            it to solve this step.
 
-            Vocabulary: an input you may leave out is an *optional argument*. The text
-            explaining a function is its *documentation* (or *docs*).
-
-            Watch out: a function's name, its parentheses and the order of its inputs must
-            match the docs exactly.
+            In a call, the function's name and the order of the arguments must match the signature.
         ''',
         "research": {
             "note": "Read the entry for the built-in round() - especially what its second input (ndigits) does - then come back.",
@@ -1037,13 +1298,18 @@ EXERCISES = [
         "title": "Longest prompt",
         "difficulty": 2,
         "lesson": r'''
-            Putting it together: calls can be nested inside other calls. Python works from
-            the inside out - it finishes the inner calls first, then passes their results to
-            the outer one.
+            ## Nested calls
+
+            A call is **nested** when it is written inside the parentheses of another call. Python
+            runs the inner calls first. Their return values become the arguments of the outer call.
 
             ```python
             print(min(len("abc"), len("hi")))
+            # 2
             ```
+
+            Python runs this line in three steps. `len("abc")` returns `3` and `len("hi")` returns
+            `2`. Then `min(3, 2)` returns `2`. Then `print(2)` writes `2`.
         ''',
         "prompt": r'''
             You have three candidate prompts and want to know how long the longest one is.

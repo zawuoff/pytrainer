@@ -14,61 +14,290 @@ TOPIC = {
                  "character offsets", "heading context", "token budget"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["chunk", "chunking", "split", "slice", "range", "size", "overlap", "step",
+                 "ceiling division", "paragraph", "sentence", "re.split", "greedy packing",
+                 "metadata", "offset", "token budget"],
+    "cards": [
+        {
+            "syntax": "[text[i:i + size] for i in range(0, len(text), size)]",
+            "explain": "Fixed-size chunks: range gives the start index of each chunk and the slice returns it. The last chunk can be shorter.",
+            "example": r'''
+                text = "Refunds take 5 days."
+                size = 8
+                print([text[i:i + size] for i in range(0, len(text), size)])
+                # ['Refunds ', 'take 5 d', 'ays.']
+            ''',
+        },
+        {
+            "syntax": "(length + size - 1) // size",
+            "explain": "Ceiling division: divides and rounds up. It gives the number of fixed-size chunks, with a partial last chunk counted.",
+            "example": r'''
+                print((10 + 4 - 1) // 4)
+                # 3
+                print((8 + 4 - 1) // 4)
+                # 2
+            ''',
+        },
+        {
+            "syntax": "step = size - overlap",
+            "explain": "Overlap: each chunk repeats the last `overlap` characters of the previous one. Needs 0 <= overlap < size.",
+            "example": r'''
+                text = "abcdefghij"
+                size, overlap = 5, 2
+                step = size - overlap
+                print([text[i:i + size] for i in range(0, len(text), step)])
+                # ['abcde', 'defgh', 'ghij', 'j']
+            ''',
+        },
+        {
+            "syntax": 'text.split("\\n\\n")',
+            "explain": "Splits text into paragraphs at blank lines. Strip each piece and drop the pieces that are empty.",
+            "example": r'''
+                text = "Intro line.\n\n Second part. \n\n\n\nThird."
+                parts = text.split("\n\n")
+                print([p.strip() for p in parts if p.strip()])
+                # ['Intro line.', 'Second part.', 'Third.']
+            ''',
+        },
+        {
+            "syntax": 're.split(r"(?<=[.!?])\\s+", text)',
+            "explain": "Splits text into sentences: cuts at whitespace that follows . ! or ? and keeps the punctuation.",
+            "example": r'''
+                import re
+
+                text = "Refunds take 3.5 days. Contact support!"
+                print(re.split(r"(?<=[.!?])\s+", text))
+                # ['Refunds take 3.5 days.', 'Contact support!']
+            ''',
+        },
+        {
+            "syntax": 'len(current + " " + piece) <= limit',
+            "explain": "Greedy packing test: the piece joins the current chunk only if the joined text, separator included, fits the limit.",
+            "example": r'''
+                limit = 12
+                current = "Hi."
+                for piece in ["Yes.", "Goodbye now."]:
+                    candidate = current + " " + piece
+                    print(len(candidate), len(candidate) <= limit)
+                # 8 True
+                # 16 False
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
-## Why chunk?
+## Why documents are chunked
 
-A model's context window is limited and costs money per token, and an embedding of a whole
-100-page manual is a blurry average of everything in it. So RAG apps cut documents into
-**chunks**, embed each chunk, and later put only the few most relevant chunks in the prompt.
-Chunks too big: blurry matches, wasted tokens. Too small: a chunk loses the context it
-needs to make sense.
+A **chunk** is a piece of a longer document. A **RAG** (retrieval-augmented generation) app answers questions from your own
+documents by finding the relevant text first and giving it to a language model. It splits each document into chunks, computes one embedding (a list of numbers
+that represents the text) per chunk, and later puts only the most relevant chunks in the
+prompt.
 
-## Fixed size
+There are two reasons. A model's context window (the most tokens it can read in one
+request) is limited, and every token in it costs money. One embedding for a 100-page manual
+also has to represent every subject in the manual, so it is not very similar to the
+embedding of any single question.
+
+Large chunks match a question less precisely and use more tokens. Small chunks can lose the
+surrounding text that a reader needs to understand them.
+
+## Fixed-size chunks
+
+**Fixed-size chunking** cuts the text every `size` characters. `range(0, len(text), size)`
+produces the start index of each chunk, and the slice `text[i:i + size]` returns the chunk.
 
 ```python
-text, size = "one two three four five", 2
-print([text[i:i + size] for i in range(0, len(text), size)][:3])       # characters
-words = text.split()
-print([" ".join(words[i:i + size]) for i in range(0, len(words), size)])  # words
+text = "Refunds take 5 days."
+size = 8
+chunks = [text[i:i + size] for i in range(0, len(text), size)]
+print(chunks)
+# ['Refunds ', 'take 5 d', 'ays.']
 ```
-Number of chunks = ceiling division: `(n + size - 1) // size`.
+
+To keep words whole, split the text into a list of words, slice the list, and join each
+slice with spaces.
+
+```python
+words = "refunds are processed within five days".split()
+size = 4
+chunks = [" ".join(words[i:i + size]) for i in range(0, len(words), size)]
+print(chunks)
+# ['refunds are processed within', 'five days']
+```
+
+## Counting chunks
+
+**Ceiling division** is division that rounds up. `(length + size - 1) // size` gives the
+number of fixed-size chunks, and it counts a partial last chunk as one chunk.
+
+```python
+length, size = 10, 4
+print((length + size - 1) // size)
+# 3
+```
+
+10 characters with size 4 give chunks of 4, 4 and 2 characters. The formula computes
+`(10 + 4 - 1) // 4`, which is `13 // 4`, which is `3`.
 
 ## Overlap
 
-Repeat the last `overlap` items at the start of the next chunk so a sentence cut at a border
-still appears whole somewhere. **step = size - overlap** (must be > 0, so `overlap < size`).
-Stop after the chunk that reaches the end, or you get a tiny tail that is pure overlap.
+**Overlap** is the number of characters (or words) that a chunk repeats from the end of the
+previous chunk. Text near a cut then appears in both chunks, so a sentence that is cut at the end of one
+chunk can appear whole in the next one if the overlap is large enough. The distance between two chunk starts is the **step**: `size - overlap`.
+
+```python
+text = "Refunds take 5 days. Contact support."
+size, overlap = 12, 4
+step = size - overlap
+chunks = [text[i:i + size] for i in range(0, len(text), step)]
+print(step)
+# 8
+print(chunks)
+# ['Refunds take', 'take 5 days.', 'ays. Contact', 'tact support', 'port.']
+```
+
+Move the sliders to see how size and overlap change the step and the chunks.
+
+```diagram
+{"type":"chunks","title":"Chunks of text with size 12 and overlap 4","text":"Refunds take 5 days. Contact support.","size":12,"overlap":4}
+```
+
+The overlap must be smaller than the size. Otherwise the step is zero or negative.
+
+This formula can produce a last chunk that holds only repeated characters. The exercises
+"Overlap done right" and "Chunk a document" use a different rule for the end: they stop
+after the first chunk that reaches the end of the text (`start + size >= len(text)`).
+
+```python
+text = "abcdefg"
+size, overlap = 4, 1
+print([text[i:i + size] for i in range(0, len(text), size - overlap)])
+# ['abcd', 'defg', 'g']
+```
+
+With the stop rule the result is `['abcd', 'defg']`, because `"defg"` already reaches the end.
 
 ## Structure-aware splitting
 
-- Paragraphs: `text.split("\n\n")`, strip, drop empties.
-- Sentences: end at `.`, `!` or `?` followed by whitespace (`re.split(r"(?<=[.!?])\s+", text)`).
-- **Greedy packing**: add pieces to the current chunk while it still fits the limit; otherwise
-  close it and start a new one. A piece bigger than the limit on its own gets split further.
+**Structure-aware chunking** cuts the text between the parts the document already has.
+Paragraphs are separated by a blank line, which is the string `"\n\n"`. A sentence ends at
+`.`, `!` or `?` followed by whitespace.
+
+```python
+import re
+
+text = "Billing is monthly.\n\n\n\nRefunds take 5 days. Contact support!"
+paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+print(paragraphs)
+# ['Billing is monthly.', 'Refunds take 5 days. Contact support!']
+print(re.split(r"(?<=[.!?])\s+", paragraphs[1]))
+# ['Refunds take 5 days.', 'Contact support!']
+```
+
+`p.strip()` removes whitespace from both ends, and `if p.strip()` drops the empty pieces
+that extra blank lines produce.
+
+In the pattern, `\s+` matches a run of whitespace, and `re.split` cuts there. `(?<=[.!?])`
+is a **lookbehind**: it requires `.`, `!` or `?` directly before the whitespace and does not
+include that character in the match. The punctuation therefore stays in the sentence.
+
+## Greedy packing
+
+**Greedy packing** builds chunks from pieces such as sentences. You add the next piece to
+the current chunk if the result is within the limit. Otherwise you close the current chunk
+and start a new one with that piece. Measure the joined candidate, because the separator
+counts too.
+
+```python
+limit = 20
+current = "Billing is monthly."
+candidate = current + " " + "Ok."
+print(len(candidate), len(candidate) <= limit)
+# 23 False
+```
+
+The current chunk has 19 characters, the space is 1 and `"Ok."` has 3. That is 23, which is
+over the limit of 20, so `"Ok."` starts a new chunk.
+
+A piece that is longer than the limit on its own has to be split further.
 
 ## Metadata
 
-A chunk without its origin can't be cited. Keep `source`/`doc_id`, `index`, `title`, and
-character offsets `start`/`end` (so `text[start:end] == chunk`). A stable id like
-`"handbook-3"` lets you update or delete chunks later.
+**Metadata** is the data you store next to the chunk text: `source` or `doc_id`, `index`,
+`title`, and the **character offsets** `start` and `end`, which are the indexes in the
+original text where the chunk begins and stops. Without metadata your app cannot show which
+document a chunk came from.
+An id built from the document and the index, such as `"faq-1"`, lets you update or delete
+the chunk later.
 
-## Context
+```python
+text = "Refunds take 5 days."
+chunk = {"id": "faq-1", "source": "faq.md", "index": 1, "start": 8, "end": 12}
+print(text[chunk["start"]:chunk["end"]])
+# take
+```
 
-A chunk like "It costs $5 per month." is useless alone. Prefix the document title and heading
-path ("Pricing > Pro plan") to the text you embed - the idea behind Anthropic's
-*contextual retrieval*.
+## Heading context
+
+A chunk such as "It costs $5 per month." does not say what costs $5. Put the document title
+and the **heading path** in front of the text you embed. The heading path is the list of
+headings the chunk is under, from the outer one to the inner one. (Adding text to the
+chunk before embedding it, so the chunk is findable on its own, is the same idea that
+Anthropic calls contextual retrieval.)
+
+```python
+title, heading, text = "Handbook", "Pricing > Pro plan", "It costs $5 per month."
+print(f"{title} > {heading}\n\n{text}")
+# Handbook > Pricing > Pro plan
+#
+# It costs $5 per month.
+```
+
+Step through the stages to see what the data looks like after each one.
+
+```diagram
+{"type":"flow","title":"From document to stored chunks","steps":[
+{"label":"Read","detail":"The document is one string. Blank lines separate its paragraphs.","code":"text = \"Billing is monthly.\\n\\n\\n\\nRefunds take 5 days. Contact support!\""},
+{"label":"Split","detail":"text.split(\"\\n\\n\") cuts at blank lines. Each piece is stripped and empty pieces are dropped.","code":"['Billing is monthly.', 'Refunds take 5 days. Contact support!']"},
+{"label":"Chunk","detail":"Small pieces are packed together up to the limit. With a limit of 40 characters the two paragraphs do not fit in one chunk, so each one becomes a chunk.","code":"chunks = ['Billing is monthly.', 'Refunds take 5 days. Contact support!']"},
+{"label":"Attach metadata","detail":"Each chunk becomes a dict with an id, its source and its index.","code":"{'id': 'faq-0', 'source': 'faq.md', 'index': 0, 'text': 'Billing is monthly.'}\n{'id': 'faq-1', 'source': 'faq.md', 'index': 1, 'text': 'Refunds take 5 days. Contact support!'}"},
+{"label":"Embed and store","detail":"The app computes one embedding per chunk text and stores it together with the metadata."}
+]}
+```
 
 ## Token budgets
 
-Limits are really in tokens, not characters. Pass a `count_tokens(text)` function in (a
-real tokenizer, or a rough `len(text) // 4`) and measure the joined candidate chunk - token
-counts don't simply add up.
+Model limits are counted in tokens, not characters. Pass a `count_tokens(text)` function
+to your chunker: a real **tokenizer** (the program that splits text into tokens and so can
+count them), or an estimate such as `len(text) // 4`. Measure the
+joined candidate chunk. The token counts of two pieces do not always add up to the count
+of the joined text.
 
-## Gotchas
+```python
+def count_tokens(text):
+    return len(text) // 4
 
-- `range(0, n, step)` with `step <= 0` fails: validate overlap first.
-- `" ".join(words)` loses the original newlines; offsets need character chunks.
-- Empty input should give `[]`, not `[""]`.
+print(count_tokens("Hi.") + count_tokens("Yes."))
+# 1
+print(count_tokens("Hi. Yes."))
+# 2
+```
+
+`"Hi."` has 3 characters and `3 // 4` is `0`. `"Yes."` has 4 characters, which gives `1`.
+The joined text has 8 characters, which gives `2`.
+
+## Common mistakes
+
+- `range(0, n, 0)` raises `ValueError`, and a negative step produces no starts at all.
+  Check that `0 <= overlap < size` before you loop.
+- `" ".join(words)` replaces newlines and repeated spaces with single spaces. Character
+  offsets are only correct for chunks that are exact slices of the text.
+- Empty input should return `[]`, not `[""]`. `"".split("\n\n")` returns `['']`, so filter
+  out empty pieces.
 '''
 
 EXERCISES = [
@@ -79,27 +308,40 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Cutting the loaf
+            ## Chunks and slices
 
-            A long document is like a loaf of bread: nobody eats it whole. You cut it into
-            slices so each one fits in your hand. In a RAG app each slice is a **chunk**:
-            small enough to embed precisely and to fit in the model's prompt.
+            A **chunk** is a piece of a longer document. A RAG app splits each document
+            into chunks so that each chunk can be embedded on its own and fits in the
+            model's prompt.
 
-            The simplest cut is by characters. `range(start, stop, step)` gives the start
-            of each slice, and slicing `text[i:i + size]` cuts it out:
+            **Fixed-size chunking** cuts the text every `size` characters.
+            `range(start, stop, step)` produces the index where each chunk starts. The
+            slice `text[i:i + size]` returns the characters from index `i` up to, but not
+            including, index `i + size`.
 
             ```python
             text = "hello world!"
             print(list(range(0, len(text), 5)))
+            # [0, 5, 10]
             for i in range(0, len(text), 5):
                 print(repr(text[i:i + 5]))
+            # 'hello'
+            # ' worl'
+            # 'd!'
             ```
 
-            Slicing past the end is fine in Python: `"abc"[2:10]` is just `"c"`. So the
-            last chunk is simply shorter.
+            Drag the handles to see which characters one slice returns.
 
-            This is called **fixed-size chunking**. It's crude, but it's the baseline
-            every other method is compared to.
+            ```diagram
+            {"type":"slice","title":"One chunk of text as a slice","name":"text","value":"hello world!","start":5,"stop":10}
+            ```
+
+            A slice whose stop is past the end of the string does not raise an error.
+            Python returns the characters that exist. `text[10:15]` is `'d!'`, so the
+            last chunk can be shorter than the others.
+
+            Fixed-size chunking ignores words and sentences. Other chunking methods
+            are usually compared against it.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -131,27 +373,30 @@ EXERCISES = [
         "title": "Fixed-size chunks",
         "difficulty": 0,
         "lesson": r'''
-            ## Same knife, any size
+            ## Chunk size
 
-            Remember the loaf? Now make the slice thickness a setting. The starts jump by
-            `size` each time, and each slice is `size` characters long.
+            The **chunk size** is the number of characters in each chunk. Store it in a
+            variable so you can change it. Each chunk starts `size` characters after the
+            previous one, and each slice is `size` characters long.
 
             ```python
             text = "retrieval"
             size = 3
             starts = list(range(0, len(text), size))
             print(starts)
+            # [0, 3, 6]
             print([text[s:s + size] for s in starts])
+            # ['ret', 'rie', 'val']
             ```
 
-            A list comprehension (from the comprehensions chapter) builds the whole list
-            in one line.
+            The list comprehension (from the comprehensions chapter) builds the whole
+            list of chunks in one expression.
 
-            The **chunk size** is the most important knob in a RAG system. Real apps
-            use a few hundred to a couple of thousand characters.
+            Chunk size is one of the most important settings in a RAG system. Real apps use a
+            few hundred to a couple of thousand characters.
 
-            Watch out: with empty text, `range(0, 0, size)` is empty, so you get `[]` -
-            exactly what you want, no special case needed.
+            Empty text needs no special case. `len("")` is `0`, and `range(0, 0, size)`
+            produces no numbers, so the result is `[]`.
         ''',
         "prompt": r'''
             Cut text into pieces of a fixed number of characters. Complete the function by
@@ -213,27 +458,34 @@ EXERCISES = [
         "title": "Fix: word chunks",
         "difficulty": 0,
         "lesson": r'''
-            ## Don't cut words in half
+            ## Word chunks
 
-            Slicing by characters can cut "refund" into "ref" and "und". Cutting by
-            **words** keeps each word whole: split the text into a list of words, slice
-            the list, and glue each slice back with spaces.
+            Slicing by characters can cut "refund" into "ref" and "und". A **word
+            chunk** holds a fixed number of whole words instead. You split the text into
+            a list of words, slice the list, and join each slice with spaces.
 
             ```python
-            words = "the quick brown fox jumps".split()
+            words = "the quick\nbrown   fox jumps".split()
+            print(words)
+            # ['the', 'quick', 'brown', 'fox', 'jumps']
             print(words[0:2])
+            # ['the', 'quick']
             print(" ".join(words[0:2]))
+            # the quick
             print(" ".join(words[4:6]))
+            # jumps
             ```
 
-            `str.split()` with no argument splits on any whitespace (spaces, newlines,
-            tabs) and drops the empty bits. `" ".join(list)` is its opposite.
+            `text.split()` with no argument splits on any run of whitespace: spaces,
+            newlines and tabs. It never returns empty strings. `" ".join(items)` builds
+            one string from a list of strings, with a single space between the items.
 
-            Word counts are a better stand-in for **tokens** (what models actually
-            count) than characters are.
+            The number of words is a closer estimate of the number of **tokens** (the
+            units a model counts) than the number of characters is.
 
-            Watch out: the jump between starts must match the chunk size, or chunks
-            repeat words.
+            The step of `range` must equal the chunk size. With a smaller step, a new
+            chunk starts before the previous one ends, so words appear in more than one
+            chunk.
         ''',
         "prompt": r'''
             `chunk_words` should split text into chunks of `size` words, but its chunks
@@ -303,28 +555,35 @@ EXERCISES = [
         "title": "How many chunks?",
         "difficulty": 0,
         "lesson": r'''
-            ## Counting boxes
+            ## Ceiling division
 
-            You're packing 10 books into boxes that hold 4. That's 2 full boxes plus one
-            box for the last 2 books: 3 boxes. Normal division gives 2.5; you need to
-            **round up**.
+            A text of 10 characters with a chunk size of 4 gives chunks of 4, 4 and 2
+            characters. That is 3 chunks. `10 / 4` is `2.5`, so the chunk count is the
+            division result rounded up.
 
-            Floor division `//` rounds *down*. A classic trick rounds up instead: add
-            `size - 1` before dividing.
+            Floor division `//` rounds down. To round up, add `size - 1` to the length
+            before you divide. This is called **ceiling division**.
 
             ```python
             print(10 // 4)
+            # 2
             print((10 + 4 - 1) // 4)
+            # 3
             print((8 + 4 - 1) // 4)
+            # 2
             print((0 + 4 - 1) // 4)
+            # 0
             ```
 
-            This is called **ceiling division**. It tells you how many chunks (and so how
-            many embedding calls) a document will need before you make them - useful for
-            estimating cost.
+            Adding `size - 1` moves any length that has a remainder up to or past the
+            next multiple of `size`. A length that is already a multiple of `size`
+            stays below the next multiple, so its result does not change.
 
-            Watch out: `round(10 / 4)` gives `2` (Python rounds 2.5 to the even number),
-            not `3`.
+            Ceiling division gives the number of chunks, and so the number of embedding
+            calls, before you create any chunk. You can use it to estimate cost.
+
+            `round(10 / 4)` returns `2`, not `3`. `round` rounds a value that ends in
+            `.5` to the nearest even number.
         ''',
         "prompt": r'''
             Before chunking, estimate how many chunks (and embedding calls) a document needs.
@@ -384,25 +643,30 @@ EXERCISES = [
         "title": "Split into paragraphs",
         "difficulty": 0,
         "lesson": r'''
-            ## Cut along the dotted lines
+            ## Paragraphs
 
-            Fixed-size cuts ignore meaning. But writers already cut their text for you:
-            **paragraphs**, separated by a blank line. A blank line is two newlines in a
-            row: `"\n\n"`.
+            Fixed-size chunks can end in the middle of a sentence. A document is already
+            divided into parts, and you can cut between them. A **paragraph** is a block of text separated
+            from the next block by a blank line. A blank line is two newline characters
+            in a row: `"\n\n"`.
 
             ```python
-            text = "Intro line.\n\nSecond part.\n\n\n\nThird."
+            text = "Intro line.\n\n Second part. \n\n\n\nThird."
             parts = text.split("\n\n")
             print(parts)
+            # ['Intro line.', ' Second part. ', '', 'Third.']
             print([p.strip() for p in parts if p.strip()])
+            # ['Intro line.', 'Second part.', 'Third.']
             ```
 
-            Extra blank lines create empty strings, and paragraphs often carry stray
-            spaces or newlines at their edges. `.strip()` cleans the edges, and
-            `if p.strip()` drops the empty pieces.
+            `text.split("\n\n")` cuts the string at every `"\n\n"`. Four newlines in a
+            row contain two separators with nothing between them, so the list gets an
+            empty string. `p.strip()` removes whitespace from both ends of a piece. The
+            condition `if p.strip()` drops a piece that is empty after stripping,
+            because an empty string counts as false.
 
-            Splitting on the document's own structure is called **structure-aware** (or
-            *semantic*) chunking. It keeps each idea together.
+            Cutting between the document's own parts is called **structure-aware**
+            chunking. Each chunk then holds complete paragraphs.
         ''',
         "prompt": r'''
             Split a document into its paragraphs.
@@ -464,29 +728,40 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Shingles on a roof
+            ## Overlap
 
-            Roof shingles overlap so rain can't slip through the gaps. Chunks overlap for
-            the same reason: if a key sentence is cut at a border, the overlap makes sure
-            it still appears whole in one of the chunks.
+            A fixed-size cut can split a sentence across two chunks. Then neither chunk
+            contains the whole sentence.
 
-            With **overlap**, each chunk repeats the last few characters (or words) of
-            the one before. The starts no longer jump by `size`, but by
-            `size - overlap`:
+            **Overlap** is the number of characters (or words) that a chunk repeats from
+            the end of the previous chunk. Text near a cut then appears in both chunks.
+            The distance between two chunk starts is no longer `size`. It is
+            `size - overlap`, which is called the **step**.
 
             ```python
             text = "abcdefghij"
             size, overlap = 5, 2
             step = size - overlap
             print(step)
+            # 3
             print([text[i:i + size] for i in range(0, len(text), step)])
+            # ['abcde', 'defgh', 'ghij', 'j']
             ```
 
-            `size - overlap` is called the **step** (or *stride*). A common setting is an
-            overlap of 10-20% of the chunk size.
+            `range(0, 10, 3)` gives the starts `0, 3, 6, 9`. The chunk at `3` begins with
+            `"de"`, the last 2 characters of the chunk before it.
 
-            Watch out: the overlap must be smaller than the size, or the step is zero or
-            negative and `range` fails or goes nowhere.
+            Move the sliders to see how the step and the chunks change.
+
+            ```diagram
+            {"type":"chunks","title":"Chunks of text with size 5 and overlap 2","text":"abcdefghij","size":5,"overlap":2}
+            ```
+
+            A common setting is an overlap of 10 to 20 percent of the chunk size.
+
+            The overlap must be smaller than the size. If they are equal, the step is
+            `0` and `range` raises `ValueError`. If the overlap is larger, the step is
+            negative and `range` produces no starts.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -519,13 +794,15 @@ EXERCISES = [
         "title": "Overlap done right",
         "difficulty": 1,
         "lesson": r'''
-            ## No crumbs at the end
+            ## Stopping at the end of the text
 
-            Look at the last predict step again: with size 4 and overlap 1 on
-            `"abcdefg"` (7 letters), the starts are `0, 3, 6` and the last chunk is just
-            `"g"` - a crumb that is *entirely* overlap. It adds nothing new.
+            With size 4 and overlap 1 on `"abcdefg"` (7 letters), `range(0, 7, 3)` gives
+            the starts `0, 3, 6`. The chunks are `"abcd"`, `"defg"` and `"g"`. The last
+            chunk holds only the `"g"` that `"defg"` already contains. It adds no new
+            text.
 
-            The fix: stop as soon as a chunk reaches the end of the text.
+            To avoid it, stop as soon as a chunk reaches the end of the text. A chunk
+            that starts at `start` reaches the end when `start + size >= len(text)`.
 
             ```python
             text, size, step = "abcdefg", 4, 3
@@ -536,16 +813,20 @@ EXERCISES = [
                 if start + size >= len(text):
                     break
                 start += step
+            # 0 abcd
+            # 3 defg
             ```
 
-            A `while` loop with `break` fits "keep going until the chunk reaches the
-            end". Remember to handle empty text before the loop.
+            `while True` repeats until `break` runs. The loop takes a chunk first and
+            checks the end condition after, so it always produces at least one chunk.
+            Handle empty text before the loop.
 
-            Checking arguments up front and raising `ValueError` is called
-            **validating input** - here, an overlap that isn't smaller than the size.
+            **Validating input** means checking the arguments at the start of a function
+            and raising an exception such as `ValueError` when they are not usable. Here
+            the overlap is not usable when it is negative or not smaller than the size.
         ''',
         "prompt": r'''
-            Cut text into character chunks that overlap, without a useless crumb at the end.
+            Cut text into character chunks that overlap, without a useless extra chunk at the end.
 
             **Write:** `chunk_with_overlap(text, size, overlap)`
 
@@ -564,7 +845,7 @@ EXERCISES = [
             **Examples**
             ```python
             chunk_with_overlap("abcdefgh", 4, 1)   # returns ["abcd", "defg", "gh"]
-            chunk_with_overlap("abcdefg", 4, 1)    # returns ["abcd", "defg"]   (no "g" crumb)
+            chunk_with_overlap("abcdefg", 4, 1)    # returns ["abcd", "defg"]   (no "g" chunk)
             chunk_with_overlap("abc", 5, 2)        # returns ["abc"]
             chunk_with_overlap("abc", 3, 3)        # raises ValueError
             ```
@@ -642,17 +923,17 @@ EXERCISES = [
                        "url": "https://docs.python.org/3/library/re.html#regular-expression-syntax"}],
         },
         "lesson": r'''
-            ## Where does a thought end?
+            ## Sentences
 
-            Paragraphs can be long. The next natural cut is the **sentence**: a
-            complete thought. A sentence usually ends with `.`, `!` or `?` *followed by
-            a space or a newline*.
+            A paragraph can be longer than the chunk size you want. The next smaller
+            unit is the **sentence**. In this chapter a sentence ends at `.`, `!` or `?`
+            when that character is followed by whitespace or by the end of the text.
 
-            That "followed by" part matters: `3.5` or `example.com` contain dots but no
-            sentence ends there.
+            The "followed by whitespace" condition is required. `3.5` and `example.com`
+            contain dots, but no sentence ends there.
 
-            Here is the idea with a different separator - cut after every `;` that is
-            followed by a space, keeping the `;`:
+            This example uses the same rule with a different character. It cuts after
+            every `;` that is followed by whitespace, and it keeps the `;`.
 
             ```python
             text = "a; b;c; d"
@@ -665,10 +946,18 @@ EXERCISES = [
                     current = ""
             parts.append(current.strip())
             print(parts)
+            # ['a;', 'b;c;', 'd']
             ```
 
-            With the regex chapter you can do the same in one `re.split` call using a
-            **lookbehind** (see the research link).
+            The loop adds each character to `current`. `nxt` is the following character,
+            or a space when there is none. `nxt.isspace()` is `True` when the string holds
+            only whitespace. When `ch` is `;` and `nxt` is whitespace, the
+            loop appends `current` to `parts` and starts a new empty `current`. The `;`
+            in `b;c` is followed by `c`, so no cut happens there.
+
+            `re.split` can do the same in one call with a **lookbehind**. The pattern
+            `(?<=X)` requires `X` directly before the match but does not include it in
+            the match. See the research link.
         ''',
         "prompt": r'''
             Split text into sentences, so chunks can be cut on sentence borders.
@@ -737,24 +1026,30 @@ EXERCISES = [
         "title": "Label every chunk",
         "difficulty": 1,
         "lesson": r'''
-            ## Luggage tags
+            ## Chunk metadata
 
-            At the airport, every suitcase gets a tag saying whose it is and where it's
-            going. Without it, the bag is just a bag. A chunk without **metadata** is the
-            same: when it shows up in a search result, you can't say which document it
-            came from, cite it, or delete it when the document changes.
+            **Metadata** is data about a chunk that you store next to its text: which
+            document it came from and its position in that document. When a search
+            result is only a string, your app cannot show which document it came from.
+            You also cannot find and delete it when its document changes.
+
+            Store each chunk as a dict that holds the text and the metadata.
 
             ```python
-            chunks = ["Refunds take 5 days.", "Contact support."]
+            chunks = ["Billing is monthly.", "Cancel any time."]
             for i, text in enumerate(chunks):
-                print({"id": f"faq:{i}", "index": i, "text": text})
+                print({"id": f"pricing:{i}", "index": i, "text": text})
+            # {'id': 'pricing:0', 'index': 0, 'text': 'Billing is monthly.'}
+            # {'id': 'pricing:1', 'index': 1, 'text': 'Cancel any time.'}
             ```
 
-            `enumerate` gives you the position and the item together.
+            `enumerate(chunks)` produces pairs of an index and an item, starting at
+            index `0`. The loop assigns them to `i` and `text`.
 
-            The `id` built from the source and the position is a **stable id**: chunking
-            the same document again gives the same ids, so a vector store can update
-            the chunks instead of duplicating them.
+            An id built from the source name and the index is a **stable id**. Chunking
+            the same document again produces the same ids. When you later store these
+            chunks alongside their embeddings, the store can replace the old chunks
+            instead of keeping duplicates.
         ''',
         "prompt": r'''
             Attach metadata to each chunk of a document.
@@ -816,14 +1111,15 @@ EXERCISES = [
         "title": "Pack sentences into chunks",
         "difficulty": 1,
         "lesson": r'''
-            ## Filling suitcases
+            ## Greedy packing
 
-            You're packing clothes into suitcases with a weight limit. You put items in
-            one by one; when the next item would go over the limit, you close that
-            suitcase and open a new one. That's **greedy packing**.
+            **Greedy packing** builds chunks from whole sentences. You go through the
+            sentences in order and keep one current chunk. If the current chunk plus the
+            next sentence is within the limit, the sentence joins the current chunk.
+            Otherwise you close the current chunk and start a new one with that sentence.
 
-            For chunks, the items are sentences and the limit is characters. Chunks end
-            on sentence borders, yet stay close to the size limit.
+            Every chunk then ends at the end of a sentence and is as long as the limit
+            allows.
 
             ```python
             limit = 12
@@ -831,13 +1127,16 @@ EXERCISES = [
             for nxt in ["Yes.", "Goodbye now."]:
                 candidate = current + " " + nxt
                 print(repr(candidate), len(candidate), len(candidate) <= limit)
+            # 'Hi. Yes.' 8 True
+            # 'Hi. Goodbye now.' 16 False
             ```
 
-            Always measure the **candidate** (current + space + next), because the
-            joining space counts too.
+            The **candidate** is the current chunk, a space, and the next sentence.
+            Measure the candidate, not the two parts separately, because the joining
+            space adds one character.
 
-            Watch out: one sentence may be longer than the limit by itself. It can't be
-            split here, so it becomes a chunk on its own.
+            A single sentence can be longer than the limit. This function does not
+            split sentences, so that sentence becomes a chunk on its own.
         ''',
         "prompt": r'''
             Group sentences into chunks no longer than a character limit.
@@ -914,26 +1213,32 @@ EXERCISES = [
         "title": "Chunks with offsets",
         "difficulty": 1,
         "lesson": r'''
-            ## Page and line numbers
+            ## Character offsets
 
-            A good quote comes with a page number so readers can find it. For chunks,
-            the "page number" is the **character offset**: where the chunk starts and
-            ends in the original text. With it, your app can highlight the exact passage
-            the answer came from.
+            A **character offset** is an index into the original text. A chunk has two
+            offsets: `start`, where the chunk begins, and `end`, where it stops. With
+            both stored, your app can highlight the exact passage an answer came from.
 
             ```python
             text = "Plans: Free, Pro, Team."
             start, end = 7, 11
             print(text[start:end])
+            # Free
             print({"start": start, "end": end, "text": text[start:end]})
+            # {'start': 7, 'end': 11, 'text': 'Free'}
             ```
 
-            By convention `end` is **exclusive**, just like slicing: the chunk is
-            `text[start:end]`, and its length is `end - start`.
+            By convention `end` is **exclusive**: it is the index after the last
+            character of the chunk, the same as the stop of a slice. The chunk is
+            `text[start:end]` and its length is `end - start`.
 
-            Offsets are only reliable if the chunk text is an exact slice of the
-            original - that's why this step uses character chunks, not `" ".join`
-            of words (joining would change the spacing).
+            `start + size` can be larger than `len(text)` for the last chunk. The slice
+            still works, but the stored `end` would be wrong, so `end` must not exceed
+            `len(text)`.
+
+            Offsets are only correct when the chunk is an exact slice of the original
+            text. This exercise uses character chunks for that reason. Chunks built
+            with `" ".join` of words can differ from the original spacing.
         ''',
         "prompt": r'''
             Cut text into fixed-size character chunks and record where each one came from.

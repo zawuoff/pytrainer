@@ -12,11 +12,105 @@ TOPIC = {
                  "early return", "ternary expression", "match statement"],
 }
 
+# The Library card for this chapter (shown once the chapter's steps are done).
+# Every line that starts with `#` in an example is the real output of that example.
+REFERENCE = {
+    "keywords": ["if", "elif", "else", "condition", "branch", "comparison", "and", "or", "not",
+                 "in", "truthy", "early return", "conditional expression", "ternary", "match",
+                 "case"],
+    "cards": [
+        {
+            "syntax": "if condition:  /  elif condition:  /  else:",
+            "explain": "Runs the block under the first condition that is True and skips the rest. else runs when none is True.",
+            "example": r'''
+                tokens = 700
+                if tokens > 1000:
+                    print("too long")
+                elif tokens > 500:
+                    print("long")
+                else:
+                    print("short")
+                # long
+            ''',
+        },
+        {
+            "syntax": "a and b    a or b    not a",
+            "explain": "and needs both sides to be true. or needs at least one. not turns True into False and False into True.",
+            "example": r'''
+                status = 429
+                attempts = 1
+                print(status == 429 and attempts < 3)
+                # True
+                print(status == 500 or attempts >= 3)
+                # False
+                print(not attempts < 3)
+                # False
+            ''',
+        },
+        {
+            "syntax": "low <= x <= high    x in (a, b)",
+            "explain": "A chained comparison tests both limits at once. in is True when x equals one of the items.",
+            "example": r'''
+                t = 1.5
+                print(0 <= t <= 2)
+                # True
+                reason = "stop"
+                print(reason in ("tool_calls", "function_call"))
+                # False
+            ''',
+        },
+        {
+            "syntax": "if value:    value or default",
+            "explain": "if value: tests truthiness. \"\", 0 and None are falsy. a or b gives a when a is truthy, otherwise b.",
+            "example": r'''
+                name = None
+                print(name or "anonymous")
+                # anonymous
+                title = (name or "").strip()
+                if not title:
+                    print("no title")
+                # no title
+            ''',
+        },
+        {
+            "syntax": "value_a if condition else value_b",
+            "explain": "A conditional expression. It produces value_a when the condition is True and value_b otherwise.",
+            "example": r'''
+                n = 3
+                word = "token" if n == 1 else "tokens"
+                print(str(n) + " " + word)
+                # 3 tokens
+            ''',
+        },
+        {
+            "syntax": "match value:  /  case pattern:  /  case _:",
+            "explain": "Runs the block of the first case whose pattern matches. | means or. case _: matches any value.",
+            "example": r'''
+                role = "user"
+                match role:
+                    case "user" | "assistant":
+                        print("chat")
+                    case _:
+                        print("unknown")
+                # chat
+            ''',
+        },
+    ],
+}
+
 LESSON = r'''
 ## Chapter notes: Conditionals
 
-**if / elif / else** - checked top to bottom; only the **first** true branch runs.
-Lines end with `:`, blocks are indented.
+### if, elif, else
+
+An `if` statement runs a block of code only when a condition is `True`. A **condition** is
+an expression that Python evaluates to `True` or `False`. Each `if`, `elif` and `else` line
+ends with `:`. The block under it is indented by 4 spaces. Such a block is also called a
+**branch**.
+
+Python checks the conditions from top to bottom. It runs the block under the first
+condition that is `True` and skips every other block. The `else` block runs when no
+condition above it is `True`.
 
 ```python
 tokens = 700
@@ -26,24 +120,125 @@ elif tokens > 500:
     print("long")
 else:
     print("short")
+print("done")
+# long
+# done
 ```
 
-**Comparisons**: `==` `!=` `<` `<=` `>` `>=` give a `bool`. `=` stores, `==` compares.
-**Chained**: `0 <= t <= 2` means `0 <= t and t <= 2`.
-**Combine**: `and` (both), `or` (at least one), `not` (flip).
-**Membership**: `reason in ("tool_calls", "function_call")`.
+Step through the code to see which lines Python runs and which it skips.
 
-**Early return**: `return` leaves the function at once, so a chain of
-`if ...: return ...` works like `elif`, and the last `return` is the "otherwise".
+```diagram
+{"type": "trace", "title": "Which branch runs when tokens is 700", "code": ["tokens = 700", "if tokens > 1000:", "    print(\"too long\")", "elif tokens > 500:", "    print(\"long\")", "else:", "    print(\"short\")", "print(\"done\")"], "steps": [
+  {"line": 1, "vars": {}, "out": ""},
+  {"line": 2, "vars": {"tokens": "700"}, "out": ""},
+  {"line": 4, "vars": {"tokens": "700"}, "out": ""},
+  {"line": 5, "vars": {"tokens": "700"}, "out": ""},
+  {"line": 8, "vars": {"tokens": "700"}, "out": "long\n"},
+  {"line": null, "vars": {"tokens": "700"}, "out": "long\ndone\n"}
+]}
+```
 
-**Truthiness in if**: `if text:` is false for `""`, `0`, `None`. Use `is None` /
-`is not None` when `0` or `""` are real values.
-**`or` fallback**: `a or b` gives `a` if truthy, else `b`; `(name or "").strip()`
-turns `None` into `""`.
+### Comparisons
 
-**Conditional expression**: `"pass" if score >= 0.5 else "fail"`.
+The operators `==`, `!=`, `<`, `<=`, `>` and `>=` compare two values and produce a `bool`.
+`=` assigns a value to a name. `==` tests whether two values are equal.
 
-**match** (3.10+): compares one value against patterns, first match wins.
+```python
+tokens = 700
+print(tokens > 500, tokens == 500, tokens != 500)
+# True False True
+```
+
+A **chained comparison** uses two operators in one expression. `0 <= t <= 2` means
+`0 <= t and t <= 2`.
+
+```python
+t = 1.5
+print(0 <= t <= 2)
+# True
+```
+
+### and, or, not
+
+`a and b` gives a truthy result only when both sides are truthy. `a or b` gives a truthy
+result when at least one side is truthy. `not a` turns `True` into `False` and `False`
+into `True`. (Used as plain values rather than conditions, `and` and `or` return one of
+their two sides. The section "Truthiness and the or fallback" below shows how.)
+
+```python
+status = 429
+attempts = 1
+print(status == 429 and attempts < 3)
+# True
+print(status == 500 or attempts < 3)
+# True
+print(not attempts < 3)
+# False
+```
+
+### Membership
+
+`value in (a, b)` is `True` when `value` equals one of the items in the tuple.
+
+```python
+reason = "function_call"
+print(reason in ("tool_calls", "function_call"))
+# True
+```
+
+### Early return
+
+`return` ends the function call immediately. A sequence of `if ...: return ...` lines
+therefore behaves the same as an `elif` chain. The last `return` runs only when no
+condition was `True`.
+
+```python
+def tier(tokens):
+    if tokens > 1000:
+        return "large"
+    if tokens > 100:
+        return "medium"
+    return "small"
+
+print(tier(5000), tier(500), tier(5))
+# large medium small
+```
+
+### Truthiness and the or fallback
+
+`if text:` tests the truthiness of `text`. The values `""`, `0` and `None` are falsy, so
+the block is skipped for them. Use `is None` or `is not None` when `0` or `""` is a valid
+value.
+
+`a or b` evaluates to `a` when `a` is truthy, and to `b` otherwise.
+`(name or "").strip()` replaces `None` with `""` before it calls `.strip()`.
+
+```python
+name = None
+print(name or "anonymous")
+# anonymous
+count = 0
+print(count is not None)
+# True
+```
+
+### Conditional expression
+
+A **conditional expression** picks one of two values in a single line. The value before
+`if` is used when the condition is `True`. The value after `else` is used otherwise.
+
+```python
+score = 0.8
+print("pass" if score >= 0.5 else "fail")
+# pass
+```
+
+### match
+
+A `match` statement (Python 3.10 and newer) compares one value against the pattern of
+each `case`, from top to bottom. A **pattern** is the description of a value that you write
+after the word `case`. Only the block of the first matching `case` runs. `|` means "or": it
+separates several values that one `case` accepts. `case _:` matches any value.
 
 ```python
 role = "user"
@@ -54,15 +249,51 @@ match role:
         print("chat")
     case _:
         print("unknown")
+# chat
 ```
 
-Tuple patterns: `case ("user", str(text)) if text:` - shape and length must match,
-`str(text)` matches only strings and captures the value, `if ...` is a *guard*.
+A pattern can describe a tuple. The value matches only when it has the same number of
+items and each item matches. `str(text)` matches only a string and assigns it to the name
+`text`, so `("user", 5)` does not match the first case below. An `if` after the pattern
+is a **guard**: an extra condition that must also be true for the case to match. Here the
+guard `if text` rejects the empty string, because `""` is falsy.
 
-**Gotchas**
-- `if reason == "a" or "b":` is always true -> `reason == "a" or reason == "b"` / `in`.
-- Check the most specific / biggest threshold first.
-- A missing final `return` makes some inputs return `None`.
+```python
+message = ("user", "hi")
+match message:
+    case ("user", str(text)) if text:
+        print("user said " + text)
+    case _:
+        print("invalid")
+# user said hi
+```
+
+### Common mistakes
+
+`if reason == "stop" or "tool_calls":` is always true. Python evaluates it as
+`(reason == "stop") or "tool_calls"`, and a non-empty string is truthy. Write
+`reason == "stop" or reason == "tool_calls"`, or use `in`.
+
+```python
+reason = "length"
+if reason == "stop" or "tool_calls":
+    print("always runs")
+# always runs
+```
+
+Order matters in a chain. With `>` thresholds, test the largest threshold first.
+Otherwise a smaller threshold matches first and the later branch never runs.
+
+A function that reaches its end without running a `return` statement returns `None`.
+
+```python
+def label(score):
+    if score >= 0.5:
+        return "pass"
+
+print(label(0.2))
+# None
+```
 '''
 
 EXERCISES = [
@@ -71,36 +302,61 @@ EXERCISES = [
         "title": "Fill in the condition",
         "difficulty": 0,
         "lesson": r'''
-            So far every line ran. Now you'll make code **decide**. An `if` is like a **bouncer at a
-            door**: it checks a condition, and only if the answer is `True` does it let the indented
-            block run.
+            ## The if statement
+
+            An `if` statement runs a block of code only when a condition is `True`. A **condition**
+            is an expression that Python evaluates to `True` or `False`, such as `cost > 10`.
 
             ```python
-            tokens = 5000
-            if tokens > 4000:
-                print("too long")
+            cost = 12
+            if cost > 10:
+                print("over budget")
             print("checked")
+            # over budget
+            # checked
             ```
 
-            The shape: `if`, a condition, a colon `:`, then the block indented by 4 spaces. The
-            unindented `print("checked")` is outside the `if`, so it always runs.
+            You write `if`, then the condition, then a colon `:`. The lines indented by 4 spaces
+            under it are the **if block**, also called a **branch**. Python runs the block when the
+            condition is `True` and skips it when the condition is `False`.
 
-            Inside a function, a `return` in the block hands back a value and leaves straight away.
-            If the condition is `False`, Python skips the block and carries on below:
+            `print("checked")` is not indented, so it is not part of the block. It runs in both cases.
+
+            ### if inside a function
+
+            A `return` statement ends the function call immediately and sends its value to the
+            code that called the function. When the condition is `False`, Python skips the block and continues with the
+            next line after it.
 
             ```python
-            def check(tokens):
-                if tokens > 4000:
-                    return "too long"
+            def check(cost):
+                if cost > 10:
+                    return "over budget"
                 return "ok"
 
-            print(check(100))
+            print(check(3))
+            # ok
+            print(check(12))
+            # over budget
             ```
 
-            Vocabulary: the thing after `if` is the *condition*; the indented lines are the
-            *if block* (or *branch*).
+            Step through both calls to see which `return` line runs each time.
 
-            Watch out: "more than" is `>`; `>=` also includes the limit itself.
+            ```diagram
+            {"type": "trace", "title": "Two calls to check(cost)", "code": ["def check(cost):", "    if cost > 10:", "        return \"over budget\"", "    return \"ok\"", "", "print(check(3))", "print(check(12))"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 6, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"cost": "3"}, "out": ""},
+              {"line": 4, "vars": {"cost": "3"}, "out": ""},
+              {"line": 7, "vars": {}, "out": "ok\n"},
+              {"line": 2, "vars": {"cost": "12"}, "out": "ok\n"},
+              {"line": 3, "vars": {"cost": "12"}, "out": "ok\n"},
+              {"line": null, "vars": {}, "out": "ok\nover budget\n"}
+            ]}
+            ```
+
+            `>` means "more than" and does not include the limit itself: `10 > 10` is `False`.
+            `>=` means "more than or equal to", so `10 >= 10` is `True`.
         ''',
         "prompt": r'''
             A request is refused when the prompt is too long. Finish the check.
@@ -159,25 +415,38 @@ EXERCISES = [
         "title": "Fix: compare, don't assign",
         "difficulty": 0,
         "lesson": r'''
-            One `=` and two `==` look alike but mean completely different things:
-            - `role = "system"` **stores**: put "system" in the box called role.
-            - `role == "system"` **asks**: is what's in role equal to "system"? The answer is `True`
-              or `False`.
+            ## Assignment and equality
+
+            `=` and `==` are two different operators.
+
+            - `=` is the **assignment operator**. `role = "user"` makes the name `role` refer to the
+              string `"user"`.
+            - `==` is the **equality operator**. `role == "user"` compares the two values and
+              produces `True` or `False`. It does not change `role`.
+            - `!=` is the "not equal" operator. It produces `True` when the two values differ.
 
             ```python
             role = "user"
             print(role == "system")
+            # False
             print(role == "user")
+            # True
+            print(role != "system")
+            # True
             ```
 
-            Inside an `if` you always want to ask, never store. Python protects you: `if role = "system":`
-            is a `SyntaxError` and nothing runs.
+            The condition of an `if` must be a comparison, not an assignment. Python rejects
+            `if role = "user":` with a `SyntaxError` before it runs any line of the file. The
+            message reads `invalid syntax. Maybe you meant '==' or ':=' instead of '='?`. (`:=` is
+            another operator that you do not need yet. Use `==` here.)
 
-            Comparison of text is exact, letter by letter: `"System" == "system"` is `False`,
-            because capital S and lowercase s are different characters.
+            Python compares strings character by character, and uppercase and lowercase letters are
+            different characters.
 
-            Vocabulary: `=` is the *assignment operator*; `==` is the *equality operator*. `!=` means
-            "not equal".
+            ```python
+            print("User" == "user")
+            # False
+            ```
         ''',
         "prompt": r'''
             Only messages with the `"system"` role hold the model's instructions. This check
@@ -233,34 +502,41 @@ EXERCISES = [
         "title": "Pass or fail",
         "difficulty": 0,
         "lesson": r'''
-            An `if` alone says "do this or do nothing". Often you want **one thing or the other** -
-            like a fork in the road. Add `else:` for the other way:
+            ## if and else
+
+            An `if` on its own runs its block or does nothing. Add `else:` to give Python a second
+            block to run when the condition is `False`.
 
             ```python
-            score = 0.3
-            if score >= 0.5:
-                print("pass")
+            latency = 3.2
+            if latency <= 2:
+                print("fast")
             else:
-                print("fail")
+                print("slow")
+            # slow
             ```
 
-            Exactly one of the two blocks runs. `else` has no condition: it catches everything the
-            `if` didn't.
+            Exactly one of the two blocks runs. `else` has no condition. Its block runs every time
+            the `if` condition is `False`.
 
-            Inside a function there's a shortcut: since `return` leaves the function, a `return`
-            after the `if` block acts like an `else`:
+            ### return instead of else
+
+            Inside a function you can leave out `else`. `return` ends the function call, so the
+            line after the `if` block only runs when the condition was `False`.
 
             ```python
-            def verdict(score):
-                if score >= 0.5:
-                    return "pass"
-                return "fail"
+            def speed(latency):
+                if latency <= 2:
+                    return "fast"
+                return "slow"
 
-            print(verdict(0.5), verdict(0.2))
+            print(speed(2), speed(3.2))
+            # fast slow
             ```
 
-            Vocabulary: "at least" means `>=` (greater than *or equal*); the value where behaviour
-            switches is the *boundary*. Always test the boundary itself.
+            "At most" means `<=` and "at least" means `>=`. Both include the limit itself. The
+            value where the result changes is the **boundary**. `speed(2)` returns `"fast"` because
+            `2 <= 2` is `True`. Always test the boundary value itself.
         ''',
         "prompt": r'''
             An eval gives each answer a score from 0 to 1. Turn the score into a verdict.
@@ -316,28 +592,51 @@ EXERCISES = [
         "title": "Small, medium, large",
         "difficulty": 0,
         "lesson": r'''
-            Some decisions have more than two outcomes. Picture a **sorting machine** with several
-            slots: the item drops into the **first** slot it fits. Python writes the extra slots
-            with `elif` ("else if"):
+            ## elif
+
+            Some decisions have more than two outcomes. `elif` (short for "else if") adds another
+            condition to an `if` statement. An `if` followed by `elif` and `else` lines is a
+            **conditional chain**.
 
             ```python
-            tokens = 500
-            if tokens < 100:
-                print("small")
-            elif tokens < 1000:
-                print("medium")
+            ms = 250
+            if ms < 200:
+                print("fast")
+            elif ms < 1000:
+                print("normal")
+            elif ms < 5000:
+                print("slow")
             else:
-                print("large")
+                print("timeout")
+            print("labelled")
+            # normal
+            # labelled
             ```
 
-            Python checks from the top. The first true condition wins, and every branch after it is
-            skipped - even if it would also be true. That's why the `elif` only needs `< 1000`: if we
-            got there, we already know `tokens` is not below 100.
+            Python checks the conditions from the top. It runs the block under the first condition
+            that is `True` and skips every branch after it, even a branch whose condition is also
+            `True`. Here `ms < 5000` is `True` for 250, but Python never checks it.
 
-            Vocabulary: an `if` / `elif` / `else` sequence is a *conditional chain*. You can have as
-            many `elif`s as you need, and `else` is optional.
+            Step through the code to see which lines are skipped.
 
-            Watch out: order matters. Put `< 1000` first and 50 would be called "medium".
+            ```diagram
+            {"type": "trace", "title": "Which branch runs when ms is 250", "code": ["ms = 250", "if ms < 200:", "    print(\"fast\")", "elif ms < 1000:", "    print(\"normal\")", "elif ms < 5000:", "    print(\"slow\")", "else:", "    print(\"timeout\")", "print(\"labelled\")"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"ms": "250"}, "out": ""},
+              {"line": 4, "vars": {"ms": "250"}, "out": ""},
+              {"line": 5, "vars": {"ms": "250"}, "out": ""},
+              {"line": 10, "vars": {"ms": "250"}, "out": "normal\n"},
+              {"line": null, "vars": {"ms": "250"}, "out": "normal\nlabelled\n"}
+            ]}
+            ```
+
+            The second condition only needs `ms < 1000`. Python reaches that line only when
+            `ms < 200` was `False`, so `ms` is already known to be 200 or more.
+
+            A chain can have any number of `elif` lines. The `else` is optional.
+
+            Order matters. If `ms < 1000` came first, a value of 50 would print `normal`, because
+            `50 < 1000` is `True` and Python stops at the first match.
         ''',
         "prompt": r'''
             Label a document by its size so you can decide how to process it.
@@ -398,31 +697,42 @@ EXERCISES = [
         "title": "Both must be true",
         "difficulty": 0,
         "lesson": r'''
-            Real decisions often depend on **two** things. Think of a door with two locks: it
-            opens only when **both** are unlocked. That's `and`. A door with two keys - either
-            one opens it - is `or`.
+            ## and, or, not
+
+            A decision often depends on two conditions. The **boolean operators** `and`, `or` and
+            `not` combine conditions into one. They are also called **logical operators**.
+
+            - `a and b` is `True` only when both `a` and `b` are `True`.
+            - `a or b` is `True` when at least one of `a` and `b` is `True`.
+            - `not a` is `False` when `a` is `True`, and `True` when `a` is `False`.
 
             ```python
-            status = 429
-            attempts = 1
-            print(status == 429 and attempts < 3)
-            print(status == 500 or attempts < 3)
-            print(not attempts < 3)
+            score = 0.9
+            flagged = False
+            print(score >= 0.5 and flagged == False)
+            # True
+            print(score < 0.5 or flagged == True)
+            # False
+            print(not flagged)
+            # True
             ```
 
-            - `a and b` is `True` only if both are `True`.
-            - `a or b` is `True` if at least one is `True`.
-            - `not a` flips `True` to `False` and back.
+            Each result is a `bool`. You can use it as the condition of an `if`, or return it
+            directly from a function.
 
-            The result is a `bool`, so you can put it in an `if` or return it directly.
+            ```python
+            def can_publish(score, flagged):
+                return score >= 0.5 and not flagged
 
-            Vocabulary: `and`, `or`, `not` are *boolean operators* (or *logical operators*).
+            print(can_publish(0.9, False), can_publish(0.9, True))
+            # True False
+            ```
 
-            Watch out: each side needs a full comparison. `status == 429 and < 3` is a syntax
-            error; write `attempts < 3` in full.
+            Each side of `and` and `or` must be a complete expression. `score >= 0.5 and < 1` is a
+            `SyntaxError`. Write the name again: `score >= 0.5 and score < 1`.
         ''',
         "prompt": r'''
-            When an API answers with status `429` (rate limited) you may retry - but only a
+            When an API answers with status `429` (rate limited) you may retry, but only a
             few times.
 
             **Write:** replace `___` in `should_retry(status, attempts)`
@@ -480,12 +790,15 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            Time to read a complete decision. Two things to remember:
+            ## Tracing a conditional chain
 
-            1. In an `if` / `elif` / `else` chain, **only one** block runs: the first whose condition
-               is true.
-            2. A line back at the left edge is **after** the chain. It always runs, whatever the
-               chain decided.
+            **Tracing** means reading code line by line and working out what each line does
+            before you run it. Two rules cover a conditional chain.
+
+            1. In an `if` / `elif` / `else` chain, exactly one block runs: the block under the
+               first condition that is `True`. If no condition is `True`, the `else` block runs.
+            2. A line that is not indented comes after the chain. It runs every time, whichever
+               block ran.
 
             ```python
             tokens = 50
@@ -494,13 +807,13 @@ EXERCISES = [
             else:
                 print("small")
             print(tokens < 100 and tokens > 10)
+            # small
+            # True
             ```
 
-            That prints `small`, then `True`. Remember `and` from the last step: both sides must be
-            true.
-
-            Vocabulary: following code line by line in your head is called *tracing*. Good engineers
-            trace code before running it.
+            `50 > 100` is `False`, so Python skips `print("big")` and runs the `else` block. The
+            last line is not indented, so it runs next. `50 < 100` is `True` and `50 > 10` is
+            `True`, so `and` produces `True`.
         ''',
         "prompt": r'''
             Read the code and type exactly what it prints.
@@ -538,32 +851,42 @@ EXERCISES = [
         "title": "Temperature in range",
         "difficulty": 1,
         "lesson": r'''
-            Model settings often have to sit inside a range, like a **thermostat** that only accepts
-            temperatures between two marks. Python lets you write a range check just like maths:
+            ## Chained comparisons
+
+            A setting often has to lie between two limits. A **chained comparison** uses two
+            comparison operators in one expression.
 
             ```python
             t = 1.5
             print(0 <= t <= 2)
+            # True
             print(0 <= 3 <= 2)
+            # False
             ```
 
-            `0 <= t <= 2` means `0 <= t and t <= 2`. It's shorter and reads like a sentence.
+            `0 <= t <= 2` means `0 <= t and t <= 2`. Both comparisons must be `True`. The second
+            line prints `False` because `3 <= 2` is `False`.
 
-            And remember: a comparison **is already** a `True`/`False` value. You don't need an `if`
-            to turn it into one:
+            `<=` includes the limit. A range with "both ends included" is called **inclusive** and
+            uses `<=` on both sides. Use `<` on a side that excludes its limit.
+
+            ### Returning a comparison
+
+            A comparison already produces `True` or `False`. A function can return that value
+            directly, without an `if`.
 
             ```python
             def is_small(n):
                 return 0 <= n < 100
 
-            print(is_small(5), is_small(500))
+            print(is_small(5), is_small(500), is_small(100))
+            # True False False
             ```
 
-            Vocabulary: this is a *chained comparison*. "Both ends included" (*inclusive*) means
-            `<=`; "excluding the end" means `<`.
+            `is_small(100)` is `False` because `100 < 100` is `False`.
 
-            Watch out: `if ...: return True else: return False` works, but returning the
-            comparison itself is cleaner.
+            `if ...: return True` followed by `else: return False` gives the same result in four
+            lines. Returning the comparison itself is shorter and does the same thing.
         ''',
         "prompt": r'''
             Model APIs only accept a `temperature` between 0 and 2. Validate it before sending.
@@ -623,18 +946,24 @@ EXERCISES = [
         "title": "Classify finish_reason",
         "difficulty": 1,
         "lesson": r'''
-            When one answer covers **several** values, don't write a long `or` chain. Ask "is it one
-            of these?" with `in` and a tuple:
+            ## Membership with in
+
+            `in` is the **membership operator**. `value in (a, b)` is `True` when `value` equals
+            one of the items in the tuple. Use it when several values share one result.
 
             ```python
             reason = "function_call"
             print(reason in ("tool_calls", "function_call"))
+            # True
             print("stop" in ("tool_calls", "function_call"))
+            # False
             ```
 
-            That fits neatly in a long `elif` chain, like a **translation table**: each branch
-            handles one known value, and `else` catches anything unexpected - including `None` or
-            text with the wrong capitals.
+            ### in inside an elif chain
+
+            Each branch of a chain can handle one known value, or a group of values with `in`.
+            The `else` branch handles every other value. That includes `None` and text with
+            different capital letters, because `==` and `in` compare strings exactly.
 
             ```python
             def label(role):
@@ -645,13 +974,13 @@ EXERCISES = [
                 else:
                     return "unknown"
 
-            print(label("model"), label(None))
+            print(label("model"), label(None), label("User"))
+            # AI unknown unknown
             ```
 
-            Vocabulary: `in` is the *membership operator*.
-
-            Watch out: `if reason == "a" or "b":` is **always** true, because `"b"` on its own is
-            truthy. Write `reason in ("a", "b")`.
+            `if reason == "a" or "b":` is always true. Python evaluates it as
+            `(reason == "a") or "b"`, and the non-empty string `"b"` is truthy. Write
+            `reason in ("a", "b")` instead.
         ''',
         "prompt": r'''
             A chat completion ends with a `finish_reason` string. Translate it into a short
@@ -728,8 +1057,11 @@ EXERCISES = [
         "title": "A title or Untitled",
         "difficulty": 1,
         "lesson": r'''
-            Remember truthiness? An `if` doesn't need a comparison: `if text:` means "if text
-            has something in it". Empty text, `0` and `None` count as "nothing".
+            ## Truthiness and the or fallback
+
+            The condition of an `if` does not have to be a comparison. `if name:` tests the
+            truthiness of `name`. An empty string, `0` and `None` are falsy. A string with at
+            least one character is truthy.
 
             ```python
             name = ""
@@ -737,25 +1069,42 @@ EXERCISES = [
                 print("hi", name)
             else:
                 print("no name")
+            # no name
             ```
 
-            Missing data is often `None`, and `None` has no `.strip()`. `or` gives you a
-            **spare tyre**: `a or b` gives `a` if it's truthy, otherwise `b`.
+            ### The value of a or b
+
+            `a or b` evaluates to `a` when `a` is truthy. Otherwise it evaluates to `b`. The
+            result is one of the two values, not always a `bool`.
 
             ```python
-            title = None
-            print((title or "").strip() == "")
             print("draft" or "Untitled")
+            # draft
+            print(None or "Untitled")
+            # Untitled
             ```
 
-            So `(title or "").strip()` turns `None` into `""`, then trims spaces - safe for any
-            input. After that one line, a plain `if title:` tells you whether anything is left.
+            A value that is used when the real one is missing is a **fallback**, also called a
+            **default**.
 
-            Vocabulary: a value used when the real one is missing is a *fallback* (or
-            *default*).
+            ### Stripping a value that may be None
 
-            Watch out: if `0` is a real value, don't use truthiness - use `is None` /
-            `is not None`.
+            Missing data is often `None`. `None` has no `.strip()` method, so `None.strip()` stops
+            the program with an `AttributeError`: the value does not have that method. `(note or "")` evaluates to `""` when `note` is `None`, and `""` does
+            have `.strip()`.
+
+            ```python
+            note = None
+            note = (note or "").strip()
+            print(note == "")
+            # True
+            ```
+
+            After that line `note` is always a string with no spaces or newlines at either end.
+            A plain `if note:` then tells you whether any characters are left.
+
+            When `0` is a valid value, do not test truthiness, because `0` is falsy. Test
+            `is None` or `is not None` instead.
         ''',
         "prompt": r'''
             Documents in your RAG index should always show a title. Some arrive with no title
@@ -812,7 +1161,7 @@ EXERCISES = [
         ''',
         "hints": [
             "None can't be stripped, so first turn it into empty text. Empty text is falsy.",
-            "Replace None with an empty string using or, strip the result, then return it if anything is left - otherwise return the fallback.",
+            "Replace None with an empty string using or, strip the result, then return it if anything is left. Otherwise return the fallback.",
             "1) title = (title or \"\").strip(). 2) if title: return title. 3) After the if, return \"Untitled\".",
         ],
     },
@@ -821,29 +1170,40 @@ EXERCISES = [
         "title": "1 token, 2 tokens",
         "difficulty": 1,
         "lesson": r'''
-            Sometimes a whole `if` / `else` block is too much for a tiny choice, like picking
-            between two words. Python has a **one-line if**: it reads like English,
-            "this *if* condition, *else* that".
+            ## Conditional expressions
+
+            A **conditional expression** chooses between two values in one line. Other languages
+            call it a **ternary operator**, because it has three parts: two values and a condition.
 
             ```python
             score = 0.8
             verdict = "pass" if score >= 0.5 else "fail"
             print(verdict)
+            # pass
             ```
 
-            It's an *expression*: it produces a value, so you can store it, return it, or glue
-            it into text. Use parentheses when you glue:
+            The order is: the value used when the condition is `True`, then `if` and the
+            condition, then `else` and the value used when the condition is `False`.
+
+            An `if` statement runs a block. A conditional expression is an **expression**: it
+            produces a value. You can assign that value to a name, return it, or join it to a
+            string with `+`.
+
+            Put parentheses around a conditional expression when you join it to something else.
 
             ```python
             n = 3
             print(str(n) + (" item" if n == 1 else " items"))
+            # 3 items
+            print(str(n) + " item" if n == 1 else " items")
+            #  items
             ```
 
-            Vocabulary: this is a *conditional expression* (other languages call it a
-            *ternary operator*).
+            Without the parentheses Python reads the second line as
+            `(str(n) + " item") if n == 1 else " items"`, so the number is lost when `n` is not 1.
 
-            Watch out: the order is value-if-true, then the condition, then value-if-false.
-            Keep it for short choices; use a normal `if` for anything longer.
+            Use a conditional expression for a short choice between two values. Use a normal
+            `if` statement for anything longer.
         ''',
         "prompt": r'''
             A usage line should read naturally: `1 token`, but `2 tokens` and `0 tokens`.
@@ -908,9 +1268,11 @@ EXERCISES = [
             ],
         },
         "lesson": r'''
-            When you compare **one value** against a list of possibilities, a `match` statement
-            reads like a **switchboard**: the value comes in, and it's connected to the first
-            line that fits.
+            ## The match statement
+
+            A `match` statement compares one value against several possibilities. Each
+            possibility is written after the word `case` and is called a **pattern**. Comparing
+            a value against patterns this way is called **structural pattern matching**.
 
             ```python
             status = 404
@@ -921,19 +1283,36 @@ EXERCISES = [
                     print("not found")
                 case _:
                     print("something else")
+            print("handled")
+            # not found
+            # handled
             ```
 
-            - `match value:` then one `case` per possibility, each with its own indented block.
-            - `|` inside a case means "or": either value matches.
-            - `case _:` matches anything - put it last as the catch-all.
-            - Cases are tried top to bottom; only the first match runs.
+            - You write `match`, the value, and a colon. Each `case` line is indented and has its
+              own indented block.
+            - Python tries the cases from top to bottom and runs only the block of the first
+              pattern that matches.
+            - `|` inside a pattern means "or": `404 | 410` matches either number.
+            - `_` is the **wildcard** pattern. `case _:` matches any value, so put it last.
 
-            Inside a function, each case can simply `return` its answer.
+            Step through the code to see which `case` lines Python tries.
 
-            Vocabulary: this is *structural pattern matching*; each thing after `case` is a
-            *pattern*, and `_` is the *wildcard*.
+            ```diagram
+            {"type": "trace", "title": "Matching status 404 against each case", "code": ["status = 404", "match status:", "    case 200:", "        print(\"ok\")", "    case 404 | 410:", "        print(\"not found\")", "    case _:", "        print(\"something else\")", "print(\"handled\")"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"status": "404"}, "out": ""},
+              {"line": 3, "vars": {"status": "404"}, "out": ""},
+              {"line": 5, "vars": {"status": "404"}, "out": ""},
+              {"line": 6, "vars": {"status": "404"}, "out": ""},
+              {"line": 9, "vars": {"status": "404"}, "out": "not found\n"},
+              {"line": null, "vars": {"status": "404"}, "out": "not found\nhandled\n"}
+            ]}
+            ```
 
-            Watch out: `match` needs Python 3.10 or newer.
+            Inside a function, each `case` block can `return` its result.
+
+            `match` needs Python 3.10 or newer. On older versions the `match` line is a
+            `SyntaxError`.
         ''',
         "prompt": r'''
             A chat app sorts each message by its role.
@@ -1025,7 +1404,7 @@ EXERCISES = [
             - `budget_mode`: `True` if the user wants the cheapest option; defaults to `False`
             - **Returns:** one of the strings `"reject"`, `"vision-large"`, `"mini"`, `"long-context"`, `"standard"`
 
-            **Rules** - check them **in this order**, the first one that matches wins:
+            **Rules**: check them **in this order**, the first one that matches wins:
             1. `prompt_tokens` more than `128000` -> `"reject"` (even if the other flags are set)
             2. `needs_vision` is true -> `"vision-large"` (even in budget mode)
             3. `budget_mode` is true **and** `prompt_tokens` is `8000` or less -> `"mini"`
@@ -1103,7 +1482,7 @@ EXERCISES = [
             - `user_id`: an `int` like `42`, or `None`
             - **Returns:** a string
 
-            **Rules** - use the first one that applies:
+            **Rules**: use the first one that applies:
             1. If `nickname` has real characters, return it with surrounding whitespace removed.
             2. Else if `full_name` has real characters, return it with surrounding whitespace removed.
             3. Else if `user_id` is not `None`, return `"user-"` followed by the id, e.g. `"user-42"`.
@@ -1282,7 +1661,7 @@ EXERCISES = [
             - `limit`: the maximum allowed: an `int`, numeric text such as `"100\n"`, or `None`
             - **Returns:** a string, exactly one of the formats below
 
-            **Rules** - check **in this order**, the first one that matches wins:
+            **Rules**: check **in this order**, the first one that matches wins:
             1. If either argument is `None`: `"ERROR: missing value"` (even if the other is `0`).
             2. Convert numeric text to a whole number; surrounding spaces/newlines are allowed.
             3. If `limit` is `0` or negative: `"ERROR: limit must be positive"`.
