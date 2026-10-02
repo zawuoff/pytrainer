@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="pt-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF8A5B"/>
+      <stop offset="0.55" stop-color="#F277A6"/>
+      <stop offset="1" stop-color="#A996FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="url(#pt-g)"/>
+  <!-- a friendly snake drawing an S -->
+  <path d="M41 19 H27.5 a7 7 0 0 0 0 14 h9 a7 7 0 0 1 0 14 H22" fill="none" stroke="#1A1526" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="43.5" cy="19" r="4.6" fill="#1A1526"/>
+  <circle cx="44.8" cy="17.8" r="1.35" fill="#FFF6EC"/>
+  <!-- spark -->
+  <path d="M51 42.5 l1.4 3.6 3.6 1.4 -3.6 1.4 -1.4 3.6 -1.4 -3.6 -3.6 -1.4 3.6 -1.4z" fill="#FFF6EC"/>
+</svg>

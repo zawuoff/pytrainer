@@ -1,0 +1,24 @@
+#!/bin/bash
+# Open PyTrainer as a desktop web app, starting the local server if needed.
+PORT="${PYTRAINER_PORT:-8765}"
+URL="http://127.0.0.1:$PORT/"
+APP_DIR="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+
+up() { curl -fs -o /dev/null "$URL/api/state" 2>/dev/null; }
+
+if ! up; then
+  if systemctl --user cat pytrainer.service >/dev/null 2>&1; then
+    systemctl --user start pytrainer.service
+  else
+    mkdir -p "$HOME/.local/share/pytrainer"
+    setsid python3 "$APP_DIR/server.py" --port "$PORT" \
+      >>"$HOME/.local/share/pytrainer/server.log" 2>&1 </dev/null &
+  fi
+  for _ in $(seq 1 50); do up && break; sleep 0.1; done
+fi
+
+if command -v omarchy-launch-webapp >/dev/null; then
+  exec omarchy-launch-webapp "$URL"
+else
+  exec xdg-open "$URL"
+fi
