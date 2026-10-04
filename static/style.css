@@ -1271,3 +1271,16 @@ input[type=text], input[type=number], input[type=password], select, textarea { t
 .cm-hints .k-cls { color: var(--syn-kw); }
 .cm-hints .k-mod { color: var(--syn-str); }
 .cm-hints .k-kw { color: var(--amber); }
+
+/* REPL panel */
+.repl { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 180px; }
+.rp-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rp-log, .rp-line { font-variant-ligatures: none; }
+.rp-log { flex: 1; min-height: 90px; max-height: 360px; margin: 0; overflow: auto; padding: 10px 12px; border-radius: 10px; background: var(--code-bg); border: 1px solid var(--rule); font: 13px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.rp-in { color: var(--dim); }
+.rp-err { color: var(--fail); }
+.rp-info { color: var(--faint); }
+.rp-line { display: flex; align-items: flex-start; gap: 8px; padding: 6px 10px; border-radius: 10px; background: var(--code-bg); border: 1px solid var(--rule-strong); font: 13px var(--mono); }
+.rp-line:focus-within { border-color: var(--lilac); }
+.rp-prompt { color: var(--amber); padding-top: 2px; user-select: none; }
+.rp-input { flex: 1; resize: none; border: 0; outline: none; background: transparent; color: var(--text); font: inherit; line-height: 1.5; padding: 0; min-height: 20px; }

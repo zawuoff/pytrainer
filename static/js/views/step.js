@@ -7,6 +7,7 @@ import { mountParsons } from "../parsons.js";
 import { sessionBanner } from "../session.js";
 import { llmCallsHTML, realLLM, realLLMToggleHTML } from "../realllm.js";
 import { spansHTML } from "../spans.js";
+import { createRepl } from "../repl.js";
 
 /* ---------------------------------------------------------------- step workspace: lesson left, code right, output below */
 
@@ -189,12 +190,14 @@ export async function viewStep(id, reviewFlag) {
     onPlace: () => { if (shownTab !== null) drawDock(); },
     selectTab: () => { dockTab = "library"; drawDock(); if (isNarrow()) setPane("code"); },
   });
+  const repl = createRepl({ files: () => ed.files(), main: () => ed.active });
   function tabsList() {
     const t = [];
     if (predict) t.push(["answer", "Your answer"]);
     t.push(["results", "Results"]);
     t.push(["output", "Output"]);
     if (!readOnly || revealed || d.state.status === "solved") t.push(["debug", "Step through"]);
+    if (!readOnly && !predict) t.push(["repl", "REPL"]);
     if (!noHelp) t.push(["tutor", `Tutor${chat.length ? `<span class="n">${Math.ceil(chat.length / 2)}</span>` : ""}`]);
     if (!predict) t.push(["feedback", "Feedback"]);
     if (lib.pos === "bottom") t.push(["library", "Library"]);
@@ -247,6 +250,8 @@ export async function viewStep(id, reviewFlag) {
       drawFeedback();
     } else if (dockTab === "debug") {
       dbg.render(dockBody);
+    } else if (dockTab === "repl") {
+      repl.render(dockBody);
     }
   }
   function drawFeedback() {

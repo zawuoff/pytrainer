@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from pytrainer import (achievements, ai, assist, capstone, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
-                       mistakes, progress, radar, recap, runner, sandbox, spans, tracer, variants, xp)
+                       mistakes, progress, radar, recap, repl, runner, sandbox, spans, tracer, variants, xp)
 
 STATIC = ROOT / "static"
 PROJECTS_DIR = labs.LAB_ROOT / "projects"
@@ -1187,6 +1187,29 @@ def api_assist_diagnose(body: dict):
     return {"problems": assist.diagnose(str(body.get("code") or ""))}
 
 
+def api_repl_start(body: dict):
+    files = body.get("files") or {}
+    if not isinstance(files, dict) or sum(len(str(c)) for c in files.values()) > 400_000:
+        raise ApiError("bad files")
+    files = {str(k): str(v) for k, v in files.items() if str(k).endswith(".py")}
+    try:
+        return repl.start(files, run_file=body.get("run") or None)
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
+
+
+def api_repl_run(sid: str, body: dict):
+    try:
+        return repl.run(sid, str(body.get("code") or ""))
+    except KeyError as exc:
+        raise ApiError(str(exc.args[0]), 404) from None
+
+
+def api_repl_stop(sid: str, _body=None):
+    repl.stop(sid)
+    return {"ok": True}
+
+
 def api_achievements(_=None):
     awards = _rewards()
     return {**achievements.overview(), **awards}
@@ -1326,6 +1349,9 @@ ROUTES = [
     ("GET", r"/api/achievements", api_achievements),
     ("GET", r"/api/recap", api_recap),
     ("POST", r"/api/assist/complete", api_assist_complete),
+    ("POST", r"/api/repl/start", api_repl_start),
+    ("POST", r"/api/repl/(\w+)/run", api_repl_run),
+    ("POST", r"/api/repl/(\w+)/stop", api_repl_stop),
     ("POST", r"/api/assist/diagnose", api_assist_diagnose),
     ("GET", r"/api/recap/(\d{4}-\d{2}-\d{2})", api_recap),
     ("GET", r"/api/capstone", api_capstone),
@@ -1449,6 +1475,8 @@ def main():
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        repl.stop_all()
 
 
 if __name__ == "__main__":

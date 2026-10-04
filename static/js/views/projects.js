@@ -4,6 +4,7 @@ import { chatHTML, isNarrow, makeDock, makeEditor, paneSwitch, resultsHTML } fro
 import { dockLibrary, tabIndicator } from "../library.js";
 import { llmCallsHTML, realLLM, realLLMToggleHTML } from "../realllm.js";
 import { spansHTML } from "../spans.js";
+import { createRepl } from "../repl.js";
 
 /* ---------------------------------------------------------------- projects */
 
@@ -49,9 +50,9 @@ export async function viewProject(pid) {
       <div class="filetabs" id="filetabs"></div><div class="editor" id="editor"></div>
       <div class="dock" id="pdock"><div class="dock-grip"></div>
         <div class="dock-tabs"><button class="on">Output</button><span class="grow"></span><span class="faint small" style="padding-right:6px">runs the file you're viewing</span></div>
-        <div class="dock-body"><pre class="out" id="pout"><span class="faint">Press Run (Alt+Enter) to run the file you're viewing and see what it prints. Add a few print(...) calls at the bottom to try your functions, like in "Try it yourself". Submit runs the hidden checks.</span></pre>
+        <div class="dock-body"><div id="prepl" hidden></div><div id="pout-wrap"><pre class="out" id="pout"><span class="faint">Press Run (Alt+Enter) to run the file you're viewing and see what it prints. Add a few print(...) calls at the bottom to try your functions, like in "Try it yourself". Submit runs the hidden checks.</span></pre>
           <div class="stdin-row"><input type="text" id="pstdin" placeholder="input for Run (\\n = new line)"><input type="text" id="pargs" placeholder="command-line args" style="max-width:200px"></div>${realLLMToggleHTML()}
-          <p class="faint small" style="margin:10px 0 0">Work here or in your own editor under <code>${esc(d.folder)}</code>. Drop files on this side to upload them.</p></div></div>
+          <p class="faint small" style="margin:10px 0 0">Work here or in your own editor under <code>${esc(d.folder)}</code>. Drop files on this side to upload them.</p></div></div></div>
     </section></div></div>`;
   let saveT;
   const ed = makeEditor($("#editor"), d.draft || p.starter_files, () => {
@@ -112,6 +113,24 @@ export async function viewProject(pid) {
   render();
   makeDock($("#pdock"));
   const lib = dockLibrary($(".ws"), $("#pdock"), { topic: isMini ? p.chapter : null, editor: ed.cm, selectTab: () => { if (isNarrow()) setPane("code"); } });
+  // A REPL tab next to Output and Library: a live session, optionally with the current file loaded.
+  const ptabs = $("#pdock .dock-tabs"), replBtn = document.createElement("button");
+  replBtn.type = "button"; replBtn.textContent = "REPL";
+  $$("button", ptabs).at(-1).after(replBtn);
+  const repl = createRepl({ files: () => ed.files(), main: () => ed.active });
+  let replDrawn = false;
+  const showRepl = (on) => {
+    $("#prepl").hidden = !on; $("#pout-wrap").hidden = on;
+    replBtn.classList.toggle("on", on);
+    if (on) {
+      lib.tab(false);
+      $$("button", ptabs).forEach((b) => { if (b !== replBtn) b.classList.remove("on"); });
+      if (!replDrawn) { repl.render($("#prepl")); replDrawn = true; } else $("#prepl .rp-input")?.focus();
+    }
+    tabIndicator(ptabs);
+  };
+  replBtn.onclick = () => showRepl(true);
+  $$("button", ptabs).forEach((b) => { if (b !== replBtn) b.addEventListener("click", () => showRepl(false)); });
   $("#lib-btn").onclick = () => lib.toggle();
   const runProject = async () => {
     const btn = $("#prun-btn"); busy(btn, true);
