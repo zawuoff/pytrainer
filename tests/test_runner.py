@@ -47,6 +47,24 @@ class RunCodeTests(unittest.TestCase):
         r = runner.run_code({"solution.py": "import os, pathlib\nprint(os.path.samefile(pathlib.Path.home(), os.getcwd()))"})
         self.assertEqual(r["stdout"].strip(), "True")
 
+    def test_tracebacks_show_paths_relative_to_the_run_folder(self):
+        import tempfile
+        from pathlib import Path
+        real = Path(tempfile.mkdtemp())
+        link = real.parent / (real.name + "-link")
+        try:
+            link.symlink_to(real, target_is_directory=True)
+        except OSError:
+            self.skipTest("can't create symlinks here")
+        old = tempfile.tempdir
+        tempfile.tempdir = str(link)   # like macOS, where the temp dir sits behind a symlink
+        try:
+            r = runner.run_code({"solution.py": "def f():\n    raise KeyError('x')\nf()\n"})
+        finally:
+            tempfile.tempdir = old
+            link.unlink()
+        self.assertIn('File "solution.py", line 3', r["stderr"])
+
     def test_prediction_is_graded_line_by_line(self):
         r = runner.check_prediction("print(1)\nprint(2)", "1\n3")
         self.assertEqual((r["passed"], r["total"]), (1, 2))

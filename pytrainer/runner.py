@@ -334,7 +334,10 @@ def run_code(files: dict[str, str], *, main: str = "solution.py", stdin: str = "
                 reader.join(0.05)
             reader.join()
             stdout, stderr = out.get("stdout", ""), out.get("stderr", "")
-        stderr = stderr.replace(str(tmp) + os.sep, "")
+        # Show paths relative to the run folder. Strip the resolved path first: on macOS the temp dir
+        # is reached through a symlink (/var -> /private/var) and tracebacks report the real path.
+        for prefix in (str(tmp.resolve()) + os.sep, str(tmp) + os.sep):
+            stderr = stderr.replace(prefix, "")
         result = {
             "stdout": stdout[-MAX_OUTPUT:],
             "stderr": stderr[-MAX_OUTPUT:],
