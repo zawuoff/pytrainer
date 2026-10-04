@@ -27,10 +27,10 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from pytrainer import (achievements, ai, assist, capstone, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
-                       mistakes, progress, radar, recap, repl, runner, sandbox, spans, tracer, variants, xp)
+                       mistakes, progress, radar, recap, repl, runner, sandbox, spans, sync, tracer, variants, xp)
 
 STATIC = ROOT / "static"
-PROJECTS_DIR = labs.LAB_ROOT / "projects"
+PROJECTS_DIR = labs.LAB_ROOT / "projects"  # same folder as sync.PROJECTS_DIR
 MAX_BODY = 8 * 1024 * 1024
 VERSION = "1.0.0"
 
@@ -1210,6 +1210,57 @@ def api_repl_stop(sid: str, _body=None):
     return {"ok": True}
 
 
+def _sync_item(body: dict) -> tuple[str, str, dict, dict]:
+    """(kind, id, starter files, extra files written once) for a sync request, after checking it."""
+    kind, item_id = body.get("kind"), str(body.get("id") or "")
+    if kind == "project":
+        p = _project(item_id)
+        extra = {"BRIEF.md": f"# {p['title']}\n\n{p['brief']}\n"}
+        extra.update(p.get("setup_files") or {})
+        if p.get("requires_projects"):
+            extra.update(capstone.provided_files(p)[0])
+        return kind, item_id, p["starter_files"], extra
+    if kind == "step":
+        ex = _exercise(item_id)
+        if ex.get("mode") in ("predict", "traceback"):
+            raise ApiError("This step is for reading, not writing code.")
+        extra = {"STEP.md": f"# {ex['title']}\n\n{ex['prompt']}\n\nWrite your code in solution.py. PyTrainer picks up every save; "
+                            f"press Check in the browser.\n"}
+        extra.update(ex.get("setup_files") or {})
+        return kind, item_id, {"solution.py": ex.get("starter", "")}, extra
+    raise ApiError("kind must be project or step")
+
+
+def _sync_files(body: dict, starters: dict) -> dict:
+    files = body.get("files") or {}
+    if not isinstance(files, dict):
+        raise ApiError("bad files")
+    allowed = set(starters)
+    files = {str(k): str(v) for k, v in files.items() if str(k) in allowed}
+    if sum(len(v) for v in files.values()) > 400_000:
+        raise ApiError("files too large")
+    return files
+
+
+def api_sync_open(body: dict):
+    kind, item_id, starters, extra = _sync_item(body)
+    files = _sync_files(body, starters) or dict(starters)
+    folder = sync.folder_for(kind, item_id)
+    try:
+        state = sync.prepare(folder, files, starters, extra)
+    except (OSError, ValueError) as exc:
+        raise ApiError(f"Couldn't write {folder}: {exc}") from None
+    active = body.get("file") if body.get("file") in files else next(iter(files))
+    return {"folder": str(folder), "display": sync.display(folder), **state, **sync.open_in_editor(folder, active)}
+
+
+def api_sync_poll(body: dict):
+    kind, item_id, starters, _extra = _sync_item(body)
+    names = [n for n in (body.get("names") or []) if n in starters]
+    known = body.get("stamp") if isinstance(body.get("stamp"), dict) else {}
+    return sync.changes(sync.folder_for(kind, item_id), names, {k: int(v) for k, v in known.items() if str(v).isdigit()})
+
+
 def api_achievements(_=None):
     awards = _rewards()
     return {**achievements.overview(), **awards}
@@ -1350,6 +1401,8 @@ ROUTES = [
     ("GET", r"/api/recap", api_recap),
     ("POST", r"/api/assist/complete", api_assist_complete),
     ("POST", r"/api/repl/start", api_repl_start),
+    ("POST", r"/api/sync/open", api_sync_open),
+    ("POST", r"/api/sync/poll", api_sync_poll),
     ("POST", r"/api/repl/(\w+)/run", api_repl_run),
     ("POST", r"/api/repl/(\w+)/stop", api_repl_stop),
     ("POST", r"/api/assist/diagnose", api_assist_diagnose),

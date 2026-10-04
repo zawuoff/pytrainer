@@ -5,6 +5,7 @@ import { dockLibrary, tabIndicator } from "../library.js";
 import { llmCallsHTML, realLLM, realLLMToggleHTML } from "../realllm.js";
 import { spansHTML } from "../spans.js";
 import { createRepl } from "../repl.js";
+import { folderSync } from "../sync.js";
 
 /* ---------------------------------------------------------------- projects */
 
@@ -46,8 +47,10 @@ export async function viewProject(pid) {
         <button class="btn ghost" id="upload-btn">Upload files</button><input type="file" id="file-in" multiple accept=".py,.txt,.md,.json,.jsonl" class="hidden">
         <button class="btn ghost" id="lib-btn" title="Look up syntax from the chapters you have finished (Ctrl+K)">Library <kbd>Ctrl+K</kbd></button>
         <span class="grow"></span><button class="btn ghost small" id="scaffold-btn" title="${esc(d.folder)}">${d.folder_exists ? "Folder ready" : "Create project folder"}</button>
-        <button class="btn ghost small" id="load-btn">Load from folder</button></div>
-      <div class="filetabs" id="filetabs"></div><div class="editor" id="editor"></div>
+        <button class="btn ghost small" id="load-btn">Load from folder</button>
+        <button class="btn ghost small" id="vscode-btn" title="Write your files to ${esc(d.folder)}, open it in VS Code, and reload here on every save">Open in VS Code</button></div>
+      <div><div class="sync-banner" id="sync-banner" hidden></div><div class="filetabs" id="filetabs"></div></div>
+      <div class="editor" id="editor"></div>
       <div class="dock" id="pdock"><div class="dock-grip"></div>
         <div class="dock-tabs"><button class="on">Output</button><span class="grow"></span><span class="faint small" style="padding-right:6px">runs the file you're viewing</span></div>
         <div class="dock-body"><div id="prepl" hidden></div><div id="pout-wrap"><pre class="out" id="pout"><span class="faint">Press Run (Alt+Enter) to run the file you're viewing and see what it prints. Add a few print(...) calls at the bottom to try your functions, like in "Try it yourself". Submit runs the hidden checks.</span></pre>
@@ -113,6 +116,8 @@ export async function viewProject(pid) {
   render();
   makeDock($("#pdock"));
   const lib = dockLibrary($(".ws"), $("#pdock"), { topic: isMini ? p.chapter : null, editor: ed.cm, selectTab: () => { if (isNarrow()) setPane("code"); } });
+  const synced = folderSync({ kind: "project", id: pid, ed, banner: $("#sync-banner"), onReload: () => drawTabs() });
+  $("#vscode-btn").onclick = () => synced.open();
   // A REPL tab next to Output and Library: a live session, optionally with the current file loaded.
   const ptabs = $("#pdock .dock-tabs"), replBtn = document.createElement("button");
   replBtn.type = "button"; replBtn.textContent = "REPL";

@@ -8,6 +8,7 @@ import { sessionBanner } from "../session.js";
 import { llmCallsHTML, realLLM, realLLMToggleHTML } from "../realllm.js";
 import { spansHTML } from "../spans.js";
 import { createRepl } from "../repl.js";
+import { folderSync } from "../sync.js";
 
 /* ---------------------------------------------------------------- step workspace: lesson left, code right, output below */
 
@@ -61,9 +62,10 @@ export async function viewStep(id, reviewFlag) {
         <button class="btn ghost" id="lib-btn" title="Look up syntax from the chapters you have finished (Ctrl+K). Your code stays as it is.">Library <kbd>Ctrl+K</kbd></button>
         <span class="grow"></span><span class="timer" id="timer">0:00</span>
         ${traceMode ? `<span class="small dim" id="tb-picked">Click the line to change</span>` : ""}
-        ${readOnly ? "" : `<button class="btn ghost small" id="reset-btn">Reset</button>`}
+        ${readOnly ? "" : `<button class="btn ghost small hide-m" id="vscode-btn" title="Write this step to a folder, open it in VS Code, and reload here on every save">VS Code</button><button class="btn ghost small" id="reset-btn">Reset</button>`}
       </div>
-      <div class="filetabs">${testsMode ? `<button class="on">your tests</button>` : predict ? `<button class="on">the program (read it)</button>` : traceMode ? `<button class="on">the program: click the line you'd change</button>` : ""}</div>
+      <div><div class="sync-banner" id="sync-banner" hidden></div>
+      <div class="filetabs">${testsMode ? `<button class="on">your tests</button>` : predict ? `<button class="on">the program (read it)</button>` : traceMode ? `<button class="on">the program: click the line you'd change</button>` : ""}</div></div>
       <div class="editor" id="editor"></div>
       <div class="dock" id="dock"><div class="dock-grip"></div><div class="dock-tabs" id="dock-tabs"></div><div class="dock-body" id="dock-body"></div></div>
     </section></div></div>`;
@@ -191,6 +193,10 @@ export async function viewStep(id, reviewFlag) {
     selectTab: () => { dockTab = "library"; drawDock(); if (isNarrow()) setPane("code"); },
   });
   const repl = createRepl({ files: () => ed.files(), main: () => ed.active });
+  if (!readOnly) {
+    const synced = folderSync({ kind: "step", id, ed, banner: $("#sync-banner") });
+    $("#vscode-btn").onclick = () => synced.open();
+  }
   function tabsList() {
     const t = [];
     if (predict) t.push(["answer", "Your answer"]);
