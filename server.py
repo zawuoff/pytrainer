@@ -26,8 +26,8 @@ if sys.version_info < (3, 11):
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from pytrainer import (ai, capstone, coach, content, course, db, drills, interview, jev, labs, lint, mistakes,  # noqa: E402
-                       progress, radar, runner, sandbox, tracer, variants)
+from pytrainer import (ai, capstone, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
+                       mistakes, progress, radar, runner, sandbox, tracer, variants)
 
 STATIC = ROOT / "static"
 PROJECTS_DIR = labs.LAB_ROOT / "projects"
@@ -1128,6 +1128,17 @@ def api_drill_finish(body: dict):
         raise ApiError(str(exc)) from None
 
 
+def api_leaderboard(_=None):
+    return leaderboard.overview()
+
+
+def api_leaderboard_run(_body=None):
+    try:
+        return leaderboard.run()
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
+
+
 def api_capstone(_=None):
     return capstone.status()
 
@@ -1235,6 +1246,8 @@ ROUTES = [
     ("GET", r"/api/drill", api_drill),
     ("POST", r"/api/drill/check", api_drill_check),
     ("POST", r"/api/drill/finish", api_drill_finish),
+    ("GET", r"/api/leaderboard", api_leaderboard),
+    ("POST", r"/api/leaderboard/run", api_leaderboard_run),
     ("GET", r"/api/capstone", api_capstone),
     ("POST", r"/api/capstone/export", api_capstone_export),
     ("GET", r"/api/labs", api_labs),

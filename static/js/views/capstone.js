@@ -23,6 +23,7 @@ export async function viewCapstone() {
           <div class="cap-st">${d.app.passed ? `<span class="pill pass">passed ${esc(d.app.tests)}</span>${d.app.score != null ? `<div class="faint small">review ${esc(d.app.score)}/100</div>` : ""}`
             : d.ready ? `<a class="btn small primary" href="#/project/${d.app.id}">Start</a>` : `<span class="faint small">after the five parts</span>`}</div></li>
       </ol></section>
+    <a class="suggest" href="#/leaderboard" style="margin-top:20px"><b>Eval leaderboard</b><span>Score your Docs Assistant on fixed questions, tune it, and beat your best on a held-out set.</span><em>Open the leaderboard</em></a>
     <section class="section"><h2>Your portfolio repository</h2><div class="panel stack" id="cap-export">
       ${d.ready ? `<p>Writes your passing code to <code>${esc(d.repo)}</code> with a README (architecture diagram, what each part does, your test results and review scores), sample docs, every part's tests with a standard-library runner (<code>python run_tests.py</code>), and ${d.git ? "a git commit" : "everything git needs (git was not found on this machine)"}.${d.app.passed ? "" : " Pass the Docs Assistant project first to include <code>app.py</code> and its command line."}</p>
         <div class="row"><button class="btn primary" id="cap-go">${d.repo_exists ? "Update the repository" : "Create the repository"}</button></div>
