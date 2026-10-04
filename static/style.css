@@ -1028,3 +1028,18 @@ input[type=text], input[type=number], input[type=password], select, textarea { t
   .spin { animation-duration: 1.6s !important; animation-iteration-count: infinite !important; }
   .burst i { display: none; }
 }
+
+/* Capstone */
+.cap-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 0; }
+.cap-stage { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 14px 0; border-bottom: 1px solid var(--rule); position: relative; }
+.cap-stage::before { content: ""; position: absolute; left: 16px; top: 44px; bottom: -14px; width: 2px; background: var(--rule); }
+.cap-stage:last-child::before { display: none; }
+.cap-n { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font: 600 14px var(--mono); border: 2px solid var(--rule-strong); color: var(--dim); background: var(--bg); position: relative; z-index: 1; }
+.cap-stage.ok .cap-n { border-color: var(--pass); color: var(--pass); }
+.cap-stage.ok::before { background: color-mix(in srgb, var(--pass) 45%, var(--rule)); }
+.cap-stage.app .cap-n { border-style: dashed; }
+.cap-stage.app.ok .cap-n { border-style: solid; }
+.cap-body p { margin: 4px 0 0; }
+.cap-body code { font-size: 12px; margin-left: 6px; }
+.cap-st { text-align: right; display: grid; gap: 4px; justify-items: end; }
+@media (max-width: 560px) { .cap-stage { grid-template-columns: 34px minmax(0, 1fr); } .cap-st { grid-column: 2; justify-items: start; text-align: left; } }

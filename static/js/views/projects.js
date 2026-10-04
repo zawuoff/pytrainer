@@ -11,6 +11,7 @@ export async function viewProjects() {
   main.innerHTML = `<div class="page">
     <h1>Portfolio projects</h1>
     <p class="dim" style="max-width:66ch;margin-top:10px">Real AI-engineering builds, the kind the job report says get people hired. Each specifies an interface; you design and write the code in your own editor, then submit. Hidden tests grade the behaviour, and ${aiOn() ? esc(aiName()) : "an AI (if connected)"} grades the quality against a rubric.</p>
+    <a class="suggest" href="#/capstone" style="margin-top:18px"><b>Capstone: Docs Assistant</b><span>Five of these projects are the parts of one app. Wire them together and export a repository for your GitHub.</span><em>Open the capstone</em></a>
     ${S.modules.filter((m) => d.projects.some((p) => p.module === m.id)).map((m) => `<section class="section" style="${modColor(m.id)}">
       <h3 style="color:var(--mc)">Module ${m.number} · ${esc(m.title)}</h3>
       <div style="border-top:1px solid var(--rule);margin-top:10px">${d.projects.filter((p) => p.module === m.id).map((p) => `<a class="list-row" href="#/project/${p.id}">
@@ -68,7 +69,8 @@ export async function viewProject(pid) {
     $$("#ptabs button").forEach((b) => b.onclick = () => { tab = b.dataset.t; render(); anim(body, [{ opacity: 0, transform: "translateY(5px)" }, { opacity: 1, transform: "none" }], { duration: 200 }); });
     tabIndicator($("#ptabs"));
     if (tab === "brief") {
-      body.innerHTML = md(p.brief) + `<h3 style="margin-top:24px">Files to submit</h3><p>${p.files.map((f) => `<code>${esc(f)}</code>`).join(" ")}</p>
+      const builds = d.builds_on ? `<div class="note small"><b>Runs on your own code.</b> Your latest passing version of each of these is placed next to your file: ${d.builds_on.map((b) => `<a href="#/project/${b.id}">${esc(b.title)}</a> <code>${b.files.map(esc).join(", ")}</code> ${b.passed ? "✓" : "<b>(not passed yet)</b>"}`).join(" · ")}. <a href="#/capstone">Capstone overview</a></div>` : "";
+      body.innerHTML = builds + md(p.brief) + `<h3 style="margin-top:24px">Files to submit</h3><p>${p.files.map((f) => `<code>${esc(f)}</code>`).join(" ")}</p>
         <h3 style="margin-top:16px">How it's graded</h3><ul>${p.rubric.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>`;
     } else if (tab === "explore") {
       body.innerHTML = md(p.explore);

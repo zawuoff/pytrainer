@@ -177,6 +177,8 @@ def _norm_project(raw: dict) -> dict:
         p[key] = _clean(p.get(key, ""))
     p["starter_files"] = {k: _clean(v) for k, v in p.get("starter_files", {}).items()}
     p["solution_files"] = {k: _clean(v) for k, v in p.get("solution_files", {}).items()}
+    p["setup_files"] = {k: _clean(v) for k, v in p.get("setup_files", {}).items()}
+    p.setdefault("requires_projects", [])  # projects whose passing code runs next to this one (capstone)
     p.setdefault("rubric", [])
     p.setdefault("requires", [])
     p.setdefault("kind", "portfolio")

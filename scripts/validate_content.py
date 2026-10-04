@@ -106,14 +106,20 @@ def check_mini(m):
 
 def check_project(p):
     problems = []
-    good = runner.run_tests(p["solution_files"], p["tests"], mode="function",
-                            main=p.get("main", "app.py"), timeout=60)
+    # A capstone runs next to the code of the projects it builds on: use their reference solutions.
+    data = content.load()
+    base = {}
+    for pid in p.get("requires_projects", []):
+        base.update(data["projects_by_id"][pid]["solution_files"])
+    setup = p.get("setup_files") or None
+    good = runner.run_tests({**base, **p["solution_files"]}, p["tests"], mode="function",
+                            main=p.get("main", "app.py"), timeout=60, setup_files=setup)
     if good["status"] != "passed":
         detail = good["error"] or "; ".join(f"{t['name']}: {t['message']}" for t in good["tests"]
                                             if not t["passed"])
         problems.append(f"solution does not pass ({good['status']}): {detail}")
-    bad = runner.run_tests(p["starter_files"], p["tests"], mode="function",
-                           main=p.get("main", "app.py"), timeout=60)
+    bad = runner.run_tests({**base, **p["starter_files"]}, p["tests"], mode="function",
+                           main=p.get("main", "app.py"), timeout=60, setup_files=setup)
     if bad["status"] == "passed":
         problems.append("starter already passes")
     return "project:" + p["id"], problems

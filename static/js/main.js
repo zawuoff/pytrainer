@@ -10,6 +10,7 @@ import { viewReviews } from "./views/reviews.js";
 import { viewWelcome } from "./views/onboarding.js";
 import { viewPlacement, viewPlacementQuestion } from "./views/placement.js";
 import { viewProject, viewProjects } from "./views/projects.js";
+import { viewCapstone } from "./views/capstone.js";
 import { viewLabs } from "./views/labs.js";
 import { viewProgress } from "./views/progress.js";
 import { viewSettings } from "./views/settings.js";
@@ -32,6 +33,7 @@ const routes = [
   [/^#\/placement\/([\w-]+)$/, viewPlacementQuestion],
   [/^#\/projects$/, viewProjects],
   [/^#\/project\/([\w-]+)$/, viewProject],
+  [/^#\/capstone$/, viewCapstone],
   [/^#\/labs$/, viewLabs],
   [/^#\/progress$/, viewProgress],
   [/^#\/settings$/, viewSettings],
@@ -53,7 +55,7 @@ async function showRoute() {
   if (!S.settings.onboarded && !/^#\/(welcome|placement|settings)/.test(hash)) { location.hash = "#/welcome"; return; }
   const nav = hash.split("/")[1]?.split("?")[0];
   document.body.classList.toggle("focus", /^#\/(step|project|placement)\//.test(hash));
-  const navMap = { step: "course", chapter: "course", exam: "course", extras: "course", project: "projects", placement: "home", welcome: "home", today: "home" };
+  const navMap = { capstone: "projects", step: "course", chapter: "course", exam: "course", extras: "course", project: "projects", placement: "home", welcome: "home", today: "home" };
   $$(".nav a[data-nav]").forEach((a) => a.classList.toggle("on", a.dataset.nav === (navMap[nav] || nav)));
   for (const [rx, fn] of routes) {
     const m = hash.match(rx);

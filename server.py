@@ -26,7 +26,8 @@ if sys.version_info < (3, 11):
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from pytrainer import ai, coach, content, course, db, jev, labs, lint, progress, runner, sandbox, tracer, variants  # noqa: E402
+from pytrainer import (ai, capstone, coach, content, course, db, jev, labs, lint, progress, runner, sandbox,  # noqa: E402
+                       tracer, variants)
 
 STATIC = ROOT / "static"
 PROJECTS_DIR = labs.LAB_ROOT / "projects"
@@ -890,7 +891,29 @@ def api_project(pid: str):
         "draft": json.loads(draft["files"]) if draft else None,
         "chat": json.loads(chat["messages"]) if chat else [],
         "folder": str(folder), "folder_exists": folder.is_dir(),
+        "builds_on": _builds_on(p),
     }
+
+
+def _builds_on(p: dict) -> list[dict] | None:
+    """For a capstone: the projects whose passing code runs next to it, and whether each has passed."""
+    if not p.get("requires_projects"):
+        return None
+    data = content.load()
+    passed = progress.passed_projects()
+    return [{"id": pid, "title": data["projects_by_id"][pid]["title"], "files": data["projects_by_id"][pid]["files"],
+             "passed": pid in passed} for pid in p["requires_projects"]]
+
+
+def _with_provided(p: dict, files: dict) -> dict:
+    """Add the learner's passing code from the projects a capstone builds on (their own files win)."""
+    if not p.get("requires_projects"):
+        return files
+    provided, missing = capstone.provided_files(p)
+    if missing:
+        raise ApiError("This project runs on your own code from earlier projects. Pass these first: "
+                       + ", ".join(missing))
+    return {**provided, **files}
 
 
 def api_project_scaffold(pid: str, _body=None):
@@ -904,6 +927,14 @@ def api_project_scaffold(pid: str, _body=None):
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(code)
             written.append(name)
+    if p.get("requires_projects"):
+        provided, _missing = capstone.provided_files(p)
+        for name, code in {**provided, **p.get("setup_files", {})}.items():
+            dest = folder / name
+            if not dest.exists():
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(code)
+                written.append(name)
     readme = folder / "BRIEF.md"
     readme.write_text(f"# {p['title']}\n\n{p['brief']}\n\n---\n\n## Explore\n\n{p['explore']}")
     return {"folder": str(folder), "written": written}
@@ -930,8 +961,9 @@ def api_project_run(pid: str, body: dict):
     main = body.get("file") or p.get("main", "app.py")
     if main not in files:
         raise ApiError(f"{main} isn't one of your files")
-    return runner.run_code(files, main=main, stdin=str(body.get("stdin", ""))[:20000],
-                           args=[str(a) for a in body.get("args", [])][:20], timeout=15)
+    return runner.run_code(_with_provided(p, files), main=main, stdin=str(body.get("stdin", ""))[:20000],
+                           args=[str(a) for a in body.get("args", [])][:20], timeout=15,
+                           setup_files=p.get("setup_files") or None)
 
 
 def api_project_submit(pid: str, body: dict):
@@ -943,7 +975,8 @@ def api_project_submit(pid: str, body: dict):
     total = sum(len(c) for c in files.values())
     if total > 400_000:
         raise ApiError("submission too large")
-    result = runner.run_tests(files, p["tests"], mode="function", main=p.get("main", "app.py"), timeout=90)
+    result = runner.run_tests(_with_provided(p, files), p["tests"], mode="function", main=p.get("main", "app.py"),
+                              timeout=90, setup_files=p.get("setup_files") or None)
     result["style"] = {name: lint.check(code) for name, code in files.items() if name.endswith(".py")}
     sid = db.ex("INSERT INTO submissions(project_id, files, result, created_at) VALUES(?,?,?,?)",
                 (pid, json.dumps(files), json.dumps(result), db.now()))
@@ -967,6 +1000,17 @@ def api_project_review(pid: str, body: dict):
 
 
 # --------------------------------------------------------------------------- labs
+
+def api_capstone(_=None):
+    return capstone.status()
+
+
+def api_capstone_export(_body=None):
+    try:
+        return capstone.export()
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
+
 
 def api_labs(_=None):
     data = content.load()
@@ -1053,6 +1097,8 @@ ROUTES = [
     ("POST", r"/api/project/([\w-]+)/run", api_project_run),
     ("POST", r"/api/project/([\w-]+)/submit", api_project_submit),
     ("POST", r"/api/project/([\w-]+)/review", api_project_review),
+    ("GET", r"/api/capstone", api_capstone),
+    ("POST", r"/api/capstone/export", api_capstone_export),
     ("GET", r"/api/labs", api_labs),
     ("POST", r"/api/lab/([\w-]+)/check", api_lab_check),
     ("GET", r"/api/export", api_export),
