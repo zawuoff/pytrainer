@@ -3,6 +3,9 @@ import { heatmap } from "../shared.js";
 
 /* ---------------------------------------------------------------- progress */
 
+const XP_PARTS = { steps: "Steps", reviews: "Reviews", chapters: "Chapters", projects: "Projects", labs: "Labs", achievements: "Achievements", days: "Days practised", practice: "Drills & more" };
+const XP_TITLE_AT = { Apprentice: 5, Practitioner: 10, Engineer: 15, "Senior engineer": 20, "Staff engineer": 25 };
+
 export async function viewProgress() {
   await refreshState();
   const st = await api("stats");
@@ -18,6 +21,11 @@ export async function viewProgress() {
       <div class="stat"><b>${fmtMin(sm.week_minutes)}</b><span>this week</span></div>
       <div class="stat"><b>${sm.streak.current} / ${sm.streak.best}</b><span>streak / best</span></div>
     </div>
+    <section class="section"><h2>Level ${st.xp.level} <span class="faint small">${esc(st.xp.title)}</span></h2><div class="panel">
+      <div class="row" style="justify-content:space-between"><b>${st.xp.total.toLocaleString()} XP</b><span class="faint small">${(st.xp.level_size - st.xp.into_level).toLocaleString()} XP to level ${st.xp.level + 1}${st.xp.next_title ? ` · ${esc(st.xp.next_title)} at level ${XP_TITLE_AT[st.xp.next_title]}` : ""}</span></div>
+      <span class="xp-bar" role="progressbar" aria-label="Progress to the next level" aria-valuenow="${st.xp.into_level}" aria-valuemax="${st.xp.level_size}"><i style="width:${Math.round((st.xp.into_level / st.xp.level_size) * 100)}%"></i></span>
+      <div class="xp-parts">${Object.entries(st.xp.breakdown).map(([k, v]) => `<span>${esc(XP_PARTS[k] || k)} <b>${v.toLocaleString()}</b></span>`).join("")}</div>
+      <p class="faint small" style="margin:10px 0 0">XP comes from your history: harder steps are worth more, a clean first try adds a bonus, a step solved after seeing the solution counts half. Reviews, chapters, projects, labs, achievements and every day you practise add to it.</p></div></section>
     <a class="suggest ach-strip" href="#/achievements" style="margin-top:20px"><b>Achievements: ${st.achievements.unlocked} of ${st.achievements.total}</b>
       <span>${st.achievements.recent.length ? "Latest: " + st.achievements.recent.map((a) => esc(a.title)).join(" · ") : "Solve your first step to earn the first one."}</span><em>See them all</em></a>
     <section class="section"><h2>Activity</h2><div class="panel">${heatmap(st.heatmap)}

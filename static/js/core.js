@@ -23,25 +23,58 @@ export async function api(path, body) {
   try { data = await res.json(); } catch { data = { error: `Server returned ${res.status}` }; }
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   if (data.awards?.length) celebrate(data.awards);
+  if (data.xp_gain) gainXP(data.xp_gain);
   return data;
+}
+
+/* The level and XP bar in the sidebar. */
+export function drawXP(x) {
+  const el = $("#rail-xp");
+  if (!el || !x) return;
+  el.hidden = false;
+  el.title = `${x.total} XP · ${x.level_size - x.into_level} XP to level ${x.level + 1}`;
+  el.innerHTML = `<span><b>Level ${x.level}</b> · ${esc(x.title)}</span><span class="faint">${x.total.toLocaleString()} XP</span>
+    <span class="rail-xp-bar"><i style="width:${Math.round((x.into_level / x.level_size) * 100)}%"></i></span>`;
+}
+
+/* XP an action just earned: a small "+N XP" note, or a card on a level up. */
+function gainXP(x) {
+  if (S) S.xp = x;
+  drawXP(x);
+  if (x.level_up) {
+    toastCard("▲", `Level ${x.level}: ${x.title}`, `+${x.gained} XP. ${x.level_size - x.into_level} XP to level ${x.level + 1}.`, "#/progress");
+  } else {
+    let stack = $("#toasts");
+    if (!stack) { stack = document.createElement("div"); stack.id = "toasts"; stack.setAttribute("aria-live", "polite"); document.body.appendChild(stack); }
+    const t = document.createElement("div");
+    t.className = "toast xp-chip";
+    t.textContent = `+${x.gained} XP`;
+    stack.appendChild(t);
+    setTimeout(() => {
+      const out = anim(t, [{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: "forwards" });
+      if (out) out.onfinish = () => t.remove(); else t.remove();
+    }, 1800);
+  }
 }
 
 /* Achievements an action just earned (the server adds `awards` to the response). A burst of them
    (say, on the first visit after an update) becomes one summary card rather than a pile. */
+function toastCard(glyph, title, sub, href) {
+  let stack = $("#toasts");
+  if (!stack) { stack = document.createElement("div"); stack.id = "toasts"; stack.setAttribute("aria-live", "polite"); document.body.appendChild(stack); }
+  const t = document.createElement("a");
+  t.className = "toast award";
+  t.href = href;
+  t.innerHTML = `<span class="award-badge" aria-hidden="true">${glyph}</span><span><b>${esc(title)}</b><small>${esc(sub)}</small></span>`;
+  stack.appendChild(t);
+  setTimeout(() => {
+    const out = anim(t, [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(8px) scale(.97)" }], { duration: 220, fill: "forwards" });
+    if (out) out.onfinish = () => t.remove(); else t.remove();
+  }, 6000);
+}
+
 function celebrate(awards) {
-  const card = (title, sub) => {
-    let stack = $("#toasts");
-    if (!stack) { stack = document.createElement("div"); stack.id = "toasts"; stack.setAttribute("aria-live", "polite"); document.body.appendChild(stack); }
-    const t = document.createElement("a");
-    t.className = "toast award";
-    t.href = "#/achievements";
-    t.innerHTML = `<span class="award-badge" aria-hidden="true">★</span><span><b>${esc(title)}</b><small>${esc(sub)}</small></span>`;
-    stack.appendChild(t);
-    setTimeout(() => {
-      const out = anim(t, [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(8px) scale(.97)" }], { duration: 220, fill: "forwards" });
-      if (out) out.onfinish = () => t.remove(); else t.remove();
-    }, 6000);
-  };
+  const card = (title, sub) => toastCard("★", title, sub, "#/achievements");
   if (awards.length > 2) card(`${awards.length} achievements unlocked`, awards.map((a) => a.title).join(" · "));
   else awards.forEach((a) => card(`Achievement: ${a.title}`, a.text));
 }
@@ -135,6 +168,7 @@ export async function refreshState() {
   const got = S.topics.filter((t) => t.library_unlocked);
   if (libSeen) got.filter((t) => !libSeen.has(t.id)).forEach((t) => toast(`Library: ${t.title} unlocked (${S.library.unlocked} of ${S.library.total})`));
   libSeen = new Set(got.map((t) => t.id));
+  drawXP(S.xp);
   $("#ai-status").innerHTML = aiOn() ? `AI: ${esc(aiName())}${S.settings.ai.model ? " · " + esc(S.settings.ai.model) : ""}` : `AI: not connected`;
   $("#rail-course").innerHTML = `<div class="lbl">Your course</div>` + S.modules.map((m) => {
     const pct = m.steps_total ? Math.round((m.steps_done / m.steps_total) * 100) : 0;

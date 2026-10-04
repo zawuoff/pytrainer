@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from pytrainer import (achievements, ai, capstone, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
-                       mistakes, progress, radar, runner, sandbox, spans, tracer, variants)
+                       mistakes, progress, radar, runner, sandbox, spans, tracer, variants, xp)
 
 STATIC = ROOT / "static"
 PROJECTS_DIR = labs.LAB_ROOT / "projects"
@@ -145,6 +145,7 @@ def api_state(_body=None):
         },
         "counts": {"projects": len(data["projects"]), "labs": len(data["labs"])},
         "library": {"unlocked": sum(p["library_unlocked"] for p in tp.values()), "total": len(tp)},
+        "xp": xp.baseline(),
         "sandbox": sandbox.status(),
         "data_dir": str(db.DATA_DIR),
     }
@@ -577,8 +578,10 @@ def api_stats(_=None):
     placement = db.q1("SELECT * FROM placement WHERE finished_at IS NOT NULL ORDER BY id DESC LIMIT 1")
     awards = _rewards()
     ach = achievements.overview()
+    parts = xp.breakdown()
     return {
         **awards,
+        "xp": {**xp.summary(sum(parts.values())), "breakdown": parts},
         "summary": progress.summary(),
         "achievements": {k: ach[k] for k in ("unlocked", "total", "recent")},
         "heatmap": progress.heatmap(140),
@@ -1156,9 +1159,16 @@ def api_achievements(_=None):
 
 
 def _rewards() -> dict:
-    """What an action just earned, merged into its response; the browser celebrates `awards`."""
+    """What an action just earned, merged into its response: new achievements (`awards`) and XP
+    gained (`xp_gain`, with `level_up`). The browser celebrates both."""
+    out = {}
     new = achievements.check()
-    return {"awards": new} if new else {}
+    if new:
+        out["awards"] = new
+    gain = xp.gained()
+    if gain:
+        out["xp_gain"] = gain
+    return out
 
 
 def api_leaderboard_run(_body=None):
