@@ -47,6 +47,10 @@ def run_check(check: dict) -> tuple[bool, str]:
         p = _path(check["path"])
         ok = p.exists() and (not check.get("dir") or p.is_dir())
         return ok, ("exists" if ok else f"{check['path']} not found")
+    if kind == "glob":
+        pattern = _path(check["pattern"])
+        found = sorted(pattern.parent.glob(pattern.name)) if pattern.parent.is_dir() else []
+        return bool(found), (f"found {found[-1].name}" if found else f"nothing matches {check['pattern']}")
     if kind == "absent":
         p = _path(check["path"])
         return not p.exists(), ("not present (good)" if not p.exists() else f"{check['path']} should not exist")
