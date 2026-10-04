@@ -1,5 +1,6 @@
 import { $, $$, cleanup, esc, lastInteraction, md } from "./core.js";
 import { EDITOR_OPTS } from "./shared.js";
+import { attachAssist } from "./assist.js";
 import { tabIndicator } from "./library.js";
 
 export function makeEditor(host, files, onChange, { focus = true } = {}) {
@@ -13,7 +14,8 @@ export function makeEditor(host, files, onChange, { focus = true } = {}) {
   let sizeT = null;
   const ro = new ResizeObserver(() => { clearTimeout(sizeT); sizeT = setTimeout(() => cm.refresh(), 60); });
   ro.observe(host);
-  cleanup.push(() => { ro.disconnect(); clearTimeout(sizeT); });
+  const detach = attachAssist(cm, () => /\.py$/.test(active));
+  cleanup.push(() => { ro.disconnect(); clearTimeout(sizeT); detach(); });
   return {
     cm,
     get active() { return active; },

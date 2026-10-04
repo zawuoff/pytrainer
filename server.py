@@ -26,7 +26,7 @@ if sys.version_info < (3, 11):
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from pytrainer import (achievements, ai, capstone, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
+from pytrainer import (achievements, ai, assist, capstone, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
                        mistakes, progress, radar, recap, runner, sandbox, spans, tracer, variants, xp)
 
 STATIC = ROOT / "static"
@@ -128,7 +128,9 @@ def api_state(_body=None):
             "jev": {"configured": bool(jev.key()), "enabled": jev.enabled(), "masked": jev.masked()},
             "review_variants": settings.get("review_variants", True),
             "streak_freezes": settings.get("streak_freezes", True),
+            "editor_assist": settings.get("editor_assist", True),
         },
+        "assist": {"jedi": assist.jedi_available()},
         "tracks": data["tracks"],
         "topics": [{"id": t["id"], "title": t["title"], "track": t["track"], "summary": t["summary"],
                     "requires": t["requires"], "concepts": t.get("concepts", []), **tp[t["id"]],
@@ -834,6 +836,8 @@ def api_settings(body: dict):
         db.set_setting("review_variants", bool(body["review_variants"]))
     if "streak_freezes" in body:
         db.set_setting("streak_freezes", bool(body["streak_freezes"]))
+    if "editor_assist" in body:
+        db.set_setting("editor_assist", bool(body["editor_assist"]))
     return api_state()
 
 
@@ -1170,6 +1174,19 @@ def api_recap(day: str | None = None):
     return {**r, "text": recap.text(r)}
 
 
+def api_assist_complete(body: dict):
+    code = str(body.get("code") or "")
+    try:
+        line, ch = int(body.get("line", 1)), int(body.get("ch", 0))
+    except (TypeError, ValueError):
+        raise ApiError("line and ch must be numbers") from None
+    return assist.complete(code, max(1, line), max(0, ch))
+
+
+def api_assist_diagnose(body: dict):
+    return {"problems": assist.diagnose(str(body.get("code") or ""))}
+
+
 def api_achievements(_=None):
     awards = _rewards()
     return {**achievements.overview(), **awards}
@@ -1308,6 +1325,8 @@ ROUTES = [
     ("GET", r"/api/traces/sample", api_traces_sample),
     ("GET", r"/api/achievements", api_achievements),
     ("GET", r"/api/recap", api_recap),
+    ("POST", r"/api/assist/complete", api_assist_complete),
+    ("POST", r"/api/assist/diagnose", api_assist_diagnose),
     ("GET", r"/api/recap/(\d{4}-\d{2}-\d{2})", api_recap),
     ("GET", r"/api/capstone", api_capstone),
     ("POST", r"/api/capstone/export", api_capstone_export),

@@ -1256,3 +1256,18 @@ input[type=text], input[type=number], input[type=password], select, textarea { t
 .heat i.frozen { background: color-mix(in srgb, var(--m-foundations) 45%, var(--panel-2)); box-shadow: inset 0 0 0 1px var(--m-foundations); }
 .freeze { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px; font-size: 12px; font-weight: 600; vertical-align: middle; color: var(--m-foundations); background: color-mix(in srgb, var(--m-foundations) 14%, transparent); }
 .freeze-note { margin: 14px 0 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--m-foundations) 45%, var(--rule)); background: color-mix(in srgb, var(--m-foundations) 8%, transparent); font-size: 14px; }
+
+/* Editor help: inline errors and the autocomplete popup */
+.cm-diag-error { text-decoration: wavy underline var(--fail); text-decoration-skip-ink: none; text-underline-offset: 3px; }
+.cm-diag-warn { text-decoration: wavy underline var(--sun); text-decoration-skip-ink: none; text-underline-offset: 3px; }
+.cm-diag-msg { margin: 2px 0 4px 4px; padding: 3px 10px; border-left: 2px solid var(--fail); background: var(--fail-bg); color: var(--fail); font: 12px var(--ui); border-radius: 0 6px 6px 0; }
+.cm-hints { position: fixed; z-index: 60; margin: 0; padding: 4px; list-style: none; width: 330px; max-height: 240px; overflow-y: auto; background: var(--panel); border: 1px solid var(--rule-strong); border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, .3); font: 13px var(--mono); }
+.cm-hints li { display: grid; grid-template-columns: 34px minmax(0, auto) minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+.cm-hints li.on { background: var(--accent-soft); }
+.cm-hints b { font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cm-hints small { color: var(--faint); font: 11.5px var(--ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cm-hints .k { font: 600 10px var(--ui); text-transform: uppercase; letter-spacing: .04em; color: var(--faint); }
+.cm-hints .k-fn { color: var(--syn-fn); }
+.cm-hints .k-cls { color: var(--syn-kw); }
+.cm-hints .k-mod { color: var(--syn-str); }
+.cm-hints .k-kw { color: var(--amber); }
