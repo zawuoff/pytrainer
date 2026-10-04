@@ -7,7 +7,7 @@ export async function viewCourse(focus) {
   await refreshState();
   const projects = (await api("projects")).projects;
   main.innerHTML = `<div class="page">
-    <h1>The course</h1>
+    <div class="row between"><h1>The course</h1><a class="btn small ghost" href="#/map">Concept map</a></div>
     <p class="dim" style="max-width:66ch;margin-top:10px">Eight modules, ordered by what AI-engineering job postings ask for: solid Python first, then APIs and data, then building with LLMs, RAG, evals and agents. Every chapter is a path of short lessons, each followed by an exercise. Each module ends with a test, and passing it lets you skip the module.</p>
     <div class="section" style="margin-top:20px">${S.modules.map((m, i) => `
       <section class="module ${i === 0 ? "first" : ""}" id="mod-${m.id}" style="${modColor(m.id)}">
