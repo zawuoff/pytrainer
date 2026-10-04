@@ -317,8 +317,9 @@ def run_code(files: dict[str, str], *, main: str = "solution.py", stdin: str = "
 
     With `llm` (a callable taking a prompt and a system prompt), the code can make real model calls
     through `pytrainer_llm` (see llm_bridge); time spent waiting on the model doesn't count against
-    `timeout`, and the calls are listed in the result."""
-    from . import llm_bridge
+    `timeout`, and the calls are listed in the result. A `traces.jsonl` the code writes comes back
+    as `result["spans"]` for the waterfall viewer (see spans)."""
+    from . import llm_bridge, spans
 
     tmp = Path(tempfile.mkdtemp(prefix="pytrainer-run-"))
     try:
@@ -366,6 +367,9 @@ def run_code(files: dict[str, str], *, main: str = "solution.py", stdin: str = "
         }
         if llm is not None:
             result["llm_calls"] = calls
+        traced = spans.collect(tmp)
+        if traced:
+            result["spans"] = traced
         return result
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

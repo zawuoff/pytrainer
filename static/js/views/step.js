@@ -6,6 +6,7 @@ import { createDebugger } from "../debugger.js";
 import { mountParsons } from "../parsons.js";
 import { sessionBanner } from "../session.js";
 import { llmCallsHTML, realLLM, realLLMToggleHTML } from "../realllm.js";
+import { spansHTML } from "../spans.js";
 
 /* ---------------------------------------------------------------- step workspace: lesson left, code right, output below */
 
@@ -297,7 +298,7 @@ export async function viewStep(id, reviewFlag) {
         await api(`exercise/${id}/run`, { files: ed.files(), stdin: stdin.replace(/\\n/g, "\n"), args: args.trim() ? args.trim().split(/\s+/) : [], real_llm: realLLM() });
       outputHTML = (esc(r.stdout) + (r.stderr ? `<span class="err">${esc(r.stderr)}</span>` : "")) || `<span class="faint">(nothing was printed)</span>`;
       outputHTML += r.timed_out ? `<span class="err">\n[stopped: time limit]</span>` : `<span class="faint">\n[finished, exit code ${r.returncode}]</span>`;
-      outputHTML += llmCallsHTML(r.llm_calls);
+      outputHTML += llmCallsHTML(r.llm_calls) + spansHTML(r.spans);
       dockTab = "output"; drawDock();
     } catch (err) { toast(err.message, true); }
     busy(btn, false);

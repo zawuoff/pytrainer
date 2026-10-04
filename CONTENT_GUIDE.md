@@ -378,6 +378,14 @@ texts embedded, API cost, calls made), prints one line `BUDGET|<label>|<used>|<l
 asserts `used <= limit`. The runner turns those lines into `result["budgets"]`, which the results
 panel shows as "used of limit" bars. Keep limits generous enough for slow CI machines.
 
+## Traces from Run
+
+When code run with **Run** leaves a `traces.jsonl` in its folder (one span per line: `name`, `start`
+and `end` in seconds, and optionally `span_id`, `parent_id`, `trace_id`, `status`, `attributes`),
+the runner returns the spans as `result["spans"]` and the output panel draws them as a waterfall
+(`pytrainer/spans.py`, `static/js/spans.js`). A project or step about tracing can end its demo with
+an export to that file so the learner sees what their instrumentation recorded.
+
 ## New chapters: what to cover (fake/injected clients - no network, stdlib only)
 
 - **testing**: why tests; `assert`; test functions; arrange-act-assert; edge cases; testing

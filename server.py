@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from pytrainer import (ai, capstone, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
-                       mistakes, progress, radar, runner, sandbox, tracer, variants)
+                       mistakes, progress, radar, runner, sandbox, spans, tracer, variants)
 
 STATIC = ROOT / "static"
 PROJECTS_DIR = labs.LAB_ROOT / "projects"
@@ -1132,6 +1132,21 @@ def api_leaderboard(_=None):
     return leaderboard.overview()
 
 
+def api_traces_parse(body: dict):
+    """The trace viewer page: spans from a JSON Lines file the learner opened or pasted."""
+    text = str(body.get("text") or "")
+    if len(text) > spans.MAX_BYTES:
+        raise ApiError("That file is too big for the viewer (2 MB at most).")
+    found = spans.parse(text)
+    if not found:
+        raise ApiError("No spans found. Each line should be a JSON object with a name, start and end.")
+    return {"spans": found}
+
+
+def api_traces_sample(_=None):
+    return {"spans": spans.parse(spans.SAMPLE)}
+
+
 def api_leaderboard_run(_body=None):
     try:
         return leaderboard.run()
@@ -1248,6 +1263,8 @@ ROUTES = [
     ("POST", r"/api/drill/finish", api_drill_finish),
     ("GET", r"/api/leaderboard", api_leaderboard),
     ("POST", r"/api/leaderboard/run", api_leaderboard_run),
+    ("POST", r"/api/traces/parse", api_traces_parse),
+    ("GET", r"/api/traces/sample", api_traces_sample),
     ("GET", r"/api/capstone", api_capstone),
     ("POST", r"/api/capstone/export", api_capstone_export),
     ("GET", r"/api/labs", api_labs),

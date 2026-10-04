@@ -3,6 +3,7 @@ import { renderRich } from "../blocks.js";
 import { chatHTML, isNarrow, makeDock, makeEditor, paneSwitch, resultsHTML } from "../workspace.js";
 import { dockLibrary, tabIndicator } from "../library.js";
 import { llmCallsHTML, realLLM, realLLMToggleHTML } from "../realllm.js";
+import { spansHTML } from "../spans.js";
 
 /* ---------------------------------------------------------------- projects */
 
@@ -120,7 +121,7 @@ export async function viewProject(pid) {
       $("#pout").innerHTML = (esc(r.stdout) + (r.stderr ? `<span class="err">${esc(r.stderr)}</span>` : "")) ||
         `<span class="faint">(${esc(ed.active)} ran but printed nothing. Add print(...) calls to see your results.)</span>`;
       $("#pout").innerHTML += r.timed_out ? `<span class="err">\n[stopped: time limit]</span>` : `<span class="faint">\n[${esc(ed.active)} finished, exit code ${r.returncode}]</span>`;
-      $("#pout").innerHTML += llmCallsHTML(r.llm_calls);
+      $("#pout").innerHTML += llmCallsHTML(r.llm_calls) + spansHTML(r.spans);
     } catch (err) { toast(err.message, true); }
     busy(btn, false);
   };
