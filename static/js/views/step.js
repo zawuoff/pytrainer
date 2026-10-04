@@ -29,6 +29,7 @@ export async function viewStep(id, reviewFlag) {
   let picked = null;                       // traceback steps: the line clicked as the one to change
   let lastResult = null, chat = d.chat, reviewData = d.review, hints = d.hints, canReveal = d.can_reveal;
   let revealed = d.revealed, explanation = d.explanation, walkthrough = null, improve = null, answer = "";
+  let explainBack = d.explain_back?.result || null, ebText = d.explain_back?.text || "";
   let feedback = d.reference ? { reference: d.reference, quality: null, tips: [], style: [] } : null;
   let dockTab = predict ? "answer" : "results";
   let outputHTML = `<span class="faint">${testsMode ? "Run executes your test file (the code under test is importable as <code>target</code>). Check grades your tests." : "Run executes your file and shows what it prints. Check runs the checks."}</span>`;
@@ -263,8 +264,19 @@ export async function viewStep(id, reviewFlag) {
     if (aiOn()) h += `<div class="row" style="margin-top:14px"><button class="btn small" id="improve-btn">Show me a cleaner way</button><button class="btn small ghost" id="review-btn">Full code review</button></div>`;
     if (improve) h += `<div class="panel" style="margin-top:14px">${md(improve)}</div>`;
     if (reviewData) h += `<div class="panel" style="margin-top:14px">${reviewHTML(reviewData)}</div>`;
+    if (aiOn() && !readOnly) h += `<div class="panel" style="margin-top:14px"><h3>Explain it back</h3>
+      <p class="dim small">In your own words: why does your solution work? Say what each important line is for and how it handles the tricky case. Your AI checks the understanding, not the writing.</p>
+      <textarea id="eb-text" rows="4" placeholder="My solution works because…">${esc(ebText)}</textarea>
+      <div class="row" style="margin-top:8px"><button class="btn small primary" id="eb-btn">Check my explanation</button></div>
+      ${explainBack ? explainBackHTML(explainBack) : ""}</div>`;
     dockBody.innerHTML = h;
     renderRich(dockBody);
+    $("#eb-text", dockBody)?.addEventListener("input", (e) => { ebText = e.target.value; });
+    $("#eb-btn", dockBody)?.addEventListener("click", async (e) => {
+      busy(e.target, true, "Reading");
+      try { explainBack = (await api("ai/explain-back", { item_id: id, files: ed.files(), text: ebText })).result; drawFeedback(); }
+      catch (err) { toast(err.message, true); busy(e.target, false); }
+    });
     $("#improve-btn", dockBody)?.addEventListener("click", async (e) => {
       busy(e.target, true, "Thinking");
       try { improve = (await api("ai/improve", { item_id: id, files: ed.files() })).advice; drawFeedback(); }
@@ -353,4 +365,14 @@ export async function viewStep(id, reviewFlag) {
   };
   document.addEventListener("keydown", keys);
   cleanup.push(() => document.removeEventListener("keydown", keys));
+}
+
+function explainBackHTML(r) {
+  const tone = r.score >= 4 ? "pass" : r.score >= 3 ? "warn" : "fail";
+  return `<div class="eb-result"><div class="row" style="gap:10px;align-items:baseline"><div class="score">${esc(r.score)}<small>/5</small></div>
+      <span class="pill ${tone}">${esc(r.verdict || "")}</span></div>
+    <p>${esc(r.feedback || "")}</p>
+    ${r.right?.length ? `<p class="small"><b>You got right:</b> ${r.right.map(esc).join("; ")}</p>` : ""}
+    ${r.missing?.length ? `<p class="small"><b>Missing:</b> ${r.missing.map(esc).join("; ")}</p>` : ""}
+    ${r.misconception ? `<div class="note small"><b>Watch out:</b> ${esc(r.misconception)}</div>` : ""}</div>`;
 }

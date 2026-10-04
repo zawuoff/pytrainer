@@ -41,7 +41,7 @@ A chapter **clears** at 60% weighted mastery once you've solved at least one har
 
 Settings → AI connection. Uses the CLI you're already logged into — no API keys:
 **Claude Code** (`claude -p`), **Codex** (`codex exec`) or **OpenCode** (`opencode run`).
-AI powers the Socratic tutor (never gives solutions), code-quality reviews, the placement
+AI powers the Socratic tutor (never gives solutions), explain-it-back grading (after a solve, explain why your code works and get a 1-5 understanding score with what's missing), code-quality reviews, the placement
 report, AI-generated challenges (kept only if their reference solution passes their own
 tests), project reviews and the coach. Everything test-based works without AI.
 

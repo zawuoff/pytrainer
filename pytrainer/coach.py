@@ -209,6 +209,32 @@ def improve_solution(task: str, files: dict, reference: str) -> str:
     return ai.complete(IMPROVE_SYSTEM, prompt)
 
 
+EXPLAIN_BACK_SYSTEM = f"""You are a Python teacher checking whether a learner really understands code they wrote.
+{LEARNER}
+They solved the exercise. Now they explain, in their own words, why their solution works. Judge the
+UNDERSTANDING, not the writing style or spelling: do they name the key idea (what each important line
+is for, why the approach gives the right answer, and how it handles the tricky case the exercise is
+about)? A short explanation can score high if it is correct and complete. Point out any
+misconception plainly. Don't rewrite their code.
+
+Score 1-5: 5 = could teach it, 4 = understands it, 3 = mostly, with a gap, 2 = vague or partly wrong,
+1 = describes the code without understanding it, or is wrong.
+
+Return JSON: {{"score": n, "verdict": "<got it | mostly | not yet>", "feedback": "<2-4 sentences, warm and specific>",
+"right": ["<what they explained correctly>", ...], "missing": ["<an idea they left out>", ...],
+"misconception": "<a wrong belief they stated, or null>"}}"""
+
+
+def explain_back(item_id: str, task: str, files: dict, text: str) -> dict:
+    prompt = (f"## Exercise\n{task}\n\n## The learner's working code\n{_code_block(files)}\n\n"
+              f"## Their explanation\n{text}")
+    result = ai.complete_json(EXPLAIN_BACK_SYSTEM, prompt)
+    result["score"] = max(1, min(5, int(result.get("score") or 1)))
+    db.ex("INSERT INTO explanations(item_id, text, result, created_at) VALUES(?,?,?,?)",
+          (item_id, text, json.dumps(result), db.now()))
+    return result
+
+
 def review_code(item_id: str, task: str, files: dict, result: dict | None) -> dict:
     prompt = (f"## Task\n{task}\n\n## Learner's code\n{_code_block(files)}\n\n"
               f"## Test results\n{_result_text(result)}")

@@ -215,10 +215,16 @@ def api_exercise(ex_id: str):
         "chat": json.loads(chat["messages"]) if chat else [],
         "attempts": [dict(a) for a in attempts],
         "review": json.loads(review["review"]) if review else None,
+        "explain_back": _last_explanation(ex_id),
         "next": seq["next"], "prev": seq["prev"],
         "debug_call": (tracer.suggest_call(ex["solution"], ex["tests"])
                        if ex.get("mode", "function") == "function" else ""),
     }
+
+
+def _last_explanation(ex_id: str) -> dict | None:
+    row = db.q1("SELECT text, result, created_at FROM explanations WHERE item_id=? ORDER BY id DESC LIMIT 1", (ex_id,))
+    return {"text": row["text"], "result": json.loads(row["result"]), "created_at": row["created_at"]} if row else None
 
 
 def _sequence(ex: dict) -> dict:
@@ -395,6 +401,17 @@ def api_exam(module_id: str):
                            "difficulty": data["exercises"][e]["difficulty"],
                            "research": bool(data["exercises"][e].get("research")),
                            "status": states.get(e, {}).get("status", "new")} for e in exam["exercise_ids"]]}
+
+
+def api_explain_back(body: dict):
+    """Grade the learner's own explanation of a step they solved."""
+    ex = _exercise(body.get("item_id", ""))
+    if progress.get_state(ex["id"])["status"] != "solved":
+        raise ApiError("Solve it first, then explain why your solution works.")
+    text = str(body.get("text", "")).strip()
+    if len(text) < 40:
+        raise ApiError("Write at least a couple of sentences: what your code does, and why that gives the right answer.")
+    return {"result": coach.explain_back(ex["id"], _task_text(ex), _files(body), text[:4000])}
 
 
 def api_improve(body: dict):
@@ -1177,6 +1194,7 @@ ROUTES = [
     ("POST", r"/api/run", api_run_snippet),
     ("GET", r"/api/exam/([\w-]+)", api_exam),
     ("POST", r"/api/ai/improve", api_improve),
+    ("POST", r"/api/ai/explain-back", api_explain_back),
     ("POST", r"/api/lesson/([\w-]+)/read", api_lesson_read),
     ("GET", r"/api/library", api_library),
     ("GET", r"/api/library/([\w-]+)", api_library_entry),

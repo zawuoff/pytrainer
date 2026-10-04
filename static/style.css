@@ -1145,3 +1145,5 @@ input[type=text], input[type=number], input[type=password], select, textarea { t
 .llm-calls { margin-top: 10px; font-family: var(--ui); font-size: 12.5px; white-space: normal; }
 .llm-calls summary { cursor: pointer; color: var(--lilac); }
 .llm-call { border-left: 2px solid var(--rule-strong); padding: 4px 0 4px 10px; margin: 6px 0; overflow-wrap: anywhere; }
+.eb-result { margin-top: 12px; border-top: 1px solid var(--rule); padding-top: 10px; }
+.eb-result p { margin: 6px 0; }
