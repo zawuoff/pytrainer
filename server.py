@@ -26,8 +26,8 @@ if sys.version_info < (3, 11):
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from pytrainer import (ai, capstone, coach, content, course, db, drills, jev, labs, lint, progress, radar, runner,  # noqa: E402
-                       sandbox, tracer, variants)
+from pytrainer import (ai, capstone, coach, content, course, db, drills, jev, labs, lint, mistakes, progress,  # noqa: E402
+                       radar, runner, sandbox, tracer, variants)
 
 STATIC = ROOT / "static"
 PROJECTS_DIR = labs.LAB_ROOT / "projects"
@@ -1042,7 +1042,14 @@ def api_project_review(pid: str, body: dict):
 # --------------------------------------------------------------------------- labs
 
 def api_radar(_=None):
-    return radar.analyse()
+    return radar.analyse() | {"mistake_drill": mistakes.last_drill(), "mistakes": len(mistakes.recent_mistakes())}
+
+
+def api_mistake_drill(_body=None):
+    try:
+        return mistakes.make_drill()
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
 
 
 def api_drill(_=None):
@@ -1164,6 +1171,7 @@ ROUTES = [
     ("POST", r"/api/project/([\w-]+)/submit", api_project_submit),
     ("POST", r"/api/project/([\w-]+)/review", api_project_review),
     ("GET", r"/api/radar", api_radar),
+    ("POST", r"/api/ai/mistakes", api_mistake_drill),
     ("GET", r"/api/drill", api_drill),
     ("POST", r"/api/drill/check", api_drill_check),
     ("POST", r"/api/drill/finish", api_drill_finish),
