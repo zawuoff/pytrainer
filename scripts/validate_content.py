@@ -90,6 +90,16 @@ def check_exercise(ex):
         problems.append("starter code already passes all tests")
     if not 0 <= ex["difficulty"] <= 3:
         problems.append("difficulty must be 0..3")
+    if ex.get("kind") == "bughunt":
+        # The bug must hide: the buggy starter passes every example shown in the prompt.
+        if not ex.get("visible_tests"):
+            problems.append("bug hunt needs `visible_tests` (the prompt's examples)")
+        else:
+            shown = runner.run_tests({main: ex["starter"]}, ex["visible_tests"], mode=ex["mode"],
+                                     setup_files=ex["setup_files"])
+            if shown["status"] != "passed":
+                problems.append("bug hunt: the buggy starter must pass its visible examples: "
+                                + (shown["error"] or "; ".join(t["message"] for t in shown["tests"] if not t["passed"])))
     return ex["id"], problems
 
 

@@ -93,7 +93,7 @@ export async function viewStep(id, reviewFlag) {
   const read = $("#read");
   read.innerHTML = `<div id="read-head"></div>
     ${ex.lesson && !review ? `<div class="lesson-wrap" id="read-lesson">${md(ex.lesson, "lesson")}</div>` : ""}
-    <div class="task" id="read-task"><div class="label">${predict ? "Your turn: predict the output" : testsMode ? "Your turn: write the tests" : "Your turn"}</div>
+    <div class="task" id="read-task"><div class="label">${predict ? "Your turn: predict the output" : testsMode ? "Your turn: write the tests" : ex.kind === "bughunt" ? "Your turn: find and fix the bug" : "Your turn"}</div>
       ${researchHTML(ex.research)}${md(ex.prompt)}${checksHTML(d.checks)}
       ${ex.setup_files?.length ? `<p class="faint small" style="margin-top:10px">Files next to your code: ${ex.setup_files.map(esc).join(", ")}</p>` : ""}</div>
     <div id="read-extra"></div>`;

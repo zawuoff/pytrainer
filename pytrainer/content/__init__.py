@@ -33,7 +33,7 @@ def _norm_exercise(ex: dict, topic_id: str | None = None) -> dict:
     if missing:
         raise ValueError(f"exercise {ex.get('id')} missing {missing}")
     out = dict(ex)
-    for key in ("prompt", "starter", "tests", "solution", "code", "explanation", "lesson", "impl"):
+    for key in ("prompt", "starter", "tests", "solution", "code", "explanation", "lesson", "impl", "visible_tests"):
         if key in out:
             out[key] = _clean(out[key])
     if "mutants" in out:
