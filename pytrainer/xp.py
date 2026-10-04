@@ -118,3 +118,47 @@ def gained() -> dict | None:
         return None
     before, after = level_for(seen), level_for(total)
     return {"gained": total - seen, **summary(total), "level_up": after > before}
+
+
+def between(start: str, end: str) -> int:
+    """XP earned from things that happened in [start, end) (ISO dates), for the weekly recap. Uses
+    the same values as breakdown(); drills, interviews and explanations aren't dated per item there,
+    so they're counted by their own dates."""
+    exs = progress.all_exercises()
+    total = 0
+    for s in db.q("SELECT * FROM exercise_state WHERE status='solved' AND solved_at >= ? AND solved_at < ?",
+                  (start, end)):
+        ex = exs.get(s["exercise_id"])
+        if not ex:
+            continue
+        base = STEP.get(ex["difficulty"], 10)
+        if s["revealed"]:
+            base //= 2
+        elif s["first_try"] and not s["hints_used"]:
+            base += CLEAN_BONUS
+        total += base
+    data = content.load()
+    portfolio, minis = {p["id"] for p in data["projects"]}, {m["id"] for m in data["minis"]}
+    for r in db.q("SELECT project_id, MIN(created_at) AS first FROM submissions "
+                  "WHERE json_extract(result, '$.status')='passed' GROUP BY project_id"):
+        if start <= r["first"] < end:
+            pid = r["project_id"]
+            total += CAPSTONE if pid == "capstone" else PROJECT if pid in portfolio else CHAPTER_PROJECT if pid in minis else 0
+    rng = (start, end)
+    total += REVIEW * _n_in("SELECT COUNT(*) FROM attempts WHERE kind='review' AND status='passed' "
+                            "AND created_at >= ? AND created_at < ?", rng)
+    total += LAB * _n_in("SELECT COUNT(*) FROM lab_state WHERE done=1 AND done_at >= ? AND done_at < ?", rng)
+    total += ACHIEVEMENT * _n_in("SELECT COUNT(*) FROM achievements WHERE unlocked_at >= ? AND unlocked_at < ?", rng)
+    total += ACTIVE_DAY * _n_in("SELECT COUNT(*) FROM activity WHERE (seconds >= 600 OR solved > 0) "
+                                "AND day >= ? AND day < ?", rng)
+    total += DRILL_SOLVE * _n_in("SELECT COALESCE(SUM(solved), 0) FROM drills WHERE created_at >= ? AND created_at < ?", rng)
+    total += INTERVIEW * _n_in("SELECT COUNT(*) FROM interviews WHERE result IS NOT NULL "
+                               "AND created_at >= ? AND created_at < ?", rng)
+    total += EXPLAINED * _n_in("SELECT COUNT(*) FROM explanations WHERE json_extract(result, '$.score') >= 4 "
+                               "AND created_at >= ? AND created_at < ?", rng)
+    return total
+
+
+def _n_in(sql: str, params: tuple) -> int:
+    row = db.q1(sql, params)
+    return int(row[0] or 0) if row else 0

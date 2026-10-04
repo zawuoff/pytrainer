@@ -1222,3 +1222,32 @@ input[type=text], input[type=number], input[type=password], select, textarea { t
 .xp-parts { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px 16px; margin-top: 12px; font-size: 13px; }
 .xp-parts span { display: flex; justify-content: space-between; gap: 8px; color: var(--dim); }
 .xp-parts b { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* Weekly recap card */
+.recap-card { margin-top: 18px; padding: 24px; border: 1px solid var(--rule); border-radius: 18px; background: var(--panel); position: relative; overflow: hidden; }
+.recap-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 5px; background: var(--glow); }
+.rc-head { display: flex; justify-content: space-between; gap: 12px; color: var(--dim); font-size: 14px; }
+.rc-head b { font-family: var(--display); color: var(--text); }
+.rc-big { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 22px 0 18px; }
+.rc-big b { display: block; font-family: var(--display); font-size: 38px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.rc-big span { color: var(--dim); font-size: 13px; }
+.rc-delta { display: block; margin-top: 2px; font-size: 12px; color: var(--faint); }
+.rc-delta.up { color: var(--pass); }
+.rc-delta.down { color: var(--dim); }
+.rc-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; height: 120px; }
+.rc-day { display: grid; grid-template-rows: 1fr auto; gap: 4px; text-align: center; font-size: 12px; color: var(--faint); }
+.rc-bar { position: relative; background: color-mix(in srgb, var(--rule) 60%, transparent); border-radius: 6px 6px 0 0; }
+.rc-bar i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 6px 6px 0 0; background: var(--faint); }
+.rc-day.on .rc-bar i { background: var(--amber); }
+.rc-day.on { color: var(--text); }
+.rc-active { margin: 8px 0 0; }
+.rc-high { margin: 16px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; }
+.rc-high .faint { display: inline-block; min-width: 128px; }
+.rc-ach { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.rc-foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--rule); color: var(--dim); font-size: 13px; }
+.rc-empty { margin: 30px 0; color: var(--dim); }
+@media (max-width: 560px) {
+  .recap-card { padding: 18px 16px; }
+  .rc-big { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rc-high .faint { display: block; min-width: 0; }
+}
