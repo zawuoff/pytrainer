@@ -70,6 +70,16 @@ class ServerTests(unittest.TestCase):
         status, _ = self.request("GET", "/api/state", headers={"Host": "evil.example"})
         self.assertEqual(status, 403)
 
+    def test_trace_steps_through_the_learners_file(self):
+        status, ex = self.request("GET", f"/api/exercise/{self.ex['id']}")
+        self.assertEqual(status, 200)
+        self.assertIn("debug_call", ex)
+        status, t = self.request("POST", f"/api/exercise/{self.ex['id']}/trace",
+                                 {"files": {"solution.py": "x = 1\nx += 1\nprint(x)\n"}, "call": ""})
+        self.assertEqual(status, 200)
+        self.assertEqual(t["stdout"], "2\n")
+        self.assertEqual([s["line"] for s in t["steps"] if s["event"] == "line"], [1, 2, 3])
+
     def test_solving_and_reviewing_updates_the_schedule(self):
         status, r = self.check(self.ex["starter"])
         self.assertEqual(status, 200)

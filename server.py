@@ -26,7 +26,7 @@ if sys.version_info < (3, 11):
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from pytrainer import ai, coach, content, course, db, jev, labs, lint, progress, runner, sandbox  # noqa: E402
+from pytrainer import ai, coach, content, course, db, jev, labs, lint, progress, runner, sandbox, tracer  # noqa: E402
 
 STATIC = ROOT / "static"
 PROJECTS_DIR = labs.LAB_ROOT / "projects"
@@ -211,6 +211,8 @@ def api_exercise(ex_id: str):
         "attempts": [dict(a) for a in attempts],
         "review": json.loads(review["review"]) if review else None,
         "next": seq["next"], "prev": seq["prev"],
+        "debug_call": (tracer.suggest_call(ex["solution"], ex["tests"])
+                       if ex.get("mode", "function") == "function" else ""),
     }
 
 
@@ -374,6 +376,22 @@ def api_run(ex_id: str, body: dict):
         files = {**files, "target.py": ex["impl"]}
     return runner.run_code(files, stdin=body.get("stdin", ""), setup_files=ex.get("setup_files"),
                            args=[str(a) for a in body.get("args", [])][:20])
+
+
+def api_trace(ex_id: str, body: dict):
+    """Step through the learner's file (or, for read-and-predict steps, the program once it's unlocked)."""
+    ex = _exercise(ex_id)
+    call = str(body.get("call") or "")[:2000]
+    if ex.get("mode") == "predict":
+        st = progress.get_state(ex_id)
+        if st["status"] != "solved" and not st.get("revealed"):
+            raise ApiError("Stepping through is unlocked once you've predicted the output.")
+        return tracer.trace_code({"solution.py": ex["code"]}, setup_files=ex.get("setup_files"))
+    files = _files(body)
+    if ex.get("mode") == "tests":
+        files = {**files, "target.py": ex["impl"]}
+    return tracer.trace_code(files, call=call, stdin=str(body.get("stdin", ""))[:20000],
+                             setup_files=ex.get("setup_files"))
 
 
 def _grade(ex: dict, body: dict) -> tuple[dict, dict]:
@@ -960,6 +978,7 @@ ROUTES = [
     ("GET", r"/api/exercise/([\w-]+)", api_exercise),
     ("POST", r"/api/exercise/([\w-]+)/run", api_run),
     ("POST", r"/api/exercise/([\w-]+)/check", api_check),
+    ("POST", r"/api/exercise/([\w-]+)/trace", api_trace),
     ("POST", r"/api/exercise/([\w-]+)/hint", api_hint),
     ("POST", r"/api/exercise/([\w-]+)/reveal", api_reveal),
     ("POST", r"/api/run", api_run_snippet),

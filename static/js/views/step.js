@@ -2,6 +2,7 @@ import { $, $$, S, aiOn, anim, api, busy, cleanup, diffBars, esc, main, md, modC
 import { lessonTracker, lxPop, renderRich } from "../blocks.js";
 import { burst, chatHTML, checksHTML, isNarrow, makeDock, makeEditor, paneSwitch, qualityHTML, researchHTML, resultsHTML, reviewHTML, startTimer } from "../workspace.js";
 import { mountLibrary, tabIndicator } from "../library.js";
+import { createDebugger } from "../debugger.js";
 
 /* ---------------------------------------------------------------- step workspace: lesson left, code right, output below */
 
@@ -35,6 +36,7 @@ export async function viewStep(id, reviewFlag) {
     <section class="ws-code">
       <div class="toolbar">
         <button class="btn" id="run-btn" ${predict ? "disabled" : ""} title="Alt+Enter">Run <kbd>Alt+⏎</kbd></button>
+        <button class="btn ghost" id="dbg-btn" ${predict && !d.revealed && d.state.status !== "solved" ? "disabled" : ""} title="Step through your code one line at a time (Alt+D)">Debug</button>
         <button class="btn primary" id="check-btn" title="Ctrl+Enter">Check <kbd>Ctrl+⏎</kbd></button>
         ${ex.hint_count && !noHelp ? `<button class="btn ghost" id="hint-btn">Hint <span class="faint" id="hint-count">${hints.length}/${ex.hint_count}</span></button>` : ""}
         <button class="btn ghost" id="lib-btn" title="Look up syntax from the chapters you have finished (Ctrl+K). Your code stays as it is.">Library <kbd>Ctrl+K</kbd></button>
@@ -69,6 +71,10 @@ export async function viewStep(id, reviewFlag) {
   }
   cleanup.push(() => { clearTimeout(saveT); if (!review && !predict) api("draft", { item_id: id, files: ed.files() }).catch(() => {}); });
   makeDock($("#dock"));
+  const dbg = createDebugger({
+    cm: ed.cm, exerciseId: id, suggestion: d.debug_call, predict,
+    getFiles: () => ed.files(), getStdin: () => stdin.replace(/\\n/g, "\n"),
+  });
   const setPane = paneSwitch($(".ws"), ed.cm, ["Lesson", predict ? "Answer" : "Code"]);
 
   /* left: lesson, then the task. The lesson and the task are drawn once, so the activities in the
@@ -110,7 +116,7 @@ export async function viewStep(id, reviewFlag) {
     $("#hint-inline", extra)?.addEventListener("click", getHint);
     $("#reveal-btn", extra)?.addEventListener("click", async (e) => {
       busy(e.target, true);
-      try { revealed = (await api(`exercise/${id}/reveal`, { duration_s: timer.secs })).revealed; drawRead(); if (predict) $("#run-btn").disabled = false; }
+      try { revealed = (await api(`exercise/${id}/reveal`, { duration_s: timer.secs })).revealed; drawRead(); if (predict) { $("#run-btn").disabled = false; $("#dbg-btn").disabled = false; drawDock(); } }
       catch (err) { toast(err.message, true); busy(e.target, false); }
     });
     $("#explain-btn", extra)?.addEventListener("click", async (e) => {
@@ -143,6 +149,7 @@ export async function viewStep(id, reviewFlag) {
     if (predict) t.push(["answer", "Your answer"]);
     t.push(["results", "Results"]);
     t.push(["output", "Output"]);
+    if (!predict || revealed || d.state.status === "solved") t.push(["debug", "Step through"]);
     if (!noHelp) t.push(["tutor", `Tutor${chat.length ? `<span class="n">${Math.ceil(chat.length / 2)}</span>` : ""}`]);
     if (!predict) t.push(["feedback", "Feedback"]);
     if (lib.pos === "bottom") t.push(["library", "Library"]);
@@ -157,6 +164,7 @@ export async function viewStep(id, reviewFlag) {
     lib.tab(dockTab === "library");
     if (shownTab !== dockTab) anim(dockTab === "library" ? lib.panel : dockBody, [{ opacity: 0, transform: "translateY(5px)" }, { opacity: 1, transform: "none" }], { duration: 200 });
     shownTab = dockTab;
+    if (dockTab !== "debug") dbg.hide();
     if (dockTab === "library") return;
     if (dockTab === "answer") {
       dockBody.innerHTML = `<p class="dim small" style="margin-top:0">Type exactly what the program prints, one line per line. Then press Check.</p>
@@ -192,6 +200,8 @@ export async function viewStep(id, reviewFlag) {
       }
     } else if (dockTab === "feedback") {
       drawFeedback();
+    } else if (dockTab === "debug") {
+      dbg.render(dockBody);
     }
   }
   function drawFeedback() {
@@ -259,7 +269,7 @@ export async function viewStep(id, reviewFlag) {
         extra += `<div class="row" style="margin-top:12px">${nextId ? `<a class="btn primary" href="#/step/${nextId}">Next step</a>`
           : path?.project && !path.project.passed ? `<a class="btn primary" href="#/project/${path.project.id}">On to the chapter project</a>`
           : `<a class="btn primary" href="${back}">Finish</a>`}</div>`;
-        if (predict) { explanation = r.result.explanation; $("#run-btn").disabled = false; }
+        if (predict) { explanation = r.result.explanation; $("#run-btn").disabled = false; $("#dbg-btn").disabled = false; }
         else feedback = { reference: r.reference, quality: q, tips: r.tips, style: r.style };
         const dot = $(`.stepdots a[href="#/step/${id}"]`); if (dot) { if (r.state.newly_solved) lxPop(dot); dot.className = "solved here"; }
         drawRead();
@@ -274,6 +284,13 @@ export async function viewStep(id, reviewFlag) {
     } catch (err) { toast(err.message, true); }
     busy(btn, false);
   }
+  function debug() {
+    if ($("#dbg-btn").disabled) return;
+    dockTab = "debug"; drawDock();
+    if (isNarrow()) setPane("code");
+    dbg.start();
+  }
+  $("#dbg-btn").onclick = debug;
   $("#run-btn").onclick = run;
   $("#check-btn").onclick = check;
   $("#hint-btn")?.addEventListener("click", getHint);
@@ -287,6 +304,7 @@ export async function viewStep(id, reviewFlag) {
     if (e.target.closest?.(".lx")) return;              // an activity in the lesson has its own Ctrl+Enter
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); check(); }
     else if (e.key === "Enter" && e.altKey && !predict) { e.preventDefault(); run(); }
+    else if (e.altKey && !e.ctrlKey && (e.key === "d" || e.key === "D" || e.code === "KeyD")) { e.preventDefault(); debug(); }
   };
   document.addEventListener("keydown", keys);
   cleanup.push(() => document.removeEventListener("keydown", keys));

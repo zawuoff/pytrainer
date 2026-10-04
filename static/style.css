@@ -272,6 +272,39 @@ label.field span { display: block; font-size: 13px; color: var(--dim); margin-bo
 .stdin-row input { font-family: var(--mono); font-size: 12.5px; padding: 5px 8px; }
 .predict-box { font-family: var(--mono); font-size: 14px; min-height: 90px; background: var(--code-bg); }
 
+/* Step through (debugger) */
+.cm-s-pt .dbg-cur { background: color-mix(in srgb, var(--amber) 22%, transparent); box-shadow: inset 3px 0 0 var(--amber); }
+.cm-s-pt .dbg-prev { background: color-mix(in srgb, var(--amber) 7%, transparent); }
+.dbg { display: grid; gap: 10px; }
+.dbg-callrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.dbg-callrow label { font-size: 13px; color: var(--dim); }
+.dbg-callrow input { flex: 1; min-width: 180px; font-family: var(--mono); font-size: 12.5px; padding: 5px 8px; }
+.dbg-callrow input.dbg-cur-input { border-color: var(--amber); box-shadow: 0 0 0 2px color-mix(in srgb, var(--amber) 30%, transparent); }
+.dbg-help { margin: -4px 0 0; }
+.dbg-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.dbg-controls input[type=range] { flex: 1; min-width: 120px; accent-color: var(--amber); }
+.dbg-pos { font-size: 12.5px; color: var(--dim); font-variant-numeric: tabular-nums; min-width: 92px; text-align: right; }
+.dbg-event { font-family: var(--mono); font-size: 13px; padding: 7px 10px; border-radius: 7px; background: var(--panel-2); border-left: 3px solid var(--rule-strong); }
+.dbg-event.ev-line { border-left-color: var(--amber); }
+.dbg-event.ev-call { border-left-color: var(--lilac); }
+.dbg-event.ev-return { border-left-color: var(--pass); }
+.dbg-event.ev-exception { border-left-color: var(--fail); color: var(--fail); }
+.dbg-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 14px; align-items: start; }
+.dbg-grid h4 { margin: 0 0 6px; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+.dbg-frames { display: grid; gap: 8px; min-width: 0; }
+.dbg-frame { border: 1px solid var(--rule); border-radius: 8px; padding: 6px 8px; background: var(--paper); min-width: 0; }
+.dbg-frame.top { border-color: color-mix(in srgb, var(--amber) 45%, var(--rule)); }
+.dbg-fname { font-family: var(--mono); font-size: 12.5px; font-weight: 600; margin-bottom: 4px; }
+.dbg-frame table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.dbg-frame th { text-align: left; font-family: var(--mono); font-weight: 500; color: var(--syn-var); padding: 2px 8px 2px 0; white-space: nowrap; vertical-align: top; width: 1%; }
+.dbg-frame td { padding: 2px 4px; vertical-align: top; overflow-wrap: anywhere; }
+.dbg-frame td code { font-size: 12px; background: none; padding: 0; }
+.dbg-frame td.ty { color: var(--faint); font-size: 11.5px; white-space: nowrap; width: 1%; text-align: right; }
+.dbg-frame tr.chg td, .dbg-frame tr.chg th { background: color-mix(in srgb, var(--amber) 16%, transparent); }
+.dbg-out pre { margin: 0; white-space: pre-wrap; font-size: 12.5px; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; max-height: 240px; overflow: auto; }
+@media (max-width: 700px) { .dbg-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: no-preference) { .dbg-frame tr.chg td, .dbg-frame tr.chg th { transition: background-color .25s; } }
+
 .prose { max-width: 72ch; }
 .prose h1 { font-size: 22px; } .prose h2 { font-size: 19px; } .prose h3 { font-size: 15.5px; }
 .prose h1, .prose h2, .prose h3 { margin: 1.1em 0 .45em; }
