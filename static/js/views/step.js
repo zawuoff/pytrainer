@@ -5,6 +5,7 @@ import { mountLibrary, tabIndicator } from "../library.js";
 import { createDebugger } from "../debugger.js";
 import { mountParsons } from "../parsons.js";
 import { sessionBanner } from "../session.js";
+import { llmCallsHTML, realLLM, realLLMToggleHTML } from "../realllm.js";
 
 /* ---------------------------------------------------------------- step workspace: lesson left, code right, output below */
 
@@ -219,7 +220,7 @@ export async function viewStep(id, reviewFlag) {
       $("#res-feedback", dockBody)?.addEventListener("click", (e) => { e.preventDefault(); dockTab = "feedback"; drawDock(); });
     } else if (dockTab === "output") {
       dockBody.innerHTML = `<pre class="out">${outputHTML}</pre>` + (predict ? "" :
-        `<div class="stdin-row"><input type="text" id="stdin" placeholder="input for Run (\\n = new line)" value="${esc(stdin)}"><input type="text" id="args" placeholder="command-line args" style="max-width:200px" value="${esc(args)}"></div>`);
+        `<div class="stdin-row"><input type="text" id="stdin" placeholder="input for Run (\\n = new line)" value="${esc(stdin)}"><input type="text" id="args" placeholder="command-line args" style="max-width:200px" value="${esc(args)}"></div>${realLLMToggleHTML()}`);
       $("#stdin")?.addEventListener("input", (e) => { stdin = e.target.value; });
       $("#args")?.addEventListener("input", (e) => { args = e.target.value; });
     } else if (dockTab === "tutor") {
@@ -281,9 +282,10 @@ export async function viewStep(id, reviewFlag) {
     const btn = $("#run-btn"); busy(btn, true);
     try {
       const r = readOnly ? await api(`exercise/${id}/run`, {}) :
-        await api(`exercise/${id}/run`, { files: ed.files(), stdin: stdin.replace(/\\n/g, "\n"), args: args.trim() ? args.trim().split(/\s+/) : [] });
+        await api(`exercise/${id}/run`, { files: ed.files(), stdin: stdin.replace(/\\n/g, "\n"), args: args.trim() ? args.trim().split(/\s+/) : [], real_llm: realLLM() });
       outputHTML = (esc(r.stdout) + (r.stderr ? `<span class="err">${esc(r.stderr)}</span>` : "")) || `<span class="faint">(nothing was printed)</span>`;
       outputHTML += r.timed_out ? `<span class="err">\n[stopped: time limit]</span>` : `<span class="faint">\n[finished, exit code ${r.returncode}]</span>`;
+      outputHTML += llmCallsHTML(r.llm_calls);
       dockTab = "output"; drawDock();
     } catch (err) { toast(err.message, true); }
     busy(btn, false);

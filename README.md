@@ -58,6 +58,12 @@ CPU, memory and time limits. On Linux they also run in an OS sandbox. Settings s
 
 Set `PYTRAINER_SANDBOX=netns` or `basic` to choose a lower level.
 
+**Real model calls from Run (opt-in).** Tick "Real model calls" in the Output panel of a step or project and
+your code can `from pytrainer_llm import llm, embed`: `llm(prompt)` reaches the AI you connected (at most 6
+calls per run) and `embed()` is a small local stand-in for an embeddings API. The sandbox still has no
+network: each call is written as a file in the run folder and answered by PyTrainer from outside, and every
+call is listed under the output. Grading never uses it, so checks stay deterministic.
+
 ## Data
 
 One SQLite file, `pytrainer.db`, with daily backups in `backups/` (14 kept):

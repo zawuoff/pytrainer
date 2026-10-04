@@ -405,6 +405,15 @@ def api_improve(body: dict):
     return {"advice": coach.improve_solution(_task_text(ex), files, ex["solution"])}
 
 
+def _real_llm(body: dict):
+    """The model callable for Run when the learner ticked "Real model calls", else None."""
+    if not body.get("real_llm"):
+        return None
+    if ai.current().get("provider", "none") == "none":
+        raise ApiError("Real model calls need an AI connection: connect one in Settings.")
+    return lambda prompt, system: ai.complete(system, prompt, timeout=120)
+
+
 def api_run(ex_id: str, body: dict):
     ex = _exercise(ex_id)
     if ex.get("mode") in READ_ONLY:
@@ -416,7 +425,7 @@ def api_run(ex_id: str, body: dict):
     if ex.get("mode") == "tests":
         files = {**files, "target.py": ex["impl"]}
     return runner.run_code(files, stdin=body.get("stdin", ""), setup_files=ex.get("setup_files"),
-                           args=[str(a) for a in body.get("args", [])][:20])
+                           args=[str(a) for a in body.get("args", [])][:20], llm=_real_llm(body))
 
 
 def _variant_test_names(tests: str) -> list[str]:
@@ -1003,7 +1012,7 @@ def api_project_run(pid: str, body: dict):
         raise ApiError(f"{main} isn't one of your files")
     return runner.run_code(_with_provided(p, files), main=main, stdin=str(body.get("stdin", ""))[:20000],
                            args=[str(a) for a in body.get("args", [])][:20], timeout=15,
-                           setup_files=p.get("setup_files") or None)
+                           setup_files=p.get("setup_files") or None, llm=_real_llm(body))
 
 
 def api_project_submit(pid: str, body: dict):

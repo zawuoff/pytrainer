@@ -15,6 +15,8 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from pathlib import Path
 
 try:
@@ -290,31 +292,58 @@ def _summarise(state: dict, timed_out: bool, returncode: int, stderr: str) -> di
 
 def run_code(files: dict[str, str], *, main: str = "solution.py", stdin: str = "",
              args: list[str] | None = None, setup_files: dict | None = None,
-             timeout: float = 10) -> dict:
-    """Run a file as a script (the 'Run' button) and return its output."""
+             timeout: float = 10, llm=None) -> dict:
+    """Run a file as a script (the 'Run' button) and return its output.
+
+    With `llm` (a callable taking a prompt and a system prompt), the code can make real model calls
+    through `pytrainer_llm` (see llm_bridge); time spent waiting on the model doesn't count against
+    `timeout`, and the calls are listed in the result."""
+    from . import llm_bridge
+
     tmp = Path(tempfile.mkdtemp(prefix="pytrainer-run-"))
     try:
         _write_files(tmp, setup_files or {})
         _write_files(tmp, files)
+        if llm is not None:
+            llm_bridge.install(tmp)
         proc = subprocess.Popen(
             sandbox.wrap([PYTHON, "-X", "utf8", main, *(args or [])], tmp), cwd=tmp, env=_env(str(tmp)),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, encoding="utf-8", errors="replace", **_spawn_opts(timeout),
+            text=True, encoding="utf-8", errors="replace", **_spawn_opts(timeout + (300 if llm else 0)),
         )
-        timed_out = False
-        try:
-            stdout, stderr = proc.communicate(stdin, timeout=timeout)
-        except subprocess.TimeoutExpired:
-            timed_out = True
-            _kill(proc)
-            stdout, stderr = proc.communicate()
+        timed_out, calls = False, []
+        if llm is None:
+            try:
+                stdout, stderr = proc.communicate(stdin, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                _kill(proc)
+                stdout, stderr = proc.communicate()
+        else:
+            out: dict = {}
+            reader = threading.Thread(target=lambda: out.update(zip(("stdout", "stderr"), proc.communicate(stdin))),
+                                      daemon=True)
+            reader.start()
+            deadline = time.monotonic() + timeout
+            while reader.is_alive():
+                deadline += llm_bridge.serve(tmp, llm, calls)
+                if time.monotonic() > deadline:
+                    timed_out = True
+                    _kill(proc)
+                    break
+                reader.join(0.05)
+            reader.join()
+            stdout, stderr = out.get("stdout", ""), out.get("stderr", "")
         stderr = stderr.replace(str(tmp) + os.sep, "")
-        return {
+        result = {
             "stdout": stdout[-MAX_OUTPUT:],
             "stderr": stderr[-MAX_OUTPUT:],
             "returncode": proc.returncode,
             "timed_out": timed_out,
         }
+        if llm is not None:
+            result["llm_calls"] = calls
+        return result
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

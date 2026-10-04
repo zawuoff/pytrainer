@@ -2,6 +2,7 @@ import { $, $$, S, aiName, aiOn, anim, api, busy, cleanup, esc, fmtDate, main, m
 import { renderRich } from "../blocks.js";
 import { chatHTML, isNarrow, makeDock, makeEditor, paneSwitch, resultsHTML } from "../workspace.js";
 import { dockLibrary, tabIndicator } from "../library.js";
+import { llmCallsHTML, realLLM, realLLMToggleHTML } from "../realllm.js";
 
 /* ---------------------------------------------------------------- projects */
 
@@ -48,7 +49,7 @@ export async function viewProject(pid) {
       <div class="dock" id="pdock"><div class="dock-grip"></div>
         <div class="dock-tabs"><button class="on">Output</button><span class="grow"></span><span class="faint small" style="padding-right:6px">runs the file you're viewing</span></div>
         <div class="dock-body"><pre class="out" id="pout"><span class="faint">Press Run (Alt+Enter) to run the file you're viewing and see what it prints. Add a few print(...) calls at the bottom to try your functions, like in "Try it yourself". Submit runs the hidden checks.</span></pre>
-          <div class="stdin-row"><input type="text" id="pstdin" placeholder="input for Run (\\n = new line)"><input type="text" id="pargs" placeholder="command-line args" style="max-width:200px"></div>
+          <div class="stdin-row"><input type="text" id="pstdin" placeholder="input for Run (\\n = new line)"><input type="text" id="pargs" placeholder="command-line args" style="max-width:200px"></div>${realLLMToggleHTML()}
           <p class="faint small" style="margin:10px 0 0">Work here or in your own editor under <code>${esc(d.folder)}</code>. Drop files on this side to upload them.</p></div></div>
     </section></div></div>`;
   let saveT;
@@ -115,10 +116,11 @@ export async function viewProject(pid) {
     const btn = $("#prun-btn"); busy(btn, true);
     try {
       const args = $("#pargs").value.trim();
-      const r = await api(`project/${pid}/run`, { files: ed.files(), file: ed.active, stdin: $("#pstdin").value.replace(/\\n/g, "\n"), args: args ? args.split(/\s+/) : [] });
+      const r = await api(`project/${pid}/run`, { files: ed.files(), file: ed.active, stdin: $("#pstdin").value.replace(/\\n/g, "\n"), args: args ? args.split(/\s+/) : [], real_llm: realLLM() });
       $("#pout").innerHTML = (esc(r.stdout) + (r.stderr ? `<span class="err">${esc(r.stderr)}</span>` : "")) ||
         `<span class="faint">(${esc(ed.active)} ran but printed nothing. Add print(...) calls to see your results.)</span>`;
       $("#pout").innerHTML += r.timed_out ? `<span class="err">\n[stopped: time limit]</span>` : `<span class="faint">\n[${esc(ed.active)} finished, exit code ${r.returncode}]</span>`;
+      $("#pout").innerHTML += llmCallsHTML(r.llm_calls);
     } catch (err) { toast(err.message, true); }
     busy(btn, false);
   };
