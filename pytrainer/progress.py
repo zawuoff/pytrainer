@@ -5,11 +5,10 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timedelta
 
-from . import content, db
+from . import content, db, srs
 
 WEIGHT = {0: 0, 1: 1, 2: 2, 3: 3}
 CLEAR_THRESHOLD = 0.6
-REVIEW_INTERVALS = [1, 3, 7, 16, 35, 80]
 
 
 def all_exercises() -> dict:
@@ -121,26 +120,19 @@ def record_attempt(ex: dict, files: dict, result: dict, kind: str, duration_s: i
     st.setdefault("revealed", 0)
     st.setdefault("hints_used", 0)
     if kind == "review" and was_solved:
-        st["review_count"] += 1
+        rating = srs.on_review(st, passed, int(duration_s or 0))
+        if rating:
+            st["review_count"] += 1
+        if rating == srs.AGAIN:
+            st["lapses"] += 1
         if passed:
             st["revealed"] = 0  # rebuilt from memory: now it's genuinely yours
-            idx = min(st["review_count"], len(REVIEW_INTERVALS) - 1)
-            st["interval_days"] = REVIEW_INTERVALS[idx]
-            st["next_review"] = (date.today() + timedelta(days=st["interval_days"])).isoformat()
-        else:
-            st["lapses"] += 1
-            st["interval_days"] = 1
-            st["next_review"] = date.today().isoformat()
     elif passed and not was_solved:
         newly_solved = True
         st["status"] = "solved"
         st["solved_at"] = db.now()
         st["first_try"] = 1 if st["attempts"] == 1 else 0
-        # first-try solves are scheduled further out; struggle means sooner review
-        first = REVIEW_INTERVALS[1] if st["first_try"] and not st["revealed"] and not st["hints_used"] \
-            else REVIEW_INTERVALS[0]
-        st["interval_days"] = first
-        st["next_review"] = (date.today() + timedelta(days=first)).isoformat()
+        srs.on_first_solve(st)  # struggle (hints, retries, a revealed solution) means a sooner review
     elif not was_solved:
         st["status"] = "attempted"
     save_state(st)
@@ -152,11 +144,12 @@ def record_attempt(ex: dict, files: dict, result: dict, kind: str, duration_s: i
 
 def save_state(st: dict) -> None:
     db.ex("INSERT OR REPLACE INTO exercise_state(exercise_id, status, attempts, first_try, solved_at, best_passed, "
-          "total, next_review, interval_days, review_count, lapses, revealed, hints_used) "
-          "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+          "total, next_review, interval_days, review_count, lapses, revealed, hints_used, stability, difficulty, "
+          "last_review) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
           (st["exercise_id"], st["status"], st["attempts"], st["first_try"], st["solved_at"], st["best_passed"],
            st["total"], st["next_review"], st["interval_days"], st["review_count"], st["lapses"],
-           st.get("revealed", 0), st.get("hints_used", 0)))
+           st.get("revealed", 0), st.get("hints_used", 0), st.get("stability"), st.get("difficulty"),
+           st.get("last_review")))
 
 
 def get_state(ex_id: str) -> dict:
@@ -164,7 +157,7 @@ def get_state(ex_id: str) -> dict:
     return dict(row) if row else {"exercise_id": ex_id, "status": "new", "attempts": 0, "first_try": 0,
                                   "solved_at": None, "best_passed": 0, "total": 0, "next_review": None,
                                   "interval_days": 0, "review_count": 0, "lapses": 0, "revealed": 0,
-                                  "hints_used": 0}
+                                  "hints_used": 0, "stability": None, "difficulty": None, "last_review": None}
 
 
 def due_reviews(limit: int | None = None) -> list[dict]:

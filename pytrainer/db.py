@@ -1,4 +1,5 @@
-"""SQLite persistence. One file in ~/.local/share/pytrainer, with daily backups."""
+"""SQLite persistence. One file in the per-user data dir (~/.local/share/pytrainer on Linux),
+with daily backups."""
 
 from __future__ import annotations
 
@@ -6,12 +7,22 @@ import json
 import os
 import shutil
 import sqlite3
+import sys
 import threading
 import time
 from datetime import date, datetime
 from pathlib import Path
 
-DATA_DIR = Path(os.environ.get("PYTRAINER_DATA", Path.home() / ".local/share/pytrainer"))
+
+def _default_data_dir() -> Path:
+    if sys.platform == "win32":
+        return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / "PyTrainer"
+    if sys.platform == "darwin":
+        return Path.home() / "Library/Application Support/PyTrainer"
+    return Path.home() / ".local/share/pytrainer"
+
+
+DATA_DIR = Path(os.environ.get("PYTRAINER_DATA") or _default_data_dir())
 DB_PATH = DATA_DIR / "pytrainer.db"
 BACKUP_DIR = DATA_DIR / "backups"
 
@@ -142,6 +153,10 @@ def conn() -> sqlite3.Connection:
 MIGRATIONS = [
     "ALTER TABLE exercise_state ADD COLUMN revealed INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE exercise_state ADD COLUMN hints_used INTEGER NOT NULL DEFAULT 0",
+    # FSRS memory model (see srs.py); NULL on rows scheduled before it, filled at their next review.
+    "ALTER TABLE exercise_state ADD COLUMN stability REAL",
+    "ALTER TABLE exercise_state ADD COLUMN difficulty REAL",
+    "ALTER TABLE exercise_state ADD COLUMN last_review TEXT",
 ]
 
 

@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    name: Linux · Python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install bubblewrap (so the sandbox tests run for real)
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq bubblewrap
+          # Ubuntu 24.04 blocks unprivileged user namespaces by default; bwrap needs them.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Compile
+        run: python -m compileall -q pytrainer server.py scripts tests
+      - name: Check front-end syntax
+        run: for f in $(find static/js -name '*.js'); do node --check "$f"; done
+      - name: Unit and API tests
+        run: python -m unittest discover -s tests -t . -v
+      - name: Validate all course content (reference solutions pass, starters fail, cards print what they claim)
+        run: python scripts/validate_content.py
+
+  other-os:
+    name: ${{ matrix.os }} · Python 3.13
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Unit and API tests
+        run: python -m unittest discover -s tests -t . -v

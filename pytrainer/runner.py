@@ -2,20 +2,27 @@
 
 Tests are plain Python source containing ``test_*`` functions. They run inside
 ``_harness.py`` next to the learner's files, in a throwaway temp directory, with
-CPU / memory / file-size limits and a wall-clock timeout.
+CPU / memory / file-size limits and a wall-clock timeout, inside the OS sandbox that
+``sandbox`` picks (no network, read-only filesystem) when the machine has one.
 """
 
 from __future__ import annotations
 
 import json
 import os
-import resource
 import shutil
 import signal
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+try:
+    import resource
+except ImportError:  # Windows: no rlimits, only the wall-clock timeout applies
+    resource = None
+
+from . import sandbox
 
 PYTHON = sys.executable or "python3"
 MAX_OUTPUT = 20_000
@@ -156,20 +163,34 @@ main()
 
 def _limits(cpu: int = 30):
     os.setsid()
-    resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu + 5))
-    resource.setrlimit(resource.RLIMIT_AS, (2 * 1024**3, 2 * 1024**3))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (20 * 1024**2, 20 * 1024**2))
+    for name, value in (("RLIMIT_CPU", (cpu, cpu + 5)), ("RLIMIT_AS", (2 * 1024**3, 2 * 1024**3)),
+                        ("RLIMIT_FSIZE", (20 * 1024**2, 20 * 1024**2))):
+        try:
+            resource.setrlimit(getattr(resource, name), value)
+        except (AttributeError, ValueError, OSError):
+            pass  # e.g. macOS refuses RLIMIT_AS; the other limits and the timeout still apply
+
+
+def _spawn_opts(timeout: float) -> dict:
+    """Popen options that put the child in its own process group with resource limits."""
+    if os.name == "posix":
+        return {"preexec_fn": lambda: _limits(int(timeout) + 10)}
+    return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
 
 
 def _env(home: str) -> dict:
-    return {
-        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+    env = {
+        "PATH": os.environ.get("PATH", os.defpath),
         "HOME": home,
         "LANG": "C.UTF-8",
         "TMPDIR": home,
         "PYTHONIOENCODING": "utf-8",
         "PYTHONDONTWRITEBYTECODE": "1",
     }
+    if os.name == "nt":  # Python can't start on Windows without these
+        env.update({k: os.environ[k] for k in ("SYSTEMROOT", "COMSPEC", "PATHEXT") if k in os.environ})
+        env.update(TEMP=home, TMP=home, USERPROFILE=home)
+    return env
 
 
 def _write_files(root: Path, files: dict[str, str]) -> None:
@@ -187,7 +208,10 @@ def _write_files(root: Path, files: dict[str, str]) -> None:
 
 def _kill(proc: subprocess.Popen) -> None:
     try:
-        os.killpg(proc.pid, signal.SIGKILL)
+        if os.name == "posix":
+            os.killpg(proc.pid, signal.SIGKILL)
+        else:
+            proc.kill()
     except (ProcessLookupError, PermissionError):
         pass
 
@@ -208,10 +232,10 @@ def run_tests(files: dict[str, str], tests: str, *, mode: str = "function",
         (tmp / "_tests.py").write_text(tests, encoding="utf-8")
         results = tmp / "_results.json"
         proc = subprocess.Popen(
-            [PYTHON, "-X", "utf8", "_harness.py", str(results), "_tests.py", mode, main],
+            sandbox.wrap([PYTHON, "-X", "utf8", "_harness.py", str(results), "_tests.py", mode, main], tmp),
             cwd=tmp, env=_env(str(tmp)), stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-            preexec_fn=lambda: _limits(int(timeout) + 10),
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
+            errors="replace", **_spawn_opts(timeout),
         )
         timed_out = False
         try:
@@ -273,9 +297,9 @@ def run_code(files: dict[str, str], *, main: str = "solution.py", stdin: str = "
         _write_files(tmp, setup_files or {})
         _write_files(tmp, files)
         proc = subprocess.Popen(
-            [PYTHON, "-X", "utf8", main, *(args or [])], cwd=tmp, env=_env(str(tmp)),
+            sandbox.wrap([PYTHON, "-X", "utf8", main, *(args or [])], tmp), cwd=tmp, env=_env(str(tmp)),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, preexec_fn=lambda: _limits(int(timeout) + 10),
+            text=True, encoding="utf-8", errors="replace", **_spawn_opts(timeout),
         )
         timed_out = False
         try:
@@ -284,7 +308,7 @@ def run_code(files: dict[str, str], *, main: str = "solution.py", stdin: str = "
             timed_out = True
             _kill(proc)
             stdout, stderr = proc.communicate()
-        stderr = stderr.replace(str(tmp) + "/", "")
+        stderr = stderr.replace(str(tmp) + os.sep, "")
         return {
             "stdout": stdout[-MAX_OUTPUT:],
             "stderr": stderr[-MAX_OUTPUT:],

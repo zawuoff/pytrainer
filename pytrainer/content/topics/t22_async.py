@@ -65,12 +65,12 @@ REFERENCE = {
             "example": r'''
                 import asyncio
                 async def half(n):
-                    return 10 // n
+                    return 10 / n
                 async def main():
                     a, b = half(5), half(0)
                     print(await asyncio.gather(a, b, return_exceptions=True))
                 asyncio.run(main())
-                # [2, ZeroDivisionError('division by zero')]
+                # [2.0, ZeroDivisionError('division by zero')]
             ''',
         },
         {

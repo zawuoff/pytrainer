@@ -45,7 +45,7 @@ class AIError(Exception):
 
 def _env() -> dict:
     env = dict(os.environ)
-    parts = env.get("PATH", "").split(":")
+    parts = env.get("PATH", "").split(os.pathsep)
     for p in EXTRA_PATHS:
         if str(p) not in parts:
             parts.append(str(p))
@@ -57,7 +57,7 @@ def _env() -> dict:
                 for cand in (d, d / "bin"):
                     if cand.is_dir() and str(cand) not in parts:
                         parts.append(str(cand))
-    env["PATH"] = ":".join(p for p in parts if p)
+    env["PATH"] = os.pathsep.join(p for p in parts if p)
     env.pop("CLAUDECODE", None)
     env.pop("CLAUDE_CODE_ENTRYPOINT", None)
     return env

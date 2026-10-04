@@ -1,24 +1,40 @@
 #!/bin/bash
-# Open PyTrainer as a desktop web app, starting the local server if needed.
+# Open PyTrainer as a desktop web app, starting the local server if needed (Linux and macOS).
 PORT="${PYTRAINER_PORT:-8765}"
 URL="http://127.0.0.1:$PORT/"
-APP_DIR="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+
+# Resolve symlinks without GNU `readlink -f`, which older macOS lacks.
+SELF="$0"
+while [ -L "$SELF" ]; do
+  LINK="$(readlink "$SELF")"
+  case "$LINK" in /*) SELF="$LINK" ;; *) SELF="$(dirname "$SELF")/$LINK" ;; esac
+done
+APP_DIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+
+if [ "$(uname)" = "Darwin" ]; then
+  DATA_DIR="${PYTRAINER_DATA:-$HOME/Library/Application Support/PyTrainer}"
+else
+  DATA_DIR="${PYTRAINER_DATA:-$HOME/.local/share/pytrainer}"
+fi
 
 up() { curl -fs -o /dev/null "$URL/api/state" 2>/dev/null; }
 
 if ! up; then
-  if systemctl --user cat pytrainer.service >/dev/null 2>&1; then
+  if command -v systemctl >/dev/null && systemctl --user cat pytrainer.service >/dev/null 2>&1; then
     systemctl --user start pytrainer.service
+  elif [ "$(uname)" = "Darwin" ] && launchctl list com.pytrainer.server >/dev/null 2>&1; then
+    launchctl kickstart "gui/$(id -u)/com.pytrainer.server"
   else
-    mkdir -p "$HOME/.local/share/pytrainer"
-    setsid python3 "$APP_DIR/server.py" --port "$PORT" \
-      >>"$HOME/.local/share/pytrainer/server.log" 2>&1 </dev/null &
+    mkdir -p "$DATA_DIR"
+    nohup python3 "$APP_DIR/server.py" --port "$PORT" >>"$DATA_DIR/server.log" 2>&1 </dev/null &
   fi
   for _ in $(seq 1 50); do up && break; sleep 0.1; done
 fi
 
 if command -v omarchy-launch-webapp >/dev/null; then
   exec omarchy-launch-webapp "$URL"
+elif [ "$(uname)" = "Darwin" ]; then
+  exec open "$URL"
 else
   exec xdg-open "$URL"
 fi

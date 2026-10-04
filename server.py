@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """PyTrainer - local Python practice app for aspiring AI engineers.
 
-Run:  python3 server.py [--port 8765]
-Then open http://127.0.0.1:8765 (or use the installed desktop launcher).
+Run:  python3 server.py [--port 8765] [--open]
+Then open http://127.0.0.1:8765 (or use the installed desktop launcher). Needs Python 3.11+.
 """
 
 from __future__ import annotations
@@ -12,16 +12,21 @@ import json
 import mimetypes
 import re
 import sys
+import threading
 import traceback
+import webbrowser
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
+if sys.version_info < (3, 11):
+    sys.exit("PyTrainer needs Python 3.11 or newer (this is %d.%d)." % sys.version_info[:2])
+
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from pytrainer import ai, coach, content, course, db, jev, labs, lint, progress, runner  # noqa: E402
+from pytrainer import ai, coach, content, course, db, jev, labs, lint, progress, runner, sandbox  # noqa: E402
 
 STATIC = ROOT / "static"
 PROJECTS_DIR = labs.LAB_ROOT / "projects"
@@ -137,6 +142,8 @@ def api_state(_body=None):
         },
         "counts": {"projects": len(data["projects"]), "labs": len(data["labs"])},
         "library": {"unlocked": sum(p["library_unlocked"] for p in tp.values()), "total": len(tp)},
+        "sandbox": sandbox.status(),
+        "data_dir": str(db.DATA_DIR),
     }
 
 
@@ -1065,7 +1072,10 @@ class Handler(BaseHTTPRequestHandler):
         target = (STATIC / path.lstrip("/")).resolve()
         if not str(target).startswith(str(STATIC.resolve())) or not target.is_file():
             return self._json(404, {"error": "not found"})
-        ctype = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+        # .js is pinned: Windows registry settings can map it to text/plain, which browsers refuse
+        # to run as a module.
+        ctype = "text/javascript" if target.suffix == ".js" else (
+            mimetypes.guess_type(target.name)[0] or "application/octet-stream")
         if ctype.startswith("text/") or ctype in ("application/javascript", "image/svg+xml"):
             ctype += "; charset=utf-8"
         self._send(200, target.read_bytes(), ctype)
@@ -1082,13 +1092,19 @@ def main():
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--open", action="store_true", help="open the app in your browser once it is up")
     args = ap.parse_args()
     db.conn()
     db.backup()
     content.load()
+    print(f"Code sandbox: {sandbox.level()}", flush=True)
     httpd = ThreadingHTTPServer((args.host, args.port), Handler)
     httpd.daemon_threads = True
-    print(f"PyTrainer running on http://{args.host}:{args.port}", flush=True)
+    url = f"http://{args.host}:{args.port}/"
+    print(f"PyTrainer running on {url}", flush=True)
+    print(f"Data: {db.DATA_DIR}", flush=True)
+    if args.open:
+        threading.Timer(0.5, webbrowser.open, (url,)).start()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
