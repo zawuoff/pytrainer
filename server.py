@@ -24,7 +24,8 @@ if sys.version_info < (3, 11):
     sys.exit("PyTrainer needs Python 3.11 or newer (this is %d.%d)." % sys.version_info[:2])
 
 ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT))
+if (ROOT / "pytrainer").is_dir():  # a checkout; an installed copy lives inside the package already
+    sys.path.insert(0, str(ROOT))
 
 from pytrainer import (achievements, ai, assist, capstone, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
                        mistakes, progress, radar, recap, repl, runner, sandbox, spans, sync, tracer, variants, xp)
@@ -1512,6 +1513,7 @@ def main():
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--open", action="store_true", help="open the app in your browser once it is up")
+    ap.add_argument("--version", action="version", version=f"PyTrainer {VERSION}")
     args = ap.parse_args()
     db.conn()
     db.backup()

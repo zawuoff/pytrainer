@@ -127,6 +127,21 @@ print("data-visible" if seen else "data-hidden")
             self.planted = (db.DATA_DIR / "planted").exists()
             (db.DATA_DIR / "planted").unlink(missing_ok=True)
 
+    def test_a_python_under_tmp_is_mounted_back(self):
+        # bwrap gives the run an empty /tmp; a Python or venv living under /tmp must still be there.
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+        venv = tempfile.mkdtemp(dir="/tmp") if os.path.isdir("/tmp") else None
+        if not venv:
+            self.skipTest("no /tmp")
+        with mock.patch.object(sys, "prefix", venv):
+            self.assertIn(venv, sandbox._python_dirs())
+            cmd = sandbox._command("bwrap", ["python3"], Path(venv) / "work")
+        self.assertEqual(cmd[cmd.index(venv) - 1], "--ro-bind")
+        self.assertLess(cmd.index("/tmp"), cmd.index(venv), "mounted after the empty /tmp, not hidden by it")
+        os.rmdir(venv)
+
     def test_level_is_known(self):
         self.assertIn(sandbox.level(), sandbox.LEVELS)
         self.assertIn("detail", sandbox.status())

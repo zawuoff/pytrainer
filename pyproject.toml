@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pytrainer"
+dynamic = ["version"]
+description = "A local, offline-first Python course for aspiring AI engineers: lessons, graded steps, reviews, projects and terminal labs."
+readme = "README.md"
+requires-python = ">=3.11"
+keywords = ["python", "learning", "course", "ai-engineering", "spaced-repetition"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Environment :: Web Environment",
+    "Intended Audience :: Education",
+    "Topic :: Education",
+]
+# Standard library only. Jedi is optional and only makes autocomplete type-aware.
+dependencies = []
+
+[project.optional-dependencies]
+autocomplete = ["jedi>=0.19"]
+
+[project.scripts]
+pytrainer = "pytrainer.cli:main"
+
+[project.urls]
+Source = "https://github.com/zawuoff/pytrainer"
+
+[tool.hatch.version]
+path = "server.py"
+pattern = 'VERSION = "(?P<version>[^"]+)"'
+
+# The wheel is the `pytrainer` package with the server and the web app inside it, so an installed
+# copy has the same layout as a checkout: server.py next to static/.
+[tool.hatch.build.targets.wheel]
+packages = ["pytrainer"]
+exclude = ["**/__pycache__"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"server.py" = "pytrainer/server.py"
+"static" = "pytrainer/static"
+
+[tool.hatch.build.targets.sdist]
+include = ["pytrainer", "static", "server.py", "README.md", "CONTENT_GUIDE.md", "pyproject.toml", "tests", "scripts"]
+exclude = ["**/__pycache__"]

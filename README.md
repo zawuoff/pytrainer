@@ -5,7 +5,31 @@ come here to prove it by writing real code against hidden tests.
 
 ## Open it
 
-Needs Python 3.11 or newer. Nothing else to install.
+**One line, no clone.** With [uv](https://docs.astral.sh/uv/) (it fetches Python 3.11+ if you need it):
+
+```bash
+uvx --from git+https://github.com/zawuoff/pytrainer pytrainer
+```
+
+It starts the server and opens http://127.0.0.1:8765 in your browser. The same with pipx:
+`pipx run --spec git+https://github.com/zawuoff/pytrainer pytrainer`. To keep the command around,
+`uv tool install git+https://github.com/zawuoff/pytrainer` (add `--with jedi` for type-aware
+autocomplete), then just run `pytrainer`. Options: `--port`, `--no-open`, `--version`.
+
+**Docker:**
+
+```bash
+docker run --rm -p 127.0.0.1:8765:8765 -v pytrainer-data:/data ghcr.io/zawuoff/pytrainer
+```
+
+Your progress lives in the `pytrainer-data` volume. The image is published from `master` by
+`.github/workflows/docker.yml`; until then (or for a fork), build it straight from GitHub:
+`docker build -t pytrainer https://github.com/zawuoff/pytrainer.git` and run `pytrainer` instead
+of the `ghcr.io` name. Keep the `127.0.0.1:` in `-p`: the server only answers requests addressed to
+localhost. Inside a container the code sandbox is the container itself (bubblewrap needs user
+namespaces, which most container runtimes don't allow).
+
+**From a clone.** Needs Python 3.11 or newer. Nothing else to install.
 
 - **Linux:** run `./install.sh` once. Then search **PyTrainer** in your app launcher (Super + Space)
   or run `pytrainer` in a terminal. It runs as a user service (`systemctl --user status pytrainer`)

@@ -65,10 +65,20 @@ def _data_dir() -> Path:
     return db.DATA_DIR
 
 
+def _python_dirs() -> set[str]:
+    exe = Path(sys.executable or "python3").resolve()
+    dirs = {sys.prefix, sys.base_prefix, str(exe.parent.parent)}
+    return {d for d in dirs if (d == "/tmp" or d.startswith("/tmp/")) and Path(d).is_dir()}
+
+
 def _command(level: str, cmd: list[str], workdir: Path) -> list[str]:
     if level == "bwrap":
         wrapped = ["bwrap", "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc",
                    "--tmpfs", "/tmp"]
+        # /tmp is replaced by an empty one, so a Python (or venv) living under /tmp would vanish:
+        # mount it back, read-only.
+        for path in sorted(_python_dirs()):
+            wrapped += ["--ro-bind", path, path]
         data = _data_dir()
         if data.is_dir():
             wrapped += ["--tmpfs", str(data)]
@@ -109,9 +119,17 @@ def level() -> str:
         return _level
 
 
+def in_container() -> bool:
+    return Path("/.dockerenv").exists() or Path("/run/.containerenv").exists()
+
+
 def status() -> dict:
     lv = level()
-    return {"level": lv, "detail": DETAIL[lv]}
+    detail = DETAIL[lv]
+    if lv == "basic" and in_container():
+        detail = ("Running in a container: resource limits only. Code can reach the network, but it only sees "
+                  "the container's files, not your computer's.")
+    return {"level": lv, "detail": detail}
 
 
 def wrap(cmd: list[str], workdir: Path) -> list[str]:
