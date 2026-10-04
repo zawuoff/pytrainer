@@ -359,6 +359,13 @@ The loader appends them to the end of that chapter and marks them `extra`:
 
 `validate_content.py` checks them like any other step (`python3 scripts/validate_content.py json-wt`).
 
+Two extra kinds have their own rules, which the validator enforces:
+
+- `"kind": "bughunt"`: the starter is the buggy code. Add `visible_tests` (the prompt's examples): the
+  starter must pass them and fail the hidden `tests`.
+- `"kind": "refactor"`: the starter is working but clunky code. Style checks are tests named
+  `test_style_...` (a line budget, the idiom the step is about); the starter must fail only those.
+
 ## New chapters: what to cover (fake/injected clients - no network, stdlib only)
 
 - **testing**: why tests; `assert`; test functions; arrange-act-assert; edge cases; testing

@@ -90,6 +90,14 @@ def check_exercise(ex):
         problems.append("starter code already passes all tests")
     if not 0 <= ex["difficulty"] <= 3:
         problems.append("difficulty must be 0..3")
+    if ex.get("kind") == "refactor":
+        # The starter already works: only the style checks may fail on it.
+        broken = [t["name"] for t in bad["tests"] if not t["passed"] and not t["name"].startswith("style ")]
+        if bad["error"] or broken:
+            problems.append("refactor: the starter must pass every behaviour check, but fails: "
+                            + (bad["error"] or ", ".join(broken)))
+        if not any(t["name"].startswith("style ") for t in bad["tests"] if not t["passed"]):
+            problems.append("refactor: the starter must fail at least one style check")
     if ex.get("kind") == "bughunt":
         # The bug must hide: the buggy starter passes every example shown in the prompt.
         if not ex.get("visible_tests"):
