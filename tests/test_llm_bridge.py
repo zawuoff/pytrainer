@@ -1,4 +1,3 @@
-import sys
 import time
 import unittest
 from unittest import mock
@@ -44,7 +43,9 @@ class BridgeTests(unittest.TestCase):
         self.assertIn("caught AIError: CLI not found", r["stdout"])
 
     def test_waiting_on_the_model_does_not_use_up_the_time_limit(self):
-        slow = lambda p, s: (time.sleep(2.5), "late")[1]
+        def slow(prompt, system):
+            time.sleep(2.5)
+            return "late"
         r = runner.run_code({"solution.py": "from pytrainer_llm import llm\nprint(llm('x'))"}, llm=slow, timeout=2)
         self.assertFalse(r["timed_out"])
         self.assertEqual(r["stdout"], "late\n")

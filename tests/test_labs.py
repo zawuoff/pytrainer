@@ -1,4 +1,3 @@
-import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,10 +18,10 @@ class LabTests(unittest.TestCase):
 
     def test_ship_lab_is_listed_with_known_check_types(self):
         data = content.load()
-        lab = next(l for l in data["labs"] if l["id"] == "lab-ship-package")
+        lab = next(lab for lab in data["labs"] if lab["id"] == "lab-ship-package")
         known = {"command", "path", "glob", "absent", "contains", "run"}
         self.assertTrue(all(c["type"] in known for c in lab["checks"]))
-        self.assertEqual(lab["order"], max(l["order"] for l in data["labs"]))
+        self.assertEqual(lab["order"], max(other["order"] for other in data["labs"]))
 
 
 if __name__ == "__main__":

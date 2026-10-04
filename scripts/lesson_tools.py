@@ -16,7 +16,6 @@ see "v6" in CONTENT_GUIDE.md) so a block can never claim something Python does n
 
 import ast
 import contextlib
-import importlib.util
 import io
 import json
 import os

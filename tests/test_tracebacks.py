@@ -1,7 +1,7 @@
 import unittest
 
 import server
-from pytrainer import content, db
+from pytrainer import db
 
 
 class TracebackStepTests(unittest.TestCase):
