@@ -25,7 +25,7 @@ if sys.version_info < (3, 11):
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from pytrainer import (ai, capstone, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
+from pytrainer import (achievements, ai, capstone, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
                        mistakes, progress, radar, runner, sandbox, spans, tracer, variants)
 
 STATIC = ROOT / "static"
@@ -575,8 +575,12 @@ def api_stats(_=None):
     per_day = db.q("SELECT substr(created_at,1,10) d, COUNT(*) n, SUM(status='passed') p FROM attempts "
                    "GROUP BY d ORDER BY d DESC LIMIT 30")
     placement = db.q1("SELECT * FROM placement WHERE finished_at IS NOT NULL ORDER BY id DESC LIMIT 1")
+    awards = _rewards()
+    ach = achievements.overview()
     return {
+        **awards,
         "summary": progress.summary(),
+        "achievements": {k: ach[k] for k in ("unlocked", "total", "recent")},
         "heatmap": progress.heatmap(140),
         "topics": [{"id": t["id"], "title": t["title"], "track": t["track"], **tp[t["id"]]} for t in data["topics"]],
         "recent": [dict(r) | {"title": exs.get(r["item_id"], {}).get("title", r["item_id"])} for r in recent],
@@ -1146,6 +1150,17 @@ def api_traces_sample(_=None):
     return {"spans": spans.parse(spans.SAMPLE)}
 
 
+def api_achievements(_=None):
+    awards = _rewards()
+    return {**achievements.overview(), **awards}
+
+
+def _rewards() -> dict:
+    """What an action just earned, merged into its response; the browser celebrates `awards`."""
+    new = achievements.check()
+    return {"awards": new} if new else {}
+
+
 def api_leaderboard_run(_body=None):
     try:
         return leaderboard.run()
@@ -1264,6 +1279,7 @@ ROUTES = [
     ("POST", r"/api/leaderboard/run", api_leaderboard_run),
     ("POST", r"/api/traces/parse", api_traces_parse),
     ("GET", r"/api/traces/sample", api_traces_sample),
+    ("GET", r"/api/achievements", api_achievements),
     ("GET", r"/api/capstone", api_capstone),
     ("POST", r"/api/capstone/export", api_capstone_export),
     ("GET", r"/api/labs", api_labs),
@@ -1273,6 +1289,9 @@ ROUTES = [
     ("POST", r"/api/unplace", api_unplace),
 ]
 COMPILED = [(m, re.compile(p + r"$"), fn) for m, p, fn in ROUTES]
+# Actions that can earn an achievement: their responses carry anything newly earned.
+REWARDING = {api_check, api_project_submit, api_lab_check, api_drill_finish, api_interview_submit,
+             api_leaderboard_run, api_explain_back, api_heartbeat, api_placement_finish}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1325,6 +1344,8 @@ class Handler(BaseHTTPRequestHandler):
                     if method == "POST":
                         args.append(body)
                     result = fn(*args) if args else fn()
+                    if fn in REWARDING and isinstance(result, dict):
+                        result = {**result, **_rewards()}
                     return self._json(200, result)
                 except ApiError as exc:
                     return self._json(exc.status, {"error": str(exc)})

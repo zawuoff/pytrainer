@@ -22,7 +22,28 @@ export async function api(path, body) {
   let data;
   try { data = await res.json(); } catch { data = { error: `Server returned ${res.status}` }; }
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  if (data.awards?.length) celebrate(data.awards);
   return data;
+}
+
+/* Achievements an action just earned (the server adds `awards` to the response). A burst of them
+   (say, on the first visit after an update) becomes one summary card rather than a pile. */
+function celebrate(awards) {
+  const card = (title, sub) => {
+    let stack = $("#toasts");
+    if (!stack) { stack = document.createElement("div"); stack.id = "toasts"; stack.setAttribute("aria-live", "polite"); document.body.appendChild(stack); }
+    const t = document.createElement("a");
+    t.className = "toast award";
+    t.href = "#/achievements";
+    t.innerHTML = `<span class="award-badge" aria-hidden="true">★</span><span><b>${esc(title)}</b><small>${esc(sub)}</small></span>`;
+    stack.appendChild(t);
+    setTimeout(() => {
+      const out = anim(t, [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(8px) scale(.97)" }], { duration: 220, fill: "forwards" });
+      if (out) out.onfinish = () => t.remove(); else t.remove();
+    }, 6000);
+  };
+  if (awards.length > 2) card(`${awards.length} achievements unlocked`, awards.map((a) => a.title).join(" · "));
+  else awards.forEach((a) => card(`Achievement: ${a.title}`, a.text));
 }
 
 /* Motion is decoration: every animation started from JS goes through here and is skipped when the

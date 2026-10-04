@@ -150,6 +150,10 @@ CREATE TABLE IF NOT EXISTS leaderboard_runs (
     details TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS achievements (
+    id TEXT PRIMARY KEY,
+    unlocked_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS lab_state (
     lab_id TEXT PRIMARY KEY,
     done INTEGER NOT NULL DEFAULT 0,
@@ -255,7 +259,7 @@ def backup() -> None:
 def export_all() -> dict:
     tables = ["settings", "attempts", "exercise_state", "drafts", "topic_state", "activity",
               "placement", "custom_exercises", "submissions", "chats", "reviews", "lab_state", "lesson_state",
-              "review_variants", "drills", "interviews", "explanations", "leaderboard_runs"]
+              "review_variants", "drills", "interviews", "explanations", "leaderboard_runs", "achievements"]
     return {"exported_at": now(), "version": 1,
             "tables": {t: [dict(r) for r in q(f"SELECT * FROM {t}")] for t in tables}}
 

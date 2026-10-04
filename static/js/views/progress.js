@@ -18,6 +18,8 @@ export async function viewProgress() {
       <div class="stat"><b>${fmtMin(sm.week_minutes)}</b><span>this week</span></div>
       <div class="stat"><b>${sm.streak.current} / ${sm.streak.best}</b><span>streak / best</span></div>
     </div>
+    <a class="suggest ach-strip" href="#/achievements" style="margin-top:20px"><b>Achievements: ${st.achievements.unlocked} of ${st.achievements.total}</b>
+      <span>${st.achievements.recent.length ? "Latest: " + st.achievements.recent.map((a) => esc(a.title)).join(" · ") : "Solve your first step to earn the first one."}</span><em>See them all</em></a>
     <section class="section"><h2>Activity</h2><div class="panel">${heatmap(st.heatmap)}
       <p class="faint small" style="margin:10px 0 0">A day counts toward your streak with 10+ minutes of practice or at least one solve.</p></div></section>
     ${st.per_day.length ? `<section class="section"><h2>Checks per day</h2><div class="panel"><div style="display:flex;gap:4px;align-items:flex-end;height:110px">${st.per_day.map((x) =>
