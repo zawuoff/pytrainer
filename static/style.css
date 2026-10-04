@@ -1131,3 +1131,10 @@ input[type=text], input[type=number], input[type=password], select, textarea { t
 .radar-row:hover .radar-tip, .radar-row:focus-visible .radar-tip { display: block; }
 @media (max-width: 560px) { .radar-row { grid-template-columns: minmax(0, 1fr) 36px; } .radar-track { grid-column: 1 / -1; grid-row: 2; } .radar-tip { left: 8px; } }
 .sess-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; justify-content: space-between; align-items: center; padding: 9px 12px; margin-bottom: 16px; border: 1px solid var(--rule-strong); border-left: 3px solid var(--amber); border-radius: 0 8px 8px 0; background: var(--panel); font-size: 13.5px; }
+
+/* Interview mode */
+.iv-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 20px; margin-top: 14px; align-items: start; }
+.iv-task { max-height: calc(100vh - 140px); overflow: auto; padding-right: 6px; }
+.iv-out { margin: 10px 0 0; min-height: 70px; max-height: 200px; overflow: auto; white-space: pre-wrap; font-size: 13px; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 8px; padding: 10px; }
+.iv-out .err { color: var(--fail); }
+@media (max-width: 900px) { .iv-grid { grid-template-columns: minmax(0, 1fr); } .iv-task { max-height: none; } }

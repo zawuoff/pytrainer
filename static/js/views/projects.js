@@ -12,6 +12,7 @@ export async function viewProjects() {
     <h1>Portfolio projects</h1>
     <p class="dim" style="max-width:66ch;margin-top:10px">Real AI-engineering builds, the kind the job report says get people hired. Each specifies an interface; you design and write the code in your own editor, then submit. Hidden tests grade the behaviour, and ${aiOn() ? esc(aiName()) : "an AI (if connected)"} grades the quality against a rubric.</p>
     <a class="suggest" href="#/capstone" style="margin-top:18px"><b>Capstone: Docs Assistant</b><span>Five of these projects are the parts of one app. Wire them together and export a repository for your GitHub.</span><em>Open the capstone</em></a>
+    <a class="suggest" href="#/interview" style="margin-top:10px"><b>Interview mode</b><span>A timed problem, then follow-up questions about your code and a scored debrief.</span><em>Practise an interview</em></a>
     ${S.modules.filter((m) => d.projects.some((p) => p.module === m.id)).map((m) => `<section class="section" style="${modColor(m.id)}">
       <h3 style="color:var(--mc)">Module ${m.number} · ${esc(m.title)}</h3>
       <div style="border-top:1px solid var(--rule);margin-top:10px">${d.projects.filter((p) => p.module === m.id).map((p) => `<a class="list-row" href="#/project/${p.id}">

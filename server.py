@@ -26,8 +26,8 @@ if sys.version_info < (3, 11):
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from pytrainer import (ai, capstone, coach, content, course, db, drills, jev, labs, lint, mistakes, progress,  # noqa: E402
-                       radar, runner, sandbox, tracer, variants)
+from pytrainer import (ai, capstone, coach, content, course, db, drills, interview, jev, labs, lint, mistakes,  # noqa: E402
+                       progress, radar, runner, sandbox, tracer, variants)
 
 STATIC = ROOT / "static"
 PROJECTS_DIR = labs.LAB_ROOT / "projects"
@@ -1041,6 +1041,34 @@ def api_project_review(pid: str, body: dict):
 
 # --------------------------------------------------------------------------- labs
 
+def _interview(fn, *args):
+    try:
+        return fn(*args)
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
+
+
+def api_interviews(_=None):
+    return {"history": interview.history(), "lengths": list(interview.LENGTHS)}
+
+
+def api_interview_start(body: dict):
+    return _interview(interview.start, int(body.get("minutes", 30)))
+
+
+def api_interview_submit(iid: str, body: dict):
+    return {"result": _interview(interview.submit, int(iid), _files(body), int(body.get("seconds", 0)))}
+
+
+def api_interview_followup(iid: str, body: dict):
+    answer = body.get("answer")
+    return _interview(interview.followup, int(iid), str(answer) if answer is not None else None)
+
+
+def api_interview_debrief(iid: str, _body=None):
+    return {"debrief": _interview(interview.debrief, int(iid))}
+
+
 def api_radar(_=None):
     return radar.analyse() | {"mistake_drill": mistakes.last_drill(), "mistakes": len(mistakes.recent_mistakes())}
 
@@ -1170,6 +1198,11 @@ ROUTES = [
     ("POST", r"/api/project/([\w-]+)/run", api_project_run),
     ("POST", r"/api/project/([\w-]+)/submit", api_project_submit),
     ("POST", r"/api/project/([\w-]+)/review", api_project_review),
+    ("GET", r"/api/interviews", api_interviews),
+    ("POST", r"/api/interview/start", api_interview_start),
+    ("POST", r"/api/interview/(\d+)/submit", api_interview_submit),
+    ("POST", r"/api/interview/(\d+)/followup", api_interview_followup),
+    ("POST", r"/api/interview/(\d+)/debrief", api_interview_debrief),
     ("GET", r"/api/radar", api_radar),
     ("POST", r"/api/ai/mistakes", api_mistake_drill),
     ("GET", r"/api/drill", api_drill),
