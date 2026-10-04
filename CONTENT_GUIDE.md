@@ -367,6 +367,9 @@ Two extra kinds have their own rules, which the validator enforces:
   `test_style_...` (a line budget, the idiom the step is about); the starter must fail only those.
 - `"kind": "parsons"`: every non-blank line of `solution` becomes a tile (so no comments or multi-line
   strings, 3-12 lines), plus `distractors` that must not be lines of the solution. `starter` is `""`.
+- `"mode": "traceback"` (`"kind": "traceback"`): `code` must really crash with `error`; `answer_line` is
+  the line to change and must differ in `solution` (the fixed program, which must run cleanly). Add an
+  `explanation`. The traceback the learner sees is produced by running `code`.
 
 ## New chapters: what to cover (fake/injected clients - no network, stdlib only)
 

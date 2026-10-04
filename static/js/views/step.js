@@ -22,14 +22,16 @@ export async function viewStep(id, reviewFlag) {
     }
   }
   const noHelp = d.exam_locked_help || !!variant;
-  const predict = ex.mode === "predict", testsMode = ex.mode === "tests";
+  const predict = ex.mode === "predict", testsMode = ex.mode === "tests", traceMode = ex.mode === "traceback";
+  const readOnly = predict || traceMode;   // the learner reads a given program instead of writing one
+  let picked = null;                       // traceback steps: the line clicked as the one to change
   let lastResult = null, chat = d.chat, reviewData = d.review, hints = d.hints, canReveal = d.can_reveal;
   let revealed = d.revealed, explanation = d.explanation, walkthrough = null, improve = null, answer = "";
   let feedback = d.reference ? { reference: d.reference, quality: null, tips: [], style: [] } : null;
   let dockTab = predict ? "answer" : "results";
   let outputHTML = `<span class="faint">${testsMode ? "Run executes your test file (the code under test is importable as <code>target</code>). Check grades your tests." : "Run executes your file and shows what it prints. Check runs the checks."}</span>`;
   let stdin = "", args = "";
-  const initial = predict ? ex.code : review ? ex.starter : (d.draft?.["solution.py"] ?? ex.starter);
+  const initial = readOnly ? ex.code : review ? ex.starter : (d.draft?.["solution.py"] ?? ex.starter);
   const back = path?.kind === "exam" ? `#/exam/${d.module}` : path?.kind === "chapter" ? `#/chapter/${ex.topic}` : path?.kind === "combo" ? "#/extras" : "#/course";
   const idx = path ? path.index : 0, total = path ? path.total : 1;
   const prevId = path && idx > 0 ? path.steps[idx - 1].id : null;
@@ -47,15 +49,16 @@ export async function viewStep(id, reviewFlag) {
     <section class="ws-read"><div class="ws-read-in" id="read"></div></section>
     <section class="ws-code">
       <div class="toolbar">
-        <button class="btn" id="run-btn" ${predict ? "disabled" : ""} title="Alt+Enter">Run <kbd>Alt+⏎</kbd></button>
-        <button class="btn ghost" id="dbg-btn" ${predict && !d.revealed && d.state.status !== "solved" ? "disabled" : ""} title="Step through your code one line at a time (Alt+D)">Debug</button>
+        <button class="btn" id="run-btn" ${readOnly ? "disabled" : ""} title="Alt+Enter">Run <kbd>Alt+⏎</kbd></button>
+        <button class="btn ghost" id="dbg-btn" ${readOnly && !d.revealed && d.state.status !== "solved" ? "disabled" : ""} title="Step through your code one line at a time (Alt+D)">Debug</button>
         <button class="btn primary" id="check-btn" title="Ctrl+Enter">Check <kbd>Ctrl+⏎</kbd></button>
         ${ex.hint_count && !noHelp ? `<button class="btn ghost" id="hint-btn">Hint <span class="faint" id="hint-count">${hints.length}/${ex.hint_count}</span></button>` : ""}
         <button class="btn ghost" id="lib-btn" title="Look up syntax from the chapters you have finished (Ctrl+K). Your code stays as it is.">Library <kbd>Ctrl+K</kbd></button>
         <span class="grow"></span><span class="timer" id="timer">0:00</span>
-        ${predict ? "" : `<button class="btn ghost small" id="reset-btn">Reset</button>`}
+        ${traceMode ? `<span class="small dim" id="tb-picked">Click the line to change</span>` : ""}
+        ${readOnly ? "" : `<button class="btn ghost small" id="reset-btn">Reset</button>`}
       </div>
-      <div class="filetabs">${testsMode ? `<button class="on">your tests</button>` : predict ? `<button class="on">the program (read it)</button>` : ""}</div>
+      <div class="filetabs">${testsMode ? `<button class="on">your tests</button>` : predict ? `<button class="on">the program (read it)</button>` : traceMode ? `<button class="on">the program: click the line you'd change</button>` : ""}</div>
       <div class="editor" id="editor"></div>
       <div class="dock" id="dock"><div class="dock-grip"></div><div class="dock-tabs" id="dock-tabs"></div><div class="dock-body" id="dock-body"></div></div>
     </section></div></div>`;
@@ -63,10 +66,10 @@ export async function viewStep(id, reviewFlag) {
   const timer = startTimer($("#timer"));
   let saveT = null;
   const ed = makeEditor($("#editor"), { "solution.py": initial }, () => {
-    if (review || predict) return;
+    if (review || readOnly) return;
     clearTimeout(saveT);
     saveT = setTimeout(() => api("draft", { item_id: id, files: ed.files() }).catch(() => {}), 700);
-  }, { focus: !predict });
+  }, { focus: !readOnly });
   if (predict) {
     // The program is for reading only: no cursor, and any click or typing goes to the answer box.
     ed.cm.setOption("readOnly", "nocursor");
@@ -81,7 +84,18 @@ export async function viewStep(id, reviewFlag) {
     document.addEventListener("keydown", typeToAnswer);
     cleanup.push(() => document.removeEventListener("keydown", typeToAnswer));
   }
-  cleanup.push(() => { clearTimeout(saveT); if (!review && !predict) api("draft", { item_id: id, files: ed.files() }).catch(() => {}); });
+  if (traceMode) {
+    ed.cm.setOption("readOnly", "nocursor");
+    $("#editor").addEventListener("mousedown", (e) => {
+      const line = ed.cm.lineAtHeight(e.clientY, "window");
+      if (line < 0 || line >= ed.cm.lineCount()) return;
+      if (picked) ed.cm.removeLineClass(picked - 1, "background", "tb-pick");
+      picked = line + 1;
+      ed.cm.addLineClass(line, "background", "tb-pick");
+      $("#tb-picked").textContent = `Line ${picked} selected`;
+    });
+  }
+  cleanup.push(() => { clearTimeout(saveT); if (!review && !readOnly) api("draft", { item_id: id, files: ed.files() }).catch(() => {}); });
   makeDock($("#dock"));
   // Parsons steps: the editor stays (Run, Check and Debug read it) but is hidden behind the board.
   let pz = null;
@@ -93,7 +107,7 @@ export async function viewStep(id, reviewFlag) {
     pz = mountParsons(board, { tiles: ex.parsons_lines, code: initial, onChange: (code) => ed.set({ "solution.py": code }) });
   }
   const dbg = createDebugger({
-    cm: ed.cm, exerciseId: id, suggestion: d.debug_call, predict,
+    cm: ed.cm, exerciseId: id, suggestion: d.debug_call, predict: readOnly,
     getFiles: () => ed.files(), getStdin: () => stdin.replace(/\\n/g, "\n"),
   });
   const setPane = paneSwitch($(".ws"), ed.cm, ["Lesson", predict ? "Answer" : "Code"]);
@@ -103,8 +117,9 @@ export async function viewStep(id, reviewFlag) {
   const read = $("#read");
   read.innerHTML = `<div id="read-head"></div>
     ${ex.lesson && !review ? `<div class="lesson-wrap" id="read-lesson">${md(ex.lesson, "lesson")}</div>` : ""}
-    <div class="task" id="read-task"><div class="label">${predict ? "Your turn: predict the output" : testsMode ? "Your turn: write the tests" : ex.kind === "bughunt" ? "Your turn: find and fix the bug" : ex.kind === "refactor" ? "Your turn: refactor it, keep it working" : ex.kind === "parsons" ? "Your turn: put the lines in order" : "Your turn"}</div>
+    <div class="task" id="read-task"><div class="label">${predict ? "Your turn: predict the output" : traceMode ? "Your turn: find the line to change" : testsMode ? "Your turn: write the tests" : ex.kind === "bughunt" ? "Your turn: find and fix the bug" : ex.kind === "refactor" ? "Your turn: refactor it, keep it working" : ex.kind === "parsons" ? "Your turn: put the lines in order" : "Your turn"}</div>
       ${researchHTML(ex.research)}${md(ex.prompt)}${checksHTML(d.checks)}
+      ${traceMode ? `<h3 class="small dim" style="margin:16px 0 6px">What it printed when it crashed</h3><pre class="tb-out">${esc(d.traceback || "")}</pre>` : ""}
       ${ex.setup_files?.length ? `<p class="faint small" style="margin-top:10px">Files next to your code: ${ex.setup_files.map(esc).join(", ")}</p>` : ""}</div>
     <div id="read-extra"></div>`;
   renderRich(read);
@@ -119,14 +134,16 @@ export async function viewStep(id, reviewFlag) {
     if (!noHelp) {
       if (hints.length) h += `<div class="section hints" style="margin-top:26px"><h3>Hints</h3><ol style="padding-left:1.2em">${hints.map((x) => `<li style="margin:6px 0">${md(x)}</li>`).join("")}</ol></div>`;
       if (revealed) {
-        h += `<div class="panel" style="margin-top:22px;border-color:var(--amber)"><h3>${predict ? "The actual output" : "A reference solution"}</h3>
+        if (traceMode) h += `<div class="panel" style="margin-top:22px;border-color:var(--amber)"><h3>Line ${revealed.line} is the one to change</h3>
+          ${md(revealed.explanation || "")}<h3 style="margin-top:12px">The fixed program</h3>${md("```python\n" + revealed.solution + "\n```")}</div>`;
+        else h += `<div class="panel" style="margin-top:22px;border-color:var(--amber)"><h3>${predict ? "The actual output" : "A reference solution"}</h3>
           <p class="dim small">${predict ? "Compare it with your prediction, line by line." : "Study it until every line makes sense. Then write it yourself in the editor, without copying, and press Check. It comes back tomorrow for you to rebuild from memory, and only counts once you pass that."}</p>
           ${predict ? `<pre class="outbox">${esc(revealed.output)}</pre>${md(revealed.explanation || "")}` : md("```python\n" + revealed.solution + "\n```")}
           ${!predict && aiOn() ? `<button class="btn small" id="explain-btn">Walk me through it line by line</button>` : ""}
           <div id="walk">${walkthrough ? md(walkthrough) : ""}</div></div>`;
       } else if (d.state.status !== "solved") {
         h += `<div class="section" style="margin-top:28px"><h3>Stuck?</h3>
-          <p class="dim small">Take a hint${aiOn() ? ", or ask the Tutor tab below" : ""}. ${canReveal ? "You've given it a real go, so you can view the solution: study it, then write it yourself." : `The solution unlocks after ${predict ? "2" : "3"} checks or 10 minutes of trying.`}</p>
+          <p class="dim small">Take a hint${aiOn() ? ", or ask the Tutor tab below" : ""}. ${canReveal ? "You've given it a real go, so you can view the solution: study it, then write it yourself." : `The solution unlocks after ${readOnly ? "2" : "3"} checks or 10 minutes of trying.`}</p>
           <div class="row">${ex.hint_count && hints.length < ex.hint_count ? `<button class="btn small" id="hint-inline">Get hint ${hints.length + 1} of ${ex.hint_count}</button>` : ""}
           <button class="btn small ${canReveal ? "" : "ghost"}" id="reveal-btn" ${canReveal ? "" : "disabled"}>Show solution</button></div></div>`;
       }
@@ -140,7 +157,7 @@ export async function viewStep(id, reviewFlag) {
     $("#hint-inline", extra)?.addEventListener("click", getHint);
     $("#reveal-btn", extra)?.addEventListener("click", async (e) => {
       busy(e.target, true);
-      try { revealed = (await api(`exercise/${id}/reveal`, { duration_s: timer.secs })).revealed; drawRead(); if (predict) { $("#run-btn").disabled = false; $("#dbg-btn").disabled = false; drawDock(); } }
+      try { revealed = (await api(`exercise/${id}/reveal`, { duration_s: timer.secs })).revealed; drawRead(); if (readOnly) { $("#run-btn").disabled = false; $("#dbg-btn").disabled = false; drawDock(); } }
       catch (err) { toast(err.message, true); busy(e.target, false); }
     });
     $("#explain-btn", extra)?.addEventListener("click", async (e) => {
@@ -173,7 +190,7 @@ export async function viewStep(id, reviewFlag) {
     if (predict) t.push(["answer", "Your answer"]);
     t.push(["results", "Results"]);
     t.push(["output", "Output"]);
-    if (!predict || revealed || d.state.status === "solved") t.push(["debug", "Step through"]);
+    if (!readOnly || revealed || d.state.status === "solved") t.push(["debug", "Step through"]);
     if (!noHelp) t.push(["tutor", `Tutor${chat.length ? `<span class="n">${Math.ceil(chat.length / 2)}</span>` : ""}`]);
     if (!predict) t.push(["feedback", "Feedback"]);
     if (lib.pos === "bottom") t.push(["library", "Library"]);
@@ -262,7 +279,7 @@ export async function viewStep(id, reviewFlag) {
   async function run() {
     const btn = $("#run-btn"); busy(btn, true);
     try {
-      const r = predict ? await api(`exercise/${id}/run`, {}) :
+      const r = readOnly ? await api(`exercise/${id}/run`, {}) :
         await api(`exercise/${id}/run`, { files: ed.files(), stdin: stdin.replace(/\\n/g, "\n"), args: args.trim() ? args.trim().split(/\s+/) : [] });
       outputHTML = (esc(r.stdout) + (r.stderr ? `<span class="err">${esc(r.stderr)}</span>` : "")) || `<span class="faint">(nothing was printed)</span>`;
       outputHTML += r.timed_out ? `<span class="err">\n[stopped: time limit]</span>` : `<span class="faint">\n[finished, exit code ${r.returncode}]</span>`;
@@ -273,7 +290,8 @@ export async function viewStep(id, reviewFlag) {
   async function check() {
     const btn = $("#check-btn"); busy(btn, true, "Checking");
     try {
-      const payload = predict ? { answer } : { files: ed.files(), variant: !!variant };
+      if (traceMode && !picked) { toast("Click the line you would change first."); busy(btn, false); return; }
+      const payload = predict ? { answer } : traceMode ? { answer: picked } : { files: ed.files(), variant: !!variant };
       const r = await api(`exercise/${id}/check`, { ...payload, kind: review ? "review" : "practice", duration_s: timer.secs });
       lastResult = r.result; lastResult._fresh = true; canReveal = r.can_reveal;
       $$("#read-task .check-list li").forEach((li, i) => {
@@ -293,8 +311,8 @@ export async function viewStep(id, reviewFlag) {
         extra += `<div class="row" style="margin-top:12px">${nextId ? `<a class="btn primary" href="#/step/${nextId}">Next step</a>`
           : path?.project && !path.project.passed ? `<a class="btn primary" href="#/project/${path.project.id}">On to the chapter project</a>`
           : `<a class="btn primary" href="${back}">Finish</a>`}</div>`;
-        if (predict) { explanation = r.result.explanation; $("#run-btn").disabled = false; $("#dbg-btn").disabled = false; }
-        else feedback = { reference: r.reference, quality: q, tips: r.tips, style: r.style };
+        if (readOnly) { explanation = r.result.explanation; $("#run-btn").disabled = false; $("#dbg-btn").disabled = false; }
+        if (!predict) feedback = { reference: r.reference, quality: q, tips: r.tips, style: r.style };
         const dot = $(`.stepdots a[href="#/step/${id}"]`); if (dot) { if (r.state.newly_solved) lxPop(dot); dot.className = "solved here"; }
         drawRead();
       } else {
@@ -327,7 +345,7 @@ export async function viewStep(id, reviewFlag) {
   const keys = (e) => {
     if (e.target.closest?.(".lx")) return;              // an activity in the lesson has its own Ctrl+Enter
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); check(); }
-    else if (e.key === "Enter" && e.altKey && !predict) { e.preventDefault(); run(); }
+    else if (e.key === "Enter" && e.altKey && !readOnly) { e.preventDefault(); run(); }
     else if (e.altKey && !e.ctrlKey && (e.key === "d" || e.key === "D" || e.code === "KeyD")) { e.preventDefault(); debug(); }
   };
   document.addEventListener("keydown", keys);

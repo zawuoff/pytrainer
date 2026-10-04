@@ -1079,3 +1079,7 @@ input[type=text], input[type=number], input[type=password], select, textarea { t
 .pz-ctl button:hover { background: var(--rule); color: var(--text); }
 .pz-empty { padding: 10px; }
 @media (max-width: 760px) { .pz { grid-template-columns: minmax(0, 1fr); } }
+
+/* Read-the-traceback steps */
+.cm-s-pt .tb-pick { background: color-mix(in srgb, var(--amber) 24%, transparent); box-shadow: inset 3px 0 0 var(--amber); }
+.tb-out { margin: 0; white-space: pre-wrap; font-family: var(--mono); font-size: 12.5px; color: var(--fail); background: var(--fail-bg); border: 1px solid color-mix(in srgb, var(--fail) 30%, transparent); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }

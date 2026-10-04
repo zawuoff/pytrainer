@@ -194,11 +194,12 @@ def api_exercise(ex_id: str):
     return {
         "path": path,
         "exam": is_exam, "exam_locked_help": exam_open,
-        "reference": ex["solution"] if state["status"] == "solved" and ex.get("mode") not in ("predict",) else None,
+        "reference": ex["solution"] if state["status"] == "solved" and ex.get("mode") != "predict" else None,
         "hints": ex.get("hints", [])[:state.get("hints_used", 0)],
         "can_reveal": _can_reveal(ex, state),
         "revealed": _revealed_payload(ex) if state.get("revealed") else None,
-        "explanation": ex.get("explanation") if ex.get("mode") == "predict" and state["status"] == "solved" else None,
+        "explanation": ex.get("explanation") if ex.get("mode") in READ_ONLY and state["status"] == "solved" else None,
+        "traceback": _traceback(ex) if ex.get("mode") == "traceback" else None,
         "exercise": content.public_exercise(ex),
         "checks": _check_names(ex),
         "topic_title": ("Combination challenge" if ex.get("topic") == "combo" else
@@ -238,9 +239,43 @@ REVEAL_AFTER_ATTEMPTS = 3
 REVEAL_AFTER_SECONDS = 600
 
 
+READ_ONLY = ("predict", "traceback")  # steps where the learner reads a given program instead of writing one
+
+
+def _traceback(ex: dict) -> str:
+    """The real traceback of a read-the-traceback step's program, run once and remembered."""
+    if ex["id"] not in _TRACEBACKS:
+        run = runner.run_code({"solution.py": ex["code"]}, setup_files=ex.get("setup_files"))
+        _TRACEBACKS[ex["id"]] = run["stderr"].strip()
+    return _TRACEBACKS[ex["id"]]
+
+
+_TRACEBACKS: dict[str, str] = {}
+
+
+def _check_traceback(ex: dict, answer) -> dict:
+    try:
+        line = int(answer)
+    except (TypeError, ValueError):
+        raise ApiError("Click the line you would change first, then press Check.") from None
+    ok = line == ex["answer_line"]
+    frames = [int(n) for n in re.findall(r'File "solution\.py", line (\d+)', _traceback(ex))]
+    if ok:
+        msg = ""
+    elif frames and line == frames[-1]:
+        msg = (f"Line {line} is where the error surfaced, but nothing on it is wrong. "
+               "Ask where the bad value or call came from: look at the frames above it.")
+    elif line in frames:
+        msg = f"Line {line} is part of the path to the error, but it isn't the line to change."
+    else:
+        msg = f"Not line {line}. Read the traceback from the bottom up: what went wrong, and on which lines?"
+    return {"status": "passed" if ok else "failed", "error": None, "stdout": "", "passed": int(ok), "total": 1,
+            "tests": [{"name": "the line to change", "passed": ok, "message": msg, "ms": None}]}
+
+
 def _check_names(ex: dict) -> list[str]:
     """Readable names of the hidden tests - a checklist of what will be checked (not how)."""
-    if ex.get("mode") == "predict":
+    if ex.get("mode") in READ_ONLY:
         return []
     return [n.removeprefix("test_").replace("_", " ") for n in re.findall(r"^def (test_\w+)", ex["tests"], re.M)]
 
@@ -248,7 +283,7 @@ def _check_names(ex: dict) -> list[str]:
 def _can_reveal(ex: dict, state: dict, duration_s: int = 0) -> bool:
     if state.get("status") == "solved" and not state.get("revealed"):
         return False
-    need = 2 if ex.get("mode") == "predict" else REVEAL_AFTER_ATTEMPTS
+    need = 2 if ex.get("mode") in READ_ONLY else REVEAL_AFTER_ATTEMPTS
     return state.get("attempts", 0) >= need or duration_s >= REVEAL_AFTER_SECONDS or bool(state.get("revealed"))
 
 
@@ -256,6 +291,8 @@ def _revealed_payload(ex: dict) -> dict:
     if ex.get("mode") == "predict":
         out = runner.check_prediction(ex["code"], "", setup_files=ex.get("setup_files"))["_actual"]
         return {"output": out, "explanation": ex.get("explanation", "")}
+    if ex.get("mode") == "traceback":
+        return {"line": ex["answer_line"], "explanation": ex.get("explanation", ""), "solution": ex["solution"]}
     return {"solution": ex["solution"]}
 
 
@@ -281,7 +318,7 @@ def api_reveal(ex_id: str, body: dict):
     _no_help_in_tests(ex)
     state = progress.get_state(ex_id)
     if not _can_reveal(ex, state, int(body.get("duration_s", 0))):
-        need = 2 if ex.get("mode") == "predict" else REVEAL_AFTER_ATTEMPTS
+        need = 2 if ex.get("mode") in READ_ONLY else REVEAL_AFTER_ATTEMPTS
         raise ApiError(f"Keep going a bit longer: the solution unlocks after {need} checks "
                        f"or {REVEAL_AFTER_SECONDS // 60} minutes of trying.")
     state["revealed"] = 1
@@ -370,10 +407,10 @@ def api_improve(body: dict):
 
 def api_run(ex_id: str, body: dict):
     ex = _exercise(ex_id)
-    if ex.get("mode") == "predict":
+    if ex.get("mode") in READ_ONLY:
         st = progress.get_state(ex_id)
         if st["status"] != "solved" and not st.get("revealed"):
-            raise ApiError("Running is unlocked once you've predicted the output (that's the exercise!).")
+            raise ApiError("Running is unlocked once you've answered (that's the exercise!).")
         return runner.run_code({"solution.py": ex["code"]}, setup_files=ex.get("setup_files"))
     files = _files(body)
     if ex.get("mode") == "tests":
@@ -402,10 +439,10 @@ def api_trace(ex_id: str, body: dict):
     """Step through the learner's file (or, for read-and-predict steps, the program once it's unlocked)."""
     ex = _exercise(ex_id)
     call = str(body.get("call") or "")[:2000]
-    if ex.get("mode") == "predict":
+    if ex.get("mode") in READ_ONLY:
         st = progress.get_state(ex_id)
         if st["status"] != "solved" and not st.get("revealed"):
-            raise ApiError("Stepping through is unlocked once you've predicted the output.")
+            raise ApiError("Stepping through is unlocked once you've answered.")
         return tracer.trace_code({"solution.py": ex["code"]}, setup_files=ex.get("setup_files"))
     files = _files(body)
     if ex.get("mode") == "tests":
@@ -421,6 +458,9 @@ def _grade(ex: dict, body: dict) -> tuple[dict, dict]:
         result = runner.check_prediction(ex["code"], answer, setup_files=ex.get("setup_files"))
         result.pop("_actual", None)
         return {"answer.txt": answer}, result
+    if ex.get("mode") == "traceback":
+        result = _check_traceback(ex, body.get("answer"))
+        return {"answer.txt": str(body.get("answer"))}, result
     files = _files(body)
     if ex.get("mode") == "tests":
         return files, runner.grade_test_writing(files.get("solution.py", ""), ex["impl"], ex["mutants"],
@@ -446,12 +486,12 @@ def api_check(ex_id: str, body: dict):
     else:
         files, result = _grade(ex, body)
         ex_view = ex
-    if result["status"] == "passed" and ex.get("mode") != "predict":
+    if result["status"] == "passed" and ex.get("mode") not in READ_ONLY:
         result["quality"] = _quality(ex_view, files.get("solution.py", ""))
     state = progress.record_attempt(ex, files, result, kind, body.get("duration_s", 0))
     if variant and result["status"] == "passed":
         variants.drop(ex_id)  # the next review gets a fresh one
-    if result["status"] == "passed" and ex.get("mode") == "predict":
+    if result["status"] == "passed" and ex.get("mode") in READ_ONLY:
         result["explanation"] = ex.get("explanation", "")
     tp = progress.topic_progress()
     topic = ex.get("topic")

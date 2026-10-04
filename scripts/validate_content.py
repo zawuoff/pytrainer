@@ -67,9 +67,36 @@ def check_test_writing(ex):
     return ex["id"], problems
 
 
+def check_traceback(ex):
+    """A read-the-traceback step: the program really raises `error`, the fix runs, and the answer
+    line is a line the fix changes."""
+    problems = []
+    check_hints(ex, problems)
+    if not ex.get("explanation", "").strip():
+        problems.append("traceback step needs an `explanation`")
+    lines = ex.get("code", "").splitlines()
+    run = runner.run_code({"solution.py": ex.get("code", "")}, setup_files=ex["setup_files"])
+    last = run["stderr"].strip().splitlines()[-1] if run["stderr"].strip() else ""
+    if run["returncode"] == 0 or "Traceback" not in run["stderr"]:
+        problems.append("the program must crash with a traceback")
+    elif ex.get("error", "").lower() not in last.lower():
+        problems.append(f"expected a {ex.get('error')} but the traceback ends with: {last}")
+    fixed = runner.run_code({"solution.py": ex["solution"]}, setup_files=ex["setup_files"])
+    if fixed["returncode"] != 0 or fixed["timed_out"]:
+        problems.append("the fixed program (`solution`) must run cleanly: " + fixed["stderr"].strip()[-300:])
+    n = ex.get("answer_line")
+    if not isinstance(n, int) or not 1 <= n <= len(lines):
+        problems.append("`answer_line` must be a line of `code`")
+    elif lines[n - 1] in ex["solution"].splitlines():
+        problems.append(f"line {n} is unchanged in the fix, so it can't be the line to change")
+    return ex["id"], problems
+
+
 def check_exercise(ex):
     if ex["mode"] == "predict":
         return check_prediction(ex)
+    if ex["mode"] == "traceback":
+        return check_traceback(ex)
     if ex["mode"] == "tests":
         return check_test_writing(ex)
     problems = []
