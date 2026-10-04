@@ -30,7 +30,8 @@ export async function viewProgress() {
         <td class="faint small" style="width:90px">${c.done}/${c.steps} steps</td>
         <td style="width:100px">${c.earned ? `<span class="pill pass">cleared</span>` : c.placed ? `<span class="pill">tested out</span>` : ""}</td></tr>`).join("")}</table></div>`).join("")}</section>
     <section class="section grid2" style="align-items:start">
-      <div><h2 style="margin-bottom:12px">Recent struggles</h2>${st.weak_spots.length ? `<ul>${st.weak_spots.map((w) => `<li class="dim">${esc(w)}</li>`).join("")}</ul>` : `<p class="dim">No failed checks yet.</p>`}</div>
+      <div><h2 style="margin-bottom:12px">Recent struggles</h2>${st.weak_spots.length ? `<ul>${st.weak_spots.map((w) => `<li class="dim">${esc(w)}</li>`).join("")}</ul>` : `<p class="dim">No failed checks yet.</p>`}
+        <a class="btn small" href="#/radar" style="margin-top:8px">Open the weakness radar</a></div>
       <div><h2 style="margin-bottom:12px">Placement</h2>${st.placement ? `<p><b>${esc(st.placement.report?.level || "")}</b> · ${fmtDate(st.placement.finished_at)}</p><a class="btn small" href="#/placement">View report</a>` : `<a class="btn small" href="#/placement">Take the placement test</a>`}</div>
     </section>
     <section class="section"><h2>Recent attempts</h2>${st.recent.length ? `<table class="ptable">${st.recent.map((a) => `<tr><td><a href="#/${a.item_id.startsWith("project:") ? "project/" + a.item_id.slice(8) : "step/" + a.item_id}">${esc(a.title)}</a> <span class="faint small">${esc(a.kind)}</span></td>

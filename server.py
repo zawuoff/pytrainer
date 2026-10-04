@@ -26,8 +26,8 @@ if sys.version_info < (3, 11):
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from pytrainer import (ai, capstone, coach, content, course, db, drills, jev, labs, lint, progress, runner, sandbox,  # noqa: E402
-                       tracer, variants)
+from pytrainer import (ai, capstone, coach, content, course, db, drills, jev, labs, lint, progress, radar, runner,  # noqa: E402
+                       sandbox, tracer, variants)
 
 STATIC = ROOT / "static"
 PROJECTS_DIR = labs.LAB_ROOT / "projects"
@@ -1041,6 +1041,10 @@ def api_project_review(pid: str, body: dict):
 
 # --------------------------------------------------------------------------- labs
 
+def api_radar(_=None):
+    return radar.analyse()
+
+
 def api_drill(_=None):
     exercises = drills.pool()
     return {"pool": exercises, "enough": len(exercises) >= drills.MIN_POOL, "min": drills.MIN_POOL} | drills.stats()
@@ -1159,6 +1163,7 @@ ROUTES = [
     ("POST", r"/api/project/([\w-]+)/run", api_project_run),
     ("POST", r"/api/project/([\w-]+)/submit", api_project_submit),
     ("POST", r"/api/project/([\w-]+)/review", api_project_review),
+    ("GET", r"/api/radar", api_radar),
     ("GET", r"/api/drill", api_drill),
     ("POST", r"/api/drill/check", api_drill_check),
     ("POST", r"/api/drill/finish", api_drill_finish),

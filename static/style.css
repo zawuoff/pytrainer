@@ -1117,3 +1117,17 @@ input[type=text], input[type=number], input[type=password], select, textarea { t
 .map-side { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 16px; }
 .map-side h3 { margin: 0 0 8px; }
 .map-list { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; }
+
+/* Weakness radar (a sorted bar chart: one hue, values labelled, details on hover/focus) */
+.radar-chart { display: grid; gap: 4px; margin-top: 10px; }
+.radar-row { position: relative; display: grid; grid-template-columns: minmax(150px, 34%) minmax(0, 1fr) 36px; gap: 12px; align-items: center; padding: 7px 8px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.radar-row:hover, .radar-row:focus-visible { background: var(--panel); border-color: var(--rule); outline: none; }
+.radar-row.on { background: var(--panel); border-color: var(--rule-strong); }
+.radar-label { font-size: 14px; }
+.radar-track { height: 12px; border-radius: 0 4px 4px 0; background: color-mix(in srgb, var(--rule) 55%, transparent); overflow: hidden; }
+.radar-track i { display: block; height: 100%; background: var(--amber); border-radius: 0 4px 4px 0; }
+.radar-val { font-size: 13px; color: var(--dim); font-variant-numeric: tabular-nums; text-align: right; }
+.radar-tip { display: none; position: absolute; left: 34%; top: calc(100% + 4px); z-index: 5; width: min(320px, 70vw); padding: 10px 12px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--rule-strong); box-shadow: 0 8px 24px rgba(0,0,0,.25); font-size: 12.5px; line-height: 1.5; color: var(--text); }
+.radar-row:hover .radar-tip, .radar-row:focus-visible .radar-tip { display: block; }
+@media (max-width: 560px) { .radar-row { grid-template-columns: minmax(0, 1fr) 36px; } .radar-track { grid-column: 1 / -1; grid-row: 2; } .radar-tip { left: 8px; } }
+.sess-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; justify-content: space-between; align-items: center; padding: 9px 12px; margin-bottom: 16px; border: 1px solid var(--rule-strong); border-left: 3px solid var(--amber); border-radius: 0 8px 8px 0; background: var(--panel); font-size: 13.5px; }

@@ -4,6 +4,7 @@ import { burst, chatHTML, checksHTML, isNarrow, makeDock, makeEditor, paneSwitch
 import { mountLibrary, tabIndicator } from "../library.js";
 import { createDebugger } from "../debugger.js";
 import { mountParsons } from "../parsons.js";
+import { sessionBanner } from "../session.js";
 
 /* ---------------------------------------------------------------- step workspace: lesson left, code right, output below */
 
@@ -115,7 +116,7 @@ export async function viewStep(id, reviewFlag) {
   /* left: lesson, then the task. The lesson and the task are drawn once, so the activities in the
      lesson keep their state. drawRead() only redraws the status line and the help under the task. */
   const read = $("#read");
-  read.innerHTML = `<div id="read-head"></div>
+  read.innerHTML = `${sessionBanner(id)}<div id="read-head"></div>
     ${ex.lesson && !review ? `<div class="lesson-wrap" id="read-lesson">${md(ex.lesson, "lesson")}</div>` : ""}
     <div class="task" id="read-task"><div class="label">${predict ? "Your turn: predict the output" : traceMode ? "Your turn: find the line to change" : testsMode ? "Your turn: write the tests" : ex.kind === "bughunt" ? "Your turn: find and fix the bug" : ex.kind === "refactor" ? "Your turn: refactor it, keep it working" : ex.kind === "parsons" ? "Your turn: put the lines in order" : "Your turn"}</div>
       ${researchHTML(ex.research)}${md(ex.prompt)}${checksHTML(d.checks)}
