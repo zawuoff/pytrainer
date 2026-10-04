@@ -88,11 +88,11 @@ export function busy(btn, on, label) {
 }
 export const noAI = (what) => `<div class="note">${what} needs an AI connection. <a href="#/settings">Connect Claude Code, Codex or OpenCode in Settings</a>.</div>`;
 
+const KIND_LABELS = { bughunt: "Bug hunt", refactor: "Refactor", parsons: "Put it in order", traceback: "Read the traceback" };
 export function stepKind(e) {
-  if (e.mode === "predict") return "Read & predict";
-  if (e.mode === "tests") return "Write the tests";
-  if (e.difficulty <= 1) return "Lesson + exercise";
-  return e.difficulty === 3 ? "Checkpoint" : "Practice";
+  const base = KIND_LABELS[e.kind] || (e.mode === "predict" ? "Read & predict" : e.mode === "tests" ? "Write the tests"
+    : e.difficulty <= 1 ? "Lesson + exercise" : e.difficulty === 3 ? "Checkpoint" : "Practice");
+  return e.extra ? `Extra · ${base}` : base;
 }
 
 /* Run and forget the cleanup callbacks of the view being left. */

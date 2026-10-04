@@ -166,7 +166,7 @@ def api_topic(topic_id: str):
         return {"id": e["id"], "title": e["title"], "difficulty": e["difficulty"],
                 "status": st.get("status", "new"), "attempts": st.get("attempts", 0),
                 "generated": e.get("generated", False), "mode": e.get("mode", "function"),
-                "revealed": bool(st.get("revealed"))}
+                "revealed": bool(st.get("revealed")), "extra": bool(e.get("extra")), "kind": e.get("kind")}
     requires = [{"id": r, "title": data["topics_by_id"][r]["title"], "cleared": tp[r]["cleared"]}
                 for r in t["requires"]]
     return {"topic": {k: t[k] for k in ("id", "title", "track", "summary", "concepts", "lesson")},

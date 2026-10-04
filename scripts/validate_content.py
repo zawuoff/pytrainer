@@ -185,7 +185,13 @@ def main():
         for req in t["requires"]:
             if req not in topic_ids:
                 structural.append(f"topic {t['id']} requires unknown topic {req}")
-        exs = [data["exercises"][e] for e in t["exercise_ids"]]
+        everything = [data["exercises"][e] for e in t["exercise_ids"]]
+        exs = [e for e in everything if not e.get("extra")]
+        extras = [e for e in everything if e.get("extra")]
+        if everything[len(exs):] != extras:
+            structural.append(f"topic {t['id']} extra steps must come after the learning path")
+        if any(e["placement"] or e["difficulty"] < 1 for e in extras):
+            structural.append(f"topic {t['id']} extra steps are difficulty 1-3 and never the placement step")
         placements = [e for e in exs if e["placement"]]
         if len(placements) != 1:
             structural.append(f"topic {t['id']} needs exactly one placement exercise (has {len(placements)})")

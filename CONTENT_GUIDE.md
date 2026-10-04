@@ -347,6 +347,18 @@ The learner WRITES tests. The code under test is saved as `target.py`.
 Graded: learner's tests must all pass on `impl` and at least one must fail for each mutant.
 The prompt describes what `target.py` does (its behaviour spec), not the bugs.
 
+## Extra steps (`pytrainer/content/extras/`)
+
+Practice that sits on top of a chapter's learning path: test writing, bug hunts and the like.
+Each module there defines `EXTRAS`, a list of normal exercise dicts with one more key, `topic`.
+The loader appends them to the end of that chapter and marks them `extra`:
+
+- they are difficulty 1-3 and never the placement step;
+- they get reviews like any step, and show as "Extra · ..." in the chapter;
+- they never count toward chapter mastery, so adding one can't un-clear a chapter someone finished.
+
+`validate_content.py` checks them like any other step (`python3 scripts/validate_content.py json-wt`).
+
 ## New chapters: what to cover (fake/injected clients - no network, stdlib only)
 
 - **testing**: why tests; `assert`; test functions; arrange-act-assert; edge cases; testing

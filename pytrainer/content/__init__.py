@@ -12,6 +12,7 @@ import textwrap
 from functools import lru_cache
 
 from . import exams as _exams_pkg
+from . import extras as _extras_pkg
 from . import minis as _minis_pkg
 from . import projects as _projects_pkg
 from . import topics as _topics_pkg
@@ -83,6 +84,18 @@ def load() -> dict:
         topics.append(topic)
     track_order = {t["id"]: i for i, t in enumerate(TRACKS)}
     topics.sort(key=lambda t: (track_order.get(t["track"], 99), t["order"]))
+
+    # Extra practice steps live in content/extras and go at the end of their chapter's path.
+    topic_by_id = {t["id"]: t for t in topics}
+    for mod_info in sorted(pkgutil.iter_modules(_extras_pkg.__path__), key=lambda m: m.name):
+        mod = importlib.import_module(f"{_extras_pkg.__name__}.{mod_info.name}")
+        for raw in getattr(mod, "EXTRAS", []):
+            ex = _norm_exercise({k: v for k, v in raw.items() if k != "topic"}, raw["topic"])
+            ex["extra"] = True
+            if ex["id"] in exercises:
+                raise ValueError(f"duplicate exercise id {ex['id']}")
+            exercises[ex["id"]] = ex
+            topic_by_id[raw["topic"]]["exercise_ids"].append(ex["id"])
 
     from .combos import CHALLENGES
     combos = []
@@ -188,7 +201,7 @@ def _norm_project(raw: dict) -> dict:
 def public_exercise(ex: dict) -> dict:
     """What the browser is allowed to see (never the solution, hints or test source)."""
     return {k: ex[k] for k in ("id", "title", "difficulty", "prompt", "starter", "mode",
-                               "topic", "concepts", "code", "lesson", "research", "module")
+                               "topic", "concepts", "code", "lesson", "research", "module", "extra", "kind")
             if k in ex} | {
         "topics": ex.get("topics", []),
         "setup_files": list(ex.get("setup_files", {}).keys()),

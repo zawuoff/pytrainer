@@ -61,7 +61,7 @@ export async function viewChapter(id, notesFlag) {
       ${cta}
     </div>
     ${d.requires.some((r) => !r.cleared) ? `<div class="note">This chapter builds on ${d.requires.filter((r) => !r.cleared).map((r) => `<a href="#/chapter/${r.id}">${esc(r.title)}</a>`).join(", ")}, which you haven't cleared yet. You can still start it.</div>` : ""}
-    <ol class="steps">${d.exercises.map((e) => `<li><a href="#/step/${e.id}">
+    <ol class="steps">${d.exercises.map((e, i) => `${e.extra && !d.exercises[i - 1]?.extra ? `<li class="steps-sep">Extra practice: doesn't count toward clearing the chapter</li>` : ""}<li><a href="#/step/${e.id}">
       <span>${esc(e.title)}<span class="sub">${stepKind(e)}${e.research ? " · research" : ""}${e.attempts ? ` · ${e.attempts} attempt${e.attempts > 1 ? "s" : ""}` : ""}</span></span>
       <span class="kind">${e.revealed ? `<span class="pill warn">redo to earn</span>` : e.difficulty ? diffBars(e.difficulty) : ""}</span>
       <span class="dot ${e.revealed ? "revealed" : e.status}"></span></a></li>`).join("")}</ol>

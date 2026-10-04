@@ -51,8 +51,11 @@ def topic_progress(states: dict | None = None) -> dict[str, dict]:
 
     for t in data["topics"]:
         all_exs = [data["exercises"][e] for e in t["exercise_ids"]]
-        starters = [e for e in all_exs if e["difficulty"] == 0]
-        exs = [e for e in all_exs if e["difficulty"] >= 1]
+        # Extra steps (test writing, bug hunts...) are practice on top of the path: they never
+        # count toward mastery, so adding new ones can't un-clear a chapter.
+        path = [e for e in all_exs if not e.get("extra")]
+        starters = [e for e in path if e["difficulty"] == 0]
+        exs = [e for e in path if e["difficulty"] >= 1]
         total_w = sum(WEIGHT[e["difficulty"]] for e in exs)
         solved = [e for e in exs if earned(e)]
         solved_w = sum(WEIGHT[e["difficulty"]] for e in solved)
