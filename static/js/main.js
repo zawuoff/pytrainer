@@ -19,6 +19,7 @@ import { viewLeaderboard } from "./views/leaderboard.js";
 import { viewTraces } from "./views/traces.js";
 import { viewAchievements } from "./views/achievements.js";
 import { viewRecap } from "./views/recap.js";
+import { zenAfterRoute } from "./zen.js";
 import { viewLabs } from "./views/labs.js";
 import { viewProgress } from "./views/progress.js";
 import { viewSettings } from "./views/settings.js";
@@ -81,6 +82,7 @@ async function showRoute() {
       main.dataset.enter = "1";
       try { await fn(...m.slice(1)); }
       catch (e) { console.error(e); main.innerHTML = `<div class="page"><div class="errbox">${esc(e.message)}</div></div>`; }
+      zenAfterRoute();
       setTimeout(() => { if (turn === routeTurn) delete main.dataset.enter; }, 900);
       return;
     }

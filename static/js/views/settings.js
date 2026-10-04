@@ -20,9 +20,21 @@ export function drawJev() {
   $("#jev-on")?.addEventListener("change", async (e) => { await api("settings", { jev_enabled: e.target.checked }); await refreshState(); });
 }
 
+/* [key, label, preview colours: page, panel, text, dim text, accent] */
+const THEMES = [
+  ["auto", "Follow system", ["linear-gradient(90deg,#131218 50%,#f7f5f1 50%)", "#1a1920", "#eeebe4", "#a19eaa", "#f5845a"]],
+  ["dark", "Dark", ["#131218", "#1a1920", "#eeebe4", "#a19eaa", "#f5845a"]],
+  ["light", "Light", ["#f7f5f1", "#ffffff", "#1e1c24", "#5f5b68", "#dd6435"]],
+  ["nord", "Nord", ["#2a303c", "#313846", "#eceff4", "#bcc4d3", "#88c0d0"]],
+  ["solarized", "Solarized Light", ["#fdf6e3", "#fffbef", "#1f3a40", "#4f646b", "#bd4313"]],
+  ["sepia", "Sepia", ["#f4ecd8", "#fbf5e6", "#3b2f22", "#634f37", "#a84c24"]],
+  ["contrast", "High contrast", ["#000000", "#0b0b0b", "#ffffff", "#e3e3e3", "#ffb000"]],
+];
+
 export async function viewSettings() {
   await refreshState();
   const theme = (() => { try { return localStorage.getItem("pt-theme") || "auto"; } catch { return "auto"; } })();
+  const codeSize = (() => { try { return +localStorage.getItem("pt-code-size") || 14; } catch { return 14; } })();
   main.innerHTML = `<div class="page narrow">
     <h1>Settings</h1>
     <section class="section"><h2>AI connection</h2><p class="dim">The tutor, code reviews, the placement report, generated challenges and project reviews all run through this.</p><div id="ai-box"></div></section>
@@ -38,10 +50,14 @@ export async function viewSettings() {
     <section class="section"><h2>Jev quality scoring</h2>
       <p class="dim">Jev (TypeSafe) scores your code in about a second on readability, naming, idioms, simplicity and edge cases, and it checks that the tutor never gives answers away. <a href="https://console.typesafe.ai" target="_blank" rel="noopener">Get a key</a></p>
       <div class="panel" id="jev-box"></div></section>
+    <section class="section"><h2>Appearance</h2><div class="panel stack">
+      <div class="theme-grid" role="radiogroup" aria-label="Theme">${THEMES.map(([key, label, c]) => `<button class="theme-card ${theme === key ? "on" : ""}" role="radio" aria-checked="${theme === key}" data-theme-pick="${key}">
+        <span class="theme-prev" style="background:${c[0]}"><i style="background:${c[1]}"><b style="background:${c[2]}"></b><b style="background:${c[3]};width:60%"></b><b style="background:${c[4]};width:34%"></b></i></span><span>${label}</span></button>`).join("")}</div>
+      <label class="field"><span>Code size <b id="code-size-val">${codeSize}px</b></span><input type="range" id="code-size" min="12" max="20" step="1" value="${codeSize}"></label>
+      <p class="dim small" style="margin:0">Zen mode hides everything but the editor while you work on a step or project: press <kbd>Alt</kbd>+<kbd>Z</kbd> (or the Zen button), and <kbd>Alt</kbd>+<kbd>Z</kbd> or <kbd>Esc</kbd> to come back.</p></div></section>
     <section class="section"><h2>You</h2><div class="panel">
       <label class="field"><span>Name</span><input type="text" id="name" value="${esc(S.settings.name)}"></label>
       <label class="field"><span>Daily goal (minutes)</span><input type="number" id="goal" min="15" max="480" value="${S.settings.daily_goal}"></label>
-      <label class="field"><span>Theme</span><select id="theme"><option value="auto">Follow system</option><option value="dark">Dark</option><option value="light">Light</option></select></label>
       <button class="btn primary" id="save-me">Save</button></div></section>
     <section class="section"><h2>Code sandbox</h2><div class="panel stack">
       <p><span class="pill ${S.sandbox.level === "basic" ? "warn" : "pass"}">${esc(S.sandbox.level)}</span> ${esc(S.sandbox.detail)}</p>
@@ -52,7 +68,18 @@ export async function viewSettings() {
       <div class="row"><button class="btn" id="export">Export as JSON</button><button class="btn" id="retake">Retake placement test</button></div>
       <div class="row"><input type="text" id="reset-confirm" placeholder="Type RESET to erase all progress" style="max-width:280px"><button class="btn" id="reset">Erase everything</button></div>
     </div></section></div>`;
-  $("#theme").value = theme;
+  document.querySelectorAll("[data-theme-pick]").forEach((b) => b.onclick = () => {
+    const t = b.dataset.themePick;
+    try { t === "auto" ? localStorage.removeItem("pt-theme") : localStorage.setItem("pt-theme", t); } catch {}
+    if (t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+    document.querySelectorAll("[data-theme-pick]").forEach((x) => { x.classList.toggle("on", x === b); x.setAttribute("aria-checked", String(x === b)); });
+  });
+  $("#code-size").oninput = (e) => {
+    const v = e.target.value;
+    document.documentElement.style.setProperty("--code-size", v + "px");
+    $("#code-size-val").textContent = v + "px";
+    try { localStorage.setItem("pt-code-size", v); } catch {}
+  };
   drawJev();
   aiPicker($("#ai-box"));
   $("#assist-on").onchange = async (e) => { await api("settings", { editor_assist: e.target.checked }); await refreshState(); toast("Saved. It applies to editors you open from now on."); };
@@ -60,9 +87,6 @@ export async function viewSettings() {
   $("#variants-on").onchange = async (e) => { await api("settings", { review_variants: e.target.checked }); await refreshState(); toast("Saved"); };
   $("#save-me").onclick = async () => {
     await api("settings", { name: $("#name").value.trim(), daily_goal: +$("#goal").value || 90 });
-    const t = $("#theme").value;
-    try { t === "auto" ? localStorage.removeItem("pt-theme") : localStorage.setItem("pt-theme", t); } catch {}
-    if (t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
     await refreshState(); toast("Saved");
   };
   $("#export").onclick = async () => {

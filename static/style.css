@@ -66,6 +66,58 @@
   color-scheme: light;
 }
 
+/* Extra themes (Settings > Appearance). Each one sets every token, so they win over the
+   prefers-color-scheme block above whatever the system asks for. Contrast is checked: body text and
+   syntax colours are at least 4.5:1 on their background (7:1 in High contrast). */
+:root[data-theme="nord"] {
+  --bg: #2a303c; --panel: #313846; --panel-2: #3b4252; --paper: #2e3440; --code-bg: #2b313d;
+  --rule: #3e4656; --rule-strong: #4c566a; --text: #eceff4; --dim: #bcc4d3; --faint: #8c97ad;
+  --amber: #88c0d0; --amber-ink: #1d2430; --accent-soft: rgba(136,192,208,.14); --lilac: #b48ead; --sun: #ebcb8b;
+  --pass: #a3be8c; --fail: #e8939b; --pass-bg: rgba(163,190,140,.1); --fail-bg: rgba(191,97,106,.14); --amber-bg: rgba(136,192,208,.1);
+  --m-foundations: #81a1c1; --m-working-python: #8fbcbb; --m-production-python: #b48ead; --m-apis-data: #ebcb8b;
+  --m-llm-apps: #d08770; --m-rag: #88c0d0; --m-evals: #a3be8c; --m-agents: #c895b8;
+  --syn-kw: #81a1c1; --syn-str: #a3be8c; --syn-num: #c3a0c0; --syn-fn: #88c0d0; --syn-var: #d8dee9; --syn-prop: #8fbcbb;
+  --glow: linear-gradient(120deg, #88c0d0, #81a1c1 50%, #b48ead);
+  color-scheme: dark;
+}
+:root[data-theme="solarized"] {
+  --bg: #fdf6e3; --panel: #fffbef; --panel-2: #eee8d5; --paper: #fef9ea; --code-bg: #f7f0dc;
+  --rule: #e6dfc8; --rule-strong: #d6cfb6; --text: #1f3a40; --dim: #4f646b; --faint: #7f8f8f;
+  --amber: #bd4313; --amber-ink: #fffaf0; --accent-soft: rgba(189,67,19,.1); --lilac: #5c61b8; --sun: #8a6a00;
+  --pass: #5a7300; --fail: #c0281f; --pass-bg: rgba(90,115,0,.08); --fail-bg: rgba(192,40,31,.07); --amber-bg: rgba(189,67,19,.08);
+  --m-foundations: #1d6ea6; --m-working-python: #16736b; --m-production-python: #5c61b8; --m-apis-data: #8a6a00;
+  --m-llm-apps: #bd4313; --m-rag: #1b7080; --m-evals: #5a7300; --m-agents: #b82d6e;
+  --syn-kw: #5e6c00; --syn-str: #16736b; --syn-num: #b8296a; --syn-fn: #1f6fae; --syn-var: #806200; --syn-prop: #555ab0;
+  --glow: linear-gradient(120deg, #cb4b16, #d33682 50%, #6c71c4);
+  color-scheme: light;
+}
+:root[data-theme="sepia"] {
+  --bg: #f4ecd8; --panel: #fbf5e6; --panel-2: #ebe1c8; --paper: #f8f1df; --code-bg: #f1e7cf;
+  --rule: #e0d4b6; --rule-strong: #cfc09c; --text: #3b2f22; --dim: #634f37; --faint: #8f7a5b;
+  --amber: #a84c24; --amber-ink: #fff7ea; --accent-soft: rgba(168,76,36,.1); --lilac: #6a4fa3; --sun: #7e5a0c;
+  --pass: #3a7035; --fail: #a83434; --pass-bg: rgba(58,112,53,.08); --fail-bg: rgba(168,52,52,.07); --amber-bg: rgba(168,76,36,.08);
+  --m-foundations: #3a6896; --m-working-python: #3a7353; --m-production-python: #6a4fa3; --m-apis-data: #7e5a0c;
+  --m-llm-apps: #a84c24; --m-rag: #2a7278; --m-evals: #566c1e; --m-agents: #9a4570;
+  --syn-kw: #843a84; --syn-str: #3a7035; --syn-num: #9a4a18; --syn-fn: #2a5888; --syn-var: #674a1c; --syn-prop: #4a465e;
+  --glow: linear-gradient(120deg, #a84c24, #9a4570 50%, #6a4fa3);
+  color-scheme: light;
+}
+:root[data-theme="contrast"] {
+  --bg: #000000; --panel: #0b0b0b; --panel-2: #161616; --paper: #050505; --code-bg: #000000;
+  --rule: #5a5a5a; --rule-strong: #8a8a8a; --text: #ffffff; --dim: #e3e3e3; --faint: #bdbdbd;
+  --amber: #ffb000; --amber-ink: #000000; --accent-soft: rgba(255,176,0,.2); --lilac: #cdbcff; --sun: #ffe066;
+  --pass: #5dff9e; --fail: #ff8a94; --pass-bg: rgba(93,255,158,.12); --fail-bg: rgba(255,138,148,.14); --amber-bg: rgba(255,176,0,.12);
+  --m-foundations: #9fcaff; --m-working-python: #8dffcf; --m-production-python: #cdbcff; --m-apis-data: #ffe066;
+  --m-llm-apps: #ffb48a; --m-rag: #8ae8ff; --m-evals: #d0ff8a; --m-agents: #ffb0d8;
+  --syn-kw: #dcbcff; --syn-str: #8dffbf; --syn-num: #ffd280; --syn-fn: #a6d8ff; --syn-var: #ffd6b8; --syn-prop: #e6ebf8;
+  --glow: linear-gradient(120deg, #ffb000, #ff8a94 50%, #cdbcff);
+  color-scheme: dark;
+}
+:root[data-theme="contrast"] :focus-visible { outline: 3px solid var(--amber) !important; outline-offset: 2px; }
+
+/* Code font size (Settings > Appearance). */
+:root { --code-size: 14px; }
+
 /* ------------------------------------------------------------------ base */
 * { box-sizing: border-box; }
 html, body { height: 100%; }
@@ -371,7 +423,7 @@ label.field span { display: block; font-size: 13px; color: var(--dim); margin-bo
 .celebrate { color: var(--pass); font-weight: 700; }
 
 /* CodeMirror theme */
-.cm-s-pt.CodeMirror { background: var(--code-bg); color: var(--text); font-family: var(--mono); font-size: 14px; line-height: 1.6; }
+.cm-s-pt.CodeMirror { background: var(--code-bg); color: var(--text); font-family: var(--mono); font-size: var(--code-size); line-height: 1.6; }
 .cm-s-pt .CodeMirror-gutters { background: var(--code-bg); border-right: 1px solid var(--rule); }
 .cm-s-pt .CodeMirror-linenumber { color: var(--faint); }
 .cm-s-pt .CodeMirror-cursor { border-left: 2px solid var(--amber); }
@@ -452,7 +504,7 @@ pre.cm-s-pt { background: transparent; }
   .toolbar kbd, .toolbar .timer { display: none; }
   .dock-tabs { overflow-x: auto; }
   .dock-body { padding: 12px 12px 24px; }
-  .cm-s-pt.CodeMirror { font-size: 13.5px; }
+  .cm-s-pt.CodeMirror { font-size: calc(var(--code-size) - .5px); }
 }
 /* focus mode: step / project / placement pages use the full window */
 body.focus .shell { grid-template-columns: 1fr; }
@@ -1296,3 +1348,29 @@ input[type=text], input[type=number], input[type=password], select, textarea { t
 .sync-flash { color: var(--pass); opacity: 0; transition: opacity .3s; }
 .sync-flash.bad { color: var(--fail); }
 .sync-flash.on { opacity: 1; }
+
+/* Theme picker */
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+.theme-card { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper); cursor: pointer; font-size: 13px; text-align: left; }
+.theme-card:hover { border-color: var(--rule-strong); }
+.theme-card.on { border-color: var(--amber); box-shadow: 0 0 0 2px var(--accent-soft); }
+.theme-prev { display: block; height: 58px; padding: 8px; border-radius: 8px; border: 1px solid rgba(127, 127, 127, .25); }
+.theme-prev i { display: grid; gap: 5px; height: 100%; padding: 7px; border-radius: 5px; }
+.theme-prev b { display: block; height: 5px; border-radius: 3px; width: 80%; }
+
+/* Zen mode: only the editor (and Run / Check) while you work */
+body.zen .ws { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: minmax(0, 1fr); }
+body.zen .ws-top, body.zen .ws > .ws-lib { display: none; }
+body.zen .ws-read { display: none; }
+body.zen .ws > .ws-code { display: grid; grid-column: 1; grid-row: 1; }
+body.zen .ws-code .toolbar > .btn.ghost, body.zen .ws-code .toolbar .timer { display: none; }
+body.zen .ws-code .toolbar { padding-right: 190px; }
+body.zen .toast.xp-chip { display: none; }
+body.zen.zen-task .ws-read { display: block; position: fixed; z-index: 45; top: 0; left: 0; bottom: 0; width: min(580px, 92vw); overflow: auto; background: var(--paper); border-right: 1px solid var(--rule-strong); box-shadow: 0 0 40px rgba(0, 0, 0, .35); animation: zen-in .22s var(--ease-out); }
+@keyframes zen-in { from { transform: translateX(-24px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { body.zen.zen-task .ws-read { animation: none; } }
+#zen-bar { position: fixed; z-index: 50; top: 10px; right: 12px; display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--rule-strong); border-radius: 999px; background: var(--panel); box-shadow: 0 6px 20px rgba(0, 0, 0, .25); font-size: 12.5px; }
+#zen-bar[hidden] { display: none; }
+#zen-bar .zen-label { padding: 0 8px 0 10px; color: var(--faint); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; font-size: 11px; }
+#zen-bar button { border: 0; background: none; color: var(--dim); padding: 5px 11px; border-radius: 999px; cursor: pointer; }
+#zen-bar button:hover, #zen-bar button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text); }
