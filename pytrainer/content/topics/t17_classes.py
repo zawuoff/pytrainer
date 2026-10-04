@@ -329,13 +329,49 @@ EXERCISES = [
         "id": "classes-s1",
         "title": "Two counters",
         "lesson": r'''
-            ## Classes and instances
+            ## A value that carries its own data
 
-            A **class** is a new type that you define with the `class` keyword. You call a class
-            the same way you call a function. Each call creates a new object of that type. That
-            object is an **instance** of the class.
+            A chat has a model name and a count of the turns so far. You could pass both values separately to each function. With several chats, loose variables make it hard to keep each count with its chat.
+
+            Python lets you describe once what a chat is, and then build as many chats as you need. Each
+            one carries its own data:
 
             ```python
+            class Chat:
+                def __init__(self, model):
+                    self.model = model
+                    self.turns = 0
+
+            a = Chat("gpt")
+            print(a.model)
+            # gpt
+            print(a.turns)
+            # 0
+            ```
+
+            Take it one piece at a time.
+
+            - `class Chat:` starts the description. You know that every value has a type, such as `str`
+              or `list`. A **class** is a type that you write yourself.
+            - `Chat("gpt")` builds one chat from the description. What you get back is called an
+              **object**.
+            - `__init__` has two underscores on each side. It is a function inside the class, and you
+              never call it. Python calls it by itself each time an object is built, to give the new
+              object its starting values.
+            - `self` is the new object. `self.turns = 0` stores `0` on that object under the name
+              `turns`. A value stored on an object is called an **attribute**, and you read it with a
+              dot: `a.turns`.
+
+            Click through the stages to see what Python does for the line `a = Chat("gpt")`:
+
+            ```diagram
+            {"type":"flow","title":"What Python does for a = Chat(\"gpt\")","steps":[{"label":"Build an empty object","detail":"Python builds a new Chat object. Nothing is stored on it yet.","code":"a new, empty Chat object"},{"label":"Call __init__","detail":"Python calls __init__ by itself. The new object goes in as self, and \"gpt\" goes in as model.","code":"self  = the new object\nmodel = \"gpt\""},{"label":"Store the values","detail":"The two lines in the body of __init__ run. Each one stores a value on the object.","code":"self.model = model   # \"gpt\"\nself.turns = 0"},{"label":"Hand the object back","detail":"__init__ is finished. Chat(\"gpt\") hands the object back, and the name a now refers to it.","code":"a.model  ->  \"gpt\"\na.turns  ->  0"}]}
+            ```
+
+            An attribute behaves like a variable that lives on the object. You can read it, and you can
+            give it a new value with `=`. A second chat gets attributes of its own:
+
+            ```predict
             class Chat:
                 def __init__(self, model):
                     self.model = model
@@ -345,32 +381,52 @@ EXERCISES = [
             b = Chat("claude")
             a.turns = 5
             print(a.model, a.turns)
-            # gpt 5
             print(b.model, b.turns)
-            # claude 0
+            ---
+            `__init__` ran twice, once for each object, so each chat has its own `model` and its own `turns`. The line `a.turns = 5` changes the attribute on `a` only. `b.turns` is still the `0` that `__init__` stored.
             ```
 
-            `__init__` is the **initializer**: a function in the class that Python calls on every
-            new instance. Many people call it the constructor. Its first parameter, `self`, is the
-            new object. `self.turns = 0` stores the value `0` on that object under the name `turns`.
+            ### Functions that belong to the class
 
-            Click each stage to see what Python does for `a = Chat("gpt")`.
+            Since the Lists chapter you have called methods such as `tools.append("email")`: a function
+            after a dot that works on the value in front of the dot. A function that you write inside a
+            class is a method of your own objects, and you call it the same way.
 
-            ```diagram
-            {"type":"flow","title":"What Python does on a = Chat(\"gpt\")","steps":[{"label":"Create the object","detail":"Python creates a new Chat object. It has no attributes yet.","code":"vars(new object) -> {}"},{"label":"Call __init__","detail":"Python calls Chat.__init__. It passes the new object as self and 'gpt' as model.","code":"self = the new Chat object\nmodel = 'gpt'"},{"label":"Store the attributes","detail":"The two assignments in __init__ store two values on the object.","code":"self.model = model   # 'gpt'\nself.turns = 0"},{"label":"Return the object","detail":"__init__ ends. The call Chat(\"gpt\") returns the object, and the name a refers to it.","code":"a.model -> 'gpt'\na.turns -> 0"}]}
+            ```python
+            class Chat:
+                def __init__(self, model):
+                    self.model = model
+                    self.turns = 0
+                def send(self):
+                    self.turns += 1
+            a = Chat("gpt")
+            a.send()
+            a.send()
+            print(a.turns)
+            # 2
             ```
 
-            `a` and `b` are two separate objects. Each one has its own `turns`, so `a.turns = 5`
-            does not change `b.turns`.
+            For `a.send()`, Python runs `send` with `self` set to `a`, the object in front of the dot.
+            So `self.turns += 1` adds 1 to the `turns` of `a`, and of no other chat.
 
-            A function defined inside a class is a **method**. You call it with a dot, for example
-            `a.send()`. Python runs the method with `self` set to `a`. A line such as
-            `self.turns += 1` inside the method then changes `a.turns` and no other object.
+            ```quiz
+            Two chats are built with `a = Chat("gpt")` and `b = Chat("claude")`. Then `a.send()` runs three times. What is `b.turns`?
+            - [x] `0` :: Right. `send` ran with `self` set to `a` each time. `b` is a separate object, and its `turns` is still the `0` from `__init__`.
+            - [ ] `3` :: `turns` is not one number shared by all chats. Each object has its own, and only `a` stood in front of the dot.
+            - [ ] Reading it is an error :: `b` has a `turns` attribute from the moment it is built, because `__init__` stores one on every new object.
+            ```
+
+            **Watch out:** `__init__` needs two underscores on each side. Spelled `_init_` or `__int__`,
+            it is an ordinary function that Python never calls by itself, and `Chat("gpt")` stops with
+            `TypeError: Chat() takes no arguments`.
+
+            **In short:** a class describes a kind of object, `__init__` gives every new object its own
+            attributes, and a method works on the object in front of the dot.
         ''',
         "difficulty": 0,
         "mode": "predict",
         "prompt": r'''
-            Read the code and type exactly what it prints.
+            Read the program in the editor. Type exactly what it prints, one line for each `print`.
         ''',
         "code": r'''
             class Counter:
@@ -393,74 +449,133 @@ EXERCISES = [
             1
         ''',
         "explanation": r'''
-            `Counter()` is called twice, so `a` and `b` refer to two separate objects. `__init__`
-            ran once for each object and stored `count = 0` on it. `a.add()` runs `add` with
-            `self` set to `a`, so `self.count += 1` changes only `a.count`. `add` is called twice
-            on `a` and once on `b`, so `a.count` is `2` and `b.count` is `1`.
+            `Counter()` is called twice, so `a` and `b` are two separate objects. `__init__` ran once for
+            each of them and stored a `count` of 0 on it. `a.add()` runs `add` with `self` set to `a`, so
+            `self.count += 1` adds 1 to the count of `a` only. `add` is called twice on `a` and once on
+            `b`. The first `print` shows the count of `a`, which is 2. The second shows the count of `b`,
+            which is 1.
         ''',
         "starter": "",
         "tests": "",
         "hints": [
-            "Each `Counter()` call creates a new object with its own `count`.",
-            "When you call `a.add()`, `self` inside `add` is `a`, so only `a.count` changes.",
-            "Count how many times `add()` is called on `a` and on `b` separately; both start at 0.",
+            "Each `Counter()` builds a new object, and `__init__` stores a `count` on it. How many objects does this program build?",
+            "In `a.add()`, the `self` inside `add` is `a`, the object in front of the dot. That call changes the count of `a` and leaves `b` alone.",
+            "Both counts start at 0. Count how often `add` is called on `a`, and how often on `b`. Your first line is the count of `a` and your second line is the count of `b`.",
         ],
     },
     {
         "id": "classes-s2",
         "title": "Store the attributes",
         "lesson": r'''
-            ## Instance attributes
+            ## Making an object remember what you pass in
 
-            An **attribute** is a value stored on an object under a name. Inside `__init__`, the
-            statement `self.name = name` creates the attribute `name` on the new object and stores
-            the value of the parameter `name` in it. You read an attribute with a dot: `gpt.name`.
+            In the last step you wrote `Chat("gpt")`, and afterwards `a.model` was `"gpt"`. How did the
+            value get from the parentheses onto the object?
+
+            It takes two moves. First, the values in the parentheses arrive in `__init__` as its
+            parameters. `self` stands first in the `def` line, and Python fills it in with the new
+            object. Your own values go to the parameters after `self`, in order.
+
+            Second, `__init__` stores each value on the object:
 
             ```python
             class Model:
-                def __init__(self, name, context):
+                def __init__(self, name, price):
                     self.name = name
-                    self.context = context
+                    self.price = price
 
-            gpt = Model("gpt-4o", 128000)
-            llama = Model("llama", 8000)
-            print(gpt.name)
-            # gpt-4o
-            print(gpt.context)
-            # 128000
-            print(llama.name)
-            # llama
+            mini = Model("mini", 1)
+            print(mini.name)
+            # mini
+            print(mini.price)
+            # 1
             ```
 
-            The arguments you pass to `Model(...)` arrive in `__init__` as its parameters, after
-            `self`. Python fills in `self` with the new object. Parameters are local variables:
-            they stop existing when `__init__` returns. A value is kept only if you assign it to
-            an attribute on `self`.
+            ```quiz
+            In `Model("mini", 1)`, which parameter of `__init__` receives the `1`?
+            - [x] `price` :: Right. Python fills `self` by itself, so `"mini"` goes to `name` and `1` goes to `price`.
+            - [ ] `name` :: `name` receives the first value that you wrote, `"mini"`. The `1` is the second value.
+            - [ ] `self` :: You never pass anything for `self`. Python fills it with the new object, and your own values start at the parameter after it.
+            ```
 
-            An attribute that belongs to one instance is an **instance attribute**. `gpt` and
-            `llama` each have their own `name` and `context`.
+            Read `self.name = name` from right to left. On the right is the parameter `name`, which
+            holds `"mini"`. On the left is `self.name`, the attribute `name` on the new object. The line
+            copies the value from the parameter onto the object.
 
-            `name = name` inside `__init__` assigns the parameter to itself and stores nothing on
-            the object. Reading `gpt.name` then raises `AttributeError`. Write `self.name = name`.
+            The two share a name out of habit, but they are different things. The parameter is a local
+            variable, so it is gone as soon as `__init__` finishes. The attribute stays for as long as
+            the object exists.
+
+            ```try
+            class Model:
+                def __init__(self, name, price):
+                    self.name = name
+
+            big = Model("max", 15)
+            print(big.name, big.price)
+            ---
+            This program stops with `AttributeError: 'Model' object has no attribute 'price'`. The price is passed in, but it is never stored. Add one line so that the program prints `max 15`.
+            ---
+            class Model:
+                def __init__(self, name, price):
+                    self.name = name
+                    self.price = price
+
+            big = Model("max", 15)
+            print(big.name, big.price)
+            ---
+            The parameter `price` held 15 all along. It only became part of the object when a line stored it on `self`.
+            ```
+
+            An object built from a class is also called an **instance** of that class, and an attribute
+            stored on one object is an **instance attribute**. Each instance keeps its own values:
+
+            ```predict
+            class Model:
+                def __init__(self, name, price):
+                    self.name = name
+                    self.price = price
+
+            mini = Model("mini", 1)
+            big = Model("max", 15)
+            print(mini.name, big.price)
+            print(big.name, mini.price)
+            ---
+            Building `big` did not touch `mini`. Each instance has its own `name` and its own `price`, so the first line prints `mini 15` and the second prints `max 1`.
+            ```
+
+            **Watch out:** `name = name`, without `self.`, runs without any complaint and stores nothing.
+            It assigns the parameter to itself. The error comes later, on the line that reads the
+            attribute: `AttributeError: 'Model' object has no attribute 'name'`.
+
+            **In short:** `self.name = name` in `__init__` copies a value that was passed in onto the
+            object, where it stays.
         ''',
         "difficulty": 0,
         "prompt": r'''
-            A `Message` object should remember the role and text of a chat message.
+            A chat message has two parts: who is speaking, and what they say. A `Message` object should
+            keep both, so that the rest of a program can read them later as `m.role` and `m.content`.
 
-            **Write:** fill in the blanks (`___`) in `Message.__init__`
+            **Your job:** finish the `__init__` of the class `Message`. The class is already in the
+            editor, with two gaps marked `___`. Replace each gap so that a new message remembers the two
+            values it was given.
 
-            - `role`: a string like `"user"`
-            - `content`: a string like `"Hi"`
+            **What goes in**
+            - `role`: who is speaking, a string such as `"user"`
+            - `content`: the text of the message, a string such as `"Hi"`
+
+            **What comes out**
+            - `Message(role, content)` builds an object with two attributes: `role` holds the role, and
+              `content` holds the text
 
             **Rules**
-            - After `m = Message(role, content)`, `m.role` is the role and `m.content` is the content.
-            - Two messages keep their own values (one does not overwrite the other).
+            - Every message keeps its own values. Building a second message does not change the first.
 
             **Examples**
             ```python
             m = Message("user", "Hi")
-            m.role      # "user"
-            m.content   # "Hi"
+            m.role                           # "user"
+            m.content                        # "Hi"
             Message("assistant", "b").role   # "assistant"
             ```
         ''',
@@ -493,75 +608,120 @@ EXERCISES = [
                     self.content = content
         ''',
         "hints": [
-            "`__init__` receives the values you pass to `Message(...)` as its parameters.",
-            "Each attribute on `self` should get the value of the matching parameter.",
-            "Replace the first `___` with the parameter `role` and the second with the parameter `content`.",
+            "Look at the first example in the lesson. What stands on the right-hand side of each line inside `__init__`?",
+            "The values that you pass to `Message(...)` arrive as the parameters of `__init__`. Each gap needs the parameter whose value belongs in the attribute on that line.",
+            "Go line by line. The first line fills the attribute for the role, so its gap is the parameter that received the role. The second line does the same for the text of the message.",
         ],
     },
     {
         "id": "classes-s3",
         "title": "Fix the bug: missing self",
         "lesson": r'''
-            ## Methods and `self`
+            ## Why every method starts with self
 
-            A **method** is a function defined inside a class. When you write `m.describe()`,
-            Python calls `Message.describe(m)`. The object before the dot is passed as the first
-            argument.
+            `a.send()` has nothing between its parentheses. Yet the code inside `send` knew which chat to
+            change. How?
+
+            Python passes the object in front of the dot to the method, by itself, as the first
+            argument. Both calls below do exactly the same thing:
 
             ```python
-            class Message:
+            class Note:
                 def __init__(self, text):
                     self.text = text
 
                 def describe(self):
-                    return "Message: " + self.text
+                    return "Note: " + self.text
 
-            m = Message("Hi")
-            print(m.describe())
-            # Message: Hi
-            print(Message.describe(m))
-            # Message: Hi
+            n = Note("buy milk")
+            print(n.describe())
+            # Note: buy milk
+            print(Note.describe(n))
+            # Note: buy milk
             ```
 
-            The first parameter of a method receives that object. By convention it is named
-            `self`. Every method needs it, including a method that takes no other arguments.
+            `n.describe()` is the short form that everybody writes. Python turns it into the long form:
+            find `describe` in the class `Note`, and call it with `n` as the first argument. The first
+            parameter in the `def` line receives that object. Calling it `self` is a habit that every
+            Python programmer follows.
 
-            A method defined without `self` raises `TypeError` when you call it, because Python
-            still passes the object. This example catches the error and prints its message.
+            ```predict
+            class Note:
+                def __init__(self, text):
+                    self.text = text
+
+                def describe(self):
+                    return "Note: " + self.text
+
+            a = Note("buy milk")
+            b = Note("call Sam")
+            print(b.describe())
+            print(Note.describe(a))
+            ---
+            In `b.describe()`, the object in front of the dot is `b`, so `self.text` is `"call Sam"`. In the long form, `a` is passed in by hand, so `self.text` is `"buy milk"`.
+            ```
+
+            So every method needs that first parameter, even a method that takes nothing else. This
+            class has a method without it. The program catches the error and prints its message:
 
             ```python
             class Greeter:
                 def hello():
                     return "hello"
 
+            g = Greeter()
             try:
-                Greeter().hello()
+                g.hello()
             except TypeError as e:
                 print(e)
             # Greeter.hello() takes 0 positional arguments but 1 was given
             ```
 
-            The `1` in the message is the object that Python passed. When you see this message on
-            a method call, check the `def` line for `self`.
+            Positional arguments are the values that a call passes in, in order. `hello` accepts 0 of
+            them, because its parentheses in the `def` line are empty.
+
+            ```quiz
+            The call `g.hello()` has empty parentheses. What is the `1` in "but 1 was given"?
+            - [x] `g`, the object in front of the dot :: Right. Python passes it by itself on every method call, and `hello` has no parameter to receive it.
+            - [ ] The string `"hello"` :: That is what the method would hand back. It is never passed in.
+            - [ ] A mistake in the count, because the call passes nothing :: The call looks empty, but Python always adds the object in front of the dot as the first argument.
+            ```
+
+            **Watch out:** the message points at the call, but the mistake is in the `def` line. When a
+            method call "takes 0 positional arguments but 1 was given", or takes 1 when 2 were given,
+            look for a missing `self`.
+
+            **In short:** `obj.method()` passes `obj` in as the first argument, so the first parameter
+            of every method is `self`.
         ''',
         "difficulty": 0,
         "prompt": r'''
-            `Prompt("hi").shout()` should return the prompt's text in capitals, but it
-            crashes with a `TypeError`. Find and fix the one bug.
+            A `Prompt` object holds the text of a prompt. Its method `shout()` should give that text back
+            in capital letters. Instead, `Prompt("hi").shout()` stops with
+            `TypeError: Prompt.shout() takes 0 positional arguments but 1 was given`.
 
-            **Write:** fix the method `shout()` of the class `Prompt`
+            **Your job:** find the one bug in the class `Prompt` and fix it. The code is already in the
+            editor.
 
-            - **Returns:** the object's own `text` in upper case, e.g. `"HI"`
+            **What goes in**
+            - `Prompt(text)`: `text` is a string, for example `"hi"`. The class already stores it as the
+              attribute `text`.
+            - `shout()` is called with empty parentheses.
+
+            **What comes out**
+            - `shout()` gives back the text of its own object in upper case: `"HI"` for the example value
 
             **Rules**
-            - `shout()` must not change `text` itself (it returns a new string).
+            - Each prompt shouts its own text.
+            - `shout()` does not change the attribute `text`. After the call, it still holds the original
+              text.
 
             **Examples**
             ```python
-            Prompt("hi").shout()               # "HI"
-            Prompt("Summarize this").shout()   # "SUMMARIZE THIS"
+            Prompt("hi").shout()               # returns "HI"
+            Prompt("Summarize this").shout()   # returns "SUMMARIZE THIS"
             p = Prompt("abc")
-            p.shout()                          # "ABC"
+            p.shout()                          # returns "ABC"
             p.text                             # still "abc"
             ```
         ''',
@@ -598,66 +758,108 @@ EXERCISES = [
                     return self.text.upper()
         ''',
         "hints": [
-            "Compare the `def` line of `shout` with the `def` line of `__init__`.",
-            "Python always passes the object as the first argument to a method, so every method needs a parameter to receive it.",
-            "Add `self` as the parameter of `shout`: the body already uses it.",
+            "The message says that 1 argument was given, although the call has empty parentheses. The lesson explains what that one argument is.",
+            "Python passes the object in front of the dot to every method, and the method needs a parameter to receive it. Compare the `def` line of `shout` with the `def` line of `__init__`.",
+            "Only the `def` line of `shout` changes. Give it the first parameter that every method has. The body already uses that name, so leave the body as it is.",
         ],
     },
     {
         "id": "classes-s4",
         "title": "A method that counts words",
         "lesson": r'''
-            ## Methods that return a value
+            ## Asking an object a question
 
-            A method can read the object's attributes and return a result computed from them.
-            Inside the method, you reach each attribute through `self`.
+            You have an object that holds some text, and you want to know how many characters are in it. With what you know so far, you would write a function that takes the text as a parameter, and then call it with the text of the object. That works, but the data and the code that works on it live in two places, and you have to carry the data over every time.
+
+            A method keeps them together. You do not hand the text to anything. You ask the object:
 
             ```python
-            class Prompt:
+            class Chunk:
                 def __init__(self, text):
                     self.text = text
-
                 def char_count(self):
                     return len(self.text)
-
-            p = Prompt("Summarize this")
-            q = Prompt("Hi")
-            print(p.char_count())
+            a = Chunk("Summarize this")
+            b = Chunk("Hi")
+            print(a.char_count())
             # 14
-            print(q.char_count())
+            print(b.char_count())
             # 2
             ```
 
-            `p.char_count()` runs the method with `self` set to `p`. `q.char_count()` runs it with
-            `self` set to `q`. The same method returns two different results because `self.text`
-            is a different string in each call.
+            `char_count` receives nothing from the call, yet it knows which text to measure. Remember that `self` is the object in front of the dot. Inside the method, `self.text` is the `text` attribute of that object. So `a.char_count()` measures the text of `a`, `b.char_count()` measures the text of `b`, and one method gives a different answer for each object.
 
-            A method that only reads attributes and returns a result is sometimes called a
-            **query method**. A method is a function, so everything you know about functions
-            applies. It can use `if`, loops and string methods, and it must `return` its result.
+            Fill the gap so that the method looks at the text of its own object:
 
-            Writing `text` instead of `self.text` inside `char_count` raises `NameError`. `text`
-            was a parameter of `__init__`, and it stopped existing when `__init__` returned. Only
-            the attribute `self.text` still exists.
+            ```fill
+            class Chunk:
+                def __init__(self, text):
+                    self.text = text
+
+                def is_empty(self):
+                    return len(___) == 0
+
+            print(Chunk("").is_empty())
+            ---
+            - [x] self.text :: Right. The text of this object is the attribute `text`, and it is reached through `self`.
+            - [ ] text :: `text` was only a parameter of `__init__`, and it is gone once `__init__` finishes. In this method Python stops with `NameError: name 'text' is not defined`.
+            - [ ] self :: `self` is the whole object, not its text. `len(self)` stops with `TypeError: object of type 'Chunk' has no len()`.
+            ```
+
+            A method is a function, so everything you know about functions applies to it. It can use `if`, loops and string methods. And it has to `return` its answer, or the call gives back `None`.
+
+            ```try
+            class Note:
+                def __init__(self, text):
+                    self.text = text
+
+                def length(self):
+                    len(self.text)
+
+            n = Note("buy milk")
+            print(n.length())
+            ---
+            This program prints `None`, because `length` works out the number and then throws it away. Change the method so that the program prints `8`.
+            ---
+            class Note:
+                def __init__(self, text):
+                    self.text = text
+
+                def length(self):
+                    return len(self.text)
+
+            n = Note("buy milk")
+            print(n.length())
+            ---
+            A method that never reaches a `return` hands back `None`, exactly like a function does.
+            ```
+
+            **Watch out:** inside a method, write `self.text`, not `text`. The name `text` belongs to `__init__` and stopped existing when `__init__` finished, so the method stops with `NameError: name 'text' is not defined`.
+
+            **In short:** a method reaches the data of its own object through `self`, and hands its answer back with `return`.
         ''',
         "difficulty": 0,
         "prompt": r'''
-            A `Document` (like one you would index for RAG) should be able to count its words.
+            A `Document` holds a title and some text, for example a page that an AI app is going to read. The app wants to know how long each document is, counted in words.
 
-            **Write:** the method `word_count()` of the class `Document`
+            **Your job:** finish the method `word_count` of the class `Document`. The class and its `__init__` are already in the editor, and the body of `word_count` is still a placeholder (`...`). Replace it so that the method gives back how many words are in the text of its own document.
 
-            - **Returns:** an int, the number of words in the document's own `text`
-              (words are separated by whitespace: spaces, tabs, newlines)
+            **What goes in**
+            - `word_count()` takes no values. It works on the `text` attribute of the document it is called on, a string such as `"Summarize this page"`.
+
+            **What comes out**
+            - An int: the number of words in that text.
 
             **Rules**
+            - Words are separated by whitespace: spaces, tabs or new lines.
             - Empty text has `0` words.
-            - Each document counts its **own** text.
+            - Each document counts its own text. Two documents with different texts give different numbers.
 
             **Examples**
             ```python
-            Document("notes", "RAG uses retrieval").word_count()   # 3
-            Document("a", "one two").word_count()                  # 2
-            Document("empty", "").word_count()                     # 0
+            Document("notes", "Summarize this page").word_count()   # returns 3
+            Document("a", "one two\nthree").word_count()            # returns 3
+            Document("empty", "").word_count()                      # returns 0
             ```
         ''',
         "starter": r'''
@@ -695,20 +897,20 @@ EXERCISES = [
                     return len(self.text.split())
         ''',
         "hints": [
-            "Inside the method, the document's text is `self.text`.",
-            "Split the text into a list of words, then count the items in that list.",
-            "Return `len(...)` of `self.text.split()`.",
+            "Look again at how `char_count` in the lesson gets at the text of its own object. You need that same text here.",
+            "Get the separate words out of the text first, then count them. In the Strings chapter you met the string method that cuts a text at its whitespace and hands back a list of the words.",
+            "In order: take the text of this document through `self`. Cut it into a list of words with that string method, called with empty parentheses. Count the items in that list with the built-in that counts items. Return that number.",
         ],
     },
     {
         "id": "classes-s5",
         "title": "A tiny chat",
         "lesson": r'''
-            ## State
+            ## An object that remembers
 
-            An object keeps its attributes after a method returns. One method call can change an
-            attribute, and a later call can read the new value. The attribute values that an
-            object holds are its **state**.
+            A chat grows over time. You send one message, then another, and the chat still knows the first. Where does it keep the first one in the meantime? Not in a variable inside a method, because those variables disappear when the method returns. The answer is an attribute: it belongs to the object, so it is still there when the next method call arrives.
+
+            Here is a `History` that remembers whatever it is told:
 
             ```python
             class History:
@@ -723,39 +925,62 @@ EXERCISES = [
             h.remember("second")
             print(h.items)
             # ['first', 'second']
-            print(History().items)
-            # []
             ```
 
-            `h.remember("first")` runs `self.items.append("first")` with `self` set to `h`, so the
-            string is added to the list stored on `h`. `History()` on the last line creates a
-            second object. Its `__init__` creates a second list, which is empty.
+            `__init__` runs once, when the object is built, and stores an empty list on it. Every call to `remember` then adds to that same list. The list survives between the calls because it lives on `self`, not inside the method. The values that an object holds at a given moment are its **state**. Methods are how the rest of the program changes that state.
 
-            A method that changes the state is called a **mutating method**. It usually has no
-            `return` statement, so it returns `None`.
+            `remember` has no `return`, because its job is to change the object, not to hand something back. Try this one:
 
-            Create lists and dicts inside `__init__`. `__init__` runs once for each instance, so
-            every instance gets a new list.
+            ```predict
+            class History:
+                def __init__(self):
+                    self.items = []
 
-            `items = []` in the class body, outside any method, creates one list stored on the
-            class. `self.items` then refers to that same list in every instance, so an item
-            appended through one instance appears in all of them.
+                def remember(self, thing):
+                    self.items.append(thing)
+
+            a = History()
+            b = History()
+            print(a.remember("x"))
+            a.remember("y")
+            b.remember("z")
+            print(a.items)
+            print(b.items)
+            ---
+            `remember` has no `return`, so the first `print` shows `None`. `a` and `b` were built separately, and `__init__` gave each of them a new empty list. `x` and `y` went into the list of `a`, and `z` went into the list of `b`.
+            ```
+
+            Where the list is created matters:
+
+            ```quiz
+            A programmer puts the line `self.items = []` at the top of `remember`, just before the `append`. After three calls to `remember`, what does `items` hold?
+            - [x] Only the thing from the last call :: Right. Every call starts by replacing the list with a new empty one, so whatever was remembered before is thrown away.
+            - [ ] All three things :: That would need the list to be created once. Here the line runs again on every call, so each call starts from a new empty list.
+            - [ ] An empty list :: The `append` runs after the new list is created, so the latest thing is in it.
+            ```
+
+            **Watch out:** build the list in `__init__` and reach it as `self.items` everywhere. Writing `items = []` without `self.` makes an ordinary variable that is gone when `__init__` ends, and the next method that reads `self.items` stops with `AttributeError: 'History' object has no attribute 'items'`.
+
+            **In short:** an object remembers through its attributes: create them in `__init__`, change them in methods, and each object keeps its own.
         ''',
         "difficulty": 0,
         "prompt": r'''
-            A chat object that remembers the messages sent to it, in order.
+            A chat has to remember the messages that were sent to it, in order, so that a later step can send the whole history to a model. Here a message is just a piece of text, such as `"Hi"`.
 
-            **Write:** the class `Chat` (the starter has the two methods to fill in)
+            **Your job:** write the two methods of the class `Chat`. The class is in the editor with both bodies still empty (`...`). Make a new chat start with an empty history, and make `add` put a message at the end of it.
 
-            - `Chat()`: takes no arguments. It creates the attribute `messages`, a new
-              empty list.
-            - `add(text)`: `text` is a string like `"Hi"`. Puts it at the end of `messages`.
-              **Returns:** nothing.
+            **What goes in**
+            - `Chat()`: no values.
+            - `add(text)`: `text` is a string such as `"Hi"`.
+
+            **What comes out**
+            - `Chat()` gives an object with an attribute `messages` that holds an empty list.
+            - `add` gives back nothing. It changes `messages` instead.
 
             **Rules**
-            - A new chat's `messages` is `[]`.
-            - Messages stay in the order they were added.
-            - Every chat has its **own** list: adding to one chat must not change another.
+            - A new chat has `messages` equal to `[]`.
+            - Messages stay in the order they were added, with the newest at the end.
+            - Every chat has its own list. Adding a message to one chat must not change another chat.
 
             **Examples**
             ```python
@@ -766,7 +991,7 @@ EXERCISES = [
             c.messages       # ["Hi", "How are you?"]
 
             other = Chat()
-            other.messages   # [] (c's messages are not here)
+            other.messages   # [] (the messages of c are not here)
             ```
         ''',
         "starter": r'''
@@ -804,21 +1029,33 @@ EXERCISES = [
                     self.messages.append(text)
         ''',
         "hints": [
-            "Data that each object owns is created in `__init__` and stored on `self`.",
-            "In `__init__`, give `self.messages` a new empty list. In `add`, put `text` at the end of that same list.",
-            "1) `__init__`: set `self.messages` to `[]`. 2) `add`: call `.append(text)` on `self.messages`.",
+            "Look at `History` in the lesson. Ask yourself where its list is created, and where it is changed.",
+            "Create the empty list once, in `__init__`, and store it on the object under the name `messages`. In `add`, change that same list by putting the new text at its end.",
+            "In `__init__`, assign an empty list to the attribute `messages` of `self`. In `add`, reach `messages` through `self` and call the list method that adds one item at the end, passing it `text`. Neither method needs a `return`.",
         ],
     },
     {
         "id": "classes-s6",
         "title": "Make len() and print() work",
         "lesson": r'''
-            ## Special methods
+            ## Make len() and print() work on your own objects
 
-            Built-in functions such as `len()` and `str()` work on lists and strings. They also
-            work on your own objects when the class defines the matching **special method**. A
-            special method has two underscores on each side of its name, so it is also called a
-            **dunder** method (short for double underscore). `__init__` is one of them.
+            Try the built-in `len()` on an object that you built yourself, and Python refuses:
+
+            ```python
+            class Batch:
+                def __init__(self, items):
+                    self.items = items
+
+            b = Batch(["a", "b", "c"])
+            try:
+                len(b)
+            except TypeError as e:
+                print(e)
+            # object of type 'Batch' has no len()
+            ```
+
+            Python cannot guess what the length of a `Batch` should mean. Is it the number of items, or the number of characters in all of them? You decide, and you tell Python by writing a method with a name that Python looks for. When your code runs `len(b)`, Python looks for a method called `__len__` on `b` and calls it:
 
             ```python
             class Batch:
@@ -828,52 +1065,109 @@ EXERCISES = [
                 def __len__(self):
                     return len(self.items)
 
-                def __str__(self):
-                    return f"Batch of {len(self.items)}"
-
             b = Batch(["a", "b", "c"])
             print(len(b))
             # 3
-            print(str(b))
-            # Batch of 3
-            print(b)
-            # Batch of 3
             ```
 
-            `len(b)` calls `b.__len__()` and returns its result. `str(b)` calls `b.__str__()`.
-            `print(b)` converts `b` with `str()` first, so it prints the same text. You define
-            special methods and Python calls them. You do not normally call them yourself.
+            The name has two underscores on each side, like `__init__`. A method with a name like this is a **special method**. Programmers also call it a **dunder** method, short for "double underscore". You write it, and Python calls it at the right moment. You never call it yourself: you write `len(b)`, not `b.__len__()`.
 
-            The Python documentation describes all special methods under the name "data model".
+            ```fill
+            class Playlist:
+                def __init__(self, songs):
+                    self.songs = songs
 
-            `__len__` must return an int and `__str__` must return a string. A `__str__` that
-            prints the text and returns nothing makes `str(b)` raise
-            `TypeError: __str__ returned non-string (type NoneType)`.
+                def ___(self):
+                    return len(self.songs)
+
+            print(len(Playlist(["a", "b"])))
+            ---
+            - [x] __len__ :: Right. `len(playlist)` looks for a method with exactly this name.
+            - [ ] len :: This is an ordinary method, and `len(playlist)` does not look for it. Python stops with `TypeError: object of type 'Playlist' has no len()`.
+            - [ ] __length__ :: Python looks for one exact name, and this is not it. The call stops with `TypeError: object of type 'Playlist' has no len()`.
+            ```
+
+            `print` has the same problem. `print(b)` shows something like `<__main__.Batch object at 0x7f3a2c>`, the kind of object and a memory address, which tells you nothing. Before `print` shows an object, it turns it into text. For your own objects it looks for the special method `__str__`, which has to give the text back:
+
+            ```python
+            class Batch:
+                def __init__(self, items):
+                    self.items = items
+
+                def __str__(self):
+                    return f"Batch with {len(self.items)} items"
+
+            b = Batch(["a", "b", "c"])
+            print(b)
+            # Batch with 3 items
+            print(str(b))
+            # Batch with 3 items
+            ```
+
+            ```match
+            `len(b)` :: Python calls `__len__`
+            `print(b)` :: Python calls `__str__`
+            `Batch(["a"])` :: Python calls `__init__`
+            ---
+            Each of these three lines looks like an ordinary call, but behind each one Python looks for a method with a fixed name on your object.
+            ```
+
+            Now fix a `__str__` that shows the right text but does not give it back:
+
+            ```try
+            class Batch:
+                def __init__(self, items):
+                    self.items = items
+
+                def __str__(self):
+                    print(f"Batch of {len(self.items)}")
+
+            b = Batch(["a", "b"])
+            print(b)
+            ---
+            The text appears, but then the program stops with an error. Change the method so that `print(b)` shows `Batch of 2` and the program ends without an error.
+            ---
+            class Batch:
+                def __init__(self, items):
+                    self.items = items
+
+                def __str__(self):
+                    return f"Batch of {len(self.items)}"
+
+            b = Batch(["a", "b"])
+            print(b)
+            ---
+            `print` inside `__str__` shows the text and gives back `None`. `__str__` has to `return` the text, and then `print(b)` shows it.
+            ```
+
+            **Watch out:** `__str__` must return a string, not print one. A `__str__` that only prints gives back `None`, and Python stops with `TypeError: __str__ returned non-string (type NoneType)`.
+
+            **In short:** write `__len__` so that `len(obj)` works and `__str__` so that `print(obj)` shows readable text, and make both of them return their answer.
         ''',
         "difficulty": 0,
         "prompt": r'''
-            A `Snippet` holds a piece of text you might paste into a prompt. Make it work with
-            the built-in `len()` and `str()`/`print()`.
+            A `Snippet` holds a piece of text that you might paste into a prompt. You want the built-in `len()` and `print()` to understand it, so that `len(snippet)` gives its size and `print(snippet)` shows something readable instead of a memory address.
 
-            **Write:** fill in the two blanks (`___`) in the class `Snippet`
+            **Your job:** finish the class `Snippet`. It is already in the editor, with two special methods whose answers are missing (`___`). Fill in both gaps so that `len()` and `str()` (and therefore `print()`) work on a snippet.
 
-            - `Snippet(text)`: `text` is a string like `"hello"`, stored as `self.text`
-            - `len(snippet)` (special method `__len__`): **Returns** the number of characters
-              in `text` (an int)
-            - `str(snippet)` (special method `__str__`): **Returns** the string
-              `"Snippet: <text>"`
+            **What goes in**
+            - `Snippet(text)`: `text` is a string such as `"hello"`. The class already stores it as the attribute `text`.
+
+            **What comes out**
+            - `len(snippet)` gives an int: the number of characters in the text.
+            - `str(snippet)` gives the string `"Snippet: "` followed by the text, and `print(snippet)` prints that same line.
 
             **Rules**
-            - An empty snippet has length `0` and `str` gives `"Snippet: "`.
-            - `print(snippet)` therefore prints `Snippet: <text>`.
+            - An empty snippet has length `0`, and `str` of it gives `"Snippet: "`.
+            - The two methods give their answers back. They do not print them.
 
             **Examples**
             ```python
             s = Snippet("hello")
-            len(s)      # 5
-            str(s)      # "Snippet: hello"
-            print(s)    # prints: Snippet: hello
-            len(Snippet(""))   # 0
+            len(s)             # returns 5
+            str(s)             # returns "Snippet: hello"
+            print(s)           # prints Snippet: hello
+            len(Snippet(""))   # returns 0
             ```
         ''',
         "starter": r'''
@@ -919,65 +1213,76 @@ EXERCISES = [
                     return f"Snippet: {self.text}"
         ''',
         "hints": [
-            "Inside both methods the snippet's text is `self.text`.",
-            "`__len__` hands back the length of that text; `__str__` builds a new string with the label in front.",
-            "1) First blank: `len(...)` of `self.text`. 2) Second blank: an f-string with `Snippet: ` followed by `self.text` in braces.",
+            "Look at `Batch` in the lesson. What does each of its two special methods use to get at the data of the object?",
+            "`__len__` gives back how many characters the text has. `__str__` builds a new string that begins with the label and continues with the text. Both give their answer back with `return`.",
+            "First gap: the built-in that counts, applied to the text attribute of `self`. Second gap: an f-string that holds the label, a colon and a space, and then the text attribute of `self` inside curly braces.",
         ],
     },
     {
         "id": "classes-1",
         "title": "Message class",
         "lesson": r'''
-            ## `__repr__`
+            ## See what an object contains
 
-            `__str__` returns the text meant for users. `__repr__` returns the text meant for
-            developers. Python calls `obj.__repr__()` when you call `repr(obj)` and when you print a
-            list or a dict that contains the object.
-            A class without `__repr__` gets the default text `<__main__.Tool object at 0x7f...>`,
-            which shows no attribute values.
-
-            Write `__repr__` so that it returns the code that would create the object.
+            You print a list of objects while checking a chat history, but Python shows memory addresses instead of their contents. You need a useful description of each object so you can tell which data reached this part of your program.
 
             ```python
-            class Tool:
-                def __init__(self, name, cost):
-                    self.name = name
-                    self.cost = cost
-
+            class Label:
+                def __init__(self, text):
+                    self.text = text
                 def __repr__(self):
-                    return f"Tool(name={self.name!r}, cost={self.cost!r})"
+                    return f"Label({self.text!r})"
 
-            print(repr(Tool("search", 2)))
-            # Tool(name='search', cost=2)
-            print([Tool("calc", 0)])
-            # [Tool(name='calc', cost=0)]
+            print([Label("ready"), Label("")])
+            # [Label('ready'), Label('')]
             ```
 
-            Inside an f-string, `{value!r}` inserts `repr(value)` instead of `str(value)`. The
-            `repr` of a string includes its quotes, so the name appears as `'search'` and not as
-            `search`. The string `"2"` then appears as `'2'` and the int `2` as `2`, so you can
-            tell them apart.
+            Python asks each object for its developer-facing description by calling `__repr__`. That description is called its **representation**. You return a string; Python decides when to display it. Lists and dictionaries use these representations for the objects inside them.
 
-            If a class has `__repr__` but no `__str__`, `str(obj)` and `print(obj)` use `__repr__`.
+            The `!r` inside the braces asks for the value's own representation. For a string, that includes quotes and makes empty text visible. It also handles text containing quotation marks without you deciding which kind of quote to add.
 
-            `f"{self.name}"` leaves the quotes out. Use `f"{self.name!r}"`.
+            ```predict
+            text = "it's ready"
+            print(repr(text))
+            print(repr(""))
+            ---
+            The first representation uses double quotes because the text contains an apostrophe. The second shows two single quotes, making the empty string visible.
+            ```
+
+            Remember the earlier `__str__` method? That is intended for a person using your app. `__repr__` is intended for someone inspecting its data. If you define only `__repr__`, Python also uses it when you print the object directly.
+
+            ```quiz
+            What must your `__repr__` method give back?
+            - [x] A string describing the object :: Python can display that string wherever a representation is needed.
+            - [ ] A call to print :: Printing has a side effect but does not supply the required string.
+            - [ ] The object itself :: Python needs text, not another request to describe the same object.
+            ```
+
+            **Watch out:** returning a dictionary from `__repr__` raises `TypeError: __repr__ returned non-string`. Build text even when the object holds dictionary-shaped data.
+
+            **In short:** `__repr__` supplies useful debugging text, and `!r` preserves the visible form of each value.
         ''',
         "hints": [
-            "You need three methods: `__init__` to store the values, `to_dict`, and `__repr__` (what `repr()` shows).",
-            "`__init__` stores `role` and `content` on `self`; `to_dict` builds a dict from `self.role` and `self.content`; `__repr__` returns a string built with an f-string.",
-            "In `__repr__`, put `!r` after each value inside the f-string braces (for example `self.role!r`) so the values get quotes exactly like `repr()` gives them, and match the format `Message(role=..., content=...)`.",
+            "Revisit the difference between an object's stored data and its displayed representation.",
+            "Each requested method has a separate job: remember values, export data, or describe it as text.",
+            "Store the two inputs during construction. Build a fresh dictionary for export. Format the description with the values' own representations so quotes are handled correctly.",
         ],
         "difficulty": 1,
         "prompt": r'''
             A chat message object, the kind you send to an LLM API.
 
-            **Write:** the class `Message`
+            **Your job:** write the class `Message`
+
+            **What goes in**
 
             - `Message(role, content)`: `role` is a string like `"user"`, `content` is a
               string like `"hi"`. Store them as the attributes `role` and `content`.
-            - `to_dict()`: **Returns** a dict `{"role": <role>, "content": <content>}`.
-            - `repr(msg)` (write the special method `__repr__`): **Returns** a string like
+            - `to_dict()`: **Gives back** a dict `{"role": <role>, "content": <content>}`.
+            - `repr(msg)` (write the special method `__repr__`): **Gives back** a string like
               `Message(role='user', content='hi')`.
+
+            **What comes out**
+            - Each instance stores its own role and content. `to_dict()` gives back the two-field dictionary; `repr()` gives back the exact developer-facing description specified above.
 
             **Rules**
             - In the `repr` string each value appears as its own `repr()` would show it
@@ -1039,84 +1344,91 @@ EXERCISES = [
         "id": "classes-2",
         "title": "Token counter",
         "lesson": r'''
-            ## Class attributes
+            ## Share a setting without sharing a running total
 
-            An instance attribute is stored separately on each instance. A **class attribute** is
-            stored once, on the class. You create it by assigning a name directly in the class
-            body, outside any method.
+            Several text processors should start with the same size limit, but each needs to remember its own name. Keeping the shared setting on the class lets you change that default once instead of updating every object separately.
 
             ```python
-            class Chunker:
-                size = 100            # class attribute
+            class Reader:
+                limit = 80
+                def __init__(self, label):
+                    self.label = label
 
-                def __init__(self, name):
-                    self.name = name  # instance attribute
-
-            a = Chunker("a")
-            b = Chunker("b")
-            print(a.size, b.size)
-            # 100 100
-            Chunker.size = 50
-            print(a.size, b.size)
-            # 50 50
+            first = Reader("notes")
+            second = Reader("email")
+            Reader.limit = 40
+            print(first.limit, second.limit)
+            # 40 40
             ```
 
-            Click each stage to see how Python finds the value of `a.size`.
+            The assignment directly inside the class creates a **class attribute**. It belongs to `Reader`, rather than to one reader. The assignment to `self.label` creates an instance attribute, as you learned earlier.
 
-            ```diagram
-            {"type":"flow","title":"How Python reads a.size","steps":[{"label":"Look on the instance","detail":"Python looks for the name size among the attributes stored on a. The only attribute stored there is name.","code":"vars(a) -> {'name': 'a'}"},{"label":"Look on the class","detail":"size is not stored on a, so Python looks on the class of a, which is Chunker. It finds size there.","code":"Chunker.size -> 100"},{"label":"Return the value","detail":"a.size evaluates to 100. Reading b.size takes the same two lookups and reads the same class attribute.","code":"a.size -> 100\nb.size -> 100"}]}
+            When you read `first.limit`, Python looks on `first` first. If that object has no `limit` of its own, Python looks on its class. The same lookup works through `self.limit` inside a method. This is why changing the class setting affects later calculations.
+
+            ```predict
+            class Reader:
+                limit = 80
+
+            a = Reader()
+            b = Reader()
+            a.limit = 15
+            print(a.limit, b.limit, Reader.limit)
+            ---
+            Assigning through a creates an attribute on that one object. It hides the class setting for a, while b still reads the class value of 80.
             ```
 
-            The same lookup happens for `self.size` inside a method. That is why a method can
-            read a class attribute through `self`, and why `Chunker.size = 50` changes the value
-            that every instance reads.
+            Keep changing data, such as a running count, on each instance. Otherwise two independent jobs can accidentally share one list or total. A class setting is appropriate when all instances should read the same default.
 
-            Use class attributes for settings and constants that belong to the whole class, such
-            as a `chars_per_token` ratio.
+            For rough size estimates, `math.ceil` rounds a division upward: an unfinished group still needs a whole slot.
 
-            Do not write the number a second time inside a method. Read it through `self.`, so
-            that a change to the class attribute takes effect. A list assigned as a class
-            attribute is one list that every instance uses.
+            ```fill
+            import math
+            print(math.___(9 / 4))
+            ---
+            - [x] ceil :: Three slots are needed to hold nine items in groups of four.
+            - [ ] floor :: Two rounds downward and leaves one item unaccounted for.
+            ```
+
+            **Watch out:** writing a fixed number inside a method ignores future changes to the setting. The code runs, but gives a stale estimate.
+
+            **In short:** class attributes hold shared settings; instance attributes hold each object's changing data.
         ''',
         "hints": [
-            "A class attribute is written directly in the class body (not in `__init__`); per-object data goes on `self` inside `__init__`.",
-            "Put `chars_per_token = 4` in the class body and `self.total = 0` in `__init__`. `add` works out the tokens, adds them to the total and returns them.",
-            "1) `import math`; `math.ceil(...)` rounds up. 2) tokens = ceil of `len(text)` divided by `self.chars_per_token`. 3) Add tokens to `self.total` with `+=` and return tokens. 4) `reset` sets `self.total` back to 0.",
+            "Which data should all counters share, and which data must belong to one counter?",
+            "Keep the estimate ratio on the class and the running total on each object. An estimate for one call is different from the accumulated total.",
+            "Set up the shared ratio and initial total. For add, divide the text length by the current ratio, round upward, update the total, and give back this call's estimate. Reset only the running total.",
         ],
         "difficulty": 1,
         "prompt": r'''
-            A rough token counter, to keep track of how much text you have sent to a model.
+            A chat app wants an estimate of how much text each session has sent. This is a rough character-based estimate, not a model tokenizer.
 
-            **Write:** the class `TokenCounter`
+            **Your job:** write `TokenCounter`, which remembers a running total and estimates each new piece of text.
 
-            - `chars_per_token`: a **class attribute** (written in the class body, shared
-              by all counters) with the value `4`.
-            - `TokenCounter()`: takes no arguments. Each counter gets its own attribute
-              `total`, starting at `0`.
-            - `add(text)`: `text` is a string like `"hello world"`. Estimates its tokens as
-              `len(text)` divided by `chars_per_token`, **rounded up** to a whole number
-              (`math.ceil` from the `math` module rounds up: write `import math` at the top
-  of the file). Adds that to `total`.
-              **Returns:** the token estimate for this text (an int).
-            - `reset()`: sets `total` back to `0`.
+            **What goes in**
+            - `TokenCounter()` creates a counter with no arguments.
+            - `add(text)` receives a string, such as `"hello world"`.
+            - `reset()` receives no extra values.
+
+            **What comes out**
+            - `add` gives back the integer estimate for that one text.
+            - The attribute `total` reports the accumulated estimates.
 
             **Rules**
-            - Read `chars_per_token` through the object/class (e.g. `self.chars_per_token`),
-              not a hard-coded `4`: if someone changes `TokenCounter.chars_per_token` to `2`,
-              `add("abcde")` must return `3`.
-            - Empty text is `0` tokens.
-            - Each counter has its own `total`: adding to one does not change another.
+            - The class attribute `chars_per_token` starts at `4` and is shared by counters.
+            - Estimate tokens by dividing the character count by the current ratio and rounding upward to a whole number. The standard-library function `math.ceil` performs upward rounding.
+            - Read the current ratio: changing `TokenCounter.chars_per_token` to `2` makes five characters count as three tokens.
+            - Each instance starts with its own total of zero. Adding to one does not change another.
+            - Empty text contributes zero. Reset makes the running total zero again.
 
             **Examples**
             ```python
             c = TokenCounter()
-            c.add("hello world")   # 3   (11 chars / 4 = 2.75, rounded up)
-            c.add("hi")            # 1
-            c.total                # 4
-            c.add("")              # 0
+            c.add("hello world")  # returns 3
+            c.add("hi")           # returns 1
+            c.total               # 4
+            c.add("")             # returns 0
             c.reset()
-            c.total                # 0
-            TokenCounter().total   # 0
+            c.total               # 0
             ```
         ''',
         "starter": r'''
@@ -1183,60 +1495,60 @@ EXERCISES = [
         "id": "classes-7",
         "title": "Equal usage records",
         "lesson": r'''
-            ## `__eq__`
+            ## Decide when two records mean the same thing
 
-            By default, `a == b` on your own objects is `True` only when `a` and `b` are the same
-            object. Two separate instances are not equal, even if every attribute has the same
-            value.
+            You load the same record twice. Python creates two objects, but you want to treat them as equal when their contents agree. Without your own comparison method, two separate objects of a plain class usually compare as different.
 
             ```python
-            class Point:
-                def __init__(self, x):
-                    self.x = x
-
-            print(Point(1) == Point(1))
-            # False
-
-            class Coord:
-                def __init__(self, x):
-                    self.x = x
-
+            class Tag:
+                def __init__(self, text):
+                    self.text = text
                 def __eq__(self, other):
-                    if not isinstance(other, Coord):
-                        return NotImplemented
-                    return self.x == other.x
+                    return self.text == other.text if isinstance(other, Tag) else NotImplemented
 
-            print(Coord(1) == Coord(1))
+            print(Tag("draft") == Tag("draft"))
             # True
-            print(Coord(1) == 1)
-            # False
             ```
 
-            `a == b` calls `a.__eq__(b)`. When you define `__eq__(self, other)`, you decide what
-            equal means for your class. Usually it means that the attributes that matter are
-            equal. To check several attributes at once, compare two tuples:
-            `(self.x, self.y) == (other.x, other.y)`.
+            The `==` operation asks the special method `__eq__` to compare this object with the other value. Here, equality means equal text. You decide which attributes matter; two different records should not become equal merely because one attribute happens to match.
 
-            `isinstance(other, Coord)` is `True` when `other` is an instance of `Coord`.
+            The `isinstance` check answers whether the other value belongs to the expected class. Do that before reading its attributes, because an unrelated value may not have them.
 
-            `NotImplemented` is a built-in value, not an exception. Returning it means that this
-            method cannot compare `self` with `other`. Python then uses its default comparison
-            (are they the same object?), so `==` gives `False` and no exception is raised.
+            ```quiz
+            A record has a file name and a version. Both determine its identity. Which comparison is sufficient?
+            - [x] Both file name and version agree :: A change to either part describes a different record.
+            - [ ] Only the file names agree :: This would treat two versions of a file as the same record.
+            - [ ] The objects were created next to each other :: Creation order says nothing about their contents.
+            ```
 
-            Do not `raise NotImplementedError` here. That is an exception with a different
-            purpose. `__eq__` returns the value `NotImplemented`.
+            Returning the special value `NotImplemented` says your method does not support that other type. Python can try the other value's comparison method. If neither supports equality, distinct objects compare as false. This is different from throwing an exception.
+
+            ```match
+            `==` :: asks whether values compare equal
+            `is` :: asks whether names refer to the same object
+            `NotImplemented` :: tells Python this comparison is unsupported
+            ```
+
+            **Watch out:** reading `other.text` before checking the type can raise `AttributeError`. Also, `NotImplementedError` is an exception, not the value used to decline a comparison.
+
+            **In short:** define equality from the relevant attributes and handle unrelated types before accessing their data.
         ''',
         "difficulty": 1,
         "prompt": r'''
             Token-usage records from two runs should count as the same when they describe the
             same model and the same number of tokens.
 
-            **Write:** the class `Usage`
+            **Your job:** write the class `Usage`
+
+            **What goes in**
 
             - `Usage(model, tokens)`: `model` is a string like `"gpt-4o"`, `tokens` an int
               like `120`. Store them as the attributes `model` and `tokens`.
             - `==` (special method `__eq__`): two `Usage` objects are equal when **both**
               `model` and `tokens` are equal.
+
+            **What comes out**
+            - A `Usage` record stores its own two inputs. Comparing records gives a Boolean based on both fields; unrelated types compare as unequal.
 
             **Rules**
             - Same model but different tokens -> not equal. Same tokens but different
@@ -1291,65 +1603,56 @@ EXERCISES = [
                     return (self.model, self.tokens) == (other.model, other.tokens)
         ''',
         "hints": [
-            "Add a special method `__eq__(self, other)` to the class; Python calls it for `==`.",
-            "First make sure `other` is a `Usage` at all; if not, return the value that means the comparison is not supported. Otherwise compare both attributes of `self` with both attributes of `other`.",
-            "1) If `not isinstance(other, Usage)`, return `NotImplemented`. 2) Return whether `(self.model, self.tokens)` equals `(other.model, other.tokens)`.",
+            "Review the special method Python uses for equality.",
+            "Compare types before you compare attributes. Both fields matter for these records.",
+            "If the other value is unsupported, give Python the special unsupported-comparison value. Otherwise test that both stored fields agree.",
         ],
     },
     {
         "id": "classes-8",
         "title": "Guarded max_tokens",
         "lesson": r'''
-            ## Properties
+            ## Check a value whenever someone changes it
 
-            A normal attribute accepts any value. `agent.max_turns = -5` succeeds, and the error
-            appears only later, when other code uses that bad number.
-
-            A **property** is an attribute that runs a method each time you read it or assign to it.
-            You write two methods. Reading the attribute calls the **getter**.
-            Assigning to it calls the **setter**, which can check the value and raise an exception
-            before it stores anything.
+            A limit can be valid when an object is created and become invalid later. You want the same check to run both times, while callers still write an ordinary-looking assignment.
 
             ```python
-            class Agent:
-                def __init__(self, name):
-                    self.name = name          # calls the setter below
-
+            class Meter:
                 @property
-                def name(self):               # getter: runs on a.name
-                    return self._name
-
-                @name.setter
-                def name(self, value):        # setter: runs on a.name = ...
-                    if value == "":
-                        raise ValueError("name must not be empty")
-                    self._name = value
-
-            a = Agent("helper")
-            print(a.name)
-            # helper
-            try:
-                a.name = ""
-            except ValueError as e:
-                print("refused:", e)
-            # refused: name must not be empty
-            print(a.name)
-            # helper
+                def amount(self):
+                    return self._amount
+                @amount.setter
+                def amount(self, value):
+                    if value < 0:
+                        raise ValueError("negative amount")
+                    self._amount = value
+            m = Meter()
+            m.amount = 7
+            print(m.amount)  # 7
             ```
 
-            A line that starts with `@` above a `def` is a **decorator**: Python passes the
-            function below it to the decorator and uses the result in its place. `@property`
-            makes `name` a property with that method as its getter. `@name.setter` adds the
-            second method as its setter.
+            The read method and write method together make a **property**. Reading `m.amount` calls the first method, called the **getter**. Assigning to it calls the second, called the **setter**. The setter receives the proposed value and decides whether to store it.
 
-            The value itself is stored in `self._name`. A leading underscore is a convention: it
-            marks an attribute as internal, so code outside the class should not use it.
+            A line beginning with `@` changes how the following function is installed; this is a **decorator**. Here, `@property` creates the property and `@amount.setter` attaches its write method.
 
-            `__init__` assigns `self.name`, which calls the setter. The value passed to
-            `Agent(...)` is therefore checked too.
+            ```quiz
+            The meter currently holds 7. A caller assigns -2 and catches the ValueError. What should the meter hold afterwards?
+            - [x] 7 :: The check raises before any assignment to the stored value happens.
+            - [ ] -2 :: That would mean invalid data was stored before validation finished.
+            - [ ] Nothing :: Raising an error does not erase an existing attribute.
+            ```
 
-            Inside the setter, assign to `self._name`, not `self.name`. Assigning to `self.name`
-            calls the setter again, which calls it again, until Python raises `RecursionError`.
+            The underlying value lives in `_amount`. The leading underscore tells other programmers this is an internal detail. It does not enforce privacy. In a class with `__init__`, assigning through the public property in that method applies the same validation during construction.
+
+            ```match
+            getter :: runs when the property is read
+            setter :: runs when the property is assigned
+            internal attribute :: stores the value behind the property
+            ```
+
+            **Watch out:** assigning to the public property inside its own setter calls the setter again. Eventually Python raises `RecursionError`. Store the accepted value under the internal name instead.
+
+            **In short:** a setter checks proposed values before replacing the stored value.
         ''',
         "research": {
             "note": "Skim the official description of the built-in `property` - look at the example with a getter, a setter and the `@x.setter` form - then come back.",
@@ -1361,12 +1664,17 @@ EXERCISES = [
         "prompt": r'''
             An LLM request whose `max_tokens` can never be set to a nonsense value.
 
-            **Write:** the class `Request`
+            **Your job:** write the class `Request`
+
+            **What goes in**
 
             - `Request(prompt, max_tokens=256)`: `prompt` is a string, stored as the
               attribute `prompt`. `max_tokens` is an int, default `256`.
             - `max_tokens`: must be a **property** (`@property` plus a setter) so every
               assignment is checked: in `__init__` and later (`req.max_tokens = 50`).
+
+            **What comes out**
+            - A `Request` stores the prompt and exposes the accepted token limit through a property. Invalid writes raise while preserving the previous limit.
 
             **Rules**
             - A value below `1` raises `ValueError` (`0` and negative numbers are refused;
@@ -1437,67 +1745,63 @@ EXERCISES = [
                     self._max_tokens = value
         ''',
         "hints": [
-            "You need a getter decorated with `@property` and a setter decorated with `@max_tokens.setter`, both named `max_tokens`.",
-            "Keep the real number in a hidden attribute like `self._max_tokens`. The setter checks the value before storing it; `__init__` just assigns `self.max_tokens` so it goes through the setter.",
-            "1) `__init__`: store `prompt`, then `self.max_tokens = max_tokens`. 2) Getter returns `self._max_tokens`. 3) Setter: if the value is below 1, raise `ValueError`; otherwise store it in `self._max_tokens`.",
+            "A constructor check alone cannot protect later assignments. Which feature intercepts writes?",
+            "Let the public property validate the number and keep its accepted value in a separate internal attribute.",
+            "Create the getter and setter. In the setter, reject values below the allowed boundary before storing anything. Have construction assign through that property too.",
         ],
     },
     {
         "id": "classes-9",
         "title": "Tools that inherit",
         "lesson": r'''
-            ## Inheritance
+            ## Reuse a class and change one operation
 
-            **Inheritance** lets you define a class that starts with every method of an existing
-            class. You write `class Child(Parent):`. Instances of `Child` can use all the methods
-            of `Parent`, so in `Child` you write only what is different.
+            Several tools may need the same label and setup but do different work. Copying every method into each tool makes later fixes harder. You can start from an existing class and replace only the behavior that differs.
 
             ```python
-            class Model:
-                def __init__(self, name):
-                    self.name = name
+            class Formatter:
+                def format(self, text):
+                    return text
+                def show(self, text):
+                    return "result: " + self.format(text)
+            class QuietFormatter(Formatter):
+                def format(self, text):
+                    return text.lower()
 
-                def label(self):
-                    return f"model {self.name} ({self.kind()})"
-
-                def kind(self):
-                    return "generic"
-
-            class ChatModel(Model):
-                def __init__(self, name, max_turns):
-                    super().__init__(name)      # run the parent's __init__
-                    self.max_turns = max_turns
-
-                def kind(self):                 # override one method
-                    return "chat"
-
-            m = ChatModel("gpt-4o", 10)
-            print(m.label())
-            # model gpt-4o (chat)
-            print(m.max_turns, isinstance(m, Model))
-            # 10 True
+            print(QuietFormatter().show("HELLO"))
+            # result: hello
             ```
 
-            `Model` is the **base class** (or parent) and `ChatModel` is the **subclass** (or
-            child). Defining `kind` again in the subclass **overrides** it: `ChatModel` objects
-            use the new version.
+            `QuietFormatter(Formatter)` makes the new class inherit methods from the existing one. This is **inheritance**. The original class is the **base class**; the new one is a **subclass**. Defining `format` again **overrides** that method.
 
-            Click each stage to see which methods Python runs for `m.label()`.
+            Notice that the inherited `show` still calls the new `format`. Its `self` is a `QuietFormatter`, so method lookup begins with that object's class. One shared operation can therefore adapt to the actual kind of object. This is **polymorphism**.
 
-            ```diagram
-            {"type":"flow","title":"What Python does on m.label()","steps":[{"label":"Find label","detail":"Python looks for label on the class of m, which is ChatModel. ChatModel does not define it, so Python looks on the base class Model and finds it.","code":"m.label  ->  Model.label"},{"label":"Run Model.label","detail":"Python calls Model.label with m as self. The f-string needs the value of self.kind().","code":"self = m   # a ChatModel\nf\"model {self.name} ({self.kind()})\""},{"label":"Find kind","detail":"self is a ChatModel, so the lookup starts at ChatModel again. ChatModel defines kind, so Model.kind is not used.","code":"self.kind  ->  ChatModel.kind\nself.kind() -> 'chat'"},{"label":"Return the string","detail":"Model.label returns the finished string and print shows it.","code":"model gpt-4o (chat)"}]}
+            ```predict
+            class Formatter:
+                def format(self, text):
+                    return text
+            class QuietFormatter(Formatter):
+                def format(self, text):
+                    return text.lower()
+            f = QuietFormatter()
+            print(isinstance(f, Formatter))
+            print(f.format("READY"))
+            ---
+            A subclass instance also belongs to its base class, so the first result is True. The subclass's replacement format method makes the second result ready.
             ```
 
-            `label` is written once, in `Model`, and still calls the subclass's `kind`. One call
-            that runs a different method depending on the object's class is **polymorphism**.
+            Sometimes a subclass needs extra setup. Inside its `__init__`, `super().__init__(...)` runs the base class's setup on the same object. You then store the additional fields. `super()` lets you reuse the original behavior without copying it.
 
-            `super().__init__(name)` calls the parent's `__init__` on the same object. The parent
-            stores `name`, and then the child stores its own attribute. `isinstance(m, Model)` is
-            `True` because an instance of a subclass is also an instance of the base class.
+            ```quiz
+            The subclass does not define a method that the base class provides. What happens when you call it?
+            - [x] Python uses the inherited method :: Missing methods are looked up on the base class.
+            - [ ] Python always raises AttributeError :: Inheritance is precisely what makes the existing method available.
+            - [ ] Python builds a separate base-class object :: The inherited method works on the original subclass object.
+            ```
 
-            A base class can require every subclass to define a method. It defines the method
-            with a body that raises `NotImplementedError`. A subclass that does not override the
-            method raises that exception when the method is called.
+            **Watch out:** overriding `__init__` does not automatically run the base version. Missing its setup can cause an `AttributeError` when inherited methods read the absent attributes.
+
+            **In short:** inherit shared behavior, override differences, and use `super()` when you need the original method too.
         ''',
         "research": {
             "note": "Read the tutorial section on inheritance and the entry for `super()`, then come back.",
@@ -1511,16 +1815,21 @@ EXERCISES = [
             An agent has several tools. They share a base class, and each subclass only
             changes what is different.
 
-            **Write:** the subclasses `UpperTool` and `PrefixTool` (the base class `Tool` is
+            **Your job:** write the subclasses `UpperTool` and `PrefixTool` (the base class `Tool` is
             in the starter: don't change it)
 
+            **What goes in**
+
             **`UpperTool`**, a subclass of `Tool`
-            - `run(text)`: **Returns** `text` in upper case.
+            - `run(text)`: **Gives back** `text` in upper case.
 
             **`PrefixTool`**, a subclass of `Tool`
             - `PrefixTool(name, prefix)`: stores `name` by calling the parent's `__init__`
               with `super()`, and stores `prefix` (a string) as the attribute `prefix`.
-            - `run(text)`: **Returns** `prefix + text`.
+            - `run(text)`: **Gives back** `prefix + text`.
+
+            **What comes out**
+            - Instances expose the inherited description and each subclass's required text-processing result. The base `Tool` stays unchanged.
 
             **Rules**
             - Both must inherit from `Tool`.
@@ -1612,18 +1921,18 @@ EXERCISES = [
                     return self.prefix + text
         ''',
         "hints": [
-            "Put the parent class in brackets after the subclass name: `class UpperTool(Tool):`.",
-            "`UpperTool` only needs its own `run`. `PrefixTool` needs an `__init__` that lets the parent store the name, then stores the prefix itself, plus its own `run`.",
-            "1) `class UpperTool(Tool):` with `run` returning `text.upper()`. 2) `class PrefixTool(Tool):` with `__init__(self, name, prefix)` calling `super().__init__(name)` then setting `self.prefix`. 3) Its `run` returns `self.prefix + text`.",
+            "Which methods are shared, and which methods need a different result?",
+            "The uppercase tool can reuse all the parent setup. The prefix tool needs additional data, so it extends the setup as well as the run behavior.",
+            "Declare both subclasses with the given parent. Override their run methods. In the prefix tool's constructor, call the parent setup through super before storing the extra value. Leave describe inherited.",
         ],
     },
     {
         "id": "classes-3",
         "title": "Conversation",
         "hints": [
-            "Keep the messages in a list created in `__init__`. `len(obj)` and `str(obj)` call the special methods `__len__` and `__str__`.",
-            "`add` checks the role against the three allowed ones before appending a dict. `__init__` can reuse `add` for the system message. `last` looks at the end of the list.",
-            "1) `__init__`: `self.messages = []`; if `system` is not None, call `self.add(\"system\", system)`. 2) `add`: raise `ValueError` for an unknown role, else append the dict. 3) `__len__`: length of the list. 4) `last`: the last item, or None when empty. 5) `__str__`: join `role: content` lines with a newline.",
+            "Think about the list that belongs to each conversation and the special methods for len and str.",
+            "Validate a role before changing the history. Treat an empty history explicitly when looking for its last message.",
+            "Start each instance with its own list and add an optional system message. Append accepted messages, report the list length, return the last item when present, and join display lines without a trailing newline.",
         ],
         "difficulty": 2,
         "placement": True,
@@ -1631,18 +1940,23 @@ EXERCISES = [
             A conversation object that keeps the message history you would send to a chat
             model. Each message is a dict like `{"role": "user", "content": "Hi"}`.
 
-            **Write:** the class `Conversation`
+            **Your job:** write the class `Conversation`
+
+            **What goes in**
 
             - `Conversation(system=None)`: `system` is an optional string like
               `"Be brief."`. If it is given, the conversation starts with the message
               `{"role": "system", "content": <system>}`; otherwise it starts empty.
             - `messages` (attribute): the list of message dicts, oldest first.
             - `add(role, content)`: appends `{"role": role, "content": content}` to
-              `messages`. **Returns:** nothing.
-            - `len(conv)` (special method `__len__`): **Returns** the number of messages (an int).
-            - `last()`: **Returns** the last message dict, or `None` if there are no messages.
-            - `str(conv)` (special method `__str__`): **Returns** one line per message in
+              `messages`. **What comes out:** nothing.
+            - `len(conv)` (special method `__len__`): **Gives back** the number of messages (an int).
+            - `last()`: **Gives back** the last message dict, or `None` if there are no messages.
+            - `str(conv)` (special method `__str__`): **Gives back** one line per message in
               the form `role: content`, lines joined with `"\n"` (no newline at the end).
+
+            **What comes out**
+            - A conversation exposes its ordered history. Its length, last-message lookup, and string display reflect that same history, including the empty cases.
 
             **Rules**
             - `role` must be `"system"`, `"user"` or `"assistant"`. Any other role raises
@@ -1734,15 +2048,17 @@ EXERCISES = [
         "id": "classes-4",
         "title": "Validated model config",
         "hints": [
-            "Use `@property` for the getter and `@temperature.setter` for the setter, and keep the real value in a 'private' attribute such as `self._temperature`.",
-            "The setter checks the type first (reject bools explicitly: `True` counts as an int), then the range, and only stores the value when both checks pass. Assigning `self.temperature` in `__init__` goes through the setter too.",
-            "1) `__init__` stores `model` and assigns `self.temperature`. 2) Setter: bool or not int/float -> `TypeError`; outside 0.0..2.0 -> `ValueError`; else store in `self._temperature`. 3) `__eq__`: non-ModelConfig -> `NotImplemented`, else compare `(model, temperature)` tuples. 4) `__repr__` with `!r` on the model.",
+            "Combine the property, equality, and representation ideas from this chapter.",
+            "Check type before range. A Boolean needs explicit rejection because Python also treats it as an integer.",
+            "Validate through the setter during construction and later writes, storing only accepted values. Compare both fields for compatible objects, and build the specified representation using quoted model text.",
         ],
         "difficulty": 2,
         "prompt": r'''
             A model config that refuses bad temperature values, so a typo can't reach the API.
 
-            **Write:** the class `ModelConfig`
+            **Your job:** write the class `ModelConfig`
+
+            **What goes in**
 
             - `ModelConfig(model, temperature=0.7)`: `model` is a string like `"gpt-4o"`,
               stored as the attribute `model`. `temperature` is a number, default `0.7`.
@@ -1750,8 +2066,11 @@ EXERCISES = [
               every assignment is checked: in `__init__` and later (`cfg.temperature = 1.5`).
             - `==` (special method `__eq__`): two configs are equal when both `model` and
               `temperature` are equal.
-            - `repr(cfg)` (special method `__repr__`): **Returns** a string like
+            - `repr(cfg)` (special method `__repr__`): **Gives back** a string like
               `ModelConfig('gpt-4o', temperature=0.7)`.
+
+            **What comes out**
+            - A config stores a valid model and temperature, supports value equality, and provides the exact representation shown in the examples.
 
             **Rules**
             - A value that is not an `int` or `float` raises `TypeError`. `True`/`False`
@@ -1858,9 +2177,9 @@ EXERCISES = [
         "id": "classes-5",
         "title": "Provider polymorphism",
         "hints": [
-            "This is inheritance: the subclasses reuse `ask` from the base class and only replace `complete`.",
-            "The base `ask` calls `self.complete(prompt)`, so whichever subclass `self` is, its own `complete` runs. `CannedProvider` needs an extra `reply`, so its `__init__` first hands `model` to the parent's `__init__`.",
-            "1) `LLMProvider`: `name = \"base\"`, `__init__` stores model, `complete` raises `NotImplementedError`, `ask` formats `[name/model] ` plus `self.complete(prompt)`. 2) `EchoProvider(LLMProvider)`: its name, `complete` returns the prompt. 3) `CannedProvider`: `super().__init__(model)`, store reply, `complete` returns it. 4) `ask_all`: list of each provider's `ask(prompt)`.",
+            "The shared ask method should be able to work with a subclass you have never seen.",
+            "Let ask call the current object's completion method instead of checking which subclass it is.",
+            "Put shared model storage and display formatting in the base. Give each subclass its own completion behavior and name; extend parent setup for the stored reply. Ask every provider in input order.",
         ],
         "difficulty": 3,
         "prompt": r'''
@@ -1868,22 +2187,24 @@ EXERCISES = [
             small class hierarchy for that (this is *inheritance*; calling the same method
             on different classes is *polymorphism*).
 
-            **Write:** the classes `LLMProvider`, `EchoProvider`, `CannedProvider` and the
+            **Your job:** write the classes `LLMProvider`, `EchoProvider`, `CannedProvider` and the
             function `ask_all(providers, prompt)`
 
+            **What goes in**
+
             **`LLMProvider`** (the base class)
-            - class attribute `name = "base"`
+            - class attribute `name` containing `"base"`
             - `LLMProvider(model)`: `model` is a string like `"e1"`, stored as the attribute `model`
             - `complete(prompt)`: raises `NotImplementedError` (subclasses replace it)
             - `ask(prompt)`: **Returns** the string `"[<name>/<model>] <completion>"`, where
               `<completion>` is what `self.complete(prompt)` returns
 
             **`EchoProvider`**, a subclass of `LLMProvider`
-            - class attribute `name = "echo"`
+            - class attribute `name` containing `"echo"`
             - `complete(prompt)` returns the prompt unchanged
 
             **`CannedProvider`**, a subclass of `LLMProvider`
-            - class attribute `name = "canned"`
+            - class attribute `name` containing `"canned"`
             - `CannedProvider(model, reply)`: stores `model` (via `super().__init__`) and
               `reply` (a string) as attributes
             - `complete(prompt)` returns `reply`, whatever the prompt
@@ -1891,6 +2212,9 @@ EXERCISES = [
             **`ask_all(providers, prompt)`**
             - `providers`: a list of provider objects (any subclass of `LLMProvider`)
             - **Returns:** a list with each provider's `ask(prompt)` result, in the same order
+
+            **What comes out**
+            - Provider calls give back labelled completion strings. `ask_all` gives back one such string per provider, in the supplied order.
 
             **Rules**
             - `EchoProvider` and `CannedProvider` must inherit from `LLMProvider`.
@@ -2010,9 +2334,9 @@ EXERCISES = [
         "id": "classes-6",
         "title": "Trimmed conversation",
         "hints": [
-            "Override both `__init__` and `add` in the subclass, and use `super()` to call the parent's versions instead of copying their code.",
-            "Set up your own attributes (`max_messages`, `dropped`) BEFORE calling `super().__init__`, because the parent may call `self.add` for the system message. After `super().add(...)`, while there are too many non-system messages, delete the first non-system one.",
-            "1) `__init__`: raise `ValueError` if `max_messages < 1`, store it, `self.dropped = 0`, then `super().__init__(system=system)`. 2) `add`: `super().add(role, content)` (keeps the role check). 3) While the count of non-system messages is above the max: find the index of the first non-system message, `del` it, add 1 to `dropped`.",
+            "An inherited constructor may call a method that your subclass overrides. What must already exist when that happens?",
+            "Initialize your trimming settings before running parent setup. Let the parent validate and append each message, then enforce your limit.",
+            "Check the limit, prepare your attributes, and reuse parent construction. After each accepted addition, count only non-system entries and remove the oldest of those until within the limit, counting each removal.",
         ],
         "difficulty": 3,
         "prompt": r'''
@@ -2020,7 +2344,9 @@ EXERCISES = [
             chats must forget old messages.
             The starter contains a working `Conversation` class. Do not change it.
 
-            **Write:** a subclass `TrimmedConversation` of `Conversation` that caps the history
+            **Your job:** write a subclass `TrimmedConversation` of `Conversation` that caps the history
+
+            **What goes in**
 
             - `TrimmedConversation(max_messages, system=None)`: `max_messages` is an int
               like `2`, the most **non-system** messages to keep. `system` works exactly
@@ -2029,6 +2355,9 @@ EXERCISES = [
             - `dropped` (attribute): an int, how many messages have been dropped so far
               (starts at `0`).
             - `messages` and `len(...)` still work as inherited.
+
+            **What comes out**
+            - A conversation retains the allowed recent messages and all system messages. Its `dropped` attribute records how many non-system messages were removed.
 
             **Rules**
             - If `max_messages` is less than `1`, raise `ValueError`.

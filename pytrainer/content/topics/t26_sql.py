@@ -290,43 +290,92 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Tables, rows and SQL
+            ## A table that remembers
 
-            A **database** stores data in tables. A **table** has a name and a fixed set of **columns**.
-            Each **row** is one record with one value per column. A table `messages` with the columns
-            `role` and `content` holds one row per chat message.
+            A chat app has to keep every message. A Python list forgets everything when the program stops.
+            A JSON file remembers, but to find one message you load the whole file and search it with a
+            loop of your own. With a hundred thousand messages, you would rather ask a question and get
+            back only the lines that answer it.
 
-            You give the database instructions in **SQL** (Structured Query Language). One instruction
-            is a **statement**. Python includes the `sqlite3` module, which runs **SQLite**: a database
-            that keeps all its tables in a single file. The path `":memory:"` keeps the database in
-            the computer's memory (RAM) instead, so nothing is written to disk and the data is gone
-            when the program ends.
+            Picture the documents of a search tool on a sheet of paper, with a heading over each column:
+
+            ```text
+            title | pages
+            ------+------
+            FAQ   |     3
+            Guide |    12
+            ```
+
+            A program that keeps data in sheets like this one, and searches them for you, is called a
+            **database**. Each sheet is a **table**, each line of it is a **row**, and each heading names a
+            **column**.
+
+            Python comes with a small database called SQLite, in the module `sqlite3`. This program builds
+            that table and reads it back:
 
             ```python
             import sqlite3
 
             conn = sqlite3.connect(":memory:")
-            conn.execute("CREATE TABLE notes (text TEXT)")
-            conn.execute("INSERT INTO notes VALUES ('check the token limit')")
-            rows = conn.execute("SELECT text FROM notes").fetchall()
+            conn.execute("CREATE TABLE docs (title TEXT, pages INTEGER)")
+            conn.execute("INSERT INTO docs VALUES ('FAQ', 3)")
+            conn.execute("INSERT INTO docs VALUES ('Guide', 12)")
+            rows = conn.execute("SELECT title, pages FROM docs").fetchall()
             print(rows)
-            # [('check the token limit',)]
-            print(rows[0][0])
-            # check the token limit
+            # [('FAQ', 3), ('Guide', 12)]
             ```
 
-            `sqlite3.connect(...)` returns a **connection**: the object that sends statements to the
-            database. `conn.execute(sql)` runs one statement. `CREATE TABLE` creates a table,
-            `INSERT INTO` adds a row and `SELECT` reads rows. Inside SQL, a string is written in
-            single quotes, so the Python string around the SQL uses double quotes.
+            `sqlite3.connect(":memory:")` opens a new, empty database. `":memory:"` means that it lives in
+            the computer's memory and is gone when the program ends, which suits experiments. What you get
+            back is a **connection**: the object you send your instructions through.
 
-            `.fetchall()` returns the rows as a list of tuples. Each tuple is one row. It has one item
-            for each column you selected, in the order you listed them.
+            The text inside `conn.execute(...)` is not Python. It is **SQL**, the language that databases
+            understand, and one instruction in SQL is a **statement**. Inside SQL, text goes in single
+            quotes, as in `'FAQ'`. That is why the Python string around each statement uses double quotes.
 
-            A `SELECT` of one column still returns tuples. The row above is `('check the token limit',)`,
-            a tuple with one item. `rows[0][0]` reads the string inside it.
+            ```match
+            `CREATE TABLE docs (...)` :: makes a new, empty table with the columns you list
+            `INSERT INTO docs VALUES (...)` :: adds one row, with a value for each column in order
+            `SELECT title, pages FROM docs` :: reads those two columns of every row
+            ---
+            `TEXT` and `INTEGER` say what kind of value each column holds. The next step looks at them.
+            ```
+
+            Each line of a program like this needs what the lines above it made. Put these lines in an
+            order that prints `[('small', 4)]`:
+
+            ```order
+            import sqlite3
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE models (name TEXT, price INTEGER)")
+            conn.execute("INSERT INTO models VALUES ('small', 4)")
+            print(conn.execute("SELECT name, price FROM models").fetchall())
+            ---
+            First the module, then the connection, then the table, then a row in it. Only then is there something to read. An `INSERT` that runs before the `CREATE TABLE` stops with `sqlite3.OperationalError: no such table: models`.
+            ```
+
+            ### What comes back
+
+            `.fetchall()` after a `SELECT` hands the rows to Python as a list. Each row is a tuple, and its
+            values are in the order in which the `SELECT` names the columns.
+
+            ```quiz
+            `rows` is `[('FAQ', 3), ('Guide', 12)]`. What is `rows[1][0]`?
+            - [x] `'Guide'` :: Yes. `rows[1]` is the second row, the tuple `('Guide', 12)`, and `[0]` is the first value in it.
+            - [ ] `'FAQ'` :: That is `rows[0][0]`. Counting starts at 0, so `rows[1]` is the second row.
+            - [ ] `3` :: That is `rows[0][1]`. The first index picks the row, and the second index picks the value inside that row.
+            - [ ] `12` :: That is `rows[1][1]`. Index `[0]` inside a row is the first column that the `SELECT` named, which is `title`.
+            ```
+
+            **Watch out:** without the single quotes, SQLite reads a word as the name of a column.
+            `VALUES (FAQ, 3)` stops with `sqlite3.OperationalError: no such column: FAQ`.
+
+            **In short:** you send SQL statements through a connection, and a `SELECT` followed by
+            `.fetchall()` hands the rows back as a list of tuples.
         ''',
-        "prompt": r'''Read the code and type exactly what it prints.''',
+        "prompt": r'''
+            Read the program in the editor. Type exactly what it prints, one line for each `print`.
+        ''',
         "code": r'''
             import sqlite3
             conn = sqlite3.connect(":memory:")
@@ -344,15 +393,20 @@ EXERCISES = [
             Hello!
         ''',
         "explanation": r'''
-            Two rows were inserted, so `fetchall()` returns a list of 2 tuples. `rows[0]` is the
-            first row as a tuple `('user', 'Hi')`. `rows[1][1]` is the second row, second column:
-            the assistant's content `Hello!`.
+            Two `INSERT` statements ran, so the table holds two rows and `fetchall()` hands back a list of
+            2 tuples. That makes `len(rows)` equal to `2`.
+
+            `rows[0]` is the first row. The `SELECT` names `role` first and `content` second, so the tuple
+            is `('user', 'Hi')`. When `print` shows a whole tuple, you see the brackets and the quotes.
+
+            `rows[1]` is the second row, `('assistant', 'Hello!')`, and `[1]` picks the second value in it.
+            When `print` shows one string, you see only its text: `Hello!`.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "fetchall() returns a list with one tuple per row.",
-            "Each tuple holds the columns in the order you listed them in SELECT: role, then content.",
-            "Line 1 is the number of rows, line 2 prints a whole tuple (with quotes and brackets), line 3 picks one value out of the second tuple.",
+            "`fetchall()` hands back a list with one tuple for each row. How many rows were put into the table?",
+            "Each tuple holds its values in the order in which the `SELECT` names the columns: the role first, then the content. Printing a whole tuple shows the brackets and the quotes. Printing one string shows only its text.",
+            "Your first line is the number of rows. Your second line is the whole first row, written the way Python prints a tuple. Your third line is one value: go to the second row, then to the second value in it.",
         ],
     },
     {
@@ -360,55 +414,120 @@ EXERCISES = [
         "title": "Create a usage table",
         "difficulty": 0,
         "lesson": r'''
-            ## CREATE TABLE and column types
+            ## A table of your own design
 
-            `CREATE TABLE name (column TYPE, column TYPE, ...)` creates an empty table. You write each
-            column name followed by its type.
-
-            SQLite has three common types. `TEXT` holds strings. `INTEGER` holds whole numbers. `REAL`
-            holds numbers with a decimal point. A column declared `INTEGER PRIMARY KEY` is the table's
-            **primary key**: a value that is different for every row. SQLite assigns it when you insert
-            a row without giving one.
+            A search tool keeps a record of every document it knows: its title, how many pages it has, and
+            a score for how useful it was. Before the first document can be stored, the table has to exist,
+            and you are the one who decides what it looks like.
 
             ```python
             import sqlite3
 
             conn = sqlite3.connect(":memory:")
-            conn.execute("CREATE TABLE documents (id INTEGER PRIMARY KEY, title TEXT, score REAL)")
-            for row in conn.execute("PRAGMA table_info(documents)"):
-                print(row[1], row[2])
-            # id INTEGER
-            # title TEXT
-            # score REAL
+            conn.execute("CREATE TABLE docs (title TEXT, pages INTEGER, score REAL)")
+            conn.execute("INSERT INTO docs VALUES ('FAQ', 3, 0.5)")
+            print(conn.execute("SELECT title, pages, score FROM docs").fetchall())
+            # [('FAQ', 3, 0.5)]
             ```
 
-            The list of a table's columns and their types is the table's **schema**.
-            `PRAGMA table_info(documents)` is a SQLite statement that returns one row per column. The
-            `for` loop reads those rows from the result of `execute`, one tuple at a time. Item
-            `1` of each row is the column name and item `2` is its type.
+            After the words `CREATE TABLE` comes the name of the table. Then, in brackets, comes one entry
+            for each column, with commas in between. An entry is the name of the column followed by the
+            kind of value it holds, which SQL calls its **type**.
 
-            `CREATE TABLE` raises `sqlite3.OperationalError: table documents already exists` when
-            the table already exists. `CREATE TABLE IF NOT EXISTS` does nothing in that case, so
-            it is safe to run every time your program starts.
+            ```match
+            `TEXT` :: a string, such as `'FAQ'`
+            `INTEGER` :: a whole number, such as `3`
+            `REAL` :: a number with a decimal point, such as `0.5`
+            ```
+
+            The names are yours to choose. Once chosen, every later statement has to spell them exactly the
+            same way. The table below was created with one column too few. Repair it:
+
+            ```try
+            import sqlite3
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE models (name TEXT)")
+            conn.execute("INSERT INTO models VALUES ('small', 8000)")
+            print(conn.execute("SELECT name, max_tokens FROM models").fetchall())
+            ---
+            The program stops with `table models has 1 columns but 2 values were supplied`. Give the table a second column called `max_tokens` that holds whole numbers, so that the program prints `[('small', 8000)]`.
+            ---
+            import sqlite3
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE models (name TEXT, max_tokens INTEGER)")
+            conn.execute("INSERT INTO models VALUES ('small', 8000)")
+            print(conn.execute("SELECT name, max_tokens FROM models").fetchall())
+            ---
+            The `INSERT` and the `SELECT` did not change. They only started to work once the table had a column with the name they use.
+            ```
+
+            ### A number for every row
+
+            Two rows can hold exactly the same values, and then nothing tells them apart. So most tables
+            get one more column, which numbers the rows:
+
+            ```python
+            import sqlite3
+
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE docs (id INTEGER PRIMARY KEY, title TEXT)")
+            conn.execute("INSERT INTO docs (title) VALUES ('FAQ')")
+            conn.execute("INSERT INTO docs (title) VALUES ('Guide')")
+            print(conn.execute("SELECT id, title FROM docs").fetchall())
+            # [(1, 'FAQ'), (2, 'Guide')]
+            ```
+
+            This `INSERT` names the columns it brings values for: `(title)`. It brings nothing for `id`,
+            so SQLite fills that column in by itself: 1 for the first row, 2 for the next. A column whose
+            value is different in every row is called a **primary key**, and `INTEGER PRIMARY KEY` asks
+            SQLite to hand out the numbers.
+
+            ```quiz
+            A program runs `CREATE TABLE docs (title TEXT)`. A few lines later it runs the same statement again. What happens the second time?
+            - [x] The program stops with an error :: Right. SQLite refuses to create a table that is already there: `sqlite3.OperationalError: table docs already exists`.
+            - [ ] The old table is thrown away and an empty one takes its place :: `CREATE TABLE` never removes anything. It stops with an error, and the old table and its rows stay as they were.
+            - [ ] Nothing happens, because the table is already there :: That would be convenient, but plain `CREATE TABLE` stops with an error when the name is taken.
+            ```
+
+            A program that may be started many times on the same database writes
+            `CREATE TABLE IF NOT EXISTS docs (...)`. That statement creates the table only when it is
+            missing.
+
+            **Watch out:** SQLite does not guess at names. After `CREATE TABLE docs`, a statement that
+            says `documents` stops with `sqlite3.OperationalError: no such table: documents`.
+
+            **In short:** `CREATE TABLE name (column TYPE, ...)` creates an empty table, and every later
+            statement must use exactly those names.
         ''',
         "prompt": r'''
-            An AI app records how many tokens each model call used. Create the table for it.
+            An AI app pays for every call to a model, and the price depends on the number of tokens. To
+            see where the money goes, the app writes down every call: which model answered, how many tokens
+            went in, and how many came out. Those records need a table.
 
-            **Write:** `create_usage_table(conn)`
+            **Your job:** finish `create_usage_table(conn)` so that it creates that table. The statement is
+            already written except for two gaps, each marked `___`. One gap is the name of the table and
+            the other is the name of a column.
 
-            - `conn`: an open `sqlite3` connection (the checks pass in an empty in-memory database)
-            - **Returns:** nothing (`None`) - it only creates the table
+            **What goes in**
+            - `conn`: an open connection to a database that has no tables yet
+
+            **What comes out**
+            - nothing. The function has no `return` line. Its result is the new, empty table in the
+              database.
 
             **Rules**
-            - The table is called exactly `usage`.
-            - It has exactly three columns, in this order: `model TEXT`, `input_tokens INTEGER`,
-              `output_tokens INTEGER`.
+            - The table is called `usage`.
+            - It has three columns, in this order: `model` (text), `input_tokens` (a whole number) and
+              `output_tokens` (a whole number).
+            - The names must match letter for letter. The checks read the table under exactly these names.
 
             **Examples**
             ```python
             conn = sqlite3.connect(":memory:")
             create_usage_table(conn)
-            conn.execute("INSERT INTO usage VALUES ('gpt-4o-mini', 120, 40)")   # now works
+            conn.execute("INSERT INTO usage VALUES ('gpt-4o-mini', 120, 40)")
+            conn.execute("SELECT model, input_tokens, output_tokens FROM usage").fetchall()
+            # returns [('gpt-4o-mini', 120, 40)]
             ```
         ''',
         "starter": r'''
@@ -448,9 +567,9 @@ EXERCISES = [
                 conn.execute("CREATE TABLE usage (model TEXT, input_tokens INTEGER, output_tokens INTEGER)")
         ''',
         "hints": [
-            "Fill both blanks with names from the prompt: one table name, one column name.",
-            "The table is `usage`; the missing column is the one that counts tokens sent to the model.",
-            "Replace the first `___` with `usage` and the second with `input_tokens`. No quotes needed around names inside the SQL.",
+            "Look at the first example in the lesson. What comes directly after the words `CREATE TABLE`, and what stands in front of each type?",
+            "The first gap is the place where the table gets its name. The second gap is the place where a column gets its name. Both names are in the Rules of the task.",
+            "The Rules list three columns in order. Two of them are already written in the statement, and the gap between them is for the one that is missing. Names inside SQL are written without quotes.",
         ],
     },
     {
@@ -458,66 +577,133 @@ EXERCISES = [
         "title": "Fix the unsafe insert",
         "difficulty": 0,
         "lesson": r'''
-            ## Placeholders and parameters
+            ## A value from outside, stored safely
 
-            A **placeholder** is a `?` in the SQL text that marks where a value goes. You pass the values
-            as a tuple in the second argument of `execute`. These values are called **query parameters**.
-            SQLite uses the first value for the first `?`, the second value for the second `?`, and so on.
+            So far you typed every value into the SQL yourself, as in `VALUES ('FAQ', 3)`. In a real app
+            the value arrives in a variable. A visitor types a note, and your program has to store whatever
+            they typed.
 
-            ```python
-            import sqlite3
-
-            conn = sqlite3.connect(":memory:")
-            conn.execute("CREATE TABLE messages (role TEXT, content TEXT)")
-            text = "It's done"
-            conn.execute("INSERT INTO messages (role, content) VALUES (?, ?)", ("user", text))
-            print(conn.execute("SELECT role, content FROM messages").fetchall())
-            # [('user', "It's done")]
-            ```
-
-            SQLite receives the SQL text and the values separately. It never reads a parameter as SQL, so
-            the apostrophe in `It's done` is stored as an ordinary character.
-
-            An f-string puts the value into the SQL text itself. The apostrophe then ends the SQL string
-            after `It`, and the rest is not valid SQL. This program raises on purpose.
+            The first idea is an f-string that pastes the value into the SQL text:
 
             ```python
-            import sqlite3
-
-            conn = sqlite3.connect(":memory:")
-            conn.execute("CREATE TABLE messages (role TEXT, content TEXT)")
             text = "It's done"
-            sql = f"INSERT INTO messages (role, content) VALUES ('user', '{text}')"
+            sql = f"INSERT INTO notes (author, text) VALUES ('guest', '{text}')"
             print(sql)
-            # INSERT INTO messages (role, content) VALUES ('user', 'It's done')
-            conn.execute(sql)
-            # sqlite3.OperationalError: near "s": syntax error
+            # INSERT INTO notes (author, text) VALUES ('guest', 'It's done')
             ```
 
-            The same mechanism lets a user change your statement: the text they type becomes part of the
-            SQL. This attack is called **SQL injection**. Text a user types is untrusted: it can
-            contain quotes and SQL words. Always pass it as parameters.
+            Look at the apostrophe in `It's`. To SQLite it is a single quote, and a single quote ends a
+            piece of text.
+
+            ```quiz
+            What happens when `conn.execute(sql)` sends that statement to SQLite?
+            - [x] The program stops with an error :: Right. The text ends after `It`. What follows, `s done')`, is not SQL, so SQLite stops with `sqlite3.OperationalError: near "s": syntax error`.
+            - [ ] The note is stored as `It's done` :: Python knows where the note ends, but SQLite only receives the finished text. In that text the apostrophe closes the quote after `It`.
+            - [ ] The note is stored as `It` :: SQLite does not keep the part it could read. A statement that it cannot read to the end fails as a whole, and nothing is stored.
+            ```
+
+            ### Keep the values out of the text
+
+            Write a `?` in each place where a value belongs. Then pass the values in a tuple, as a second
+            argument of `execute`:
+
+            ```python
+            import sqlite3
+
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE notes (author TEXT, text TEXT)")
+            text = "It's done"
+            conn.execute("INSERT INTO notes (author, text) VALUES (?, ?)", ("guest", text))
+            print(conn.execute("SELECT author, text FROM notes").fetchall())
+            # [('guest', "It's done")]
+            ```
+
+            SQLite now receives two separate things: the statement with its two question marks, and the
+            values. The first value goes to the first `?` and the second value to the second. A value that
+            arrives this way is stored as data and is never read as SQL, so its apostrophe is an ordinary
+            character. A `?` in a statement is called a **placeholder**, and the values in the tuple are
+            the **parameters** of the statement.
+
+            ```fill
+            import sqlite3
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE notes (author TEXT, text TEXT)")
+            author = "ada"
+            text = "Ship it"
+            conn.execute("INSERT INTO notes (author, text) VALUES (?, ?)", ___)
+            print(conn.execute("SELECT author, text FROM notes").fetchall())
+            ---
+            - [x] (author, text) :: Right. One tuple with a value for each `?`, in the order of the question marks. The program prints `[('ada', 'Ship it')]`.
+            - [ ] (text, author) :: The values go to the question marks in order, so this stores the note as the author and the author as the note: `[('Ship it', 'ada')]`.
+            - [ ] author, text :: Without the brackets these are two more arguments, and `execute` takes the SQL and one collection of values: `TypeError: execute expected at most 2 arguments, got 3`.
+            ```
+
+            ### Not only apostrophes
+
+            An apostrophe is an accident. The same gap can be used on purpose. One `INSERT` may add several
+            rows, each in its own brackets, and this visitor knows it:
+
+            ```python
+            import sqlite3
+
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE notes (author TEXT, text TEXT)")
+            typed = "hi'), ('boss', 'give the guest a raise"
+            conn.execute(f"INSERT INTO notes (author, text) VALUES ('guest', '{typed}')")
+            print(conn.execute("SELECT author, text FROM notes").fetchall())
+            # [('guest', 'hi'), ('boss', 'give the guest a raise')]
+            ```
+
+            The typed text closed your quote and your bracket and then added a second row. The table now
+            holds a note that the boss never wrote. Getting a database to run SQL that a user typed is
+            called **SQL injection**.
+
+            ```quiz
+            The same `typed` text is stored with `VALUES (?, ?)` and the tuple `("guest", typed)`. How many rows does the table hold afterwards?
+            - [x] One :: Right. The whole typed text, with its quotes and brackets, is stored as the note of `guest`. A parameter is never read as SQL.
+            - [ ] Two :: That is what the f-string caused, because there the typed text became part of the statement. A parameter stays a value.
+            - [ ] None, because the quotes in the text cause an error :: A parameter may hold any characters. Only text that is pasted into the statement can break it.
+            ```
+
+            **Watch out:** a placeholder has no quotes around it. `'?'` is the text of a question mark, so
+            `VALUES ('?', '?')` with two parameters stops with `sqlite3.ProgrammingError: Incorrect number
+            of bindings supplied. The current statement uses 0, and there are 2 supplied.`
+
+            **In short:** never paste a value into SQL text. Write `?` in the statement and pass the values
+            in a tuple.
         ''',
         "prompt": r'''
-            This function saves a chat message, but it builds the SQL with an f-string. It crashes
-            on messages like `"It's fine"` and is open to SQL injection.
+            A chat app saves every message in a table. The function that does the saving pastes its two
+            values into the SQL text with an f-string. That works for `Hello`. It crashes for `It's fine`,
+            and a user who types the right text can change what the statement does.
 
-            **Write:** fix `add_message(conn, role, content)`
+            **Your job:** fix `add_message(conn, role, content)` so that the two values no longer become
+            part of the SQL text. The code is already in the editor.
 
-            - `conn`: an open connection that already has a table `messages (role TEXT, content TEXT)`
-            - `role`: a `str` such as `"user"`
-            - `content`: a `str`, any text the user typed
-            - **Returns:** nothing (`None`)
+            **What goes in**
+            - `conn`: an open connection to a database that already has the table
+              `messages (role TEXT, content TEXT)`
+            - `role`: who wrote the message, a string such as `"user"`
+            - `content`: the text of the message, a string. It may contain any characters.
+
+            **What comes out**
+            - nothing. The function has no `return` line. Its result is one new row in `messages`.
 
             **Rules**
-            - Insert one row with the given role and content, stored **exactly** as given.
-            - Use `?` placeholders (a check looks for them in your code); no f-strings in the SQL.
-            - Text containing quotes or SQL must be stored as plain text and must not break anything.
+            - Each call adds exactly one row, with `role` and `content` stored exactly as they were given.
+            - An apostrophe, as in `It's fine`, is stored as part of the text.
+            - Text that looks like SQL is stored as plain text too. One check stores
+              `x'); DROP TABLE messages; --` and reads it back. (`DROP TABLE` is the SQL statement that
+              deletes a whole table.)
+            - One check reads your code. The SQL must contain `?` placeholders, and `{role}` and
+              `{content}` must be gone from it.
 
             **Examples**
             ```python
+            add_message(conn, "user", "Hello")
             add_message(conn, "user", "It's fine")
-            conn.execute("SELECT * FROM messages").fetchall()   # [("user", "It's fine")]
+            conn.execute("SELECT role, content FROM messages").fetchall()
+            # returns [("user", "Hello"), ("user", "It's fine")]
             ```
         ''',
         "starter": r'''
@@ -562,9 +748,9 @@ EXERCISES = [
                 conn.execute("INSERT INTO messages (role, content) VALUES (?, ?)", (role, content))
         ''',
         "hints": [
-            "The values should not be part of the SQL text at all.",
-            "Put one `?` where each value goes, and pass the real values as a second argument to execute.",
-            "Remove the `f` and the `'{...}'` parts, write `VALUES (?, ?)`, and pass the tuple `(role, content)` after the SQL string.",
+            "The lesson shows two ways to get a value into a statement: pasted into the text, or sent next to it. Which of the two does the code in the editor use?",
+            "The SQL text should hold a mark in each place where a value belongs, and nothing of the values themselves. The values travel separately, as a second argument of `execute`.",
+            "Make the SQL an ordinary string, without the `f` in front. Replace each of the two `{...}` parts with one placeholder mark, and take away the single quotes around it as well. After the string, add a comma and one tuple that holds the two values in the same order as the marks.",
         ],
     },
     {
@@ -572,80 +758,166 @@ EXERCISES = [
         "title": "Unpack the rows",
         "difficulty": 0,
         "lesson": r'''
-            ## Rows are tuples
+            ## Plain values out of the rows
 
-            `fetchall()` returns a list of tuples. Each tuple is one row. It holds the columns you
-            selected, in the order you listed them.
+            A menu in the search tool should list the title of every document. You ask the database for the
+            titles, and what comes back is not quite a list of titles:
 
             ```python
             import sqlite3
 
             conn = sqlite3.connect(":memory:")
-            conn.execute("CREATE TABLE docs (title TEXT, words INTEGER)")
-            conn.execute("INSERT INTO docs VALUES ('FAQ', 300), ('Guide', 1200)")
-            rows = conn.execute("SELECT title, words FROM docs").fetchall()
+            conn.execute("CREATE TABLE docs (id INTEGER PRIMARY KEY, title TEXT, words INTEGER)")
+            conn.execute("INSERT INTO docs (title, words) VALUES ('FAQ', 300)")
+            conn.execute("INSERT INTO docs (title, words) VALUES ('Guide', 1200)")
+            rows = conn.execute("SELECT title FROM docs ORDER BY id").fetchall()
             print(rows)
-            # [('FAQ', 300), ('Guide', 1200)]
-            print(rows[0][0])
-            # FAQ
-            titles = []
+            # [('FAQ',), ('Guide',)]
+            ```
+
+            You asked for one column, but every row is still a tuple. It is a tuple with a single item, and
+            Python writes a one-item tuple with a comma after the item: `('FAQ',)`. So `rows` is a list of
+            tuples, not a list of strings.
+
+            The query ends with `ORDER BY id`. That hands the rows back sorted by their `id` number, which
+            counts up from 1, so they come in the order in which they were saved. A later step explains
+            sorting properly.
+
+            Before you fix this, check that you can read the shape of the result:
+
+            ```predict
+            import sqlite3
+
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE notes (id INTEGER PRIMARY KEY, text TEXT)")
+            conn.execute("INSERT INTO notes (text) VALUES ('call Ada')")
+            conn.execute("INSERT INTO notes (text) VALUES ('buy milk')")
+            rows = conn.execute("SELECT text FROM notes ORDER BY id").fetchall()
+            print(len(rows))
+            print(rows[1])
+            print(rows[1][0])
+            ---
+            Two notes were saved, so `fetchall()` gives a list of 2 tuples and `len(rows)` is `2`. `rows[1]` is the second tuple, shown with its brackets, quotes and comma: `('buy milk',)`. The extra `[0]` takes the one item out of that tuple, and `print` shows a string as plain text: `buy milk`.
+            ```
+
+            ### Taking the value out
+
+            To get plain strings, take item 0 out of every row. You already know how to build a new list
+            from an old one, with a list comprehension. A table with no rows has nothing to take out, so
+            the new list is empty too:
+
+            ```python
+            import sqlite3
+
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE docs (id INTEGER PRIMARY KEY, title TEXT)")
+            conn.execute("CREATE TABLE trash (id INTEGER PRIMARY KEY, title TEXT)")
+            conn.execute("INSERT INTO docs (title) VALUES ('FAQ')")
+            conn.execute("INSERT INTO docs (title) VALUES ('Guide')")
+            for sql in ("SELECT title FROM docs ORDER BY id", "SELECT title FROM trash ORDER BY id"):
+                rows = conn.execute(sql).fetchall()
+                print([row[0] for row in rows])
+            # ['FAQ', 'Guide']
+            # []
+            ```
+
+            This program prints tuples where it should print names. Repair it:
+
+            ```try
+            import sqlite3
+
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT)")
+            conn.execute("INSERT INTO tags (name) VALUES ('python')")
+            conn.execute("INSERT INTO tags (name) VALUES ('sql')")
+            rows = conn.execute("SELECT name FROM tags ORDER BY id").fetchall()
+            names = []
+            for row in rows:
+                names.append(row)
+            print(names)
+            ---
+            The program prints `[('python',), ('sql',)]`. Change one line so that it prints `['python', 'sql']`.
+            ---
+            import sqlite3
+
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT)")
+            conn.execute("INSERT INTO tags (name) VALUES ('python')")
+            conn.execute("INSERT INTO tags (name) VALUES ('sql')")
+            rows = conn.execute("SELECT name FROM tags ORDER BY id").fetchall()
+            names = []
+            for row in rows:
+                names.append(row[0])
+            print(names)
+            ---
+            `row` is the whole tuple. `row[0]` is the one item inside it, so that is what the list should collect.
+            ```
+
+            ### Two columns
+
+            When the query names two columns, every row has two items. A `for` loop can **unpack** each row:
+            it gives each item its own name, the way you unpacked pairs in the chapter on variables.
+
+            ```python
+            import sqlite3
+
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE docs (id INTEGER PRIMARY KEY, title TEXT, words INTEGER)")
+            conn.execute("INSERT INTO docs (title, words) VALUES ('FAQ', 300)")
+            conn.execute("INSERT INTO docs (title, words) VALUES ('Guide', 1200)")
+            rows = conn.execute("SELECT title, words FROM docs ORDER BY id").fetchall()
             for title, words in rows:
-                titles.append(title)
                 print(title, "has", words, "words")
             # FAQ has 300 words
             # Guide has 1200 words
-            print(titles)
-            # ['FAQ', 'Guide']
             ```
 
-            One `INSERT` can add several rows: write one `(...)` group per row after `VALUES`, with
-            commas between the groups.
-
-            `rows[0]` is the first row and `rows[0][0]` is its first column. To **unpack** a tuple is to
-            assign each of its items to its own name. `for title, words in rows` unpacks every row into
-            `title` and `words`.
-
-            Step through the loop to see `title` and `words` change for each row.
+            Step through the loop to watch `title` and `words` change from one row to the next.
 
             ```diagram
-            {"type": "trace", "title": "Unpacking each row of rows", "code": ["rows = [(\"FAQ\", 300), (\"Guide\", 1200)]", "titles = []", "for title, words in rows:", "    titles.append(title)", "    print(title, \"has\", words, \"words\")", "print(titles)"], "steps": [
+            {"type": "trace", "title": "Unpacking each row of rows", "code": ["rows = [(\"FAQ\", 300), (\"Guide\", 1200)]", "for title, words in rows:", "    print(title, \"has\", words, \"words\")"], "steps": [
               {"line": 1, "vars": {}, "out": ""},
               {"line": 2, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]"}, "out": ""},
-              {"line": 3, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]", "titles": "[]"}, "out": ""},
-              {"line": 4, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]", "titles": "[]", "title": "'FAQ'", "words": "300"}, "out": ""},
-              {"line": 5, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]", "titles": "['FAQ']", "title": "'FAQ'", "words": "300"}, "out": ""},
-              {"line": 3, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]", "titles": "['FAQ']", "title": "'FAQ'", "words": "300"}, "out": "FAQ has 300 words\n"},
-              {"line": 4, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]", "titles": "['FAQ']", "title": "'Guide'", "words": "1200"}, "out": "FAQ has 300 words\n"},
-              {"line": 5, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]", "titles": "['FAQ', 'Guide']", "title": "'Guide'", "words": "1200"}, "out": "FAQ has 300 words\n"},
-              {"line": 3, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]", "titles": "['FAQ', 'Guide']", "title": "'Guide'", "words": "1200"}, "out": "FAQ has 300 words\nGuide has 1200 words\n"},
-              {"line": 6, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]", "titles": "['FAQ', 'Guide']", "title": "'Guide'", "words": "1200"}, "out": "FAQ has 300 words\nGuide has 1200 words\n"},
-              {"line": null, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]", "titles": "['FAQ', 'Guide']", "title": "'Guide'", "words": "1200"}, "out": "FAQ has 300 words\nGuide has 1200 words\n['FAQ', 'Guide']\n"}
+              {"line": 3, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]", "title": "'FAQ'", "words": "300"}, "out": ""},
+              {"line": 2, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]", "title": "'FAQ'", "words": "300"}, "out": "FAQ has 300 words\n"},
+              {"line": 3, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]", "title": "'Guide'", "words": "1200"}, "out": "FAQ has 300 words\n"},
+              {"line": 2, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]", "title": "'Guide'", "words": "1200"}, "out": "FAQ has 300 words\nGuide has 1200 words\n"},
+              {"line": null, "vars": {"rows": "[('FAQ', 300), ('Guide', 1200)]", "title": "'Guide'", "words": "1200"}, "out": "FAQ has 300 words\nGuide has 1200 words\n"}
             ]}
             ```
 
-            `conn.execute(...)` returns a **cursor**: an object that produces the result rows one at a
-            time. You can loop over the cursor directly, without `fetchall()`.
+            **Watch out:** a query for one column does not give plain strings. If you hand back `rows` as it
+            is, your list holds tuples, and `['FAQ'] == [('FAQ',)]` is `False`.
 
-            A `SELECT` of one column gives tuples with one item, such as `('FAQ',)`. It does not give
-            plain strings. Read the value with `row[0]`.
+            **In short:** `fetchall()` always gives a list of tuples, so take the item out of each row
+            (`row[0]` for the first column) when you want plain values.
         ''',
         "prompt": r'''
-            Get the text of every stored chat message as a plain list of strings.
+            A search tool shows the text of every saved chat message on a page. The database hands each
+            message back inside a tuple, and the page wants plain strings.
 
-            **Write:** `all_contents(conn)`
+            **Your job:** write `all_contents(conn)`, which gives back the text of every message in the table
+            as a plain list of strings.
 
-            - `conn`: an open connection with a table `messages (id INTEGER PRIMARY KEY, role TEXT, content TEXT)`
-            - **Returns:** a `list` of `str`: the `content` of every row, in `id` order
+            **What goes in**
+            - `conn`: an open connection to a database with a table `messages` that has the columns `id` (a
+              whole number that counts up from 1), `role` (who wrote the message, such as `"user"`) and
+              `content` (the text of the message)
+
+            **What comes out**
+            - a list of strings: the `content` of every row, in order of `id`, so the oldest message comes
+              first. For example `["Hi", "Hello!"]`.
 
             **Rules**
-            - Return plain strings, not tuples.
-            - If the table is empty, return `[]`.
+            - The list holds plain strings, not tuples.
+            - A table with no rows gives an empty list.
 
             **Examples**
             ```python
-            # rows: (1, "user", "Hi"), (2, "assistant", "Hello!")
-            all_contents(conn)   # returns ["Hi", "Hello!"]
-            all_contents(empty)  # returns []
+            # the table holds: (1, "user", "Hi"), (2, "assistant", "Hello!")
+            all_contents(conn)     # returns ["Hi", "Hello!"]
+            # the table holds no rows
+            all_contents(conn)     # returns []
             ```
         ''',
         "starter": r'''
@@ -681,9 +953,9 @@ EXERCISES = [
                 return [row[0] for row in rows]
         ''',
         "hints": [
-            "SELECT just the content column, then turn each 1-item tuple into its value.",
-            "fetchall() gives tuples like ('Hi',); take the first item of each.",
-            "Run `SELECT content FROM messages`, fetch all rows, and build a new list with `row[0]` for each row (a list comprehension works well).",
+            "Think about the first example in the lesson. When a query asks for one column, what does each row look like? Your list needs the thing inside each row, not the row.",
+            "Ask the database for only the column you need, with the rows in `id` order, and fetch all of them. Then build a new list that holds one item taken out of each row. A table with no rows needs no special case.",
+            "In order: write a query that names only the content column and ends with the sorting clause for `id`; collect every row with the method that returns all of them; build the list with a comprehension that takes the item at position 0 of each row; return that list.",
         ],
     },
     {
@@ -691,55 +963,118 @@ EXERCISES = [
         "title": "Filter with WHERE",
         "difficulty": 0,
         "lesson": r'''
-            ## WHERE
+            ## Only the rows you ask for
 
-            `WHERE condition` goes after the table name in a `SELECT`. SQLite tests the condition on
-            every row and returns only the rows where it is true.
+            A chat holds hundreds of messages, and you want only the ones the user wrote. You could fetch
+            every message and filter them with a loop. With a hundred thousand messages it is better to tell
+            the database what you want and let it send back only those rows.
+
+            You do that with `WHERE` and a condition, the same kind of question an `if` asks:
 
             ```python
             import sqlite3
 
             conn = sqlite3.connect(":memory:")
-            conn.execute("CREATE TABLE usage (model TEXT, tokens INTEGER)")
-            conn.executemany("INSERT INTO usage VALUES (?, ?)",
-                             [("gpt", 100), ("claude", 250), ("gpt", 40)])
-            rows = conn.execute("SELECT tokens FROM usage WHERE model = ?", ("gpt",)).fetchall()
+            conn.execute("CREATE TABLE docs (id INTEGER PRIMARY KEY, title TEXT, pages INTEGER)")
+            conn.execute("INSERT INTO docs (title, pages) VALUES ('FAQ', 3)")
+            conn.execute("INSERT INTO docs (title, pages) VALUES ('Guide', 12)")
+            conn.execute("INSERT INTO docs (title, pages) VALUES ('Manual', 40)")
+            rows = conn.execute("SELECT title FROM docs WHERE pages > 10 ORDER BY id").fetchall()
             print(rows)
-            # [(100,), (40,)]
-            print(conn.execute("SELECT model FROM usage WHERE tokens > 90").fetchall())
-            # [('gpt',), ('claude',)]
-            print(conn.execute("SELECT tokens FROM usage WHERE model = 'gpt' AND tokens < 90").fetchall())
-            # [(40,)]
+            # [('Guide',), ('Manual',)]
             ```
 
-            `executemany(sql, tuples)` runs the statement once for each tuple in the list.
+            The database tests `pages > 10` on every row and keeps the rows where it is true. A part of a
+            statement that starts with a keyword, such as `WHERE` or `ORDER BY`, is called a **clause**.
+            `WHERE` comes before `ORDER BY`.
 
-            The SQL comparison operators are `=`, `!=`, `<`, `>`, `<=` and `>=`. SQL compares with a
-            single `=`, not `==`. `AND` and `OR` combine two conditions.
+            The comparisons are `=`, `!=`, `<`, `>`, `<=` and `>=`. In SQL a single `=` asks "are these
+            equal?" and nothing is assigned. On text, `=` is exact: `'faq'` is not equal to `'FAQ'`.
 
-            The parameters must be a tuple. `("gpt")` is the string `"gpt"` in parentheses. `("gpt",)`,
-            with the comma, is a tuple with one item. If you pass the string, `sqlite3` treats each of
-            its 3 characters as one parameter and raises `sqlite3.ProgrammingError: Incorrect number
-            of bindings supplied. The current statement uses 1, and there are 3 supplied.`
+            ```predict
+            import sqlite3
+
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE docs (id INTEGER PRIMARY KEY, title TEXT, pages INTEGER)")
+            conn.execute("INSERT INTO docs (title, pages) VALUES ('FAQ', 3)")
+            conn.execute("INSERT INTO docs (title, pages) VALUES ('Guide', 12)")
+            conn.execute("INSERT INTO docs (title, pages) VALUES ('Manual', 40)")
+            print(conn.execute("SELECT title FROM docs WHERE pages <= 12 ORDER BY id").fetchall())
+            print(conn.execute("SELECT title FROM docs WHERE title = 'manual' ORDER BY id").fetchall())
+            print(conn.execute("SELECT title FROM docs WHERE title != 'FAQ' ORDER BY id").fetchall())
+            ---
+            `pages <= 12` keeps FAQ (3 pages) and Guide (12 pages): 12 is not above 12, so Guide stays. `=` compares text exactly and `'manual'` is not `'Manual'`, so no row passes and the answer is an empty list `[]`. `!=` keeps every row except the one titled FAQ.
+            ```
+
+            ### A value from a variable
+
+            Remember the `?` placeholder from the unsafe-insert step. It works in `WHERE` too, and the
+            values travel in a tuple:
+
+            ```fill
+            import sqlite3
+
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE docs (id INTEGER PRIMARY KEY, title TEXT, pages INTEGER)")
+            conn.execute("INSERT INTO docs (title, pages) VALUES ('FAQ', 3)")
+            conn.execute("INSERT INTO docs (title, pages) VALUES ('Guide', 12)")
+            limit = 5
+            rows = conn.execute("SELECT title FROM docs WHERE pages > ? ORDER BY id", ___).fetchall()
+            print(rows)
+            ---
+            - [x] (limit,) :: Right. A tuple with one item, written with a comma. It fills the one `?`, and the program prints `[('Guide',)]`.
+            - [ ] (limit) :: Brackets around one name do not make a tuple. `execute` receives the number 5 itself and stops with `sqlite3.ProgrammingError: parameters are of unsupported type`.
+            - [ ] ("limit",) :: That is a tuple, but it holds the text `limit`, not the number 5. No page count is above a piece of text, so the program prints `[]`.
+            ```
+
+            ### Part of a text
+
+            `=` needs the whole text. To find rows whose text contains something, use `LIKE` with a pattern.
+            In a pattern, `%` stands for any amount of any characters, even none. `LIKE` also ignores the
+            difference between `a` and `A`. The pattern goes in as a parameter like any other value, for
+            example `("%an%",)`.
+
+            ```match
+            `title = 'Guide'` :: titles that are exactly Guide
+            `title LIKE '%ide%'` :: titles that contain ide anywhere
+            `title LIKE 'G%'` :: titles that start with G
+            `title LIKE '%de'` :: titles that end with de
+            ```
+
+            **Watch out:** `("user")` is only the text `"user"` in brackets, not a tuple. `sqlite3` then
+            treats each of its four letters as a separate value and stops with `sqlite3.ProgrammingError:
+            Incorrect number of bindings supplied. The current statement uses 1, and there are 4 supplied.`
+            Write `("user",)`.
+
+            **In short:** `WHERE condition` keeps only the rows where the condition is true, and a value
+            from Python goes in through a `?` and a tuple.
         ''',
         "prompt": r'''
-            Fetch only the messages written by one role.
+            A chat app stores every message together with the role of its writer: `"system"`, `"user"` or
+            `"assistant"`. A page that shows only what the user typed needs just those messages.
 
-            **Write:** `messages_by_role(conn, role)`
+            **Your job:** finish `messages_by_role(conn, role)`, which gives back the text of the messages
+            written by one role. The function is already in the editor. The end of its SQL statement is
+            missing, marked `___`: it must keep only the right rows.
 
-            - `conn`: an open connection with a table `messages (id INTEGER PRIMARY KEY, role TEXT, content TEXT)`
-            - `role`: a `str`, e.g. `"user"`
-            - **Returns:** a `list` of `str`: the `content` of every message with that role, in `id` order
+            **What goes in**
+            - `conn`: an open connection to a database with a table `messages` that has the columns `id` (a
+              whole number that counts up from 1), `role` (text) and `content` (text)
+            - `role`: the role to look for, for example `"user"`
+
+            **What comes out**
+            - a list of strings: the `content` of every message written by that role, in order of `id`
 
             **Rules**
-            - Pass `role` as a `?` parameter.
-            - If no message has that role, return `[]`.
+            - Only messages whose `role` is exactly the given role come back.
+            - If no message has that role, the list is empty.
+            - The role reaches the database through the placeholder. The editor already passes it in a tuple.
 
             **Examples**
             ```python
-            # rows: (1, "system", "Be brief"), (2, "user", "Hi"), (3, "assistant", "Hey"), (4, "user", "Bye")
-            messages_by_role(conn, "user")    # returns ["Hi", "Bye"]
-            messages_by_role(conn, "tool")    # returns []
+            # the table holds: (1, "system", "Be brief"), (2, "user", "Hi"), (3, "assistant", "Hey"), (4, "user", "Bye")
+            messages_by_role(conn, "user")     # returns ["Hi", "Bye"]
+            messages_by_role(conn, "tool")     # returns []
             ```
         ''',
         "starter": r'''
@@ -776,9 +1111,9 @@ EXERCISES = [
                 return [row[0] for row in rows]
         ''',
         "hints": [
-            "The blank is a condition comparing a column with the parameter.",
-            "Which column holds the role? Compare it to a `?` placeholder.",
-            "Replace `___` with `role = ?` (a single `=` in SQL). The tuple `(role,)` fills the `?`.",
+            "Look at the first example in the lesson. Which keyword starts the part of a statement that keeps only some of the rows?",
+            "The gap needs a condition that compares one column with the value that arrives through the placeholder. The tuple after the statement holds that value. If you also want the rows kept in `id` order, remember that the filtering clause comes before the sorting clause.",
+            "Write the name of the column that holds the writer, then the SQL sign that asks whether two things are equal (one sign, not two), then the placeholder. Do not put quotes around the placeholder.",
         ],
     },
     {
@@ -786,58 +1121,103 @@ EXERCISES = [
         "title": "Top documents",
         "difficulty": 0,
         "lesson": r'''
-            ## ORDER BY and LIMIT
+            ## The best few, first
 
-            `ORDER BY column` sorts the result rows by that column. `ASC` (ascending) sorts from small
-            to large or from A to Z, and it is the default. `DESC` (descending) sorts from large to small.
-
-            `LIMIT n` keeps only the first `n` rows of the result. SQLite sorts first and applies
-            `LIMIT` afterwards.
+            A search finds two hundred documents and gives each one a score. The page has room for the best
+            three. Python could sort all two hundred and cut the list, but the database can sort for you and
+            hand over just three.
 
             ```python
             import sqlite3
 
             conn = sqlite3.connect(":memory:")
-            conn.execute("CREATE TABLE docs (title TEXT, score REAL)")
-            conn.executemany("INSERT INTO docs VALUES (?, ?)",
-                             [("a", 0.2), ("b", 0.9), ("c", 0.5), ("d", 0.9)])
-            print(conn.execute("SELECT title, score FROM docs ORDER BY score").fetchall())
-            # [('a', 0.2), ('c', 0.5), ('b', 0.9), ('d', 0.9)]
-            sql = "SELECT title, score FROM docs ORDER BY score DESC, title ASC LIMIT ?"
-            print(conn.execute(sql, (3,)).fetchall())
-            # [('b', 0.9), ('d', 0.9), ('c', 0.5)]
+            conn.execute("CREATE TABLE models (name TEXT, price REAL)")
+            conn.execute("INSERT INTO models VALUES ('small', 0.5)")
+            conn.execute("INSERT INTO models VALUES ('large', 8.0)")
+            conn.execute("INSERT INTO models VALUES ('medium', 2.0)")
+            print(list(conn.execute("SELECT name FROM models ORDER BY price")))
+            # [('small',), ('medium',), ('large',)]
+            print(list(conn.execute("SELECT name FROM models ORDER BY price DESC")))
+            # [('large',), ('medium',), ('small',)]
             ```
 
-            You can list more than one column after `ORDER BY`. SQLite sorts by the first column. It
-            uses the second column only for rows that have the same value in the first. Here `b` and
-            `d` both have the score `0.9`, so `title ASC` puts `b` before `d`.
+            `ORDER BY price` sorts the rows by that column, smallest first. Smallest first is called
+            **ascending** (`ASC`), and it is the default. Writing `DESC`, short for **descending**, turns
+            the order around: largest first. Text sorts from A to Z.
 
-            `LIMIT ?` takes its number from a parameter, like any other value.
+            To keep only the first few rows, add `LIMIT`. SQLite sorts first and cuts afterwards, and
+            `LIMIT` always comes last. The number may be a `?` placeholder like any other value.
 
-            A search system uses this query shape to return its best results: it sorts the documents by
-            score and keeps the first k.
+            ```try
+            import sqlite3
 
-            Without `ORDER BY`, the database can return the rows in any order.
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE models (name TEXT, price REAL)")
+            conn.execute("INSERT INTO models VALUES ('small', 0.5)")
+            conn.execute("INSERT INTO models VALUES ('large', 8.0)")
+            conn.execute("INSERT INTO models VALUES ('medium', 2.0)")
+            print(list(conn.execute("SELECT name FROM models ORDER BY price")))
+            ---
+            The program lists every model, cheapest first. Change the SQL so that it prints only the two most expensive models, the dearest first: `[('large',), ('medium',)]`.
+            ---
+            import sqlite3
+
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE models (name TEXT, price REAL)")
+            conn.execute("INSERT INTO models VALUES ('small', 0.5)")
+            conn.execute("INSERT INTO models VALUES ('large', 8.0)")
+            conn.execute("INSERT INTO models VALUES ('medium', 2.0)")
+            print(list(conn.execute("SELECT name FROM models ORDER BY price DESC LIMIT 2")))
+            ---
+            Two changes were needed. `DESC` puts the dearest model first, and `LIMIT 2` keeps the first two rows of that sorted list. If the table held fewer than two rows, you would simply get fewer.
+            ```
+
+            ### When two rows tie
+
+            Two models can cost the same. After `ORDER BY price DESC` you may list a second column, and
+            SQLite looks at it only for rows that are equal in the first. The second column has its own
+            direction, and `ASC` is the default there too.
+
+            ```quiz
+            A table of models has the columns `name` and `price`. Which ending lists the dearest models first and puts models with the same price in A to Z order?
+            - [x] `ORDER BY price DESC, name` :: Yes. The rows are sorted by price, largest first, and `name` (A to Z) is used only to decide between rows that have the same price.
+            - [ ] `ORDER BY price, name DESC` :: This sorts by price with the smallest first, because `DESC` belongs to `name` only. Equal prices then come back in Z to A order.
+            - [ ] `ORDER BY name, price DESC` :: This sorts by name first. The price is used only to decide between rows that have exactly the same name.
+            ```
+
+            **Watch out:** the default is `ASC`, smallest first. If you ask for the best rows and forget
+            `DESC`, you get the worst ones, and with `LIMIT` the right rows are cut off without any error.
+
+            **In short:** `ORDER BY column DESC` sorts the largest first, and `LIMIT n` keeps the first `n`
+            rows of the sorted result.
         ''',
         "prompt": r'''
-            A search step scored some documents. Return the best ones.
+            A search step has scored some documents, and the results page has room for only the best few.
 
-            **Write:** `top_documents(conn, n)`
+            **Your job:** write `top_documents(conn, n)`, which gives back the titles of the `n`
+            best-scoring documents, best first.
 
-            - `conn`: an open connection with a table `documents (title TEXT, score REAL)`
-            - `n`: an `int`, how many titles to return (at least 0)
-            - **Returns:** a `list` of `str` titles: the `n` highest-scoring documents, highest first
+            **What goes in**
+            - `conn`: an open connection to a database with a table `documents` that has the columns `title`
+              (text) and `score` (a decimal number; a higher score is better)
+            - `n`: how many titles you want, a whole number that is 0 or more, for example `2`
+
+            **What comes out**
+            - a list of strings: the titles of the `n` documents with the highest scores, the highest score
+              first. For example `["blog", "guide"]`.
 
             **Rules**
-            - Documents with the same score are ordered by title, A to Z.
-            - If there are fewer than `n` documents, return all of them.
-            - `n = 0` returns `[]`.
+            - If two documents have the same score, the one whose title comes first in the alphabet goes
+              first.
+            - If the table holds fewer than `n` documents, all of them come back.
+            - `n = 0` gives an empty list.
 
             **Examples**
             ```python
-            # rows: ("faq", 0.4), ("guide", 0.9), ("api", 0.7), ("blog", 0.9)
-            top_documents(conn, 2)    # returns ["blog", "guide"]
-            top_documents(conn, 10)   # returns ["blog", "guide", "api", "faq"]
+            # the table holds: ("faq", 0.4), ("guide", 0.9), ("api", 0.7), ("blog", 0.9)
+            top_documents(conn, 2)     # returns ["blog", "guide"]
+            top_documents(conn, 10)    # returns ["blog", "guide", "api", "faq"]
+            top_documents(conn, 0)     # returns []
             ```
         ''',
         "starter": r'''
@@ -879,9 +1259,9 @@ EXERCISES = [
                 return [row[0] for row in rows]
         ''',
         "hints": [
-            "You need ORDER BY (with a tie-breaker) and LIMIT.",
-            "Sort by score from high to low, then by title from A to Z, and keep only n rows.",
-            "SELECT title, add `ORDER BY score DESC, title ASC LIMIT ?`, pass `(n,)`, then take `row[0]` from each row.",
+            "You need two things from the lesson: a way to sort the rows by the score, and a way to keep only the first few rows of the sorted result. Which two clauses did the lesson use for them?",
+            "Sort by score from the highest to the lowest. Name a second sorting column to settle ties by title in alphabetical order. Then cap the number of rows, with the number coming from `n` through a placeholder.",
+            "In order: ask for the title column only; sort by score in descending order and then by title; end with the limit, passing `n` in a one-item tuple; fetch all the rows; build the list of plain strings from them, as you did in the step on unpacking rows.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 1
@@ -890,49 +1270,57 @@ EXERCISES = [
         "title": "Total tokens used",
         "difficulty": 1,
         "lesson": r'''
-            ## Aggregate functions
+            ## Ask the database for one total
 
-            An **aggregate function** takes the values of many rows and returns one value. `COUNT(*)`
-            returns the number of rows. `SUM(col)` adds the values of a column. `AVG(col)`, `MIN(col)`
-            and `MAX(col)` return the average, the smallest and the largest value. (In this
-            example `tokens` is just a number in a table. Services that charge for text
-            count pieces of text called tokens for billing. That is all the word means.)
+            A table has one row for each request, but your dashboard needs a single number. You do not have to transfer every row to Python before adding it up. SQL can calculate the summary while reading the table.
 
             ```python
             import sqlite3
-
             conn = sqlite3.connect(":memory:")
-            conn.execute("CREATE TABLE usage (model TEXT, tokens INTEGER)")
-            conn.executemany("INSERT INTO usage VALUES (?, ?)", [("gpt", 100), ("gpt", 50)])
-            count, total = conn.execute("SELECT COUNT(*), SUM(tokens) FROM usage").fetchone()
-            print(count, total)
-            # 2 150
-            print(conn.execute("SELECT SUM(tokens * 2) FROM usage").fetchone())
-            # (300,)
-            conn.execute("DELETE FROM usage")
-            print(conn.execute("SELECT COUNT(*), SUM(tokens) FROM usage").fetchone())
+            conn.execute("CREATE TABLE jobs (pages INTEGER)")
+            conn.executemany("INSERT INTO jobs VALUES (?)", [(4,), (7,)])
+            print(next(conn.execute("SELECT COUNT(*), SUM(pages) FROM jobs")))
+            # (2, 11)
+            conn.execute("DELETE FROM jobs")
+            print(next(conn.execute("SELECT COUNT(*), SUM(pages) FROM jobs")))
             # (0, None)
-            print(conn.execute("SELECT COALESCE(SUM(tokens), 0) FROM usage").fetchone())
-            # (0,)
             ```
 
-            A query that selects only aggregates returns exactly one row. `.fetchone()` returns the
-            first row of the result as one tuple, so you do not need to index into a list.
+            A function that combines values from many rows is an **aggregate**. `COUNT(*)` counts rows and `SUM` adds the selected values. Other aggregates include `MIN`, `MAX`, and `AVG`. A query selecting only aggregates without grouping produces one summary row.
 
-            You can write a calculation inside an aggregate. `SUM(tokens * 2)` doubles the value of each
-            row and then adds the results. `SUM(a + b)` adds two columns for each row in the same way.
+            `fetchone` returns that row as a tuple. Even one selected summary is still wrapped in a row, so distinguish the row from the scalar number your caller wants.
 
-            `DELETE FROM usage` removes every row. `SUM` over zero rows returns the SQL value `NULL`,
-            which means "no value" and arrives in Python as `None`, not `0`. `COALESCE(x, 0)` returns `x`
-            when `x` is not `NULL` and `0` otherwise.
+            ```quiz
+            An empty table produces a SUM value of None in Python. Does this mean the query returned no row?
+            - [x] No :: The summary row exists, but its sum is SQL NULL, represented by Python None.
+            - [ ] Yes :: The row and the value inside it are different levels of the result.
+            ```
+
+            SQL `NULL` represents an absent value. Summing zero rows produces NULL, unlike Python's `sum` of an empty iterable. `COALESCE(value, fallback)` selects the first non-NULL value and can supply the output your interface requires.
+
+            ```predict
+            import sqlite3
+            conn = sqlite3.connect(":memory:")
+            print(next(conn.execute("SELECT COALESCE(NULL, 0), COALESCE(5, 0)")))
+            ---
+            The fallback is used only for NULL, so the row contains zero and five. An existing non-NULL value is retained.
+            ```
+
+            **Watch out:** use an aggregate over each row's intended calculation. Summing only one column silently omits the other part of a total.
+
+            **In short:** aggregates summarize rows, and empty sums need an explicit absent-value policy.
         ''',
         "prompt": r'''
             Work out how many tokens the app has used in total, across all calls.
 
-            **Write:** `total_tokens(conn)`
+            **Your job:** write `total_tokens(conn)`
+
+            **What goes in**
 
             - `conn`: an open connection with a table `usage (model TEXT, input_tokens INTEGER, output_tokens INTEGER)`
-            - **Returns:** an `int`: the sum of `input_tokens` plus `output_tokens` over all rows
+
+            **What comes out**
+            - an `int`: the sum of `input_tokens` plus `output_tokens` over all rows
 
             **Rules**
             - If the table is empty, return `0` (not `None`).
@@ -978,9 +1366,9 @@ EXERCISES = [
                 return row[0]
         ''',
         "hints": [
-            "One aggregate query can add up both columns for every row.",
-            "SUM the two columns added together, and deal with the empty-table case where SUM gives None.",
-            "Run `SELECT SUM(input_tokens + output_tokens) FROM usage`, use `fetchone()[0]`, and return 0 if that is None (or wrap the SUM in COALESCE(..., 0)).",
+            "Which aggregate can summarize the value contributed by every row?",
+            "Calculate the row contribution from both token columns, and decide how an empty aggregate should become zero.",
+            "Run an aggregate query, handle its NULL result with a fallback, and extract the scalar from the returned summary row.",
         ],
     },
     {
@@ -988,50 +1376,54 @@ EXERCISES = [
         "title": "Tokens per model",
         "difficulty": 1,
         "lesson": r'''
-            ## GROUP BY
+            ## Calculate a separate total for each category
 
-            `GROUP BY column` puts the rows that have the same value in that column into one group.
-            An aggregate such as `SUM` or `COUNT` is then computed once for each group. The result has
-            **one row per group**.
+            One overall total hides which jobs used the resources. You want a total for each category even when rows for that category are scattered throughout the table.
 
             ```python
             import sqlite3
-
             conn = sqlite3.connect(":memory:")
-            conn.execute("CREATE TABLE usage (model TEXT, tokens INTEGER)")
-            conn.executemany("INSERT INTO usage VALUES (?, ?)",
-                             [("gpt", 100), ("claude", 250), ("gpt", 40)])
-            sql = "SELECT model, COUNT(*), SUM(tokens) FROM usage GROUP BY model ORDER BY model"
-            for model, calls, tokens in conn.execute(sql):
-                print(model, calls, tokens)
-            # claude 1 250
-            # gpt 2 140
-            having = "SELECT model, SUM(tokens) FROM usage GROUP BY model HAVING SUM(tokens) > 200"
-            print(conn.execute(having).fetchall())
-            # [('claude', 250)]
+            conn.execute("CREATE TABLE jobs (kind TEXT, pages INTEGER)")
+            conn.executemany("INSERT INTO jobs VALUES (?, ?)", [("scan", 4), ("print", 2), ("scan", 7)])
+            query = "SELECT kind, SUM(pages) FROM jobs GROUP BY kind ORDER BY kind"
+            print(conn.execute(query).fetchall())
+            # [('print', 2), ('scan', 11)]
             ```
 
-            The two `gpt` rows form one group, so `COUNT(*)` is `2` and `SUM(tokens)` is `140`.
+            `GROUP BY` gathers rows sharing the chosen value into a group. The aggregate is calculated separately for every group, so the result has one row per category. The two scan rows contribute to one total even though another kind lies between them in the input.
 
-            Every column you select should either appear in the `GROUP BY` or be inside an aggregate.
-            Here `model` is the grouped column and the other two values are aggregates. SQLite raises
-            no error for any other column. It returns that column's value from one row of the group,
-            and you cannot rely on which row.
+            ```quiz
+            A table contains five rows but only two distinct category names. How many rows does grouping by category produce?
+            - [x] Two :: One result row represents each distinct grouping value.
+            - [ ] Five :: That would still be one row per input, without combining groups.
+            - [ ] One :: A single overall summary would omit the grouping.
+            ```
 
-            Each result row is a tuple such as `('gpt', 2, 140)`. To build a dict from the result, loop
-            over the rows and store one entry per row.
+            Every selected value should identify the group or summarize it. Selecting an unrelated column in SQLite can produce a value from an unspecified member row, which is rarely the report you meant.
 
-            `WHERE` filters rows before they are grouped, so it cannot test a group's total. `HAVING`
-            filters the groups after the aggregates are computed. `HAVING SUM(tokens) > 200` keeps only
-            the `claude` group.
+            After grouping, each result tuple can become one dictionary entry or one report record. An empty table has no groups, so the grouped result has no rows. This differs from an ungrouped aggregate query's single summary row.
+
+            ```match
+            WHERE :: filters individual rows before grouping
+            GROUP BY :: chooses which rows share a summary
+            HAVING :: filters groups using their summary values
+            ```
+
+            **Watch out:** a condition on a group's sum belongs in HAVING, not WHERE. The sum does not exist at the earlier row-filtering stage.
+
+            **In short:** group by the category, summarize within each group, and shape each result row for your caller.
         ''',
         "prompt": r'''
             Build a per-model token bill.
 
-            **Write:** `tokens_by_model(conn)`
+            **Your job:** write `tokens_by_model(conn)`
+
+            **What goes in**
 
             - `conn`: an open connection with a table `usage (model TEXT, input_tokens INTEGER, output_tokens INTEGER)`
-            - **Returns:** a `dict` mapping each model name (`str`) to its total tokens (`int`,
+
+            **What comes out**
+            - a `dict` mapping each model name (`str`) to its total tokens (`int`,
               input plus output, summed over all that model's rows)
 
             **Rules**
@@ -1077,9 +1469,9 @@ EXERCISES = [
                 return {model: total for model, total in conn.execute(sql)}
         ''',
         "hints": [
-            "GROUP BY the model column and SUM the tokens.",
-            "Your query returns (model, total) rows; turn those rows into a dict.",
-            "SELECT model and SUM(input_tokens + output_tokens) with GROUP BY model, then loop over the rows and set `result[model] = total` (or use `dict(rows)`).",
+            "An overall aggregate needs one additional clause to produce a summary per category.",
+            "Group by model while adding both token fields within each group.",
+            "Select the model identifier and its aggregate total, then convert the result rows into dictionary entries. With no groups, the result should naturally be empty.",
         ],
     },
     {
@@ -1087,46 +1479,57 @@ EXERCISES = [
         "title": "Join conversations and messages",
         "difficulty": 1,
         "lesson": r'''
-            ## JOIN
+            ## Combine related rows from two tables
 
-            Related data is often split across two tables. In the example below, `chats` has one row per
-            conversation and `msgs` has one row per message. Each message stores the id of its chat in
-            the column `chat_id`. A column that holds the id of a row in another table is a
-            **foreign key**. The title is stored once, not on every message.
-
-            `JOIN` builds each result row from one row of each table. The `ON` condition states which
-            rows belong together.
+            A document title is stored once, while several notes refer to that document. To display a readable note list, you need the title and note text together without duplicating the title in storage.
 
             ```python
             import sqlite3
-
             conn = sqlite3.connect(":memory:")
-            conn.execute("CREATE TABLE chats (id INTEGER PRIMARY KEY, title TEXT)")
-            conn.execute("CREATE TABLE msgs (id INTEGER PRIMARY KEY, chat_id INTEGER, content TEXT)")
-            conn.execute("INSERT INTO chats (title) VALUES ('Trip plan'), ('Bug report')")
-            conn.execute("INSERT INTO msgs (chat_id, content) VALUES (2, 'It crashes'), (1, 'Book a train')")
-            sql = """SELECT c.title, m.content FROM msgs m
-                     JOIN chats c ON c.id = m.chat_id ORDER BY m.id"""
-            print(conn.execute(sql).fetchall())
-            # [('Bug report', 'It crashes'), ('Trip plan', 'Book a train')]
+            conn.execute("CREATE TABLE docs (id INTEGER, title TEXT)")
+            conn.execute("CREATE TABLE notes (doc_id INTEGER, text TEXT)")
+            conn.execute("INSERT INTO docs VALUES (7, 'Guide')")
+            conn.execute("INSERT INTO notes VALUES (7, 'Review this')")
+            query = "SELECT d.title, n.text FROM notes n JOIN docs d ON d.id = n.doc_id"
+            print(conn.execute(query).fetchall())
+            # [('Guide', 'Review this')]
             ```
 
-            `msgs m` gives the table an **alias**: a short name, `m`, that you use in the rest of the
-            query. For each row of `msgs`, SQLite finds the row of `chats` whose `id` equals `m.chat_id`.
-            The result row can use the columns of both rows.
+            `JOIN` pairs rows according to the `ON` condition. Here a note's stored document identifier chooses the corresponding document. A column referring to another table's identifying column is commonly called a **foreign key**. Enforcing that relationship requires the appropriate database constraint and settings; the join itself does not enforce it.
 
-            Both tables have a column named `id`. You must write `m.id` or `c.id` to say which one you
-            mean. A bare `id` in this query raises `sqlite3.OperationalError: ambiguous column name: id`.
+            The short names `d` and `n` are **aliases**. They let the query name each table's columns clearly without repeating the whole table name.
+
+            ```quiz
+            Both tables contain an id column. What does qualifying it as d.id accomplish?
+            - [x] It selects the document table's id :: The prefix removes ambiguity about which table supplies the column.
+            - [ ] It changes the stored column name :: An alias affects the query's references, not the table schema.
+            ```
+
+            Select the values the output needs, then order the result by the field promised to the caller. A join does not guarantee insertion order. If the output follows note order, sorting by document title instead would regroup it incorrectly.
+
+            ```match
+            JOIN :: combines matching rows
+            ON :: states the matching relationship
+            ORDER BY :: makes the result order explicit
+            ```
+
+            **Watch out:** an unqualified shared column name can raise `sqlite3.OperationalError: ambiguous column name`. Use the table alias wherever the source could be unclear.
+
+            **In short:** join through the stored relationship, qualify shared names, and order the combined result explicitly.
         ''',
         "prompt": r'''
-            Print a readable transcript of every stored message, labelled with its conversation title.
+            Build a readable transcript of every stored message, labelled with its conversation title.
 
-            **Write:** `transcript_lines(conn)`
+            **Your job:** write `transcript_lines(conn)`
+
+            **What goes in**
 
             - `conn`: an open connection with two tables:
               `conversations (id INTEGER PRIMARY KEY, title TEXT)` and
               `messages (id INTEGER PRIMARY KEY, conversation_id INTEGER, role TEXT, content TEXT)`
-            - **Returns:** a `list` of `str`, one per message, formatted `"<title> | <role>: <content>"`
+
+            **What comes out**
+            - a `list` of `str`, one per message, formatted `"<title> | <role>: <content>"`
 
             **Rules**
             - Order the lines by the message `id`.
@@ -1186,9 +1589,9 @@ EXERCISES = [
                 return [f"{title} | {role}: {content}" for title, role, content in conn.execute(sql)]
         ''',
         "hints": [
-            "You need columns from both tables in one query: that is a JOIN.",
-            "Join messages to conversations where the conversation's id equals the message's conversation_id, and order by the message id.",
-            "SELECT c.title, m.role, m.content FROM messages m JOIN conversations c ON c.id = m.conversation_id ORDER BY m.id; then format each row with an f-string.",
+            "Each output line needs data from two tables linked by a stored identifier.",
+            "Join along the conversation relationship and choose message order rather than conversation order.",
+            "Select the title, role, and content from matched rows, order by the message identifier, and format each result using the exact required separators.",
         ],
     },
     {
@@ -1196,66 +1599,63 @@ EXERCISES = [
         "title": "Save a chat, all or nothing",
         "difficulty": 1,
         "lesson": r'''
-            ## Transactions
+            ## Save related changes together or not at all
 
-            A **transaction** is a group of changes that the database saves together. `sqlite3` starts
-            a transaction before an `INSERT`. The changes are pending until you **commit**, which
-            makes them permanent. A **rollback** discards every pending change of the transaction.
-
-            `with conn:` commits when the block finishes without an exception. It rolls back when an
-            exception leaves the block, and the exception is then raised out of the block. `with conn:`
-            does not close the connection.
+            Saving a record and its related details takes several inserts. If a later insert fails, leaving the earlier ones behind would create an incomplete result. You need those changes to succeed as one unit.
 
             ```python
             import sqlite3
-
-            conn = sqlite3.connect(":memory:")
-            conn.execute("CREATE TABLE usage (id INTEGER PRIMARY KEY, model TEXT, tokens INTEGER)")
+            database = sqlite3.connect(":memory:")
+            database.execute("CREATE TABLE jobs (label TEXT)")
             try:
-                with conn:
-                    conn.execute("INSERT INTO usage (model, tokens) VALUES ('gpt', 100)")
-                    raise ValueError("bad row")
-            except ValueError as err:
-                print("error:", err)
-            # error: bad row
-            print(conn.execute("SELECT COUNT(*) FROM usage").fetchone())
+                with database:
+                    database.execute("INSERT INTO jobs VALUES ('draft')")
+                    raise ValueError("invalid details")
+            except ValueError:
+                print("not saved")
+            print(database.execute("SELECT COUNT(*) FROM jobs").fetchone())
+            # not saved
             # (0,)
-            with conn:
-                cur = conn.execute("INSERT INTO usage (model, tokens) VALUES ('claude', 250)")
-            print(cur.lastrowid)
-            # 1
             ```
 
-            Step through the stages to see what happens to the `gpt` row in the first `with` block.
+            A group of changes saved together is a **transaction**. A **commit** makes its changes permanent. A **rollback** discards its pending changes. With the standard connection behavior used here, `with database` commits on normal exit and rolls back when an exception leaves the block.
 
-            ```diagram
-            {"type":"flow","title":"A with conn: block that raises","steps":[
-            {"label":"INSERT","detail":"sqlite3 starts a transaction and runs the INSERT. The new row is pending. It is not saved yet.","code":"conn.execute(\"INSERT INTO usage (model, tokens) VALUES ('gpt', 100)\")\n\npending: (1, 'gpt', 100)"},
-            {"label":"raise","detail":"The ValueError leaves the with block before the block finishes.","code":"raise ValueError(\"bad row\")"},
-            {"label":"rollback","detail":"Because an exception left the block, with conn: rolls the transaction back. The pending row is discarded.","code":"pending: nothing\nusage table: 0 rows"},
-            {"label":"except","detail":"The exception continues after the rollback. The except clause catches it and prints the message.","code":"except ValueError as err:\n    print(\"error:\", err)\n\nerror: bad row"},
-            {"label":"SELECT","detail":"The table is empty. No change from the failed block remains.","code":"conn.execute(\"SELECT COUNT(*) FROM usage\").fetchone()\n\n(0,)"}
-            ]}
+            ```quiz
+            You catch and suppress a validation error inside the with block. What danger does that create?
+            - [x] The block may finish normally and commit incomplete changes :: The context manager must see the failure to trigger its rollback behavior.
+            - [ ] The connection is automatically closed :: The connection context manager handles transactions, not closing.
             ```
 
-            Other connections see only committed data. Another program that reads the same database
-            file does not see pending rows.
+            The exception continues after rollback, so callers still know the operation failed. Place handling outside the transaction block when you want to report failure after its changes have been undone.
 
-            `conn.execute` returns a cursor. After an `INSERT`, `cur.lastrowid` is the id that the new
-            row received.
+            An insert returns a cursor. Its `lastrowid` records the generated row identifier, allowing later inserts to refer to the newly stored parent row. Keep that identifier for the return value too.
+
+            ```match
+            commit :: saves pending transaction changes
+            rollback :: discards pending transaction changes
+            lastrowid :: identifies the row just inserted through the cursor
+            ```
+
+            **Watch out:** a connection may already contain pending work. Transaction boundaries cover that pending work too; this exercise uses a connection prepared for the operation's transaction.
+
+            **In short:** keep related writes in one transaction and let failures leave the block so they roll back together.
         ''',
         "prompt": r'''
             Save a whole conversation (its title and its messages) so that either everything is
             saved, or nothing is.
 
-            **Write:** `save_chat(conn, title, messages)`
+            **Your job:** write `save_chat(conn, title, messages)`
+
+            **What goes in**
 
             - `conn`: an open connection with tables
               `conversations (id INTEGER PRIMARY KEY, title TEXT)` and
               `messages (id INTEGER PRIMARY KEY, conversation_id INTEGER, role TEXT, content TEXT)`
             - `title`: a `str`
             - `messages`: a `list` of dicts like `{"role": "user", "content": "Hi"}`
-            - **Returns:** the new conversation's `id` (an `int`)
+
+            **What comes out**
+            - the new conversation's `id` (an `int`)
 
             **Rules**
             - Insert one `conversations` row, then one `messages` row per message (in list order),
@@ -1351,9 +1751,9 @@ EXERCISES = [
                 return conversation_id
         ''',
         "hints": [
-            "Use `with conn:` around all the inserts, and `cursor.lastrowid` for the new id.",
-            "Insert the conversation first, keep its id, then insert each message. If a role is bad, raise inside the `with` block so everything is rolled back.",
-            "Open `with conn:`; run the conversation INSERT and save `cur.lastrowid`; loop over messages, raise ValueError if the role is not allowed, otherwise INSERT with `?` params; return the id after the block.",
+            "Which mechanism makes several database changes succeed or fail together?",
+            "Use one transaction for the conversation and all its messages, retaining the newly generated conversation id.",
+            "Insert the parent, obtain its id, then validate and insert each message linked to that id. Let invalid roles raise out of the transaction block. Return the id only after successful commit.",
         ],
     },
     {
@@ -1361,49 +1761,59 @@ EXERCISES = [
         "title": "Paginate the history",
         "difficulty": 1,
         "lesson": r'''
-            ## LIMIT and OFFSET
+            ## Read one page from an ordered result
 
-            A chat app with 10,000 messages does not load them all at once. It reads one page at a
-            time. Splitting a result into pages of a fixed size is called **pagination**.
-
-            `LIMIT n` returns at most `n` rows. `OFFSET k` skips the first `k` rows before `LIMIT`
-            counts. `LIMIT 3 OFFSET 6` skips 6 rows and returns the next 3.
-
-            With 3 rows per page, page 1 skips 0 rows, page 2 skips 3 rows and page 3 skips 6 rows.
-            Page `page` skips `(page - 1) * per_page` rows.
+            A long history should appear in manageable pages. You need to skip the rows shown earlier and take only the next page, while preserving a predictable ordering.
 
             ```python
             import sqlite3
-
             conn = sqlite3.connect(":memory:")
-            conn.execute("CREATE TABLE t (n INTEGER)")
-            conn.executemany("INSERT INTO t VALUES (?)", [(i,) for i in range(1, 11)])
-            per_page = 3
-            for page in (1, 2, 4, 5):
-                skip = (page - 1) * per_page
-                rows = conn.execute("SELECT n FROM t ORDER BY n LIMIT ? OFFSET ?", (per_page, skip)).fetchall()
-                print(page, skip, rows)
-            # 1 0 [(1,), (2,), (3,)]
-            # 2 3 [(4,), (5,), (6,)]
-            # 4 9 [(10,)]
-            # 5 12 []
+            conn.execute("CREATE TABLE pages (number INTEGER)")
+            conn.executemany("INSERT INTO pages VALUES (?)", [(1,), (2,), (3,), (4,), (5,)])
+            query = "SELECT number FROM pages ORDER BY number LIMIT ? OFFSET ?"
+            print(list(conn.execute(query, (2, 2))))
+            # [(3,), (4,)]
+            print(list(conn.execute(query, (2, 4))))
+            # [(5,)]
             ```
 
-            The table has 10 rows. Page 4 has only one row left, so the last page is shorter. Page 5
-            starts after the last row, so the result is an empty list. No error is raised.
+            Dividing a result into pages is **pagination**. `LIMIT` is the maximum number of returned rows. `OFFSET` is how many ordered rows to skip first. The second example has only one remaining row, so returning a short final page is normal.
 
-            Always use `ORDER BY` with pages. Without a fixed order, the same row can appear on two
-            pages or on none.
+            For page numbers starting at one, the first page skips nothing. Each subsequent page skips one additional page's worth. Work from that relationship when converting a page number to an offset.
+
+            ```predict
+            per_page = 4
+            for page in [1, 2, 3]:
+                print((page - 1) * per_page)
+            ---
+            The pages skip zero, four, and eight rows. Subtracting one accounts for the first page having no earlier page.
+            ```
+
+            A page beyond the end returns no rows. This is different from an invalid page number: a valid but empty page should not raise an error unless your interface explicitly says so.
+
+            ```quiz
+            Why does a page query need ORDER BY?
+            - [x] Pages need a defined row sequence :: Without it, the database makes no promise about which rows occupy a page.
+            - [ ] LIMIT sorts rows automatically :: LIMIT only controls the amount, not the order.
+            ```
+
+            **Watch out:** multiplying the page number directly by page size skips the entire first page. Trace page one before testing later pages.
+
+            **In short:** order the rows, skip earlier pages, and return at most one page of the remainder.
         ''',
         "prompt": r'''
             Return one page of the chat history.
 
-            **Write:** `get_page(conn, page, per_page)`
+            **Your job:** write `get_page(conn, page, per_page)`
+
+            **What goes in**
 
             - `conn`: an open connection with a table `messages (id INTEGER PRIMARY KEY, role TEXT, content TEXT)`
             - `page`: an `int`, the page number, **starting at 1**
             - `per_page`: an `int`, how many messages per page (at least 1)
-            - **Returns:** a `list` of `str`: the `content` of the messages on that page, in `id` order
+
+            **What comes out**
+            - a `list` of `str`: the `content` of the messages on that page, in `id` order
 
             **Rules**
             - Page 1 is the first `per_page` messages, page 2 the next `per_page`, and so on.
@@ -1473,9 +1883,9 @@ EXERCISES = [
                 return [row[0] for row in rows]
         ''',
         "hints": [
-            "LIMIT is how many rows to take; OFFSET is how many to skip first.",
-            "For a 1-based page number, the number of rows to skip is (page - 1) times per_page. Check the page number before querying.",
-            "Raise ValueError if page < 1; compute offset = (page - 1) * per_page; SELECT content ... ORDER BY id LIMIT ? OFFSET ? with (per_page, offset); return the first item of each row.",
+            "Relate each page to the number of complete pages before it.",
+            "Validate the page number, then use the page size for both the limit and calculation of how many rows to skip.",
+            "Query contents in identifier order with the computed offset and limit. Extract each content value from its row, allowing a short or empty final result.",
         ],
     },
     {
@@ -1483,58 +1893,57 @@ EXERCISES = [
         "title": "Rows as dicts",
         "difficulty": 1,
         "lesson": r'''
-            ## Rows with column names
+            ## Give result values their column names
 
-            A tuple row gives you values by position only. You have to know that item `1` is the role.
-            For a JSON API you usually want dicts with the column names as keys.
-
-            A **row factory** is a setting on the connection that decides which object each row
-            becomes. Set `conn.row_factory = sqlite3.Row` to get `sqlite3.Row` objects.
-
-            ```python
-            import json
-            import sqlite3
-
-            conn = sqlite3.connect(":memory:")
-            conn.row_factory = sqlite3.Row
-            conn.execute("CREATE TABLE docs (title TEXT, words INTEGER)")
-            conn.execute("INSERT INTO docs VALUES ('FAQ', 300)")
-            row = conn.execute("SELECT title, words FROM docs").fetchone()
-            print(row["title"], row[1])
-            # FAQ 300
-            print(json.dumps(dict(row)))
-            # {"title": "FAQ", "words": 300}
-            ```
-
-            You can read a `sqlite3.Row` by column name or by position. `dict(row)` builds a real dict
-            from it.
-
-            Without a row factory, you can read the column names from the cursor. `cur.description` has
-            one tuple per selected column, and item `0` of each tuple is the column name. In the
-            query, `words AS n` gives the column the new name `n` in the result.
+            A tuple such as `('Guide', 12)` does not tell an API caller what each position means. A dictionary can make that meaning explicit, using the names selected by the query itself.
 
             ```python
             import sqlite3
-
             conn = sqlite3.connect(":memory:")
-            conn.execute("CREATE TABLE docs (title TEXT, words INTEGER)")
-            cur = conn.execute("SELECT title, words AS n FROM docs")
-            print(cur.description[0][0], cur.description[1][0])
-            # title n
+            cursor = conn.execute("SELECT 'Guide' AS label, 12 AS pages")
+            print([column[0] for column in cursor.description])
+            # ['label', 'pages']
+            print(cursor.fetchone())
+            # ('Guide', 12)
             ```
 
-            A `sqlite3.Row` is not a dict. `json.dumps(row)` raises
-            `TypeError: Object of type Row is not JSON serializable`. Convert it with `dict(row)` first.
+            A cursor's `description` contains information for each result column. The first item in each column description is its name. These names follow the query's aliases, so `AS label` produces `label` even if the underlying table uses a different name.
+
+            Pair those names with each row's values in the same order. The names belong to the result structure, so read them once rather than guessing field names from a particular query.
+
+            ```predict
+            names = ["label", "pages"]
+            values = ("Guide", 12)
+            print(dict(zip(names, values)))
+            ---
+            zip pairs corresponding positions. dict turns those name-value pairs into {'label': 'Guide', 'pages': 12}.
+            ```
+
+            Another option is a **row factory**, a connection setting controlling how result rows are represented. `sqlite3.Row` permits reading by name as well as position. It is still a specialized row object, not an ordinary dictionary. Converting it with `dict` makes the output suitable for JSON serialization when its values are JSON-compatible.
+
+            ```quiz
+            The query renames COUNT(*) to total. Which output dictionary key describes that result?
+            - [x] total :: The selected column alias is the result's name.
+            - [ ] COUNT(*) regardless of the alias :: That ignores the name the query explicitly requested.
+            ```
+
+            **Watch out:** changing a caller's connection row factory affects later queries too. Cursor metadata is useful when you want conversion without changing that shared setting.
+
+            **In short:** read the query's column names and pair them with each row's ordered values.
         ''',
         "prompt": r'''
             Your API layer needs query results as JSON-ready dicts, not tuples.
 
-            **Write:** `fetch_dicts(conn, query, params=())`
+            **Your job:** write `fetch_dicts(conn, query, params=())`
+
+            **What goes in**
 
             - `conn`: an open `sqlite3` connection
             - `query`: a `str`, a `SELECT` statement (may contain `?` placeholders)
             - `params`: a `tuple` of values for the placeholders (default: empty)
-            - **Returns:** a `list` of real `dict`s, one per row, keys are the column names
+
+            **What comes out**
+            - a `list` of real `dict`s, one per row, keys are the column names
 
             **Rules**
             - Keys follow the names in the query, including aliases (`SUM(x) AS total` gives the key `"total"`).
@@ -1587,9 +1996,9 @@ EXERCISES = [
                 return [dict(zip(names, row)) for row in cur.fetchall()]
         ''',
         "hints": [
-            "The cursor knows the column names: look at `cursor.description` (or use sqlite3.Row).",
-            "Get the list of column names once, then pair each row's values with those names.",
-            "Run the query with params and keep the cursor; names = [col[0] for col in cur.description]; build `dict(zip(names, row))` for every row.",
+            "The selected column names are available even when the query returns no data rows.",
+            "Use cursor metadata so aliases become keys automatically. Keep the supplied query parameters separate from SQL text.",
+            "Execute and retain the cursor, read its column names in order, then pair those names with every row and create ordinary dictionaries.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 2
@@ -1601,11 +2010,15 @@ EXERCISES = [
         "prompt": r'''
             Build the usage report behind an "AI spend" dashboard.
 
-            **Write:** `usage_report(conn)`
+            **Your job:** write `usage_report(conn)`
+
+            **What goes in**
 
             - `conn`: an open connection with a table `usage (model TEXT, input_tokens INTEGER, output_tokens INTEGER)`
               (one row per API call)
-            - **Returns:** a `list` of dicts, one per model:
+
+            **What comes out**
+            - a `list` of dicts, one per model:
               `{"model": str, "calls": int, "input_tokens": int, "output_tokens": int}`
 
             **Rules**
@@ -1666,9 +2079,9 @@ EXERCISES = [
                 ]
         ''',
         "hints": [
-            "One GROUP BY query can produce every number; ORDER BY can sort by an aggregate.",
-            "Group by model, select COUNT(*) and the two SUMs, and sort by the sum of both token columns descending, then model.",
-            "SELECT model, COUNT(*), SUM(input_tokens), SUM(output_tokens) ... GROUP BY model ORDER BY SUM(input_tokens + output_tokens) DESC, model; then build one dict per row.",
+            "One grouped query can produce both a call count and separate token sums.",
+            "Sorting must use both token columns together, with the model name as a secondary order.",
+            "Collect each model's rows into a group, select the count and required sums, order by the full total descending and name ascending, then build the requested dictionary for each row.",
         ],
     },
     {
@@ -1678,12 +2091,16 @@ EXERCISES = [
         "prompt": r'''
             A simple keyword search over stored documents (the "keyword" half of a search system).
 
-            **Write:** `search_documents(conn, word, limit=5)`
+            **Your job:** write `search_documents(conn, word, limit=5)`
+
+            **What goes in**
 
             - `conn`: an open connection with a table `documents (id INTEGER PRIMARY KEY, title TEXT, body TEXT)`
             - `word`: a `str` to look for
             - `limit`: an `int`, the maximum number of results (default `5`)
-            - **Returns:** a `list` of `str` titles of documents whose **body** contains `word`
+
+            **What comes out**
+            - a `list` of `str` titles of documents whose **body** contains `word`
               anywhere, ignoring upper/lower case
 
             **Rules**
@@ -1759,9 +2176,9 @@ EXERCISES = [
                 return [row[0] for row in rows]
         ''',
         "hints": [
-            "`LIKE` with `%` wildcards matches text anywhere in a column, and is case-insensitive for ASCII in SQLite.",
-            "Clean the word first, reject it if empty, then put the % signs around it in Python and pass that as the parameter.",
-            "Strip the word; raise ValueError if nothing is left; run `SELECT title FROM documents WHERE body LIKE ? ORDER BY title LIMIT ?` with `(\"%\" + word + \"%\", limit)`; return the titles.",
+            "LIKE can search a substring while placeholders keep user text separate from SQL structure.",
+            "Trim the input before checking blankness, and bind the wildcard-bearing search value as data.",
+            "Reject blank cleaned text, query body matches with the supplied pattern and limit parameters, sort by title, and extract only the titles.",
         ],
     },
     {
@@ -1772,12 +2189,16 @@ EXERCISES = [
             List every conversation with its message count - including brand-new conversations
             that have no messages yet.
 
-            **Write:** `conversation_stats(conn)`
+            **Your job:** write `conversation_stats(conn)`
+
+            **What goes in**
 
             - `conn`: an open connection with tables
               `conversations (id INTEGER PRIMARY KEY, title TEXT)` and
               `messages (id INTEGER PRIMARY KEY, conversation_id INTEGER, role TEXT, content TEXT)`
-            - **Returns:** a `list` of `(title, count)` tuples, one per conversation
+
+            **What comes out**
+            - a `list` of `(title, count)` tuples, one per conversation
 
             **Rules**
             - Conversations without messages appear with count `0`.
@@ -1834,21 +2255,43 @@ EXERCISES = [
                 return [(title, n) for title, n in conn.execute(sql)]
         ''',
         "lesson": r'''
-            ## LEFT JOIN
+            ## Keep parent records that have no children
 
-            A plain `JOIN` returns only the pairs of rows that match. A conversation with no messages
-            has no pair, so it is missing from the result.
+            A report should show every folder, including empty ones. An ordinary join includes only matching folder-file pairs, so it silently drops empty folders. You need a join that keeps the parent even when there is no match.
 
-            `LEFT JOIN` keeps **every** row of the table on its left. When no row of the right table
-            matches, the right table's columns are `NULL` in that result row.
+            ```python
+            import sqlite3
+            conn = sqlite3.connect(":memory:")
+            conn.execute("CREATE TABLE folders (id INTEGER, label TEXT)")
+            conn.execute("CREATE TABLE files (id INTEGER, folder_id INTEGER)")
+            conn.execute("INSERT INTO folders VALUES (1, 'empty'), (2, 'used')")
+            conn.execute("INSERT INTO files VALUES (8, 2)")
+            query = """SELECT f.label, COUNT(x.id) FROM folders f
+            LEFT JOIN files x ON x.folder_id = f.id GROUP BY f.id ORDER BY f.label"""
+            print(conn.execute(query).fetchall())
+            # [('empty', 0), ('used', 1)]
+            ```
 
-            `COUNT(m.id)` counts only the rows where `m.id` is not `NULL`, so a conversation without
-            messages gets `0`. `COUNT(*)` counts rows, so it would count that `NULL` row as `1`.
+            A **left join** preserves every row from the table written on its left. When no row on the right matches, the right-hand columns are NULL. This allows the empty parent to remain in the result without pretending a real child exists.
+
+            ```quiz
+            Why does COUNT of the child id give zero for an empty folder, while COUNT(*) would give one?
+            - [x] Counting a column skips NULL values :: The preserved row exists, but its missing child id is NULL.
+            - [ ] COUNT always subtracts one :: The difference comes from which values are counted, not a fixed adjustment.
+            ```
+
+            Putting it together means grouping by the parent's identifier, counting actual child identifiers, and ordering by the requested summary. The identifier matters: two distinct parents may have the same display name and should not be combined accidentally.
+
+            If a condition on child data is added later, consider where it belongs. A WHERE condition that rejects NULL can remove the very empty parents the left join preserved. The matching condition and later filtering serve different purposes.
+
+            **Watch out:** COUNT(*) counts the placeholder row for an unmatched parent. Count a non-NULL child identifier when the question is how many children exist.
+
+            **In short:** left join keeps empty parents, and counting child identifiers gives their correct zero totals.
         ''',
         "hints": [
-            "An ordinary JOIN drops conversations that have no messages. Which JOIN keeps them?",
-            "LEFT JOIN messages onto conversations, group by conversation, and count a messages column (not *) so missing messages count as 0.",
-            "FROM conversations c LEFT JOIN messages m ON m.conversation_id = c.id GROUP BY c.id, SELECT c.title and COUNT(m.id), ORDER BY the count DESC then title; return tuples.",
+            "An ordinary join omits parents without matching children.",
+            "Keep every conversation through a left join and count only actual message identifiers.",
+            "Group by conversation identity, count the non-NULL child identifiers, and sort first by descending count then ascending title. Return each title-count pair.",
         ],
     },
     {
@@ -1860,12 +2303,16 @@ EXERCISES = [
             work for **values**, not for column names or `ASC`/`DESC` - so those must be checked
             against an allow-list before they go into the SQL text.
 
-            **Write:** `list_documents(conn, order_by="title", descending=False)`
+            **Your job:** write `list_documents(conn, order_by="title", descending=False)`
+
+            **What goes in**
 
             - `conn`: an open connection with a table `documents (title TEXT, score REAL, created_at TEXT)`
             - `order_by`: a `str`, the column to sort by
             - `descending`: a `bool`, `True` for largest/latest first
-            - **Returns:** a `list` of `str` titles, sorted as requested
+
+            **What comes out**
+            - a `list` of `str` titles, sorted as requested
 
             **Rules**
             - Allowed `order_by` values: exactly `"title"`, `"score"`, `"created_at"`.
@@ -1934,9 +2381,9 @@ EXERCISES = [
                 return [row[0] for row in conn.execute(sql)]
         ''',
         "hints": [
-            "Check the column name against a fixed list before building any SQL.",
-            "Once the name is known to be one of the allowed ones, it is safe to put it (and ASC/DESC chosen by your own code) into the SQL text.",
-            "Raise ValueError if order_by is not in the allowed tuple; pick \"DESC\" or \"ASC\" from `descending`; build `ORDER BY <col> <dir>, title ASC` and return the titles.",
+            "Placeholders bind values, not SQL identifiers or ordering keywords.",
+            "Validate the requested column against the fixed permitted names before constructing any query.",
+            "Choose a direction from the Boolean input using fixed SQL words, combine it with the validated name, and always use ascending title order as the tie-break.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 3
@@ -1947,7 +2394,9 @@ EXERCISES = [
         "prompt": r'''
             Wrap the database behind a small class, the way a real chat app would.
 
-            **Write:** a class `ChatStore`
+            **Your job:** write a class `ChatStore`
+
+            **What goes in**
 
             - `ChatStore(path=":memory:")`: opens a connection to `path` and creates the tables it
               needs if they don't exist (your choice of schema). Opening the same file twice must work.
@@ -1956,6 +2405,9 @@ EXERCISES = [
             - `history(conversation_id)`: returns a `list` of dicts `{"role": ..., "content": ...}`
               for that conversation, in the order they were added
             - `total_tokens(conversation_id)`: returns an `int`, the sum of `tokens` of its messages
+
+            **What comes out**
+            - New conversations give back their ids. History queries give ordered message dictionaries, token queries give integer totals, and writes persist for other connections.
 
             **Rules**
             - `add` with an id that has no conversation raises `ValueError`.
@@ -2088,9 +2540,9 @@ EXERCISES = [
                     return row[0]
         ''',
         "hints": [
-            "Keep the connection on `self`, create tables with CREATE TABLE IF NOT EXISTS, and commit every write (`with self.conn:`).",
-            "Two tables: conversations and messages (with conversation_id and tokens). `add` first checks the conversation exists with a SELECT.",
-            "In __init__ connect and create both tables; new_conversation inserts and returns lastrowid; add SELECTs the id (ValueError if fetchone() is None) then INSERTs; history SELECTs role, content WHERE conversation_id = ? ORDER BY id; total_tokens uses COALESCE(SUM(tokens), 0).",
+            "Plan one method around each public operation, sharing a connection stored on the object.",
+            "Store conversations separately from messages linked by their id. Commit writes and query each history using its conversation id.",
+            "Create tables only if absent. Insert parents and return their generated ids. Validate parent existence before adding a parameterized message. Retrieve ordered history and an empty-safe token sum for the selected conversation.",
         ],
     },
 ]

@@ -22,12 +22,34 @@ async function api(path, body) {
   return data;
 }
 
+/* Motion is decoration: every animation started from JS goes through here and is skipped when the
+   system asks for reduced motion. */
+const motionOK = () => !matchMedia("(prefers-reduced-motion: reduce)").matches;
+const anim = (el, frames, opts) => (motionOK() && el?.animate ? el.animate(frames, { easing: "cubic-bezier(.2,.8,.2,1)", ...opts }) : null);
+
+/* FLIP: remember where the children are, change the DOM, then slide each child from its old place. */
+function flip(container, mutate, skip) {
+  const first = new Map([...container.children].map((el) => [el, el.getBoundingClientRect()]));
+  mutate();
+  for (const el of container.children) {
+    const a = first.get(el), b = el.getBoundingClientRect();
+    if (!a || el === skip) continue;
+    const dx = a.left - b.left, dy = a.top - b.top;
+    if (dx || dy) anim(el, [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 240 });
+  }
+}
+
 function toast(msg, bad = false) {
+  let stack = $("#toasts");
+  if (!stack) { stack = document.createElement("div"); stack.id = "toasts"; stack.setAttribute("aria-live", "polite"); document.body.appendChild(stack); }
   const t = document.createElement("div");
   t.className = "toast" + (bad ? " bad" : "");
   t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), bad ? 6000 : 3000);
+  stack.appendChild(t);
+  setTimeout(() => {
+    const out = anim(t, [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(8px) scale(.97)" }], { duration: 220, fill: "forwards" });
+    if (out) out.onfinish = () => t.remove(); else t.remove();
+  }, bad ? 6000 : 3000);
 }
 
 marked.setOptions({ gfm: true, breaks: false });
@@ -94,7 +116,6 @@ async function refreshState() {
 const routes = [
   [/^#\/home$/, viewHome],
   [/^#\/welcome(\?place)?$/, viewWelcome],
-  [/^#\/me(\?onboarding|\?restart)?$/, viewMe],
   [/^#\/course(?:\/([\w-]+))?$/, viewCourse],
   [/^#\/chapter\/([\w-]+)(\?notes)?$/, viewChapter],
   [/^#\/topic\/([\w-]+)(\?learn)?$/, (id) => { location.replace("#/chapter/" + id); }],
@@ -113,26 +134,34 @@ const routes = [
   [/^#\/settings$/, viewSettings],
 ];
 
-async function route() {
+let routeTurn = 0, routeWant = 0, routeChain = Promise.resolve();
+function route() {
+  const want = ++routeWant;
+  routeChain = routeChain.then(() => (want === routeWant ? showRoute() : null)).catch((e) => console.error(e));
+  return routeChain;
+}
+async function showRoute() {
   cleanup.forEach((fn) => { try { fn(); } catch {} });
   cleanup = [];
-  closeLibrary();
   const hash = location.hash || "#/home";
   if (!S) {
     try { await refreshState(); }
     catch (e) { main.innerHTML = `<div class="page"><div class="errbox">Cannot reach the PyTrainer server: ${esc(e.message)}</div></div>`; return; }
   }
-  if (!S.settings.onboarded && !/^#\/(welcome|placement|settings|me)/.test(hash)) { location.hash = "#/welcome"; return; }
+  if (!S.settings.onboarded && !/^#\/(welcome|placement|settings)/.test(hash)) { location.hash = "#/welcome"; return; }
   const nav = hash.split("/")[1]?.split("?")[0];
   document.body.classList.toggle("focus", /^#\/(step|project|placement)\//.test(hash));
-  const navMap = { me: "home", step: "course", chapter: "course", exam: "course", extras: "course", project: "projects", placement: "home", welcome: "home", today: "home" };
+  const navMap = { step: "course", chapter: "course", exam: "course", extras: "course", project: "projects", placement: "home", welcome: "home", today: "home" };
   $$(".nav a[data-nav]").forEach((a) => a.classList.toggle("on", a.dataset.nav === (navMap[nav] || nav)));
   for (const [rx, fn] of routes) {
     const m = hash.match(rx);
     if (m) {
       main.scrollTop = 0;
+      const turn = ++routeTurn;
+      main.dataset.enter = "1";
       try { await fn(...m.slice(1)); }
       catch (e) { console.error(e); main.innerHTML = `<div class="page"><div class="errbox">${esc(e.message)}</div></div>`; }
+      setTimeout(() => { if (turn === routeTurn) delete main.dataset.enter; }, 900);
       return;
     }
   }
@@ -179,7 +208,7 @@ const EDITOR_OPTS = {
 function enhanceCode(root) {
   $$("pre", root).forEach((pre) => {
     const codeEl = $("code", pre);
-    if (!codeEl || pre.dataset.run) return;
+    if (!codeEl || pre.dataset.run || pre.closest(".lx, .task")) return;
     const lang = (codeEl.className.match(/language-(\w+)/) || [])[1] || "";
     if (!["python", "py"].includes(lang)) return;
     pre.dataset.run = "1";
@@ -198,6 +227,7 @@ function enhanceCode(root) {
       try {
         const r = await api("run", { code: cm ? cm.getValue() : code });
         out.classList.remove("hidden");
+        anim(out, [{ opacity: 0, transform: "translateY(-4px)" }, { opacity: 1, transform: "none" }], { duration: 200 });
         out.innerHTML = esc(r.stdout || "") + (r.stderr ? `<span style="color:var(--fail)">${esc(r.stderr)}</span>` : "") + (!r.stdout && !r.stderr ? `<span class="faint">(no output)</span>` : "");
       } catch (err) { toast(err.message, true); }
       busy(runBtn, false);
@@ -811,7 +841,333 @@ function enhanceDiagrams(root) {
   });
 }
 
-function renderRich(root) { enhanceDiagrams(root); highlight(root); enhanceCode(root); }
+/* ---------------------------------------------------------------- interactive lesson blocks
+   A lesson can contain fenced blocks tagged quiz, predict, fill, order, try or match. They are plain
+   text (the format is in CONTENT_GUIDE.md, "v6"), so they are easy to write and
+   scripts/lesson_tools.py can run the code in them. enhanceBlocks() swaps each one for a small
+   activity. Answers are never trusted from the lesson text alone: wherever code is involved the
+   activity runs it through /api/run and compares real output. */
+
+const mdInline = (text) => DOMPurify.sanitize(marked.parseInline(text || ""));
+const lxHtml = (html, cls) => { const d = document.createElement("div"); d.className = cls; d.innerHTML = html; return d; };
+const lxMd = (text, cls) => { const d = lxHtml(DOMPurify.sanitize(marked.parse(text || "")), cls); highlight(d); return d; };
+const lxRun = (code) => api("run", { code });
+const lxNorm = (t) => (t || "").replace(/\r/g, "").split("\n").map((l) => l.replace(/\s+$/, "")).join("\n").replace(/\n+$/, "");
+const lxErr = (r) => (r.timed_out ? "The program ran for too long and was stopped." : (r.stderr || "").trim().split("\n").pop());
+
+function lxSections(body) {
+  const parts = [[]];
+  for (const line of body.split("\n")) { if (line.trim() === "---") parts.push([]); else parts[parts.length - 1].push(line); }
+  return parts.map((p) => p.join("\n").replace(/^\n+|\n+$/g, ""));
+}
+/* `- [x] label :: feedback` lines; a line after an option that is not an option continues its feedback. */
+function lxOptions(text) {
+  const head = [], opts = [];
+  for (const line of text.split("\n")) {
+    const m = line.trim().match(/^- \[( |x|X)\] (.*)$/);
+    if (m) {
+      const i = m[2].indexOf(" :: ");
+      opts.push({ ok: m[1] !== " ", label: (i < 0 ? m[2] : m[2].slice(0, i)).trim(), why: i < 0 ? "" : m[2].slice(i + 4).trim() });
+    } else if (opts.length) {
+      if (line.trim()) opts[opts.length - 1].why = (opts[opts.length - 1].why + " " + line.trim()).trim();
+    } else head.push(line);
+  }
+  return { head: head.join("\n").trim(), opts };
+}
+/* The same shuffle every time for the same block, and never the order it was written in. */
+function lxShuffle(n, seedText) {
+  let h = 2166136261;
+  for (let i = 0; i < seedText.length; i++) h = Math.imul(h ^ seedText.charCodeAt(i), 16777619) >>> 0;
+  const rnd = () => { h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0; h = Math.imul(h ^ (h >>> 13), 3266489909) >>> 0; h = (h ^ (h >>> 16)) >>> 0; return h / 4294967296; };
+  const out = Array.from({ length: n }, (_, i) => i);
+  for (let tries = 0; tries < 6 && out.every((v, i) => v === i); tries++)
+    for (let i = n - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+  if (n > 1 && out.every((v, i) => v === i)) out.push(out.shift());
+  return out;
+}
+
+function lxFrame(kind, label) {
+  const body = dgEl("div", { class: "lx-body" });
+  const foot = dgEl("div", { class: "lx-foot", "aria-live": "polite" });
+  const fig = dgEl("figure", { class: `lx lx-${kind}`, role: "group", "aria-label": label },
+    dgEl("figcaption", { class: "lx-cap" }, dgEl("span", { class: "lx-tag", text: label }), dgEl("span", { class: "lx-mark", "aria-hidden": "true" })), body, foot);
+  const done = (right = true) => {
+    if (fig.classList.contains("done")) return;
+    fig.classList.add("done");
+    fig.classList.toggle("right", right);
+    fig.dispatchEvent(new CustomEvent("lx-done", { bubbles: true }));
+  };
+  return { fig, body, foot, done };
+}
+/* One feedback message under an activity. kind: good | bad | info. */
+function lxSay(foot, kind, text, ...extra) {
+  const box = dgEl("div", { class: "lx-say " + kind }, lxHtml(DOMPurify.sanitize(marked.parse(text || "")), "lx-md"), extra);
+  highlight(box);
+  dgAdd(dgClear(foot), box);
+  anim(box, [{ opacity: 0, transform: "translateY(-6px)" }, { opacity: 1, transform: "none" }], { duration: 260 });
+  return box;
+}
+const lxShake = (el) => anim(el, [{ transform: "translateX(0)" }, { transform: "translateX(-6px)" }, { transform: "translateX(5px)" }, { transform: "translateX(-3px)" }, { transform: "translateX(0)" }], { duration: 320, easing: "ease-out" });
+const lxPop = (el) => anim(el, [{ transform: "scale(1)" }, { transform: "scale(1.035)" }, { transform: "scale(1)" }], { duration: 320 });
+function lxOut(r, label = "Python printed") {
+  const text = (r.stdout || "") + (r.returncode === 0 && !r.timed_out ? "" : (r.stdout && !r.stdout.endsWith("\n") ? "\n" : ""));
+  return dgEl("div", { class: "lx-outwrap" }, dgEl("div", { class: "lx-label", text: label }),
+    dgEl("pre", { class: "lx-out" }, text || (r.returncode === 0 ? dgEl("span", { class: "faint", text: "(nothing)" }) : null),
+      r.returncode !== 0 || r.timed_out ? dgEl("span", { class: "lx-errline", text: lxErr(r) }) : null));
+}
+function lxCode(code) {
+  const codeEl = dgEl("code", { class: "cm-s-pt" });
+  CodeMirror.runMode(code, "python", codeEl);
+  codeEl.dataset.hl = "1";
+  return dgEl("pre", { class: "lx-code" }, codeEl);
+}
+
+/* ---- quiz: one question, pick an option, every option explains itself */
+function lxQuiz(body) {
+  const { head, opts } = lxOptions(body);
+  const f = lxFrame("quiz", "Quick check");
+  const list = dgEl("div", { class: "lx-opts" });
+  lxShuffle(opts.length, body).forEach((k, n) => {
+    const o = opts[k];
+    const btn = dgEl("button", { type: "button", class: "lx-opt" }, dgEl("span", { class: "lx-key", text: "ABCDE"[n] }), lxHtml(mdInline(o.label), "lx-optlabel"));
+    btn.onclick = () => {
+      if (f.fig.classList.contains("done")) return;
+      $$(".lx-opt", list).forEach((b) => b.classList.remove("wrong"));
+      if (o.ok) {
+        btn.classList.add("right");
+        $$(".lx-opt", list).forEach((b) => { if (b !== btn) b.disabled = true; });
+        lxPop(btn); lxSay(f.foot, "good", o.why); f.done();
+      } else {
+        btn.classList.add("wrong", "tried"); lxShake(btn); lxSay(f.foot, "bad", o.why);
+      }
+    };
+    list.append(btn);
+  });
+  dgAdd(f.body, lxMd(head, "lx-md lx-q"), list);
+  return f.fig;
+}
+
+/* ---- predict: type what the code prints, then Python runs it */
+function lxPredict(body) {
+  const [code, why] = lxSections(body);
+  const f = lxFrame("predict", "Predict");
+  const guess = dgEl("textarea", { class: "lx-guess", rows: 2, spellcheck: "false", "aria-label": "Your prediction", placeholder: "What will it print? One line for each print." });
+  guess.addEventListener("input", () => { guess.rows = Math.min(8, Math.max(2, guess.value.split("\n").length)); });
+  const go = dgBtn("Check my guess", () => act(false), "primary"), skip = dgBtn("Show me", () => act(true), "ghost");
+  const row = dgEl("div", { class: "lx-row" }, go, skip);
+  async function act(reveal) {
+    if (!reveal && !guess.value.trim()) { guess.focus(); lxShake(guess); return; }
+    busy(go, true); skip.disabled = true;
+    try {
+      const r = await lxRun(code);
+      const actual = lxNorm(r.stdout).split("\n"), mine = lxNorm(guess.value).split("\n");
+      const right = !reveal && actual.join("\n") === mine.join("\n");
+      guess.readOnly = true; row.remove();
+      const table = dgEl("div", { class: "lx-compare" },
+        dgEl("div", { class: "lx-label", text: "Python printed" }),
+        actual.map((line, i) => dgEl("div", { class: "lx-cmp " + (reveal ? "" : mine[i] === line ? "ok" : "no"), style: `--i:${i}` },
+          dgEl("span", { class: "ic", text: reveal ? "" : mine[i] === line ? "✓" : "✕" }), dgEl("code", { text: line || " " }))),
+        !reveal && mine.length > actual.length ? dgEl("div", { class: "lx-note", text: `You predicted ${mine.length} lines. The program prints ${actual.length}.` }) : null);
+      lxSay(f.foot, right ? "good" : "info", (right ? "**Exactly right.** " : reveal ? "" : "**Not quite.** Compare your lines with what Python printed. ") + why).prepend(table);
+      f.done(right);
+    } catch (err) { toast(err.message, true); busy(go, false); skip.disabled = false; }
+  }
+  guess.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); act(false); } });
+  dgAdd(f.body, lxCode(code), guess, row);
+  return f.fig;
+}
+
+/* ---- fill: one gap in the code, pick what goes in it */
+function lxFill(body) {
+  const [code, optText, why] = lxSections(body);
+  const { opts } = lxOptions(optText || "");
+  const f = lxFrame("fill", "Fill the gap");
+  const pre = lxCode(code), gap = dgEl("span", { class: "lx-gap", text: "?" });
+  const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const i = node.data.indexOf("___");
+    if (i < 0) continue;
+    const after = node.splitText(i);
+    after.data = after.data.slice(3);
+    after.parentNode.insertBefore(gap, after);
+    break;
+  }
+  const chips = dgEl("div", { class: "lx-chips" });
+  lxShuffle(opts.length, body).forEach((k) => {
+    const o = opts[k];
+    const chip = dgEl("button", { type: "button", class: "lx-chip", text: o.label });
+    chip.onclick = async () => {
+      if (f.fig.classList.contains("done")) return;
+      gap.textContent = o.label;
+      gap.className = "lx-gap " + (o.ok ? "right" : "wrong");
+      $$(".lx-chip", chips).forEach((c) => c.classList.remove("wrong"));
+      if (!o.ok) { chip.classList.add("wrong", "tried"); lxShake(gap); lxSay(f.foot, "bad", o.why); return; }
+      chip.classList.add("right");
+      $$(".lx-chip", chips).forEach((c) => { if (c !== chip) c.disabled = true; });
+      lxPop(gap); f.done();
+      const say = lxSay(f.foot, "good", o.why + (why ? "\n\n" + why : ""));
+      try { say.prepend(lxOut(await lxRun(code.replace("___", o.label)))); } catch { /* the feedback stands without the output */ }
+    };
+    chips.append(chip);
+  });
+  dgAdd(f.body, pre, chips);
+  return f.fig;
+}
+
+/* ---- order: put shuffled lines into an order that works. Any order that prints the same counts. */
+function lxOrder(body) {
+  const [codeText, why] = lxSections(body);
+  const lines = codeText.split("\n").filter((l) => l.trim());
+  const f = lxFrame("order", "Put the lines in order");
+  const list = dgEl("ol", { class: "lx-lines" });
+  let target = null, quiet = 0;
+  const move = (li, dir) => {
+    const other = dir < 0 ? li.previousElementSibling : li.nextElementSibling;
+    if (!other || f.fig.classList.contains("done")) return;
+    flip(list, () => (dir < 0 ? list.insertBefore(li, other) : list.insertBefore(other, li)));
+    quiet = performance.now() + 170;
+  };
+  lxShuffle(lines.length, body).forEach((k) => {
+    const codeEl = dgEl("code", { class: "cm-s-pt" });
+    CodeMirror.runMode(lines[k], "python", codeEl);
+    const grip = dgEl("span", { class: "lx-grip", "aria-hidden": "true", text: "⋮⋮" });
+    const li = dgEl("li", { class: "lx-line", "data-k": k }, grip, codeEl,
+      dgEl("span", { class: "lx-nudge" },
+        dgEl("button", { type: "button", "aria-label": "Move this line up", text: "↑", onclick: () => { move(li, -1); li.querySelector("button").focus(); } }),
+        dgEl("button", { type: "button", "aria-label": "Move this line down", text: "↓", onclick: () => { move(li, 1); li.querySelectorAll("button")[1].focus(); } })));
+    grip.addEventListener("pointerdown", (e) => { if (f.fig.classList.contains("done")) return; e.preventDefault(); grip.setPointerCapture(e.pointerId); li.classList.add("drag"); });
+    grip.addEventListener("pointermove", (e) => {
+      if (!grip.hasPointerCapture(e.pointerId) || performance.now() < quiet) return;
+      const prev = li.previousElementSibling, next = li.nextElementSibling;
+      if (prev && e.clientY < prev.getBoundingClientRect().top + prev.offsetHeight / 2) move(li, -1);
+      else if (next && e.clientY > next.getBoundingClientRect().top + next.offsetHeight / 2) move(li, 1);
+    });
+    const drop = () => li.classList.remove("drag");
+    grip.addEventListener("pointerup", drop); grip.addEventListener("pointercancel", drop);
+    list.append(li);
+  });
+  const go = dgBtn("Check the order", async () => {
+    busy(go, true);
+    try {
+      target ??= lxNorm((await lxRun(lines.join("\n"))).stdout);
+      const r = await lxRun([...list.children].map((li) => lines[+li.dataset.k]).join("\n"));
+      if (r.returncode === 0 && !r.timed_out && lxNorm(r.stdout) === target) {
+        go.remove(); lxPop(list); f.done();
+        lxSay(f.foot, "good", "**That order works.** " + why).prepend(lxOut(r));
+      } else {
+        lxShake(list);
+        lxSay(f.foot, "bad", r.returncode !== 0 || r.timed_out ? "Python stopped before the end. Read the last line of the message, move the lines and check again."
+          : "It runs, but it does not print what the finished program should. Move the lines and check again.",
+          r.returncode === 0 && !r.timed_out ? dgEl("details", { class: "lx-want" }, dgEl("summary", { text: "What should it print?" }), dgEl("pre", { class: "lx-out", text: target })) : null).prepend(lxOut(r, "In this order, Python printed"));
+      }
+    } catch (err) { toast(err.message, true); }
+    busy(go, false);
+  }, "primary");
+  dgAdd(f.body, dgEl("p", { class: "lx-note", text: "Drag a line by its handle, or use the arrows." }), list, dgEl("div", { class: "lx-row" }, go));
+  return f.fig;
+}
+
+/* ---- try: a small editor with a goal. The hidden solution only supplies the output to aim for. */
+function lxTry(body) {
+  const [starter, goal, solution, why] = lxSections(body);
+  const f = lxFrame("try", "Try it");
+  const host = dgEl("div", { class: "lx-editor" });
+  let target = null, misses = 0;
+  const cm = CodeMirror(host, { ...EDITOR_OPTS, value: starter, lineNumbers: false, viewportMargin: Infinity, autofocus: false,
+    extraKeys: { ...EDITOR_OPTS.extraKeys, "Ctrl-Enter": () => run(), "Cmd-Enter": () => run() } });
+  cm.setSize(null, "auto");
+  new IntersectionObserver((entries, io) => { if (entries.some((e) => e.isIntersecting)) { cm.refresh(); io.disconnect(); } }).observe(host);
+  const go = dgBtn("Run", () => run(), "primary");
+  const reset = dgBtn("Reset", () => { cm.setValue(starter); cm.focus(); }, "ghost");
+  async function run() {
+    busy(go, true);
+    try {
+      target ??= lxNorm((await lxRun(solution)).stdout);
+      const r = await lxRun(cm.getValue());
+      if (r.returncode === 0 && !r.timed_out && lxNorm(r.stdout) === target) {
+        lxPop(host); f.done();
+        lxSay(f.foot, "good", "**That is it.** " + (why || "")).prepend(lxOut(r));
+      } else {
+        misses += 1;
+        const want = dgEl("details", { class: "lx-want" }, dgEl("summary", { text: "What should it print?" }), dgEl("pre", { class: "lx-out", text: target }));
+        lxSay(f.foot, "info", r.returncode !== 0 || r.timed_out ? "Python stopped with an error. The last line of the message says what went wrong." : "It runs. It does not print what the goal asks for yet.",
+          misses >= 2 ? want : null).prepend(lxOut(r));
+      }
+    } catch (err) { toast(err.message, true); }
+    busy(go, false);
+  }
+  dgAdd(f.body, lxMd(goal, "lx-md lx-goal"), host, dgEl("div", { class: "lx-row" }, go, reset, dgEl("span", { class: "lx-note", text: "Ctrl+Enter runs it" })));
+  return f.fig;
+}
+
+/* ---- match: pair each item on the left with one on the right */
+function lxMatch(body) {
+  const [pairText, why] = lxSections(body);
+  const pairs = pairText.split("\n").filter((l) => l.includes(" :: ")).map((l) => { const i = l.indexOf(" :: "); return [l.slice(0, i).trim(), l.slice(i + 4).trim()]; });
+  const f = lxFrame("match", "Match the pairs");
+  const left = dgEl("div", { class: "lx-col" }), right = dgEl("div", { class: "lx-col" });
+  let pick = null, matched = 0;
+  const mk = (k, side) => {
+    const btn = dgEl("button", { type: "button", class: "lx-pair", "data-k": k }, lxHtml(mdInline(pairs[k][side]), "lx-optlabel"));
+    btn.onclick = () => {
+      if (btn.classList.contains("matched")) return;
+      if (!pick || pick.side === side) { pick?.btn.classList.remove("picked"); pick = pick?.btn === btn ? null : { side, k, btn }; pick?.btn.classList.add("picked"); return; }
+      const a = pick.btn; pick = null; a.classList.remove("picked");
+      if (+a.dataset.k !== k) { lxShake(a); lxShake(btn); lxSay(f.foot, "bad", "Those two do not belong together. Try another pair."); return; }
+      [a, btn].forEach((b) => { b.classList.add("matched"); lxPop(b); });
+      // line the right-hand item up with its partner
+      const r = right.querySelector(`[data-k="${k}"]`), cur = right.children[[...left.children].findIndex((b) => +b.dataset.k === k)];
+      if (cur !== r) flip(right, () => { const mark = document.createComment(""); right.replaceChild(mark, r); right.replaceChild(r, cur); right.replaceChild(cur, mark); });
+      matched += 1;
+      if (matched === pairs.length) { f.done(); lxSay(f.foot, "good", "**All matched.** " + (why || "")); } else dgClear(f.foot);
+    };
+    return btn;
+  };
+  pairs.forEach((_, k) => left.append(mk(k, 0)));
+  lxShuffle(pairs.length, body).forEach((k) => right.append(mk(k, 1)));
+  dgAdd(f.body, dgEl("p", { class: "lx-note", text: "Pick one on the left, then its partner on the right." }), dgEl("div", { class: "lx-cols" }, left, right));
+  return f.fig;
+}
+
+const BLOCKS = { quiz: lxQuiz, predict: lxPredict, fill: lxFill, order: lxOrder, try: lxTry, match: lxMatch };
+
+/* Runs after DOMPurify, before highlight(): replace every activity block under root with its widget. */
+function enhanceBlocks(root) {
+  for (const [kind, build] of Object.entries(BLOCKS)) {
+    $$(`pre > code.language-${kind}`, root).forEach((codeEl) => {
+      let widget;
+      try { widget = build(codeEl.textContent.replace(/\n+$/, "")); }
+      catch (err) { widget = dgEl("div", { class: "dg dg-broken", text: "This activity could not be shown: " + err.message }); }
+      codeEl.parentElement.replaceWith(widget);
+    });
+  }
+}
+
+/* A slim bar over the lesson: how far down the page you are, and one dot per activity in it. */
+function lessonTracker(pane, lesson) {
+  const acts = $$(".lx", lesson);
+  const bar = dgEl("div", { class: "read-track" }, dgEl("i", { class: "read-fill" }),
+    acts.length ? dgEl("span", { class: "read-dots", title: "Activities in this lesson" }, acts.map((a, i) => dgEl("button", { type: "button", class: "read-dot", "aria-label": `Go to activity ${i + 1} of ${acts.length}`,
+      onclick: () => a.scrollIntoView({ behavior: motionOK() ? "smooth" : "auto", block: "center" }) }))) : null);
+  pane.prepend(bar);
+  const fill = bar.firstChild, dots = $$(".read-dot", bar);
+  const onScroll = () => { const max = pane.scrollHeight - pane.clientHeight; fill.style.transform = `scaleX(${max > 0 ? Math.min(1, pane.scrollTop / max) : 1})`; };
+  pane.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+  lesson.addEventListener("lx-done", (e) => {
+    const i = acts.indexOf(e.target);
+    if (i >= 0) { dots[i].classList.add("on"); lxPop(dots[i]); }
+    if (acts.every((a) => a.classList.contains("done"))) { const task = $(".task", pane); if (task && !task.classList.contains("ready")) { task.classList.add("ready"); bar.classList.add("all"); } }
+  });
+  // activities and diagrams ease in the first time they scroll into view
+  if (motionOK()) {
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.replace("unseen", "seen"); io.unobserve(e.target); } }), { root: pane, threshold: 0.12 });
+    $$(".lx, .dg", lesson).forEach((el) => { el.classList.add("unseen"); io.observe(el); });
+    cleanup.push(() => io.disconnect());
+  }
+}
+
+function renderRich(root) { enhanceDiagrams(root); enhanceBlocks(root); highlight(root); enhanceCode(root); }
 
 function makeEditor(host, files, onChange, { focus = true } = {}) {
   const docs = {};
@@ -821,6 +1177,10 @@ function makeEditor(host, files, onChange, { focus = true } = {}) {
   cm.swapDoc(docs[active]);
   cm.on("change", () => onChange && onChange());
   setTimeout(() => { cm.refresh(); if (focus) cm.focus(); }, 30);
+  let sizeT = null;
+  const ro = new ResizeObserver(() => { clearTimeout(sizeT); sizeT = setTimeout(() => cm.refresh(), 60); });
+  ro.observe(host);
+  cleanup.push(() => { ro.disconnect(); clearTimeout(sizeT); });
   return {
     cm,
     get active() { return active; },
@@ -848,12 +1208,13 @@ function startTimer(el) {
 function makeDock(dock) {
   const grip = $(".dock-grip", dock), col = dock.parentElement;
   if (!grip) return;
-  grip.onmousedown = (e) => {
+  grip.onpointerdown = (e) => {
     e.preventDefault();
+    grip.setPointerCapture(e.pointerId);
+    grip.classList.add("drag");
     const rect = col.getBoundingClientRect();
-    const move = (ev) => col.style.setProperty("--dock", Math.min(80, Math.max(15, ((rect.bottom - ev.clientY) / rect.height) * 100)) + "%");
-    const up = () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
-    window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
+    grip.onpointermove = (ev) => col.style.setProperty("--dock", Math.min(80, Math.max(15, ((rect.bottom - ev.clientY) / rect.height) * 100)) + "%");
+    grip.onpointerup = grip.onpointercancel = () => { grip.onpointermove = null; grip.classList.remove("drag"); };
   };
 }
 
@@ -870,30 +1231,23 @@ function paneSwitch(ws, cm, labels = ["Lesson", "Code"]) {
   const set = (p) => {
     ws.dataset.pane = p;
     $$("button", sw).forEach((b) => b.classList.toggle("on", b.dataset.p === p));
-    if (p === "code" && cm) setTimeout(() => cm.refresh(), 20);
+    if (p === "code" && cm) setTimeout(() => { cm.refresh(); $$(".dock-tabs.has-ind", ws).forEach(tabIndicator); }, 20);
   };
   $$("button", sw).forEach((b) => b.onclick = () => set(b.dataset.p));
   return set;
 }
 
-const interestName = () => (S?.settings.profile?.primary_interest || "").split("(")[0].trim();
 const burst = () => `<span class="burst">${Array.from({ length: 12 }, (_, i) =>
   `<i style="--r:${i * 30}deg;background:${["var(--amber)", "var(--pass)", "var(--text)"][i % 3]};animation-delay:${(i % 3) * 40}ms"></i>`).join("")}</span>`;
-const WRITING_STEPS = (topic) => ["Reading the lesson…", `Finding a ${topic || "personal"} angle…`, "Writing examples…", "Running every example…", "Polishing the wording…"];
-function writingHTML(topic) {
-  return `<div class="writing reveal"><div class="status"><div class="orbit"><i></i><i></i><i></i></div><span id="wstatus">${esc(WRITING_STEPS(topic)[0])}</span></div>
-    <div class="lines"><i style="width:92%"></i><i style="width:78%"></i><i style="width:86%"></i><i style="width:60%"></i><i style="width:72%"></i></div>
-    <p class="faint small" style="margin:12px 0 0">Re-telling this lesson around ${esc(topic || "what you love")}. The first time takes a few seconds; after that it's instant.</p></div>`;
-}
-
 function resultsHTML(r, extra = "") {
   if (!r) return `<p class="dim">Press <b>Check</b> (Ctrl+Enter) when you're ready. Each check shows exactly what passed and what didn't.</p>`;
   const ok = r.status === "passed";
   const unit = r.tests[0]?.name?.startsWith("line ") ? "lines right" : "checks";
-  let html = `<div class="results"><div class="sum ${ok ? "pass" : "fail"}"><b>${ok ? "Correct" : r.status === "timeout" ? "Timed out" : r.status === "error" ? "Your code didn't run" : "Not yet"}</b>
+  const fresh = r._fresh; r._fresh = false;
+  let html = `<div class="results ${fresh ? "fresh" : ""}"><div class="sum ${ok ? "pass" : "fail"}"><b>${ok ? "Correct" : r.status === "timeout" ? "Timed out" : r.status === "error" ? "Your code didn't run" : "Not yet"}</b>
     <span class="dim">${r.passed}/${r.total} ${unit}</span></div>`;
   if (r.error) html += `<div class="errbox">${esc(r.error)}</div>`;
-  html += r.tests.map((t) => `<div class="test ${t.passed ? "ok" : "no"}"><span class="ic">${t.passed ? "✓" : "✕"}</span>
+  html += r.tests.map((t, i) => `<div class="test ${t.passed ? "ok" : "no"}" style="--i:${i}"><span class="ic">${t.passed ? "✓" : "✕"}</span>
       <div>${esc(t.name)}${t.message ? `<pre>${esc(t.message)}</pre>` : ""}</div></div>`).join("");
   if (r.stdout && r.stdout.trim()) html += `<h3 style="margin:16px 0 6px">Printed while checking</h3><pre class="outbox">${esc(r.stdout)}</pre>`;
   return html + extra + "</div>";
@@ -932,9 +1286,10 @@ function researchHTML(r) {
 
 /* ---------------------------------------------------------------- library
    Reference cards for the chapters whose lesson is finished. The same list is drawn as a page
-   (#/library) and as a drawer that slides over the lesson side of an exercise (Ctrl+K), so
-   looking something up never leaves the editor. Locked chapters arrive from the server as a
-   title only: there is nothing locked in the page to reveal. */
+   (#/library) and inside every workspace (step, module test, placement question, project), where
+   it is part of the screen instead of something laid over it: a tab of the bottom dock, or a
+   panel docked on the left or the right. Locked chapters arrive from the server as a title only:
+   there is nothing locked in the page to reveal. */
 
 let LIB = null;                 // last /api/library payload
 let libHere = null;             // topic id of the exercise on screen, if any
@@ -977,7 +1332,7 @@ function libSearch(lib, q) {
   return { words, hits, locked: lib.entries.filter((x) => !x.unlocked && libHas(x.title, words)) };
 }
 
-function libEntryHTML(e, cards, words, open, drawer) {
+function libEntryHTML(e, cards, words, open, panel) {
   const hidden = e.cards.length - cards.length;
   return `<article class="lib-entry ${open ? "open" : ""}" style="${modColor(e.module)}" data-id="${esc(e.id)}">
     <button type="button" class="lib-head" aria-expanded="${open}"><span class="lib-num">${String(e.number).padStart(2, "0")}</span>
@@ -988,35 +1343,35 @@ function libEntryHTML(e, cards, words, open, drawer) {
       <div class="lib-cards">${cards.map((c) => `<div class="lib-card"><code class="lib-syn">${libMark(c.syntax, words)}</code>
         <p>${libMark(c.explain, words)}</p><pre><code class="language-python">${esc(c.example)}</code></pre></div>`).join("")}</div>
       <div class="lib-foot">${hidden > 0 ? `<button type="button" class="btn small ghost lib-all">Show all ${e.cards.length} cards</button>` : ""}
-        ${drawer ? "" : `<a class="btn small ghost" href="#/chapter/${esc(e.id)}?notes">Open the chapter notes</a>`}</div></div>` : ""}
+        ${panel ? "" : `<a class="btn small ghost" href="#/chapter/${esc(e.id)}?notes">Open the chapter notes</a>`}</div></div>` : ""}
   </article>`;
 }
 
-const libLockedHTML = (e, drawer) => `<div class="lib-entry locked" style="${modColor(e.module)}"><div class="lib-head">
+const libLockedHTML = (e, panel) => `<div class="lib-entry locked" style="${modColor(e.module)}"><div class="lib-head">
   <span class="lib-num">${String(e.number).padStart(2, "0")}</span><span class="lib-title"><b>${esc(e.title)}</b></span>
-  <span class="lib-why">${LOCK_SVG} ${drawer ? "locked" : `<a href="#/chapter/${esc(e.id)}">Finish the chapter</a> to unlock`}</span></div></div>`;
+  <span class="lib-why">${LOCK_SVG} ${panel ? "locked" : `<a href="#/chapter/${esc(e.id)}">Finish the chapter</a> to unlock`}</span></div></div>`;
 
 /* Draw the list (or the search results) into `body`. Only this part is redrawn while typing. */
-function libDraw(body, lib, { drawer = false } = {}) {
+function libDraw(body, lib, { panel = false } = {}) {
   const st = libState, q = st.q.trim();
   const { words, hits, locked } = libSearch(lib, q);
   const isOpen = (id) => q ? !st.shut.has(id) : st.open.has(id);
   const full = new Set(st.full || []);
   let h = "";
   if (!lib.unlocked) {
-    h += `<div class="note">Your Library is empty so far. Work through a chapter's steps and its reference card is added here${drawer ? "." : `. <a href="#/course">Go to the course</a>.`}</div>`;
+    h += `<div class="note">Your Library is empty so far. Work through a chapter's steps and its reference card is added here${panel ? "." : `. <a href="#/course">Go to the course</a>.`}</div>`;
   }
   if (q) {
     h += `<p class="lib-status" role="status">${hits.length ? `${hits.length} unlocked ${hits.length === 1 ? "entry matches" : "entries match"}` : "No unlocked entry matches"} "${esc(q)}".</p>`;
-    h += hits.map(({ e, cards }) => libEntryHTML(e, full.has(e.id) ? e.cards : cards, words, isOpen(e.id), drawer)).join("");
-    if (locked.length) h += `<p class="lib-status">${LOCK_SVG} ${locked.length === 1 ? "One locked chapter has" : `${locked.length} locked chapters have`} a matching title:</p>` + locked.map((e) => libLockedHTML(e, drawer)).join("");
+    h += hits.map(({ e, cards }) => libEntryHTML(e, full.has(e.id) ? e.cards : cards, words, isOpen(e.id), panel)).join("");
+    if (locked.length) h += `<p class="lib-status">${LOCK_SVG} ${locked.length === 1 ? "One locked chapter has" : `${locked.length} locked chapters have`} a matching title:</p>` + locked.map((e) => libLockedHTML(e, panel)).join("");
   } else {
     for (const m of lib.modules) {
       const rows = lib.entries.filter((e) => e.module === m.id);
       if (!rows.length) continue;
       const got = rows.filter((e) => e.unlocked).length;
       h += `<section class="lib-mod" style="${modColor(m.id)}"><h2><span>${esc(m.title)}</span><small>${got} of ${rows.length}</small></h2>
-        ${rows.map((e) => e.unlocked ? libEntryHTML(e, e.cards, words, isOpen(e.id), drawer) : libLockedHTML(e, drawer)).join("")}</section>`;
+        ${rows.map((e) => e.unlocked ? libEntryHTML(e, e.cards, words, isOpen(e.id), panel) : libLockedHTML(e, panel)).join("")}</section>`;
     }
   }
   body.innerHTML = h;
@@ -1026,10 +1381,12 @@ function libDraw(body, lib, { drawer = false } = {}) {
     $(".lib-head", el).onclick = () => {
       const set = q ? st.shut : st.open, was = isOpen(id);
       if (q ? was : !was) set.add(id); else set.delete(id);
-      libDraw(body, lib, { drawer });
-      $(`.lib-entry[data-id="${id}"] .lib-head`, body)?.focus();
+      libDraw(body, lib, { panel });
+      const now = $(`.lib-entry[data-id="${id}"]`, body);
+      $(".lib-head", now)?.focus();
+      if (!was) anim($(".lib-in", now), [{ opacity: 0, transform: "translateY(-8px)" }, { opacity: 1, transform: "none" }], { duration: 240 });
     };
-    $(".lib-all", el)?.addEventListener("click", () => { st.full = [...full, id]; libDraw(body, lib, { drawer }); });
+    $(".lib-all", el)?.addEventListener("click", () => { st.full = [...full, id]; libDraw(body, lib, { panel }); });
   });
 }
 
@@ -1051,13 +1408,12 @@ function libDefaultOpen(lib) {
 }
 
 async function viewLibrary() {
-  closeLibrary();
   await refreshState();
   const lib = LIB = await api("library");
   libDefaultOpen(lib);
   main.innerHTML = `<div class="page lib-page">
     <div class="lib-top"><div><h1>Library</h1>
-      <p class="dim" style="margin:10px 0 0;max-width:60ch">Reference cards for the chapters you have finished: the key syntax, what it does, and a tiny example. Each chapter you finish adds its card. Press <kbd>Ctrl+K</kbd> inside an exercise to open it next to your code.</p></div>
+      <p class="dim" style="margin:10px 0 0;max-width:60ch">Reference cards for the chapters you have finished: the key syntax, what it does, and a tiny example. Each chapter you finish adds its card. Inside an exercise the Library sits next to your code: press <kbd>Ctrl+K</kbd>.</p></div>
       <div class="lib-meter">${libCountHTML(lib)}</div></div>
     <div class="lib-search"><input type="text" id="lib-q" role="searchbox" aria-label="Search the Library" autocomplete="off" spellcheck="false" placeholder="Search by chapter or keyword, for example: slice, KeyError, sorted"></div>
     <div id="lib-body" class="lib-body"></div></div>`;
@@ -1067,42 +1423,136 @@ async function viewLibrary() {
   if (!matchMedia("(pointer: coarse)").matches) input.focus();
 }
 
-/* The drawer. It is not modal: the editor stays live beside it, and closing it puts the cursor back. */
-function closeLibrary() {
-  const el = $("#lib-drawer");
-  if (!el) return false;
-  const back = el._back;
-  el.remove();
-  if (back?.isConnected) back.focus();
-  return true;
-}
+/* ---- the Library inside a workspace
+   One <aside> per workspace. It lives in the bottom dock as a tab, or is moved (the same element,
+   so search text and open entries survive) into the workspace grid as a column on the left or
+   right. The choice and the width are remembered. On a phone it is always a dock tab. */
+const LIB_ICON = {
+  left: `<svg viewBox="0 0 18 14" width="18" height="14" aria-hidden="true"><rect x=".75" y=".75" width="16.5" height="12.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="2.5" y="2.5" width="4.5" height="9" rx="1" fill="currentColor"/></svg>`,
+  bottom: `<svg viewBox="0 0 18 14" width="18" height="14" aria-hidden="true"><rect x=".75" y=".75" width="16.5" height="12.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="2.5" y="7.5" width="13" height="4" rx="1" fill="currentColor"/></svg>`,
+  right: `<svg viewBox="0 0 18 14" width="18" height="14" aria-hidden="true"><rect x=".75" y=".75" width="16.5" height="12.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2.5" width="4.5" height="9" rx="1" fill="currentColor"/></svg>`,
+  close: `<svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+};
+const libPrefs = (() => {
+  const d = { pos: "bottom", open: true, w: 380 };
+  try { return { ...d, ...JSON.parse(localStorage.getItem("pt-lib") || "{}") }; } catch { return d; }
+})();
+const saveLibPrefs = () => { try { localStorage.setItem("pt-lib", JSON.stringify(libPrefs)); } catch {} };
+let wsLib = null;               // the Library of the workspace on screen, if any (Ctrl+K talks to it)
 
-async function openLibrary() {
-  if ($("#lib-drawer")) { $("#lib-dq").focus(); $("#lib-dq").select(); return; }
-  const el = document.createElement("aside");
-  el.id = "lib-drawer";
-  el.className = "lib-drawer";
-  el.setAttribute("role", "dialog");
-  el.setAttribute("aria-label", "Library");
-  el._back = document.activeElement;
-  el.innerHTML = `<div class="lib-dtop"><h2>Library</h2><span class="lib-dcount" id="lib-dcount"></span><span class="grow"></span>
-      <a class="btn small ghost" href="#/library" title="Open the full Library page (leaves this exercise; your code is saved)">Full page</a>
-      <button type="button" class="btn small" id="lib-close" title="Close (Esc)">Close <kbd>Esc</kbd></button></div>
-    <div class="lib-search"><input type="text" id="lib-dq" role="searchbox" aria-label="Search the Library" autocomplete="off" spellcheck="false" placeholder="Search: slice, KeyError, sorted"></div>
-    <div id="lib-dbody" class="lib-body"><p class="dim"><span class="spin"></span> Loading</p></div>`;
-  document.body.appendChild(el);
-  $("#lib-close", el).onclick = closeLibrary;
-  const input = $("#lib-dq", el), body = $("#lib-dbody", el);
-  const draw = (lib) => {
+/* ws: the .ws grid. dock: its bottom dock. topic: chapter id of the step, if it has one (adds the
+   chapter-notes view). onPlace(pos): the view redraws its dock tabs. selectTab(): the view shows the
+   Library tab. editor: where the cursor goes back to. */
+function mountLibrary(ws, dock, { topic = null, onPlace, selectTab, editor } = {}) {
+  const panel = document.createElement("aside");
+  panel.className = "ws-lib";
+  panel.setAttribute("aria-label", "Library");
+  panel.innerHTML = `<div class="ws-lib-grip" title="Drag to resize"></div><div class="ws-lib-in">
+    <div class="ws-lib-top"><h2>Library</h2><span class="lib-dcount"></span>
+      ${topic ? `<div class="lib-modes" role="tablist"><button type="button" data-m="cards" class="on" role="tab">Cards</button><button type="button" data-m="notes" role="tab">Chapter notes</button></div>` : ""}
+      <span class="grow"></span>
+      <div class="lib-pos" role="group" aria-label="Where the Library sits">
+        <button type="button" data-pos="left" title="Dock the Library on the left" aria-label="Dock on the left">${LIB_ICON.left}</button>
+        <button type="button" data-pos="bottom" title="Keep the Library as a tab under the editor" aria-label="Tab under the editor">${LIB_ICON.bottom}</button>
+        <button type="button" data-pos="right" title="Dock the Library on the right" aria-label="Dock on the right">${LIB_ICON.right}</button></div>
+      <button type="button" class="lib-x" title="Close the panel (Esc)" aria-label="Close the Library panel">${LIB_ICON.close}</button><i class="lib-break"></i></div>
+    <div class="lib-search"><input type="text" role="searchbox" aria-label="Search the Library" autocomplete="off" spellcheck="false" placeholder="Search: slice, KeyError, sorted"></div>
+    <div class="lib-body"><p class="dim"><span class="spin"></span> Loading</p></div></div>`;
+  const input = $(".lib-search input", panel), body = $(".lib-body", panel);
+  const dockLib = dgEl("div", { class: "dock-lib" });
+  dock.append(dockLib);
+  let mode = "cards", notes = null, loaded = false, chose = false;
+  const pos = () => (isNarrow() ? "bottom" : libPrefs.pos);
+
+  function draw(lib) {
+    $(".lib-dcount", panel).textContent = `${lib.unlocked} of ${lib.total} unlocked`;
+    if (mode !== "cards") return;
     libDefaultOpen(lib);
-    $("#lib-dcount", el).textContent = `${lib.unlocked} of ${lib.total} unlocked`;
-    libSearchBox(input, body, lib, { drawer: true });
-    libDraw(body, lib, { drawer: true });
+    libSearchBox(input, body, lib, { panel: true });
+    libDraw(body, lib, { panel: true });
+  }
+  async function load() {
+    if (LIB) draw(LIB);
+    try {
+      LIB = await api("library"); loaded = true;
+      if (!panel.isConnected) return;
+      if (topic && !chose && mode === "cards" && !LIB.entries.find((e) => e.id === topic)?.unlocked) return setMode("notes");
+      draw(LIB);
+    }
+    catch (err) { if (!LIB && panel.isConnected) body.innerHTML = `<div class="errbox">${esc(err.message)}</div>`; }
+  }
+  async function setMode(m) {
+    mode = m;
+    $$(".lib-modes button", panel).forEach((b) => { b.classList.toggle("on", b.dataset.m === m); b.setAttribute("aria-selected", b.dataset.m === m); });
+    panel.classList.toggle("notes", m === "notes");
+    if (m === "cards") { if (LIB) draw(LIB); else load(); }
+    else {
+      body.innerHTML = `<p class="dim"><span class="spin"></span> Loading</p>`;
+      try { notes ??= (await api("topic/" + topic)).topic.lesson; } catch (err) { body.innerHTML = `<div class="errbox">${esc(err.message)}</div>`; return; }
+      if (mode !== "notes") return;
+      body.innerHTML = notes ? md(notes, "lesson lib-notes") : `<p class="dim">This chapter has no notes.</p>`;
+      renderRich(body);
+    }
+    anim(body, [{ opacity: 0 }, { opacity: 1 }], { duration: 180 });
+  }
+  function place() {
+    const p = pos();
+    $$(".lib-pos button", panel).forEach((b) => { b.classList.toggle("on", b.dataset.pos === p); b.setAttribute("aria-pressed", b.dataset.pos === p); });
+    if (p === "bottom") { dockLib.append(panel); delete ws.dataset.lib; ws.classList.remove("lib-open"); panel.inert = false; }
+    else {
+      ws.append(panel);
+      ws.dataset.lib = p;
+      ws.style.setProperty("--libw", libPrefs.w + "px");
+      // let the browser see the closed column first, so opening is a transition and not a jump
+      requestAnimationFrame(() => { ws.classList.toggle("lib-open", libPrefs.open); panel.inert = !libPrefs.open; });
+    }
+    onPlace?.(p);
+  }
+  const focusSearch = () => { if (mode === "cards") { input.focus(); input.select(); } else body.focus?.(); };
+  const api_ = {
+    panel,
+    get pos() { return pos(); },
+    get tabOn() { return dock.classList.contains("lib-on"); },
+    /* called by the view when its Library tab is switched on or off */
+    tab(on) { dock.classList.toggle("lib-on", on); if (on && !loaded) load(); },
+    show() {
+      if (pos() === "bottom") selectTab?.();
+      else { libPrefs.open = true; saveLibPrefs(); ws.classList.add("lib-open"); panel.inert = false; }
+      if (!loaded) load();
+      setTimeout(focusSearch, 0);
+    },
+    hide() {
+      if (pos() !== "bottom") { libPrefs.open = false; saveLibPrefs(); ws.classList.remove("lib-open"); panel.inert = true; }
+      editor?.focus();
+    },
+    get visible() { return pos() === "bottom" ? dock.classList.contains("lib-on") : libPrefs.open; },
+    toggle() { if (api_.visible && panel.contains(document.activeElement)) api_.hide(); else if (api_.visible && pos() !== "bottom") api_.hide(); else api_.show(); },
   };
-  if (LIB) draw(LIB);
-  input.focus(); input.select();
-  try { const lib = await api("library"); LIB = lib; if (el.isConnected) draw(lib); }
-  catch (err) { if (el.isConnected && !LIB) body.innerHTML = `<div class="errbox">${esc(err.message)}</div>`; }
+  $$(".lib-pos button", panel).forEach((b) => b.onclick = () => {
+    libPrefs.pos = b.dataset.pos; libPrefs.open = true; saveLibPrefs();
+    place();
+    if (libPrefs.pos === "bottom") selectTab?.();
+    if (!loaded) load();
+  });
+  $(".lib-x", panel).onclick = () => api_.hide();
+  $$(".lib-modes button", panel).forEach((b) => b.onclick = () => { chose = true; setMode(b.dataset.m); });
+  const grip = $(".ws-lib-grip", panel);
+  grip.onpointerdown = (e) => {
+    e.preventDefault();
+    grip.setPointerCapture(e.pointerId);
+    ws.classList.add("resizing");
+    const x0 = e.clientX, w0 = libPrefs.w, dir = pos() === "left" ? 1 : -1;
+    grip.onpointermove = (ev) => { libPrefs.w = Math.round(Math.min(620, Math.max(280, w0 + dir * (ev.clientX - x0)))); ws.style.setProperty("--libw", libPrefs.w + "px"); };
+    grip.onpointerup = grip.onpointercancel = () => { grip.onpointermove = null; ws.classList.remove("resizing"); saveLibPrefs(); };
+  };
+  const mq = matchMedia("(max-width: 960px)");
+  mq.addEventListener("change", place);
+  cleanup.push(() => { mq.removeEventListener("change", place); if (wsLib === api_) wsLib = null; libHere = null; });
+  libHere = topic;
+  wsLib = api_;
+  place();
+  if (pos() !== "bottom" && libPrefs.open) load();
+  return api_;
 }
 
 document.addEventListener("keydown", (e) => {
@@ -1110,10 +1560,40 @@ document.addEventListener("keydown", (e) => {
     if (!S?.settings.onboarded) return;
     e.preventDefault();
     if (/^#\/library/.test(location.hash)) { $("#lib-q")?.focus(); $("#lib-q")?.select(); }
-    else if ($("#lib-drawer")?.contains(document.activeElement)) closeLibrary();
-    else openLibrary();
-  } else if (e.key === "Escape" && $("#lib-drawer")) { e.preventDefault(); closeLibrary(); }
+    else if (wsLib) { if (wsLib.visible && wsLib.panel.contains(document.activeElement)) wsLib.hide(); else wsLib.show(); }
+    else location.hash = "#/library";
+  } else if (e.key === "Escape" && wsLib?.panel.contains(document.activeElement)) { e.preventDefault(); wsLib.hide(); }
 });
+
+/* Placement questions and projects have a dock with one fixed pane (Output). Give it a Library tab. */
+function dockLibrary(ws, dock, opts = {}) {
+  const tabs = $(".dock-tabs", dock), mainBtn = $("button", tabs);
+  const libBtn = dgEl("button", { type: "button", text: "Library" });
+  mainBtn.after(libBtn);
+  let lib = null;
+  const set = (t) => {
+    mainBtn.classList.toggle("on", t !== "library"); libBtn.classList.toggle("on", t === "library");
+    lib?.tab(t === "library");
+    tabIndicator(tabs);
+    if (t === "library") anim(lib.panel, [{ opacity: 0, transform: "translateY(5px)" }, { opacity: 1, transform: "none" }], { duration: 200 });
+  };
+  lib = mountLibrary(ws, dock, { ...opts,
+    onPlace: (pos) => { libBtn.classList.toggle("hidden", pos !== "bottom"); if (pos !== "bottom") set("main"); else tabIndicator(tabs); },
+    selectTab: () => { set("library"); opts.selectTab?.(); } });
+  mainBtn.onclick = () => set("main");
+  libBtn.onclick = () => set("library");
+  libBtn.classList.toggle("hidden", lib.pos !== "bottom");
+  tabIndicator(tabs);
+  return lib;
+}
+
+/* The underline of a tab strip slides to the tab that is on. */
+function tabIndicator(tabs) {
+  const on = $("button.on", tabs);
+  tabs.classList.add("has-ind");
+  tabs.style.setProperty("--ind-x", (on ? on.offsetLeft : 0) + "px");
+  tabs.style.setProperty("--ind-w", (on ? on.offsetWidth : 0) + "px");
+}
 
 /* ---------------------------------------------------------------- home */
 
@@ -1146,7 +1626,6 @@ async function viewHome() {
     </div>
     ${(() => {
       const tips = [];
-      if (aiOn() && !S.settings.profile) tips.push(`<a class="suggest" href="#/me"><b>Make the course yours</b><span>A two-minute chat about what you love, so lessons are explained through it.</span><em>Start the chat</em></a>`);
       if (S.placement.status !== "done") tips.push(`<a class="suggest" href="#/placement"><b>${S.placement.status === "in_progress" ? "Placement test in progress" : "Already know some Python?"}</b><span>${S.placement.status === "in_progress" ? "Pick up where you left off and skip what you know." : "Take the placement test and skip what you know."}</span><em>${S.placement.status === "in_progress" ? "Continue placement" : "Take the test"}</em></a>`);
       return tips.length ? `<div class="suggests">${tips.join("")}</div>` : "";
     })()}
@@ -1303,8 +1782,6 @@ async function viewStep(id, reviewFlag) {
   let lastResult = null, chat = d.chat, reviewData = d.review, hints = d.hints, canReveal = d.can_reveal;
   let revealed = d.revealed, explanation = d.explanation, walkthrough = null, improve = null, answer = "";
   let feedback = d.reference ? { reference: d.reference, quality: null, tips: [], style: [] } : null;
-  let personal = d.personal, lessonMode = "orig", personalLoading = false, statusTimer = null;
-  cleanup.push(() => clearInterval(statusTimer));
   let dockTab = predict ? "answer" : "results";
   let outputHTML = `<span class="faint">${testsMode ? "Run executes your test file (the code under test is importable as <code>target</code>). Check grades your tests." : "Run executes your file and shows what it prints. Check runs the checks."}</span>`;
   let stdin = "", args = "";
@@ -1353,7 +1830,7 @@ async function viewStep(id, reviewFlag) {
     const typeToAnswer = (e) => {
       const el = document.activeElement;
       if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return;
-      if (el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT")) return;
+      if (el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT" || el.isContentEditable || el.closest(".lx, .dg, .ws-lib"))) return;
       toAnswer();
     };
     document.addEventListener("keydown", typeToAnswer);
@@ -1363,23 +1840,25 @@ async function viewStep(id, reviewFlag) {
   makeDock($("#dock"));
   const setPane = paneSwitch($(".ws"), ed.cm, ["Lesson", predict ? "Answer" : "Code"]);
 
-  /* left: lesson, then the task */
+  /* left: lesson, then the task. The lesson and the task are drawn once, so the activities in the
+     lesson keep their state. drawRead() only redraws the status line and the help under the task. */
   const read = $("#read");
+  read.innerHTML = `<div id="read-head"></div>
+    ${ex.lesson && !review ? `<div class="lesson-wrap" id="read-lesson">${md(ex.lesson, "lesson")}</div>` : ""}
+    <div class="task" id="read-task"><div class="label">${predict ? "Your turn: predict the output" : testsMode ? "Your turn: write the tests" : "Your turn"}</div>
+      ${researchHTML(ex.research)}${md(ex.prompt)}${checksHTML(d.checks)}
+      ${ex.setup_files?.length ? `<p class="faint small" style="margin-top:10px">Files next to your code: ${ex.setup_files.map(esc).join(", ")}</p>` : ""}</div>
+    <div id="read-extra"></div>`;
+  renderRich(read);
+  if ($("#read-lesson")) lessonTracker($(".ws-read"), $("#read-lesson"));
   function drawRead() {
     const status = d.state.status === "solved" ? `<span class="pill pass">solved</span>` : d.state.status === "attempted" ? `<span class="pill warn">attempted</span>` : "";
-    let h = `<div class="kindline"><span>${esc(kindText)}</span>${ex.difficulty ? diffBars(ex.difficulty) : ""}${status}</div><h1>${esc(ex.title)}</h1>`;
-    if (ex.lesson && !review) {
-      if (d.personal_available) h += `<div class="persona-bar"><div class="seg"><button data-m="orig" class="${lessonMode === "orig" ? "on" : ""}">Original</button><button data-m="you" class="${lessonMode === "you" ? "on" : ""}">Made for you</button></div>
-        <span class="for-you">${lessonMode === "you" ? `explained through ${esc(interestName() || "your interests")}` : `switch${matchMedia("(pointer: coarse)").matches ? " or swipe" : ""} to see it explained through ${esc(interestName() || "your interests")}`}</span></div>`;
-      if (lessonMode === "you" && d.personal_available) h += personal ? `<div class="reveal" style="margin-top:14px">${md(personal, "lesson")}</div>` : writingHTML(interestName());
-      else h += `<div style="margin-top:18px">${md(ex.lesson, "lesson")}</div>`;
-    }
-    h += `<div class="task"><div class="label">${predict ? "Your turn: predict the output" : testsMode ? "Your turn: write the tests" : "Your turn"}</div>
-      ${researchHTML(ex.research)}${md(ex.prompt)}${checksHTML(d.checks)}
-      ${ex.setup_files?.length ? `<p class="faint small" style="margin-top:10px">Files next to your code: ${ex.setup_files.map(esc).join(", ")}</p>` : ""}</div>`;
+    $("#read-head").innerHTML = `<div class="kindline"><span>${esc(kindText)}</span>${ex.difficulty ? diffBars(ex.difficulty) : ""}${status}</div><h1>${esc(ex.title)}</h1>`;
+    const extra = $("#read-extra");
+    let h = "";
     if (explanation) h += `<div class="good" style="margin-top:18px"><b>Why:</b> ${md(explanation)}</div>`;
     if (!noHelp) {
-      if (hints.length) h += `<div class="section" style="margin-top:26px"><h3>Hints</h3><ol style="padding-left:1.2em">${hints.map((x) => `<li style="margin:6px 0">${md(x)}</li>`).join("")}</ol></div>`;
+      if (hints.length) h += `<div class="section hints" style="margin-top:26px"><h3>Hints</h3><ol style="padding-left:1.2em">${hints.map((x) => `<li style="margin:6px 0">${md(x)}</li>`).join("")}</ol></div>`;
       if (revealed) {
         h += `<div class="panel" style="margin-top:22px;border-color:var(--amber)"><h3>${predict ? "The actual output" : "A reference solution"}</h3>
           <p class="dim small">${predict ? "Compare it with your prediction, line by line." : "Study it until every line makes sense. Then write it yourself in the editor, without copying, and press Check. It comes back tomorrow for you to rebuild from memory, and only counts once you pass that."}</p>
@@ -1388,41 +1867,26 @@ async function viewStep(id, reviewFlag) {
           <div id="walk">${walkthrough ? md(walkthrough) : ""}</div></div>`;
       } else if (d.state.status !== "solved") {
         h += `<div class="section" style="margin-top:28px"><h3>Stuck?</h3>
-          <p class="dim small">Take a hint, or ask the Tutor tab below. ${canReveal ? "You've given it a real go, so you can view the solution: study it, then write it yourself." : `The solution unlocks after ${predict ? "2" : "3"} checks or 10 minutes of trying.`}</p>
+          <p class="dim small">Take a hint${aiOn() ? ", or ask the Tutor tab below" : ""}. ${canReveal ? "You've given it a real go, so you can view the solution: study it, then write it yourself." : `The solution unlocks after ${predict ? "2" : "3"} checks or 10 minutes of trying.`}</p>
           <div class="row">${ex.hint_count && hints.length < ex.hint_count ? `<button class="btn small" id="hint-inline">Get hint ${hints.length + 1} of ${ex.hint_count}</button>` : ""}
           <button class="btn small ${canReveal ? "" : "ghost"}" id="reveal-btn" ${canReveal ? "" : "disabled"}>Show solution</button></div></div>`;
       }
     } else {
       h += `<p class="faint small" style="margin-top:22px">Module test: no hints, tutor or solutions until you pass. Some questions need you to look things up, and that's part of the test.</p>`;
     }
-    read.innerHTML = h;
-    renderRich(read);
-    $$(".seg button", read).forEach((b) => b.onclick = () => { lessonMode = b.dataset.m; drawRead(); });
-    if (lessonMode === "you" && d.personal_available && !personal) loadPersonal();
-    $("#hint-inline", read)?.addEventListener("click", getHint);
-    $("#reveal-btn", read)?.addEventListener("click", async (e) => {
+    extra.innerHTML = h;
+    renderRich(extra);
+    $("#hint-inline", extra)?.addEventListener("click", getHint);
+    $("#reveal-btn", extra)?.addEventListener("click", async (e) => {
       busy(e.target, true);
       try { revealed = (await api(`exercise/${id}/reveal`, { duration_s: timer.secs })).revealed; drawRead(); if (predict) $("#run-btn").disabled = false; }
       catch (err) { toast(err.message, true); busy(e.target, false); }
     });
-    $("#explain-btn", read)?.addEventListener("click", async (e) => {
+    $("#explain-btn", extra)?.addEventListener("click", async (e) => {
       busy(e.target, true, "Explaining");
       try { walkthrough = (await api("ai/explain", { item_id: id, files: ed.files() })).explanation; drawRead(); }
       catch (err) { toast(err.message, true); busy(e.target, false); }
     });
-  }
-  async function loadPersonal() {
-    const steps = WRITING_STEPS(interestName());
-    let i = 0;
-    clearInterval(statusTimer);
-    statusTimer = setInterval(() => { const el = $("#wstatus"); if (el) el.textContent = steps[Math.min(++i, steps.length - 1)]; }, 2200);
-    if (personalLoading) return;
-    personalLoading = true;
-    try { personal = (await api(`personal/${id}`, {})).content; }
-    catch (err) { toast("Couldn't personalise this one: " + err.message, true); lessonMode = "orig"; }
-    personalLoading = false;
-    clearInterval(statusTimer);
-    if (read.isConnected) drawRead();
   }
   async function getHint() {
     try {
@@ -1430,38 +1894,39 @@ async function viewStep(id, reviewFlag) {
       hints = r.hints; drawRead();
       if (isNarrow()) setPane("read");
       const hc = $("#hint-count"); if (hc) hc.textContent = `${hints.length}/${r.total}`;
-      $(".ws-read").scrollTop = $(".ws-read").scrollHeight;
+      const fresh = $(".hints li:last-child", read);
+      if (fresh) { fresh.scrollIntoView({ behavior: motionOK() ? "smooth" : "auto", block: "center" }); anim(fresh, [{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 320 }); }
     } catch (err) { toast(err.message, true); }
   }
   drawRead();
-  if (d.personal_available) {
-    let x0 = null, y0 = null;
-    const pane = $(".ws-read");
-    pane.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
-    pane.addEventListener("touchend", (e) => {
-      if (x0 === null) return;
-      const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
-      x0 = null;
-      if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-      const want = dx < 0 ? "you" : "orig";
-      if (want !== lessonMode) { lessonMode = want; drawRead(); pane.scrollTop = 0; }
-    }, { passive: true });
-  }
-
-  /* right bottom: results / output / tutor / feedback */
+  /* right bottom: results / output / tutor / feedback / library */
   const dockBody = $("#dock-body");
+  let shownTab = null;
+  const lib = mountLibrary($(".ws"), $("#dock"), {
+    topic: path?.kind === "chapter" ? ex.topic : null, editor: ed.cm,
+    onPlace: () => { if (shownTab !== null) drawDock(); },
+    selectTab: () => { dockTab = "library"; drawDock(); if (isNarrow()) setPane("code"); },
+  });
   function tabsList() {
     const t = [];
     if (predict) t.push(["answer", "Your answer"]);
     t.push(["results", "Results"]);
     t.push(["output", "Output"]);
-    if (!noHelp) t.push(["tutor", `Tutor${chat.length ? `<span class="n">${chat.length / 2}</span>` : ""}`]);
+    if (!noHelp) t.push(["tutor", `Tutor${chat.length ? `<span class="n">${Math.ceil(chat.length / 2)}</span>` : ""}`]);
     if (!predict) t.push(["feedback", "Feedback"]);
+    if (lib.pos === "bottom") t.push(["library", "Library"]);
     return t;
   }
   function drawDock() {
-    $("#dock-tabs").innerHTML = tabsList().map(([k, label]) => `<button data-t="${k}" class="${dockTab === k ? "on" : ""}">${label}</button>`).join("") + `<span class="grow"></span>`;
-    $$("#dock-tabs button").forEach((b) => b.onclick = () => { dockTab = b.dataset.t; drawDock(); });
+    if (dockTab === "library" && lib.pos !== "bottom") dockTab = predict ? "answer" : "results";
+    const tabs = $("#dock-tabs");
+    tabs.innerHTML = tabsList().map(([k, label]) => `<button data-t="${k}" class="${dockTab === k ? "on" : ""}">${label}</button>`).join("") + `<span class="grow"></span>`;
+    $$("button", tabs).forEach((b) => b.onclick = () => { dockTab = b.dataset.t; drawDock(); });
+    tabIndicator(tabs);
+    lib.tab(dockTab === "library");
+    if (shownTab !== dockTab) anim(dockTab === "library" ? lib.panel : dockBody, [{ opacity: 0, transform: "translateY(5px)" }, { opacity: 1, transform: "none" }], { duration: 200 });
+    shownTab = dockTab;
+    if (dockTab === "library") return;
     if (dockTab === "answer") {
       dockBody.innerHTML = `<p class="dim small" style="margin-top:0">Type exactly what the program prints, one line per line. Then press Check.</p>
         <textarea id="predict" class="predict-box" spellcheck="false" rows="5" placeholder="Type the output here…">${esc(answer)}</textarea>`;
@@ -1545,7 +2010,14 @@ async function viewStep(id, reviewFlag) {
     try {
       const payload = predict ? { answer } : { files: ed.files() };
       const r = await api(`exercise/${id}/check`, { ...payload, kind: review ? "review" : "practice", duration_s: timer.secs });
-      lastResult = r.result; canReveal = r.can_reveal;
+      lastResult = r.result; lastResult._fresh = true; canReveal = r.can_reveal;
+      $$("#read-task .check-list li").forEach((li, i) => {
+        const t = r.result.tests.find((x) => x.name === li.lastElementChild.textContent) || (r.result.tests.length === d.checks.length ? r.result.tests[i] : null);
+        const mark = li.firstElementChild;
+        mark.className = t ? (t.passed ? "ok" : "no") : "pending";
+        mark.textContent = t ? (t.passed ? "✓" : "✕") : "○";
+        if (t) anim(mark, [{ transform: "scale(.3)", opacity: 0 }, { transform: "scale(1)", opacity: 1 }], { duration: 300, delay: i * 50, fill: "backwards" });
+      });
       let extra = "";
       if (r.result.status === "passed") {
         d.state = r.state;
@@ -1558,7 +2030,7 @@ async function viewStep(id, reviewFlag) {
           : `<a class="btn primary" href="${back}">Finish</a>`}</div>`;
         if (predict) { explanation = r.result.explanation; $("#run-btn").disabled = false; }
         else feedback = { reference: r.reference, quality: q, tips: r.tips, style: r.style };
-        const dot = $(`.stepdots a[href="#/step/${id}"]`); if (dot) dot.className = "solved here";
+        const dot = $(`.stepdots a[href="#/step/${id}"]`); if (dot) { if (r.state.newly_solved) lxPop(dot); dot.className = "solved here"; }
         drawRead();
       } else {
         extra += `<div class="note">Not there yet, and that's normal. Read the failing check above.${!noHelp && ex.hint_count && hints.length < ex.hint_count ? ` <a href="#" id="res-hint">Take a hint</a>` : ""}${!noHelp && aiOn() ? ", or ask the Tutor tab" : ""}.${!noHelp && canReveal && !revealed ? " The Show solution option is now open on the left." : ""}</div>`;
@@ -1574,15 +2046,14 @@ async function viewStep(id, reviewFlag) {
   $("#run-btn").onclick = run;
   $("#check-btn").onclick = check;
   $("#hint-btn")?.addEventListener("click", getHint);
-  libHere = ex.topic;
-  cleanup.push(() => { libHere = null; });
-  $("#lib-btn").onclick = () => { if (!closeLibrary()) openLibrary(); };
+  $("#lib-btn").onclick = () => lib.toggle();
   $("#reset-btn")?.addEventListener("click", (e) => {
     const b = e.currentTarget;
     if (b.dataset.armed) { ed.set({ "solution.py": ex.starter }); b.textContent = "Reset"; delete b.dataset.armed; }
     else { b.dataset.armed = 1; b.textContent = "Click again to reset"; setTimeout(() => { if (b.isConnected) { b.textContent = "Reset"; delete b.dataset.armed; } }, 3000); }
   });
   const keys = (e) => {
+    if (e.target.closest?.(".lx")) return;              // an activity in the lesson has its own Ctrl+Enter
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); check(); }
     else if (e.key === "Enter" && e.altKey && !predict) { e.preventDefault(); run(); }
   };
@@ -1626,8 +2097,8 @@ async function viewWelcome(placeFlag) {
         <p class="dim">Optional. It powers the tutor, code reviews, the placement report, fresh challenges and project grading. It uses a CLI you're already logged into, so it runs on your existing subscription with no API keys.</p>
         <div id="ai-box" style="margin-top:22px"></div>
         <div class="row" style="margin-top:18px"><button class="btn primary" id="next2">Continue</button><button class="btn ghost" id="back2">Back</button></div></div>`;
-      await aiPicker($("#ai-box"));
-      $("#next2").onclick = () => { if (aiOn() && !S.settings.profile) location.hash = "#/me?onboarding"; else { step = 3; render(); } };
+      aiPicker($("#ai-box"));
+      $("#next2").onclick = () => { step = 3; render(); };
       $("#back2").onclick = () => { step = 1; render(); };
     } else {
       main.innerHTML = `<div class="center"><h1>Where should you start?</h1>
@@ -1643,7 +2114,10 @@ async function viewWelcome(placeFlag) {
 
 async function aiPicker(box) {
   box.innerHTML = `<p class="dim"><span class="spin"></span> Looking for installed AI CLIs…</p>`;
-  const d = await api("ai/providers");
+  let d;
+  try { d = await api("ai/providers"); }
+  catch (err) { if (box.isConnected) box.innerHTML = `<div class="errbox">${esc(err.message)}</div>`; return; }
+  if (!box.isConnected) return;
   let sel = d.current.provider || "none", model = d.current.model || "";
   const draw = () => {
     const p = d.providers.find((x) => x.id === sel);
@@ -1759,14 +2233,19 @@ async function viewPlacementQuestion(exId) {
       <div class="task">${md(ex.prompt)}${checksHTML(d.checks)}</div><div id="pl-res" style="margin-top:18px"></div></div></section>
     <section class="ws-code">
       <div class="toolbar"><button class="btn" id="run-btn">Run</button><button class="btn primary" id="submit-btn">Submit answer</button>
-        <button class="btn ghost" id="skip-btn">I don't know this yet</button><span class="grow"></span><span class="timer" id="timer">0:00</span></div>
+        <button class="btn ghost" id="skip-btn">I don't know this yet</button>
+        <button class="btn ghost" id="lib-btn" title="Look up syntax from the chapters you have finished (Ctrl+K)">Library <kbd>Ctrl+K</kbd></button>
+        <span class="grow"></span><span class="timer" id="timer">0:00</span></div>
       <div class="filetabs"></div><div class="editor" id="editor"></div>
-      <div class="dock"><div class="dock-tabs"><button class="on">Output</button></div><div class="dock-body"><pre class="out faint" id="out">Run shows what your code prints. Submit grades it once, then the next question loads.</pre></div></div>
+      <div class="dock" id="pl-dock"><div class="dock-grip"></div><div class="dock-tabs"><button class="on">Output</button><span class="grow"></span></div><div class="dock-body"><pre class="out faint" id="out">Run shows what your code prints. Submit grades it once, then the next question loads.</pre></div></div>
     </section></div></div>`;
   renderRich($(".ws-read"));
   const timer = startTimer($("#timer"));
   const ed = makeEditor($("#editor"), { "solution.py": ex.starter });
   const setPane = paneSwitch($(".ws"), ed.cm, ["Question", "Code"]);
+  makeDock($("#pl-dock"));
+  const lib = dockLibrary($(".ws"), $("#pl-dock"), { editor: ed.cm, selectTab: () => { if (isNarrow()) setPane("code"); } });
+  $("#lib-btn").onclick = () => lib.toggle();
   let done = false;
   $("#run-btn").onclick = async () => {
     try {
@@ -1830,6 +2309,7 @@ async function viewProject(pid) {
       <div class="toolbar"><button class="btn" id="prun-btn" title="Alt+Enter">Run <kbd>Alt+⏎</kbd></button>
         <button class="btn primary" id="submit-btn">Submit for grading</button>
         <button class="btn ghost" id="upload-btn">Upload files</button><input type="file" id="file-in" multiple accept=".py,.txt,.md,.json,.jsonl" class="hidden">
+        <button class="btn ghost" id="lib-btn" title="Look up syntax from the chapters you have finished (Ctrl+K)">Library <kbd>Ctrl+K</kbd></button>
         <span class="grow"></span><button class="btn ghost small" id="scaffold-btn" title="${esc(d.folder)}">${d.folder_exists ? "Folder ready" : "Create project folder"}</button>
         <button class="btn ghost small" id="load-btn">Load from folder</button></div>
       <div class="filetabs" id="filetabs"></div><div class="editor" id="editor"></div>
@@ -1855,7 +2335,8 @@ async function viewProject(pid) {
   function render() {
     $("#ptabs").innerHTML = [["brief", "Brief"], ["explore", "Explore"], ["results", `Results${subs.length ? `<span class="n">${subs.length}</span>` : ""}`], ["tutor", "Tutor"]]
       .map(([k, l]) => `<button data-t="${k}" class="${tab === k ? "on" : ""}">${l}</button>`).join("");
-    $$("#ptabs button").forEach((b) => b.onclick = () => { tab = b.dataset.t; render(); });
+    $$("#ptabs button").forEach((b) => b.onclick = () => { tab = b.dataset.t; render(); anim(body, [{ opacity: 0, transform: "translateY(5px)" }, { opacity: 1, transform: "none" }], { duration: 200 }); });
+    tabIndicator($("#ptabs"));
     if (tab === "brief") {
       body.innerHTML = md(p.brief) + `<h3 style="margin-top:24px">Files to submit</h3><p>${p.files.map((f) => `<code>${esc(f)}</code>`).join(" ")}</p>
         <h3 style="margin-top:16px">How it's graded</h3><ul>${p.rubric.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>`;
@@ -1895,6 +2376,8 @@ async function viewProject(pid) {
   }
   render();
   makeDock($("#pdock"));
+  const lib = dockLibrary($(".ws"), $("#pdock"), { topic: isMini ? p.chapter : null, editor: ed.cm, selectTab: () => { if (isNarrow()) setPane("code"); } });
+  $("#lib-btn").onclick = () => lib.toggle();
   const runProject = async () => {
     const btn = $("#prun-btn"); busy(btn, true);
     try {
@@ -2002,92 +2485,6 @@ async function viewProgress() {
   </div>`;
 }
 
-/* ---------------------------------------------------------------- get to know you (personalisation chat) */
-
-async function viewMe(flag) {
-  await refreshState();
-  const onboarding = flag === "?onboarding";
-  let d = await api("profile");
-  let history = d.history, pending = null, busyChat = false, editing = !!d.profile && flag !== "?restart";
-  if (flag === "?restart" || (!history.length && d.ai && !editing)) history = (await api("profile/start", { restart: flag === "?restart" })).history;
-  const saved = d.profile;
-
-  const done = () => { if (onboarding) location.hash = "#/welcome?place"; else location.hash = "#/home"; };
-
-  function profileForm(p, title, sub) {
-    const interests = (p.interests || []).join(", ");
-    return `<div class="profile-card">
-      <h2>${esc(title)}</h2><p class="dim" style="margin-top:4px">${esc(sub)}</p>
-      ${p.summary ? `<p style="margin:12px 0 16px">${esc(p.summary)}</p>` : ""}
-      <div class="tagrow" style="margin-bottom:16px">${p.primary_interest ? `<span class="chip main">${esc(p.primary_interest)}</span>` : ""}${(p.interests || []).filter((i) => i.toLowerCase() !== (p.primary_interest || "").toLowerCase()).map((i) => `<span class="chip">${esc(i)}</span>`).join("")}</div>
-      <label class="field"><span>Explain things through</span><input type="text" id="pf-primary" value="${esc(p.primary_interest || "")}" placeholder="e.g. cricket (Test matches)"></label>
-      <label class="field"><span>Other interests</span><input type="text" id="pf-interests" value="${esc(interests)}" placeholder="comma separated"></label>
-      <label class="field"><span>Work or study</span><input type="text" id="pf-profession" value="${esc(p.profession || "")}"></label>
-      <label class="field"><span>What you want to build</span><input type="text" id="pf-goal" value="${esc(p.goal || "")}"></label>
-      <label class="field"><span>How you like things explained</span><input type="text" id="pf-style" value="${esc(p.analogy_style || "")}" placeholder="e.g. everyday analogies, short and direct"></label>
-      <div class="row"><button class="btn primary big" id="pf-save">${onboarding ? "Looks right, let's go" : "Save my profile"}</button>
-        ${d.ai ? `<button class="btn ghost" id="pf-chat">${pending ? "Keep chatting" : "Chat again"}</button>` : ""}</div></div>`;
-  }
-
-  function render() {
-    const last = history[history.length - 1];
-    main.innerHTML = `<div class="me">
-      <div class="me-head"><img src="icon.svg" alt=""><div><h1>Make it yours</h1><p>${onboarding ? "One quick chat, then we start." : "Your course, explained through what you love."}</p></div></div>
-      ${!d.ai ? `<div class="note">Connect an AI in Settings for the chat and personalised lessons. You can still fill in your profile below.</div>${profileForm(saved || {}, "Your profile", "Used to personalise lessons once an AI is connected.")}`
-      : editing && saved ? profileForm(saved, "Your profile", "Edit anything, or chat again to rebuild it.")
-      : `<div class="convo" id="convo">${history.map((m) => `<div class="bubble ${m.role}">${m.role === "guide" ? md(m.content) : esc(m.content)}</div>`).join("")}
-          ${busyChat ? `<div class="bubble guide typing"><i></i><i></i><i></i></div>` : ""}
-          ${!busyChat && !pending && last?.role === "guide" && last.options?.length ? `<div class="chips">${last.options.map((o, i) => `<button class="chip" style="animation-delay:${i * 60}ms" data-o="${esc(o)}">${esc(o)}</button>`).join("")}</div>` : ""}
-          ${pending ? profileForm(pending, "Here's what I learned about you", "Tweak anything that's off. This shapes how every lesson is explained.") : ""}
-        </div>
-        ${pending ? "" : `<div class="composer"><div class="box"><textarea id="say" rows="1" placeholder="Type your answer…" ${busyChat ? "disabled" : ""}></textarea>
-          <button class="btn primary" id="say-btn" ${busyChat ? "disabled" : ""}>Send</button></div>
-          <div class="foot"><span>Enter to send</span>${history.length > 2 ? `<button id="finish">That's enough, build my profile</button>` : `<button id="skip">Skip for now</button>`}</div></div>`}`}
-    </div>`;
-    renderRich(main);
-    const ta = $("#say");
-    if (ta) {
-      ta.focus();
-      ta.oninput = () => { ta.style.height = "auto"; ta.style.height = Math.min(140, ta.scrollHeight) + "px"; };
-      ta.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(ta.value); } };
-      $("#say-btn").onclick = () => send(ta.value);
-    }
-    $$(".chips .chip").forEach((c) => c.onclick = () => send(c.dataset.o));
-    $("#finish")?.addEventListener("click", () => send("", true));
-    $("#skip")?.addEventListener("click", async () => { if (onboarding) done(); else location.hash = "#/home"; });
-    $("#pf-chat")?.addEventListener("click", async () => {
-      if (pending) { pending = null; render(); return; }
-      history = (await api("profile/start", { restart: true })).history; editing = false; render();
-    });
-    $("#pf-save")?.addEventListener("click", async (e) => {
-      const base = pending || saved || {};
-      const profile = { ...base,
-        primary_interest: $("#pf-primary").value.trim(), profession: $("#pf-profession").value.trim() || null,
-        goal: $("#pf-goal").value.trim() || null, analogy_style: $("#pf-style").value.trim() || null,
-        interests: $("#pf-interests").value.split(",").map((x) => x.trim()).filter(Boolean) };
-      busy(e.target, true, "Saving");
-      try { await api("profile/save", { profile }); await refreshState(); toast("Profile saved. Lessons will now be explained your way"); done(); }
-      catch (err) { toast(err.message, true); busy(e.target, false); }
-    });
-    const convo = $("#convo");
-    if (convo) convo.scrollTop = convo.scrollHeight;
-  }
-
-  async function send(text, finish = false) {
-    text = (text || "").trim();
-    if ((!text && !finish) || busyChat) return;
-    if (text) history.push({ role: "learner", content: text });
-    busyChat = true; render();
-    try {
-      const r = await api("profile/chat", { message: text, finish });
-      history = r.history;
-      if (r.done && r.profile) pending = r.profile;
-    } catch (err) { toast(err.message, true); }
-    busyChat = false; render();
-  }
-  render();
-}
-
 /* ---------------------------------------------------------------- settings */
 
 function drawJev() {
@@ -2113,13 +2510,6 @@ async function viewSettings() {
   main.innerHTML = `<div class="page narrow">
     <h1>Settings</h1>
     <section class="section"><h2>AI connection</h2><p class="dim">The tutor, code reviews, the placement report, generated challenges and project reviews all run through this.</p><div id="ai-box"></div></section>
-    <section class="section"><h2>Personalisation</h2>
-      <p class="dim">Lessons are re-told through what you love, and the tutor and feedback know who you are.</p>
-      <div class="panel">${S.settings.profile ? `<div class="row between"><div><b>Explained through:</b> ${esc(S.settings.profile.primary_interest || "–")}
-          <div class="dim small" style="margin-top:4px">${esc(S.settings.profile.summary || "")}</div></div></div>
-        <div class="row" style="margin-top:14px"><label class="row" style="gap:6px;font-size:14px"><input type="checkbox" id="pers-on" ${S.settings.personalise ? "checked" : ""}> Personalise lessons</label>
-          <a class="btn small" href="#/me">Edit profile</a><a class="btn small ghost" href="#/me?restart">Chat again</a></div>`
-        : `<div class="row between"><span class="dim">No profile yet.</span><a class="btn primary small" href="#/me">Start the chat</a></div>`}</div></section>
     <section class="section"><h2>Jev quality scoring</h2>
       <p class="dim">Jev (TypeSafe) scores your code in about a second on readability, naming, idioms, simplicity and edge cases, and it checks that the tutor never gives answers away. <a href="https://console.typesafe.ai" target="_blank" rel="noopener">Get a key</a></p>
       <div class="panel" id="jev-box"></div></section>
@@ -2134,9 +2524,8 @@ async function viewSettings() {
       <div class="row"><input type="text" id="reset-confirm" placeholder="Type RESET to erase all progress" style="max-width:280px"><button class="btn" id="reset">Erase everything</button></div>
     </div></section></div>`;
   $("#theme").value = theme;
-  $("#pers-on")?.addEventListener("change", async (e) => { await api("settings", { personalise: e.target.checked }); await refreshState(); toast(e.target.checked ? "Personalised lessons on" : "Personalised lessons off"); });
   drawJev();
-  await aiPicker($("#ai-box"));
+  aiPicker($("#ai-box"));
   $("#save-me").onclick = async () => {
     await api("settings", { name: $("#name").value.trim(), daily_goal: +$("#goal").value || 90 });
     const t = $("#theme").value;

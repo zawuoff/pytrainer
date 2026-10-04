@@ -292,43 +292,59 @@ EXERCISES = [
     {
         "id": "errors-s1",
         "lesson": r'''
-            ## try and except
+            ## Carrying on after a line fails
 
-            Some lines of code can fail. `int("three")` fails because `"three"` is not a number.
-            When a line fails, Python creates an **exception**: an object that describes what went
-            wrong. We say the line **raises** the exception.
+            Your chat app asks how many answers the user wants, and the user types `three`. You know from
+            the Data Types chapter what `int("three")` does. It cannot make a number out of that text, so
+            Python stops the whole program with an error:
 
-            If nothing handles the exception, the program stops and prints a **traceback**: the
-            list of lines that were running, followed by the error.
+            ```text
+            ValueError: invalid literal for int() with base 10: 'three'
+            ```
 
-            A `try` statement handles the exception instead. Put the line that can fail in the
-            `try` block. Put the code to run on failure in the `except` block. We say `except`
-            **catches** the exception.
+            Stopping is what Python does when nobody has told it what else to do. One bad value should
+            not end a whole app, though. You can tell Python in advance: try these lines, and if one of
+            them fails, do this instead.
 
             ```python
-            for text in ["3", "three"]:
-                try:
-                    tokens = int(text)
-                    print("converted:", tokens)
-                except ValueError:
-                    print("could not convert", text)
+            try:
+                count = int("three")
+                print("you asked for", count)
+            except ValueError:
+                print("that is not a number")
             print("still running")
-            # converted: 3
-            # could not convert three
+            # that is not a number
             # still running
             ```
 
-            `ValueError` is the kind of exception that `int("three")` raises.
+            Here is what happened, in order:
 
-            Python does this, in order:
+            1. Python started on the lines that are indented under `try:`.
+            2. `int("three")` failed. Python left the `try` block at that line, so the `print` under it
+               never ran.
+            3. Python jumped to the lines under `except ValueError:` and ran those.
+            4. It carried on with the first line after the whole statement. No error message appeared,
+               and the program did not stop.
 
-            1. It runs the lines in the `try` block from the top.
-            2. If a line raises an exception, Python stops the `try` block at that line and runs
-               the `except` block.
-            3. If no line raises, Python skips the `except` block.
-            4. The program continues with the code after the `try` statement.
+            Now the names. What Python creates when a line fails is called an **exception**. Programmers
+            say that the line **raises** an exception, and that the `except` block **catches** it.
+            `ValueError` is the kind of exception that `int()` raises for text that is not a number.
 
-            Step through the code and watch which line runs after `int("three")` raises.
+            When no line fails, the `except` block is not needed. What does Python do with it then?
+
+            ```predict
+            try:
+                count = int("3")
+                print("you asked for", count)
+            except ValueError:
+                print("that is not a number")
+            print("still running")
+            ---
+            `int("3")` works, so both lines of the `try` block run. Nothing was raised, so Python skips the `except` block and goes on to the last line.
+            ```
+
+            Press Next to step through a loop that tries two texts. Watch which line comes after line 3
+            each time.
 
             ```diagram
             {"type": "trace", "title": "Where Python jumps when int(text) raises", "code": ["for text in [\"3\", \"three\"]:", "    try:", "        tokens = int(text)", "        print(\"converted:\", tokens)", "    except ValueError:", "        print(\"could not convert\", text)", "print(\"still running\")"], "steps": [
@@ -347,13 +363,37 @@ EXERCISES = [
             ]}
             ```
 
-            The lines in `try` after the failing line never run. For `"three"`, the
-            `print("converted:", tokens)` line is skipped.
+            ```quiz
+            Which letters does this program print?
+
+            ~~~python
+            try:
+                print("a")
+                n = int("x")
+                print("b")
+            except ValueError:
+                print("c")
+            print("d")
+            ~~~
+            - [x] a, c, d :: Right. `a` is printed before anything goes wrong. `int("x")` raises, so `b` is skipped, the `except` block prints `c`, and the program carries on to `d`.
+            - [ ] a, b, c, d :: After the line that raises, Python does not come back to the rest of the `try` block. `b` is never printed.
+            - [ ] c, d :: The lines above the failing line have already run by the time it fails, so `a` is printed.
+            - [ ] a, c :: Catching the exception means that the program carries on. The line after the `try` statement runs and prints `d`.
+            ```
+
+            **Watch out:** the `except` block is not a place that Python visits on every run. It runs only
+            when a line in the `try` block raises, and then the rest of the `try` block is skipped for
+            good.
+
+            **In short:** Python runs the `try` block, and when a line in it raises an exception, Python
+            jumps to the `except` block and carries on from there.
         ''',
         "title": "Where does it jump?",
         "difficulty": 0,
         "mode": "predict",
-        "prompt": r'''Read the code and type exactly what it prints.''',
+        "prompt": r'''
+            Read the program in the editor. Type exactly what it prints, one line of output on each line.
+        ''',
         "code": r'''
             for text in ["7", "seven"]:
                 try:
@@ -369,72 +409,133 @@ EXERCISES = [
             done
         ''',
         "explanation": r'''
-            `int("7")` works, so the rest of the `try` block runs. `int("seven")` raises
-            `ValueError`, so Python skips the remaining `try` lines and runs the `except`
-            block instead. The loop and the program carry on normally.
+            The loop runs twice. For `"7"`, `int` works, so the `try` block runs to its end and prints
+            `number 7`, and the `except` block is skipped. For `"seven"`, `int` raises a `ValueError`.
+            Python leaves the `try` block before its `print` and runs the `except` block, which prints
+            `skip seven`. The exception was caught, so the loop ends in the normal way and the last line
+            prints `done`.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "Go through the loop once per item. Ask: does int() succeed on this text?",
-            "If int() fails, the print inside try is skipped and the except block runs instead.",
-            "First item converts fine (print from try). Second item fails (print from except). After the loop, the final print runs.",
+            "Go through the loop once for each item in the list. Each time, ask: can `int()` turn this text into a number?",
+            "When `int()` works, the `try` block runs to its end and the `except` block is skipped. When `int()` fails, the rest of the `try` block is skipped and the `except` block runs.",
+            "You should end up with three lines: one from the first time through the loop, one from the second time, and one from the line after the loop. A `print` with two values puts one space between them.",
         ],
     },
     {
         "id": "errors-s2",
         "lesson": r'''
-            ## Exception types
+            ## Finding the name that goes after except
 
-            Every exception has a **type**: a name that says which kind of problem happened. It
-            also has a **message**: text with the details.
+            In the last step, `except ValueError:` caught a failed `int()`. How would you have known to
+            write `ValueError` there, and not some other word? You do not have to guess. Python tells you
+            the name every time a program stops with an error.
 
-            This program raises on purpose. Read the last line of the error it prints.
+            Here is what Python shows when a program looks up a price that is not in a dict:
 
-            ```python
-            print(int("abc"))
-            # ValueError: invalid literal for int() with base 10: 'abc'
+            ```text
+            Traceback (most recent call last):
+              File "solution.py", line 2, in <module>
+                print(prices["large"])
+                      ~~~~~~^^^^^^^^^
+            KeyError: 'large'
             ```
 
-            The part before the colon is the exception type, `ValueError`. The part after the colon
-            is the message.
+            This report is called a **traceback**, because it traces the error back to the line where it
+            happened. As in the Basics chapter, read the last line first. It has two parts, with a colon
+            between them:
 
-            After `except` you write the type you want to catch.
+            - Before the colon stands the kind of exception, here `KeyError`. The kind is called the
+              **exception type**.
+            - After the colon stands the **message**, the details of this one failure. For a `KeyError`
+              the message is the key that was not found.
+
+            The type is the name to write after `except`, letter for letter:
 
             ```python
+            prices = {"small": 1, "medium": 3}
             try:
-                print(10 / 2)
-                print(int("abc"))
-            except ValueError:
-                print("that text is not a number")
-            # 5.0
-            # that text is not a number
+                print(prices["large"])
+            except KeyError:
+                print("no price for that model")
+            # no price for that model
             ```
 
-            These are the types you meet most often:
+            You have met several exception types in earlier chapters, each time as an error that stopped
+            a program. Match each line with the type that it raises:
 
-            - `ValueError`: the value has the right type but cannot be used, as in `int("abc")`.
-            - `TypeError`: the value has the wrong type, as in `int(None)`.
-            - `KeyError`: a dict does not have the key you asked for.
-            - `ZeroDivisionError`: you divided by zero.
+            ```match
+            `int("abc")` :: `ValueError`
+            `{"a": 1}["b"]` :: `KeyError`
+            `[1, 2][5]` :: `IndexError`
+            `"a" + 1` :: `TypeError`
+            ---
+            A `ValueError` means that the value cannot be used, such as text that is not a number. A `KeyError` is a key that is missing from a dict, and an `IndexError` is a position that does not exist in a list. A `TypeError` means that the value is the wrong kind of thing for the operation, such as text added to a number.
+            ```
 
-            To find out which type a line raises, run the line without `try` and read the last
-            line of the traceback. Copy the type name exactly. No type is called `ZeroDivision`, so
-            `except ZeroDivision:` raises `NameError` as soon as an exception reaches that line, because Python looks up the name `ZeroDivision` and does not find it.
+            ```quiz
+            A program stops with this traceback. Which line catches the exception?
+
+            ~~~text
+            Traceback (most recent call last):
+              File "solution.py", line 1, in <module>
+                print("total: " + 5)
+                      ~~~~~~~~~~^~~
+            TypeError: can only concatenate str (not "int") to str
+            ~~~
+            - [x] `except TypeError:` :: Right. The type is the word before the colon on the last line.
+            - [ ] `except can only concatenate str:` :: That is the message, the part after the colon. A message describes one failure. `except` needs the type.
+            - [ ] `except Error:` :: Python has no exception type with the plain name `Error`. Write the full name from the traceback.
+            - [ ] `except Traceback:` :: `Traceback` is the first word of the report, not the name of an exception. The type is on the last line.
+            ```
+
+            You do not need to know the names by heart. When you are not sure which type a line raises,
+            make it fail on purpose: run the line on its own, without `try`, and read the traceback.
+
+            ```try
+            models = ["small", "large"]
+            print(models[2])
+            ---
+            Run it and read the last line of the traceback. Then put the `print` line inside a `try` block, and add an `except` block for that type which prints `no such model`.
+            ---
+            models = ["small", "large"]
+            try:
+                print(models[2])
+            except IndexError:
+                print("no such model")
+            ---
+            The traceback ended in `IndexError: list index out of range`, so `IndexError` is the name after `except`.
+            ```
+
+            **Watch out:** the name must be exact, capital letters included. Python looks at the name
+            after `except` only at the moment an exception arrives. So `except keyerror:` runs without
+            complaint for as long as nothing fails. On the day something does, the program stops with
+            `NameError: name 'keyerror' is not defined. Did you mean: 'KeyError'?`
+
+            **In short:** the last line of a traceback starts with the exception type, and that type is
+            the name to write after `except`.
         ''',
         "title": "Catch the right error",
         "difficulty": 0,
         "prompt": r'''
-            A division helper that doesn't crash when the divisor is zero.
-            The code is almost complete: replace the `___`.
+            Dividing by zero is not possible, so Python raises an exception when a program tries it. A
+            helper function should survive that. Instead of stopping the program, it gives back `None`,
+            the value for "no answer".
 
-            **Write:** `safe_divide(a, b)` (fill in the blank)
+            **Your job:** finish `safe_divide(a, b)`. The function is already written except for one gap,
+            marked `___`. The gap is the name of the exception type that a division by zero raises.
 
-            - `a`, `b`: numbers, e.g. `10` and `4`
-            - **Returns:** `a / b`, or `None` when `b` is `0`
+            **What goes in**
+            - `a`: a number, for example `10`
+            - `b`: the number to divide by, for example `4`. It may be `0`.
+
+            **What comes out**
+            - `a` divided by `b`: `2.5` for the example values
+            - `None` when `b` is `0`
 
             **Rules**
-            - The `___` must be the name of the exception type that dividing by zero
-              raises (run `print(1 / 0)` and read the last line of the error to find it).
+            - The name in the gap must be written exactly as Python writes it. You are not expected to
+              know it. Find it the way the lesson shows: make the error happen, and read the traceback.
 
             **Examples**
             ```python
@@ -468,65 +569,103 @@ EXERCISES = [
                     return None
         ''',
         "hints": [
-            "Run print(1 / 0) and read the last line of the traceback: it names the exception type.",
-            "The name before the colon on that last line is exactly what goes after except.",
-            "Replace ___ with ZeroDivisionError.",
+            "The last line of a traceback starts with the exception type. Which line of code do you have to run to see the traceback for a division by zero?",
+            "Make the error happen on purpose. On a new line below the function, at the left edge, print the result of dividing 1 by 0. Then press Run.",
+            "Read the last line of the traceback. Copy the word that stands before the colon into the gap, with the same capital letters. Then delete the extra line that you added, and press Check.",
         ],
     },
     {
         "id": "errors-s3",
         "lesson": r'''
-            ## except only catches the type it names
+            ## When except does not catch
 
-            An `except ValueError:` block catches `ValueError` exceptions. It does not catch a
-            `KeyError` or a `TypeError`.
+            You put a risky line inside `try`, you run the program, and it still stops with a traceback.
+            It looks as if `try` did nothing. What went wrong?
 
-            When a line in `try` raises, Python compares the exception's type with the type written
-            after `except`. If they match, the `except` block runs.
+            Start with a version that works. A chat history has two messages, and the program asks for a
+            position that does not exist:
 
             ```python
+            history = ["hi", "hello"]
             try:
-                print(int("oops"))
-            except ValueError:
-                print("not a number")
-            # not a number
+                print(history[5])
+            except IndexError:
+                print("no message at that position")
+            print("still running")
+            # no message at that position
+            # still running
             ```
 
-            If they do not match, the `except` block does not run and the exception is not
-            caught. It moves on to the code that called this code.
-            This is called **propagation**. If nothing there catches it either, the program stops.
+            `history[5]` raises an `IndexError`, and the `except` line names `IndexError`. The two are the
+            same, so the block runs.
 
-            The next program raises on purpose. `int("oops")` raises `ValueError`, but the `except`
-            line names `KeyError`.
+            ```quiz
+            Here is the same program with one word changed. What does it do?
 
-            ```python
+            ~~~python
+            history = ["hi", "hello"]
             try:
-                print(int("oops"))
+                print(history[5])
             except KeyError:
-                print("never printed")
-            # ValueError: invalid literal for int() with base 10: 'oops'
+                print("no message at that position")
+            print("still running")
+            ~~~
+            - [x] It stops with a traceback that ends in `IndexError: list index out of range` :: Right. The exception is an `IndexError`, and the block is only for a `KeyError`. Nothing catches the exception, so the program stops, exactly as it would without `try`.
+            - [ ] It prints `no message at that position` and `still running` :: That needs an `except` block for the type that was raised. `history[5]` raises an `IndexError`, and this block names `KeyError`.
+            - [ ] It skips the `except` block and prints `still running` :: The block is skipped, that part is true. But an exception that nobody catches does not go away. It stops the program before the last line runs.
             ```
 
-            The program stops with a traceback. Its last line names `ValueError`, which is the type
-            the `except` line needed.
+            That is the rule. When a line in the `try` block raises, Python compares the type of the
+            exception with the type that is written after `except`. When they are the same, the block
+            runs. When they differ, the block is skipped, and the exception carries on as if the `try`
+            were not there.
 
-            When a `try` statement does not catch an error, compare two things: the type on the
-            last line of the traceback, and the type after `except`. They must be the same.
+            It is a useful rule. An `except KeyError:` block is your plan for a missing key. It should
+            not hide a different problem that you never planned for.
+
+            The traceback also tells you how to repair a `try` statement that does not catch. Compare two
+            names: the type on the last line of the traceback, and the type after `except`. Change the
+            second one until they are the same.
+
+            ```fill
+            settings = {"model": "small"}
+            try:
+                print(settings["top_p"])
+            except ___:
+                print("top_p is not set")
+            ---
+            - [x] KeyError :: Right. A key that is missing from a dict raises a `KeyError`. This block catches it, and the program prints `top_p is not set`.
+            - [ ] IndexError :: An `IndexError` is for a position that does not exist in a list. `settings` is a dict, so the exception is a `KeyError`, and this block lets it through.
+            - [ ] ValueError :: A `ValueError` is what `int("abc")` raises. A missing key raises a `KeyError`, so the program stops with a traceback.
+            ```
+
+            **Watch out:** an `except` block with the wrong type gives no warning of its own. The program
+            runs well for as long as nothing fails, and it stops on the first bad value. So try out every
+            `try` statement once with a value that makes the line fail.
+
+            **In short:** an `except` block catches only the type it names, so that name has to be the
+            type on the last line of the traceback.
         ''',
         "title": "Fix: wrong exception type",
         "difficulty": 0,
         "prompt": r'''
-            A counter arrives as text. This function should read it as a number, but it
-            still crashes on `"lots"`. Find and fix the one bug.
+            An API reports a count as text, for example `"12"`. `read_count(text)` should turn that text
+            into a number, and give back `-1` when the text is not a number at all. Someone has written
+            it with `try` and `except`, but it has a bug: for text such as `"lots"`, the program still
+            stops with an error.
 
-            **Write:** `read_count(text)` (fix the given code)
+            **Your job:** find the one bug in `read_count(text)` and fix it. The code is already in the
+            editor, and only one word needs to change.
 
-            - `text`: a string, e.g. `"12"` or `"lots"`
-            - **Returns:** the int value of `text`, or `-1` when `text` is not a number
+            **What goes in**
+            - `text`: a string, for example `"12"` or `"lots"`
+
+            **What comes out**
+            - the number in the text, as an `int`: `12` for `"12"`
+            - `-1` when the text cannot be turned into a number
 
             **Rules**
-            - `int("lots")` raises an exception: catch that exact exception type and
-              return `-1`.
+            - Text that is not a number must not stop the program. The result for it is `-1`.
 
             **Examples**
             ```python
@@ -559,70 +698,105 @@ EXERCISES = [
                     return -1
         ''',
         "hints": [
-            "The except only catches the exception type it names. Is KeyError what int() raises?",
-            "Try int(\"lots\") yourself and read the traceback to see the real exception type.",
-            "Change KeyError to ValueError.",
+            "Press Check before you change anything. The failing check shows the exception that got through. Which type does it name?",
+            "An `except` block catches only the type that it names. Compare the type in the failing check with the type that the code names after `except`.",
+            "The two types are different, so the block never runs. On the `except` line, replace the type with the one that the failing check names. Leave the other lines as they are.",
         ],
     },
     {
         "id": "errors-s4",
         "lesson": r'''
-            ## Raising an exception
+            ## Refusing a value that makes no sense
 
-            So far Python raised the exceptions. Your own code can raise them too, with the `raise`
-            keyword. Use it when a function receives a value it cannot work with.
+            A function is about to send a request to a model with `temperature` set to `5`. The API
+            accepts 0 to 2. If the function passes the 5 along, the mistake shows up later and somewhere
+            else, as a rejected request that is hard to explain. It is better for the function to refuse
+            at once, and to say why.
+
+            Until now, Python raised the exceptions and you caught them. Your own code can raise one too:
 
             ```python
             def check_temperature(t):
                 if t > 2:
-                    raise ValueError(f"temperature must be at most 2, got {t}")
+                    raise ValueError("temperature must be at most 2")
                 return t
 
             print(check_temperature(0.7))
             # 0.7
-            try:
-                check_temperature(5)
-            except ValueError as e:
-                print("error:", e)
-            # error: temperature must be at most 2, got 5
             ```
 
-            After `raise` you write the exception type, then the message in parentheses:
-            `raise ValueError("...")`.
+            The new line has three parts: the word `raise`, an exception type, and a message in
+            parentheses. The message is yours to write. For `0.7` the `if` is false, so the `raise` line
+            is skipped and the function returns as usual.
 
-            `as e` on the `except` line assigns the caught exception to the name `e`.
-            Printing `e` prints its message. A later step covers this.
+            For `check_temperature(5)` the `raise` line runs. The function stops at that line, in the
+            same way as at a failing `int()`. The `return` below it never runs, and no value is handed
+            back. The exception goes to the caller, the line that called the function. If nothing catches
+            it there, it moves on to the caller of that line, and so on. Programmers say that the
+            exception **propagates**. When nothing catches it anywhere, the program stops with a
+            traceback, and the last line shows your message:
 
-            `raise` stops the function at that line. No later line in the function runs, so the
-            `return t` is skipped. The exception goes to the code that called the function. That
-            code can catch it with `try` and `except`. If it does not, the program stops with a
-            traceback.
+            ```text
+            ValueError: temperature must be at most 2
+            ```
 
-            Choose the type that describes the problem:
+            The caller can also catch it. What does this program print?
 
-            - `ValueError`: the type is right but the value is not acceptable, such as a negative
-              count.
-            - `TypeError`: the type is wrong, such as a string where a number is required.
+            ```predict
+            def check_temperature(t):
+                if t > 2:
+                    raise ValueError("temperature must be at most 2")
+                return t
 
-            Do not write `return "error: too high"` instead. The caller receives a string and
-            cannot tell it apart from a normal result. An exception that is not caught stops the
-            program, so the problem is always visible.
+            try:
+                print(check_temperature(1))
+                print(check_temperature(5))
+                print(check_temperature(0))
+            except ValueError:
+                print("refused")
+            ---
+            The first call returns 1, and it is printed. The second call raises, so it returns nothing and nothing is printed for it. Python leaves the `try` block, which means that the third call never happens, and the `except` block prints `refused`.
+            ```
+
+            `ValueError` is the right type when the value is the right kind of thing but is not
+            acceptable: a number that is too big, or a count below zero.
+
+            ```quiz
+            A function must refuse a negative count. Which line, placed under `if n < 0:`, does that?
+            - [x] `raise ValueError("count must not be negative")` :: Right. `raise` stops the function and sends the exception to the caller.
+            - [ ] `return ValueError("count must not be negative")` :: This hands the exception back as an ordinary value. Nothing stops, and the caller carries on with a result that it cannot use.
+            - [ ] `print("count must not be negative")` :: This shows some text and goes on. The function then returns as if the value were fine.
+            - [ ] `ValueError("count must not be negative")` :: Without the word `raise`, this line creates an exception and throws it away. No error appears.
+            ```
+
+            **Watch out:** do not return a text such as `"error: too high"` in place of raising. To the
+            caller, that text looks like a normal result, and the mistake travels on unnoticed. An
+            exception cannot be overlooked: either somebody catches it, or the program stops.
+
+            **In short:** `raise ValueError("message")` stops the function at that line and sends the
+            exception to the caller.
         ''',
         "title": "Raise on bad input",
         "difficulty": 0,
         "prompt": r'''
-            Before calling a model, check that `max_tokens` makes sense. A value below 1
-            is a bug in the caller's code, so stop with an error.
+            Before your app calls a model, it checks the setting `max_tokens`, the largest number of
+            tokens that the model may write. A value below 1 makes no sense. It can only come from a
+            mistake in the code that called the function, so the function refuses it with an exception.
 
-            **Write:** `check_max_tokens(n)`
+            **Your job:** write `check_max_tokens(n)`. It gives back `n` when the value is acceptable, and
+            it raises a `ValueError` when the value is not.
 
-            - `n`: an int, e.g. `256`
-            - **Returns:** `n` itself when it is valid
+            **What goes in**
+            - `n`: a whole number, for example `256`
+
+            **What comes out**
+            - `n` itself, unchanged, when `n` is 1 or more
 
             **Rules**
-            - If `n` is less than `1` (e.g. `0` or `-5`), **raise** a `ValueError`
-              (any message) instead of returning.
-            - `1` is valid.
+            - When `n` is less than `1`, for example `0` or `-5`, the function raises a `ValueError`. It
+              does not return anything in that case.
+            - The message of the exception is yours to choose.
+            - `1` is acceptable.
 
             **Examples**
             ```python
@@ -664,72 +838,100 @@ EXERCISES = [
                 return n
         ''',
         "hints": [
-            "Use an if to detect the bad case, and the raise keyword to signal it.",
-            "If n is too small, raise a ValueError with a message. Otherwise just return n.",
-            "Write: if n < 1, then raise ValueError(\"some message\"). On the next line (outside the if) return n.",
+            "Look at `check_temperature` in the lesson. Which word makes a function stop with an exception?",
+            "Test for the bad case first, with an `if`. Under the `if`, raise the exception with a message. A value that gets past the test is handed back below it.",
+            "The first line of the body is an `if` that is true when `n` is less than 1. Indented under it: the word `raise`, then the type `ValueError` with a message of your own in parentheses. After that, back at the indentation of the `if`, hand back `n`.",
         ],
     },
     {
         "id": "errors-s5",
         "lesson": r'''
-            ## KeyError
+            ## A spare value for when the real one is missing
 
-            Reading a dict with square brackets raises `KeyError` when the key is not in the dict.
-            The exception's message is the missing key. For a string key, the message
-            includes the quotes.
+            A model config comes from a file that people edit by hand, so now and then a setting is not
+            there. Your app should not stop for that. It should carry on with a sensible spare value.
+
+            So far, your `except` blocks printed a message. Inside a function they can do something more
+            useful, and hand back a value. Here the `try` block returns the real value, and the `except`
+            block returns the spare one:
 
             ```python
-            settings = {"temperature": 0.2}
-            try:
-                print(settings["max_tokens"])
-            except KeyError as e:
-                print("missing key:", e)
-            print("program continues")
-            # missing key: 'max_tokens'
-            # program continues
+            def first_tool(tools):
+                try:
+                    return tools[0]
+                except IndexError:
+                    return "no tools"
+
+            print(first_tool(["search", "email"]))
+            # search
+            print(first_tool([]))
+            # no tools
             ```
 
-            You can use this to supply a **fallback value**: a value to use when the real one is
-            missing. Put the lookup in `try`, and return the fallback in `except KeyError`.
+            In the first call, `tools[0]` works and the function returns it. The `except` block is never
+            reached. In the second call the list is empty, so `tools[0]` raises an `IndexError`. The
+            `return` in the `try` block does not happen, and the `return` in the `except` block runs in
+            its place. Either way, the caller gets exactly one value and never sees an error.
 
-            ```python
-            def get_max_tokens(settings):
+            A value that stands in for a missing one is called a **fallback value**.
+
+            The same shape works for a dict. Only the type changes, because a missing key is not the same
+            exception as a missing list position:
+
+            ```fill
+            def get_limit(settings):
                 try:
                     return settings["max_tokens"]
-                except KeyError:
+                except ___:
                     return 256
 
-            print(get_max_tokens({"max_tokens": 100}))
-            # 100
-            print(get_max_tokens({"temperature": 0.2}))
-            # 256
+            print(get_limit({"max_tokens": 100}))
+            print(get_limit({"temperature": 0.2}))
+            ---
+            - [x] KeyError :: Right. The second dict has no `"max_tokens"` key, so the lookup raises a `KeyError` and the function returns the fallback. The program prints `100` and `256`.
+            - [ ] IndexError :: That is the type for a list position that does not exist. A dict raises a `KeyError`, and this block lets it through, so the second call stops the program.
+            - [ ] ValueError :: A missing key is a `KeyError`. This block does not catch it, so the second call stops the program.
             ```
 
-            `settings.get("max_tokens", 256)` gives the same result. Both forms are correct Python.
-            The `try` form has a name: **EAFP**, short for "easier to ask forgiveness than
-            permission". You run the operation first and handle the exception if it happens.
+            ```quiz
+            With the right type in the gap, what does `get_limit({"max_tokens": 0})` return?
+            - [x] `0` :: Right. The key is there, so the lookup works and nothing is raised. The fallback is only for a key that is missing.
+            - [ ] `256` :: The fallback is used only when the lookup raises an exception. A key that holds `0` is still a key that exists.
+            - [ ] `None` :: Both ways through the function end in a `return` with a value: the stored one, or the fallback.
+            ```
 
-            The type after `except` must be `KeyError`. `except ValueError:` does not catch a
-            missing key, and the program stops with a traceback.
+            In the Dicts chapter you used `settings.get("max_tokens", 256)` for this, and for a dict that
+            is still a good choice. `try` with `except` is the general tool. It works for any line that
+            can fail, not only for a lookup. This step practises it on a dict.
+
+            **Watch out:** the fallback is only reached when the `except` line names the right type. For
+            a dict that is `KeyError`. With `IndexError` there, a missing key still stops the program
+            with `KeyError: 'max_tokens'`.
+
+            **In short:** return the real value in the `try` block, and the fallback value in the
+            `except` block.
         ''',
         "title": "Missing config key",
         "difficulty": 0,
         "prompt": r'''
-            A model config may or may not say which model to use. When it doesn't, fall
-            back to a default model.
+            A model config says which model to use, most of the time. When that setting is missing, your
+            app should fall back to a small default model and carry on.
 
-            **Write:** `get_model(config)`
+            **Your job:** write `get_model(config)`. It gives back the model name that is stored in the
+            config, or the fallback `"gpt-4o-mini"` when the config has no model name.
 
-            - `config`: a dict, e.g. `{"model": "claude", "temperature": 0.2}`
-            - **Returns:** the string stored under the key `"model"`, or `"gpt-4o-mini"`
-              when that key is missing
+            **What goes in**
+            - `config`: a dict of settings, for example `{"model": "claude", "temperature": 0.2}`. The
+              key `"model"` may be missing, and the dict may be empty.
+
+            **What comes out**
+            - the string stored under the key `"model"`: `"claude"` for the example value
+            - the string `"gpt-4o-mini"` when there is no `"model"` key
 
             **Rules**
-            - Look up the key with square brackets, `config["model"]`. When the key is
-              missing this raises `KeyError`.
-            - Catch that `KeyError` with a `try` / `except` block and return
-              `"gpt-4o-mini"` (a check looks for `try` in your code, so don't use `.get()`).
-            - Other keys in the dict don't matter.
+            - Other keys in the dict make no difference.
+            - Read the key with square brackets, and handle the missing key with `try` and `except`. A
+              check looks for a `try` statement in your code, so `.get()` is not accepted in this step.
 
             **Examples**
             ```python
@@ -765,66 +967,101 @@ EXERCISES = [
                     return "gpt-4o-mini"
         ''',
         "hints": [
-            "Looking up a missing key with square brackets raises KeyError. Wrap that lookup in try.",
-            "Return the lookup inside try; in the except KeyError block return the default model name.",
-            "try: return config[\"model\"]. Then except KeyError: return \"gpt-4o-mini\".",
+            "The lesson has a function of the same shape for a list, `first_tool`. Which line of your function can fail, and which exception type does it raise then?",
+            "Put the lookup with square brackets in a `try` block, and hand its result back from there. The `except` block names the type that a missing dict key raises, and it hands back the fallback.",
+            "Four lines go under the `def` line. First `try:`. Then, indented, the lookup of the key `\"model\"`, handed back. Then an `except` line with the type for a missing key. Then, indented, the fallback string, handed back.",
         ],
     },
     {
         "id": "errors-s6",
         "lesson": r'''
-            ## Reading the exception message
+            ## Getting the message out of an exception
 
-            Add `as e` to the `except` line to get the exception object. Python assigns the caught
-            exception to the name `e`. You can then read its message.
+            A user types something your app cannot use, and the app answers "error". Which error? The
+            user cannot tell, and neither can you when you read the log a week later.
 
-            ```python
-            try:
-                int("ten")
-            except ValueError as e:
-                print("caught it")
-                print(str(e))
-            # caught it
-            # invalid literal for int() with base 10: 'ten'
-            ```
-
-            `str(e)` returns the exception's **message** as a string. It is the same text that
-            appears after the colon on the last line of a traceback.
-
-            `e` is an ordinary variable name. `err` and `exc` are also common. The name exists only
-            inside the `except` block. Python deletes it when the block ends, so using `e` after
-            the block raises `NameError`.
-
-            An f-string converts the exception the same way, so you can build a longer message.
+            Python had already written a precise sentence about the problem. You have seen it after the
+            colon on the last line of a traceback. When you catch an exception, no traceback is printed,
+            but the message is not lost. It travels inside the exception, and you can ask for it.
 
             ```python
             try:
-                int("ten")
-            except ValueError as e:
-                print(f"request failed: {e}")
-            # request failed: invalid literal for int() with base 10: 'ten'
+                print(10 / 0)
+            except ZeroDivisionError as e:
+                print("caught:", e)
+            # caught: division by zero
             ```
 
-            In an AI app, an API call can fail for many reasons. Printing the message, or showing it
-            to the user, tells them which reason it was.
+            The two new words are `as e`. They give the caught exception a name, here `e`. Inside the
+            `except` block, `e` is the exception itself, and printing it shows its message.
 
-            `print(e)` and `str(e)` give the message only. They do not include the type name
-            `ValueError`.
+            To do more than print, turn the exception into a string with `str()`. Then you can store the
+            message, join it to other text, or return it:
+
+            ```python
+            def reply(text):
+                try:
+                    number = float(text)
+                except ValueError as err:
+                    return "Sorry: " + str(err)
+                return f"Half of that is {number / 2}"
+
+            print(reply("9"))
+            # Half of that is 4.5
+            print(reply("nine"))
+            # Sorry: could not convert string to float: 'nine'
+            ```
+
+            The name after `as` is your choice. This example uses `err`. Most programmers write `e`.
+
+            ```predict
+            settings = {"model": "small"}
+            try:
+                print(settings["top_p"])
+            except KeyError as e:
+                print("missing:", e)
+            ---
+            The message of a `KeyError` is the key that was not found, shown with its quotes. It is the same text that stands after the colon in the traceback, `KeyError: 'top_p'`.
+            ```
+
+            ```quiz
+            `int("3.5")` raises an exception, and the program catches it with `as e`. What is `str(e)`?
+            - [x] `invalid literal for int() with base 10: '3.5'` :: Right. `str(e)` is the message, which is everything after the colon on the last line of the traceback.
+            - [ ] `ValueError: invalid literal for int() with base 10: '3.5'` :: That is the whole last line of the traceback. The type name and the colon are not part of the message.
+            - [ ] `ValueError` :: That is the type of the exception. The message is the sentence that comes with it.
+            - [ ] `3.5` :: The message mentions the text that could not be converted, but it is a whole sentence.
+            ```
+
+            **Watch out:** the name `e` exists only inside the `except` block. When the block ends,
+            Python removes the name, and a later line that uses `e` stops with
+            `NameError: name 'e' is not defined`. Take whatever you need from the exception while you are
+            inside the block.
+
+            **In short:** `except SomeType as e:` gives the caught exception a name, and `str(e)` is its
+            message.
         ''',
         "title": "Read the error message",
         "difficulty": 0,
         "prompt": r'''
-            When a conversion fails, show the user *why*, using the exception's own message.
+            When a user types something that is not a number, the answer "error" is not much help.
+            Python's own message says exactly what was wrong with the text. `check_number(text)` should
+            pass that message on.
 
-            **Write:** `check_number(text)`
+            **Your job:** change `check_number(text)` so that, for text that is not a number, it gives
+            back the message of the exception. The code in the editor already catches the exception, but
+            it gives back the fixed text `"error"` every time.
 
-            - `text`: a string, e.g. `"12"` or `"ten"`
-            - **Returns:** the string `"ok"` when `int(text)` works, otherwise the
-              **message** of the exception that `int(text)` raised (`str(e)`)
+            **What goes in**
+            - `text`: a string, for example `"12"` or `"ten"`
+
+            **What comes out**
+            - the string `"ok"` when `int(text)` works
+            - otherwise the message of the exception that `int(text)` raised, as a string
 
             **Rules**
-            - Catch the `ValueError` with `except ValueError as e` and return its message.
-            - Return the message exactly as Python wrote it, with nothing added.
+            - The message is exactly the text that Python wrote, with nothing added in front of it or
+              after it.
+            - The empty string `""` is not a number either. It gets the message that Python writes for it.
 
             **Examples**
             ```python
@@ -865,9 +1102,9 @@ EXERCISES = [
                 return "ok"
         ''',
         "hints": [
-            "The except line can give the exception a name with `as`, so you can use it inside the block.",
-            "Name the caught exception (e.g. e) and turn it into its message text with str().",
-            "Change the except line to `except ValueError as e:` and return str(e) instead of \"error\".",
+            "The message is inside the exception. What do you add to an `except` line to give the caught exception a name?",
+            "Give the exception a name on the `except` line. Inside the block, turn the exception into a string, and hand that string back in place of the fixed text.",
+            "Two lines change. On the `except` line, add the word `as` and a name after the type. On the line under it, replace `\"error\"` with a call of `str()` on that name.",
         ],
     },
     {
@@ -878,69 +1115,64 @@ EXERCISES = [
                        "url": "https://docs.python.org/3/library/exceptions.html#concrete-exceptions"}],
         },
         "lesson": r'''
-            ## Catching several types
+            ## Recover from two expected conversion failures
 
-            One `except` line can catch more than one exception type. Write the types in round
-            brackets, separated by commas. This comma-separated group in round brackets is a
-            **tuple**.
+            A settings form supplies a number as text, but sometimes it supplies text that is not numeric, or no value at all. Those are different problems for Python even if your application wants the same fallback for both.
 
             ```python
-            def to_number(value):
+            def as_decimal(value):
                 try:
                     return float(value)
-                except (ValueError, TypeError):
+                except (TypeError, ValueError):
                     return None
 
-            print(to_number("1.5"))
-            # 1.5
-            print(to_number("abc"))
+            print(as_decimal("2.5"))
+            # 2.5
+            print(as_decimal("missing"))
             # None
-            print(to_number([1]))
+            print(as_decimal([]))
             # None
             ```
 
-            `float("abc")` raises `ValueError`. `float([1])` raises `TypeError`. The `except` block
-            runs for either one.
+            A numeric-looking string converts successfully. An unsuitable string raises `ValueError`; an unsupported kind of input raises `TypeError`. Parentheses on the except line group both exception types into a tuple. Either type can select the same recovery block.
 
-            ### Why not catch everything
-
-            `except:` with no type and `except Exception:` catch almost every exception. That
-            includes exceptions caused by bugs in your own code.
-
-            ```python
-            def count_chars(text):
-                try:
-                    return len(txt)
-                except Exception:
-                    return 0
-
-            print(count_chars("three short words"))
-            # 0
+            ```match
+            `ValueError` during conversion :: input kind is accepted but its contents are unsuitable
+            `TypeError` during conversion :: input kind is not supported
+            an unrelated `NameError` :: a programming mistake that should remain visible
             ```
 
-            The name `txt` is a typing mistake for `text`, so the line raises `NameError`.
-            `except Exception:` catches it and the function returns `0`. No error is shown, and the
-            caller cannot tell this `0` from a correct count.
+            Keep the protected code small and name only failures you intend to handle. Catching every exception can also catch a misspelled variable. The application then returns a plausible fallback instead of showing the mistake, making the bug harder to find.
 
-            Catch only the types you expect. Any other exception then stops the program with a
-            traceback that shows you the line to fix.
+            ```quiz
+            A conversion handler catches ValueError and TypeError. What should a misspelled variable do?
+            - [x] Raise NameError to the caller. :: That error is outside the intended recovery policy and should remain visible.
+            - [ ] Return the conversion fallback. :: Hiding a programming mistake would make bad code appear successful.
+            ```
+
+            **Watch out:** a bare `except` or `except Exception` is broader than these two conversion errors. A program that never crashes can still be silently producing wrong results.
+
+            Recover from the failures you expect, while leaving other failures visible.
         ''',
         "title": "Safe token count",
         "hints": [
-            "Wrap the risky int(value) call in try, and handle the failures in except.",
-            "An except clause can catch several types at once if you put them in a tuple. In that case return 0.",
-            "try: return int(value). Then except (ValueError, TypeError): return 0. Do not use a bare except or except Exception.",
+            "Review which exceptions a conversion can raise for bad text and unsupported types.",
+            "Protect only the conversion and handle the two named error types together.",
+            "Return a successful conversion normally; for either specified failure, give back the fallback while letting unrelated errors escape.",
         ],
         "difficulty": 1,
         "prompt": r'''
             Usage data from an API sometimes arrives as strings, and sometimes is junk.
             Turn it into a token count without crashing.
 
-            **Write:** `parse_tokens(value)`
+            **Your job:** write `parse_tokens(value)`
 
+            **What goes in**
             - `value`: anything, usually a string like `"42"` or an int like `7`, but it
               can be junk like `"n/a"` or `None`
-            - **Returns:** `int(value)` as an int, or `0` when the conversion fails
+
+            **What comes out**
+            - `int(value)` as an int, or `0` when the conversion fails
 
             **Rules**
             - `int("n/a")` raises `ValueError` and `int(None)` raises `TypeError`: in both
@@ -993,69 +1225,62 @@ EXERCISES = [
     {
         "id": "errors-2",
         "lesson": r'''
-            ## Validating input
+            ## Reject unsuitable values before using them
 
-            To **validate** a value is to check that it is acceptable before you use it. Write one
-            `if` per rule. Each `if` raises an exception when its rule is broken. The first broken
-            rule stops the function, so later checks do not run.
-
-            `isinstance(value, int)` returns `True` when `value` is an int. Pass a tuple of types
-            to accept any of them.
+            A caller asks for a negative number of search results. Waiting until a later operation fails would hide what was wrong with the request. Check the input at the boundary and name the value the caller needs to fix.
 
             ```python
-            print(isinstance(5, int))
-            # True
-            print(isinstance("5", int))
-            # False
-            print(isinstance(0.5, (int, float)))
-            # True
+            def check_count(count):
+                if not isinstance(count, int) or isinstance(count, bool):
+                    raise TypeError("count must be an integer")
+                if count < 0:
+                    raise ValueError("count must not be negative")
+
+            check_count(3)
+            print("accepted")
+            # accepted
             ```
 
-            Raise `TypeError` when the value has the wrong type, such as a string where a number
-            is required. Raise `ValueError` when the type is right but the value is out of range.
+            Checking whether a value is acceptable is **validation**. First establish its type, then compare its value with the allowed range. `TypeError` describes the wrong kind of input; `ValueError` describes unacceptable contents of an otherwise suitable type. Checking in this order avoids accidentally comparing text with a number.
 
-            ```python
-            def check_top_k(top_k):
-                if not isinstance(top_k, int) or isinstance(top_k, bool):
-                    raise TypeError("top_k must be an int")
-                if top_k < 1:
-                    raise ValueError("top_k must be at least 1")
-
-            check_top_k(40)
-            print("40 is valid")
-            # 40 is valid
-            try:
-                check_top_k("40")
-            except TypeError as e:
-                print(e)
-            # top_k must be an int
+            ```predict
+            print(isinstance(True, int))
+            print(isinstance(3.5, (int, float)))
+            ---
+            Both print True. Booleans count as integers in Python, while the tuple accepts either listed numeric type.
             ```
 
-            Put the parameter's name in the message. `"top_k must be an int"` tells the caller
-            which argument to fix.
+            Python treats booleans as a kind of integer. If a setting means a quantity rather than yes or no, reject booleans explicitly. Otherwise `True` could quietly pass as one. When several inputs are wrong, the first raised exception stops the function; later checks never run.
 
-            Checking at the start of a function is called **failing fast**. The error appears at
-            the call with the bad value, not later in a line that only uses it.
+            ```quiz
+            Why should a validation error mention the parameter name?
+            - [x] The caller can identify which supplied value to change. :: A specific message makes the failure actionable.
+            - [ ] Python requires parameter names in every exception message. :: Python allows arbitrary messages; clarity is your responsibility.
+            ```
 
-            `isinstance(True, int)` returns `True`, because Python defines `bool` as a
-            **sub-type** of `int`: every bool also counts as an int. To reject `True` and `False`, add the `isinstance(x, bool)` check shown above.
+            **Watch out:** converting every input before checking changes the contract. Text containing digits may still be forbidden when the caller must provide an actual integer.
+
+            Validate types before ranges and make the first failure explain the offending input.
         ''',
         "title": "Validate generation params",
         "hints": [
-            "Use isinstance() to check types, comparisons to check ranges, and raise to report a problem. Watch out: True and False count as ints for isinstance.",
-            "Do four checks one after another, each an if that raises. For the type checks, also reject values where isinstance(x, bool) is True.",
-            "1) if max_tokens is not an int or is a bool: raise TypeError naming max_tokens. 2) if max_tokens < 1: raise ValueError. 3) if temperature is not (int, float) or is a bool: raise TypeError. 4) if not 0 <= temperature <= 2: raise ValueError. If nothing raised, the function ends and returns None.",
+            "Separate each parameter's type check from its range check.",
+            "Check the first parameter completely before the second, explicitly excluding booleans from numeric inputs.",
+            "For each rule in the given order, raise the required error type with that parameter's name; otherwise let the function finish normally.",
         ],
         "difficulty": 1,
         "prompt": r'''
             Check generation parameters before sending them to a model API, and fail
             early with a clear error.
 
-            **Write:** `validate_params(max_tokens, temperature)`
+            **Your job:** write `validate_params(max_tokens, temperature)`
 
+            **What goes in**
             - `max_tokens`: should be an int, e.g. `256`
             - `temperature`: should be an int or a float, e.g. `0.7`
-            - **Returns:** `None` when both are valid (just let the function end)
+
+            **What comes out**
+            - `None` when both are valid (just let the function end)
 
             **Rules** (check in this order and raise at the first problem)
             1. `max_tokens` is not an `int` -> raise `TypeError`. A float like `12.0`, a
@@ -1139,48 +1364,43 @@ EXERCISES = [
     {
         "id": "errors-7",
         "lesson": r'''
-            ## Custom exceptions
+            ## Give an application problem its own error name
 
-            The built-in exception names are general. A **custom exception** is an exception type
-            you define yourself, with a name that describes a problem in your program, such as
-            `RateLimitError` or `TooLongError`.
-
-            You define one with a **class**: a statement that creates a new type. Write `class`,
-            the new name, and `Exception` in parentheses. The body is the single word `pass`.
+            Your app can fail because a document is too large or because a numeric conversion went wrong. Both failures deserve attention, but a caller may want to recover from only the document problem. Give that problem a distinct type.
 
             ```python
-            class TooLongError(Exception):
+            class DocumentTooLargeError(Exception):
                 pass
 
-            def check_prompt(text):
-                if len(text) > 10:
-                    raise TooLongError("prompt too long")
-                return text
-
-            print(check_prompt("hi"))
-            # hi
             try:
-                check_prompt("a very long prompt")
-            except TooLongError as e:
-                print("caught:", e)
-            # caught: prompt too long
+                raise DocumentTooLargeError("document exceeds size limit")
+            except DocumentTooLargeError as problem:
+                print(problem)
+            # document exceeds size limit
             ```
 
-            `(Exception)` makes the new type a kind of `Exception`, so it works with `raise` and
-            `except`. `pass` is a statement that does nothing. It is there because a class body
-            cannot be empty.
+            The `class` statement creates a new type. Here the parentheses say the new type is a kind of `Exception`, which lets Python raise and catch it. The body contains `pass`, a statement that does nothing; Python requires a body even when you have no extra behavior to add. This small form is enough for a **custom exception**. The classes chapter will explain other uses of classes later.
 
-            Classes are covered in a later topic. For now, copy the two-line form and change the
-            name.
+            ```order
+            class MissingDocumentError(Exception):
+                pass
+            problem = MissingDocumentError("document unavailable")
+            print(str(problem))
+            ---
+            Define the type before creating an error of that type. Converting the error to text reads its message.
+            ```
 
-            The new type works the same way as the built-in ones. You raise it with a message,
-            catch it by name, and read the message with `str(e)`.
+            Choose the type to identify the kind of problem and the message to explain the particular failure. Callers can catch the named type without accidentally swallowing a `ValueError` from unrelated code. Creating an exception object alone does not stop execution; raising it starts the error-handling process.
 
-            `except TooLongError:` catches only that type. A `ValueError` raised by the same code
-            is not caught, so callers can handle each problem separately.
+            ```quiz
+            What makes a new exception type usable with raise and except?
+            - [x] Defining it as a kind of Exception. :: The parent type supplies the exception behavior.
+            - [ ] Naming any variable with the word Error. :: A name alone does not create an exception type.
+            ```
 
-            Python runs the file from top to bottom. Define the class before the first line that
-            raises it runs. Raising a name that is not defined yet raises `NameError`.
+            **Watch out:** raising an exception name before defining it causes `NameError`, hiding the application problem you meant to report.
+
+            Use a distinct exception type when callers need to distinguish a particular failure.
         ''',
         "title": "Your own exception",
         "difficulty": 1,
@@ -1188,17 +1408,19 @@ EXERCISES = [
             An agent has a spending budget for API calls. When a call would cost more
             than what's left, stop with an error type of your own (a *custom exception*).
 
-            **Write:** a class `BudgetExceededError`, then `spend(budget, cost)`
+            **Your job:** write a class `BudgetExceededError`, then `spend(budget, cost)`
 
+            **What goes in**
             - `BudgetExceededError`: a one-line custom exception based on `Exception`
               (`class Name(Exception): pass`)
             - `budget`: a number, the dollars left, e.g. `1.0`
             - `cost`: a number, the price of the next call, e.g. `0.25`
-            - **Returns:** the budget left after paying, `budget - cost`
+
+            **What comes out**
+            - the budget left after paying, `budget - cost`
 
             **Rules**
-            - If `cost` is greater than `budget`, raise
-              `BudgetExceededError("budget exceeded")` (exactly this message).
+            - If `cost` is greater than `budget`, raise a `BudgetExceededError` with the exact message `"budget exceeded"`.
             - Spending exactly the whole budget is allowed (returns `0`).
 
             **Examples**
@@ -1241,78 +1463,57 @@ EXERCISES = [
                 return budget - cost
         ''',
         "hints": [
-            "First create the exception type with the two-line class form, then use raise inside spend.",
-            "Define the class above the function. In spend, check whether cost is bigger than budget before doing the subtraction.",
-            "Write class BudgetExceededError(Exception): with pass inside. In spend: if cost > budget, raise BudgetExceededError with the message \"budget exceeded\"; otherwise return budget minus cost.",
+            "A distinct error type lets callers recognize budget failures.",
+            "Define the custom exception before using it, and distinguish an excessive cost from an exact-budget cost.",
+            "Raise your named error only when spending would exceed the budget; otherwise give back the remaining amount.",
         ],
     },
     {
         "id": "errors-8",
         "lesson": r'''
-            ## finally
+            ## Finish the cleanup even when work fails
 
-            A `finally` block holds code that runs every time the `try` block ends, whichever way
-            it ends.
+            A task announces that it has opened a resource. Whether the work succeeds or raises an error, you still need the closing action to happen. Placing that action after an ordinary return would skip it entirely.
 
             ```python
-            def risky(n):
-                print("open")
+            def calculate(divisor):
                 try:
-                    return 10 / n
+                    return 12 / divisor
                 finally:
-                    print("close")
+                    print("finished")
 
-            print(risky(2))
-            # open
-            # close
-            # 5.0
+            print(calculate(3))
+            # finished
+            # 4.0
+            ```
+
+            The `finally` block runs as the protected work finishes, before a pending return leaves the function. Work that must happen on both success and failure is called **cleanup**. The same block also runs when an exception is on its way to the caller.
+
+            ```predict
             try:
-                risky(0)
-            except ZeroDivisionError:
-                print("error reached the caller")
-            # open
-            # close
-            # error reached the caller
+                try:
+                    raise ValueError("bad value")
+                finally:
+                    print("cleanup")
+            except ValueError:
+                print("handled")
+            ---
+            Cleanup prints first. Finally does not catch the failure, so the outer handler then prints handled.
             ```
 
-            The `finally` block runs in all three cases:
+            An `except` block decides whether to recover from an error. A `finally` block guarantees an action during ordinary Python control flow without deciding whether the error should be recovered from. You can use `try` with only `finally` when your helper must preserve the original failure.
 
-            - The `try` block reaches its end.
-            - The `try` block runs `return`. Python runs `finally` first, then returns the value.
-            - The `try` block raises an exception. Python runs `finally` first, then the exception
-              continues to the caller.
-
-            `finally` does not catch the exception. `risky(0)` prints `close` and the
-            `ZeroDivisionError` still reaches the caller.
-
-            Step through both calls and watch line 6 run after line 4 each time.
-
-            ```diagram
-            {"type": "trace", "title": "finally runs on return and on an exception", "code": ["def risky(n):", "    print(\"open\")", "    try:", "        return 10 / n", "    finally:", "        print(\"close\")", "", "print(risky(2))", "try:", "    risky(0)", "except ZeroDivisionError:", "    print(\"error reached the caller\")"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 8, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"n": "2"}, "out": ""},
-              {"line": 3, "vars": {"n": "2"}, "out": "open\n"},
-              {"line": 4, "vars": {"n": "2"}, "out": "open\n"},
-              {"line": 6, "vars": {"n": "2"}, "out": "open\n"},
-              {"line": 9, "vars": {}, "out": "open\nclose\n5.0\n"},
-              {"line": 10, "vars": {}, "out": "open\nclose\n5.0\n"},
-              {"line": 2, "vars": {"n": "0"}, "out": "open\nclose\n5.0\n"},
-              {"line": 3, "vars": {"n": "0"}, "out": "open\nclose\n5.0\nopen\n"},
-              {"line": 4, "vars": {"n": "0"}, "out": "open\nclose\n5.0\nopen\n"},
-              {"line": 6, "vars": {"n": "0"}, "out": "open\nclose\n5.0\nopen\n"},
-              {"line": 11, "vars": {}, "out": "open\nclose\n5.0\nopen\nclose\n"},
-              {"line": 12, "vars": {}, "out": "open\nclose\n5.0\nopen\nclose\n"},
-              {"line": null, "vars": {}, "out": "open\nclose\n5.0\nopen\nclose\nerror reached the caller\n"}
-            ]}
+            ```quiz
+            A protected operation raises an error and finally only prints. What happens next?
+            - [x] The same error continues to the caller. :: Cleanup does not automatically handle the exception.
+            - [ ] The function succeeds because finally ran. :: Running cleanup says nothing about whether the operation succeeded.
             ```
 
-            A `try` statement can have `finally` and no `except`. Use this form for **cleanup**:
-            work that must happen in every case, such as closing a file, stopping a timer or
-            printing a "done" message.
+            Keep cleanup small and avoid adding a new return there. A return in `finally` can replace the original return value or suppress the pending exception, changing what the caller observes.
 
-            Do not write `return` inside `finally`. That `return` discards the exception, and the
-            caller never sees the error.
+            **Watch out:** putting cleanup after the try statement instead of in finally leaves it skipped when an error escapes.
+
+            Cleanup should run without hiding the result or failure of the original work.
         ''',
         "title": "Always log the end",
         "difficulty": 1,
@@ -1325,11 +1526,14 @@ EXERCISES = [
             Every model call should leave a trace in the log: when it started and when it
             ended, even if it crashed.
 
-            **Write:** `logged_call(func, log)`
+            **Your job:** write `logged_call(func, log)`
 
+            **What goes in**
             - `func`: a function with no arguments; you call it as `func()`
             - `log`: a list of strings you append to, e.g. `[]`
-            - **Returns:** whatever `func()` returned
+
+            **What comes out**
+            - whatever `func()` returned
 
             **Rules**
             - Append `"start"` to `log` before calling `func`.
@@ -1399,18 +1603,18 @@ EXERCISES = [
                     log.append("end")
         ''',
         "hints": [
-            "A try block doesn't need an except: try + finally is enough when you only want cleanup.",
-            "Log \"start\", then put the func() call in try, and the \"end\" logging in finally.",
-            "Append \"start\". Then try: return func(). Then finally: append \"end\". No except block at all.",
+            "Cleanup belongs in the block that runs even during a return or exception.",
+            "Keep the start event before the call and the end event in guaranteed cleanup.",
+            "Append the opening event, call the function inside try while preserving its result, and append the closing event in finally without catching errors.",
         ],
     },
     {
         "id": "errors-3",
         "title": "API error hierarchy",
         "hints": [
-            "Custom exceptions are one-line classes: class Name(Parent): pass. Using another custom exception as the parent makes a sub-type. except catches the named type AND its sub-types.",
-            "raise_for_status picks which exception to raise based on the status code. describe_failure calls it inside try and has one except block per type. The specific ones (AuthError, RateLimitError) must come before APIError.",
-            "Define APIError(Exception), RateLimitError(APIError), AuthError(APIError), each with pass. raise_for_status: return None for 200..299; message = body.get(\"error\", \"unknown error\"); raise AuthError(message) for 401/403, RateLimitError(message) for 429, otherwise APIError(message). describe_failure: try raise_for_status and return \"ok\"; except AuthError as e: return f\"auth: {e}\"; then RateLimitError, then APIError.",
+            "A handler for a parent exception also catches its more specific child types.",
+            "Choose the error type from the status, then handle specific types before the shared parent.",
+            "Define the hierarchy, implement the status-to-error rules, and have the describing helper call that checker and turn each outcome into its required label.",
         ],
         "difficulty": 2,
         "prompt": r'''
@@ -1418,7 +1622,7 @@ EXERCISES = [
             handle "bad API key" differently from "slow down". Sub-types of one base error
             form an *exception hierarchy*.
 
-            **Write:** three exception classes, then `raise_for_status(status, body)` and
+            **Your job:** write three exception classes, then `raise_for_status` (parameters `status`, then `body`) and
             `describe_failure(status, body)`
 
             - Classes (one-line classes, `class Name(Parent): pass`):
@@ -1440,7 +1644,7 @@ EXERCISES = [
             - The exception's message is exactly that text (so `str(error)` is `"slow down"`).
 
             **Rules for `describe_failure`**
-            - Call `raise_for_status(status, body)`; don't let its error escape.
+            - Call `raise_for_status` with the supplied status and body; don't let its error escape.
             - Return `"ok"` when nothing was raised.
             - Otherwise return `"auth: <message>"`, `"rate limit: <message>"` or
               `"api error: <message>"` depending on the error type.
@@ -1555,9 +1759,9 @@ EXERCISES = [
         "placement": True,
         "title": "Step runner with cleanup",
         "hints": [
-            "A try statement can have four parts: try, except, else (runs only if try raised nothing) and finally (always runs).",
-            "Only call step() inside try. Handle KeyError in except. Put the success logging and return in else. Put the \"done\" logging in finally.",
-            "try: result = step(). except KeyError: append \"missing key\" and return None. else: append \"ok\" and return result. finally: append \"done\". Do not catch any other exception type.",
+            "Recall when except, else, and finally run.",
+            "Keep the risky step alone in try so a later logging failure is not mistaken for a step failure.",
+            "Handle the specified missing-key error, log success only in else, and place the final event in finally so other errors still reach the caller.",
         ],
         "difficulty": 2,
         "prompt": r'''
@@ -1565,12 +1769,15 @@ EXERCISES = [
             failures are expected and handled; others must reach the caller, but the log
             must always be closed.
 
-            **Write:** `run_step(step, log)`
+            **Your job:** write `run_step(step, log)`
 
+            **What goes in**
             - `step`: a function that takes no arguments, e.g. `works` below. You call it
               as `step()`.
             - `log`: a list of strings you append to, e.g. `[]`
-            - **Returns:** whatever `step()` returned, or `None` when it raised `KeyError`
+
+            **What comes out**
+            - whatever `step()` returned, or `None` when it raised `KeyError`
 
             **Rules**
             - Use one `try` statement with `except`, `else` **and** `finally` blocks (a
@@ -1680,29 +1887,32 @@ EXERCISES = [
         "id": "errors-5",
         "title": "Retry with backoff",
         "hints": [
-            "Loop a fixed number of times with a try/except inside. A bare `raise` inside an except block re-raises the exception currently being handled.",
-            "On success return straight away. On a retryable error, if it was the last attempt re-raise it; otherwise sleep for the current delay and double the delay.",
-            "Validate attempts first (ValueError if < 1). Set delay = 1. For each attempt number from 1 to attempts: try return func(); except (TimeoutError, ConnectionError): if this is the last attempt, `raise`; if sleep is not None call sleep(delay); multiply delay by 2.",
+            "Count attempts as total calls, and distinguish temporary failures from other errors.",
+            "After a temporary failure, wait only if another attempt remains; preserve the final original exception.",
+            "Validate the attempt count first, return on success, re-raise at the last allowed failure, and double the optional wait between earlier retries.",
         ],
         "difficulty": 3,
         "prompt": r'''
             Network calls to a model API fail now and then. Retry the temporary failures,
             waiting longer each time (this is called *exponential backoff*).
 
-            **Write:** `call_with_retry(func, attempts=3, sleep=None)`
+            **Your job:** write `call_with_retry(func, attempts=3, sleep=None)`
 
+            **What goes in**
             - `func`: a function with no arguments; you call it as `func()`
             - `attempts`: an int, the maximum number of calls **in total** (default `3`)
             - `sleep`: a function taking a number of seconds, e.g. `time.sleep`, or `None`
               (default) meaning "don't wait". Tests pass a function that records the values.
-            - **Returns:** the result of the first `func()` call that succeeds
+
+            **What comes out**
+            - the result of the first `func()` call that succeeds
 
             **Rules**
             - If `attempts` is less than `1`, raise `ValueError` **before** calling `func`.
             - A call that succeeds is returned straight away (no sleep, no more calls).
             - If `func()` raises `TimeoutError` or `ConnectionError`, try again, up to
               `attempts` calls in total.
-            - Between two attempts, if `sleep` is not `None`, call `sleep(delay)` with
+            - Between two attempts, if `sleep` is not `None`, call the supplied sleep function with
               delays `1`, then `2`, then `4`, ... (doubling). Never sleep after the final
               attempt.
             - If every attempt fails, re-raise the **last** exception: the very same
@@ -1813,9 +2023,9 @@ EXERCISES = [
         "id": "errors-6",
         "title": "Chain parse errors",
         "hints": [
-            "You need a one-line custom exception class, dict lookups with .get(), int() inside a try, and `raise ... from ...` for chaining.",
-            "parse_tool_call validates the name, reads the args list (default empty) and, for \"add\", converts every arg inside a try so a ValueError can be re-raised as a ToolCallError from it. run_all loops over the calls, catches only ToolCallError, and builds one line per call.",
-            "class ToolCallError(Exception): pass. parse_tool_call: name = call.get(\"name\"); if not name raise ToolCallError(\"malformed tool call\"); args = call.get(\"args\", []); if name is \"add\": try building a new list with int(a) for each a, except ValueError as exc: raise ToolCallError(\"bad arguments for add\") from exc. Return (name, args). run_all: for each call, try parse; except ToolCallError as e append f\"error: {e}\"; else append f\"{name} -> {args}\". Return the list.",
+            "Separate malformed calls from bad numeric arguments, preserving the cause of the latter.",
+            "Convert add arguments into a new list and catch only the specified conversion error.",
+            "Define the custom error, validate and parse each call, chain numeric conversion failures, and have the batch helper turn only your custom errors into output lines.",
         ],
         "difficulty": 3,
         "prompt": r'''
@@ -1823,8 +2033,9 @@ EXERCISES = [
             `{"name": "search", "args": ["cats", "dogs"]}`. Parse them, and report bad
             ones with your own exception type.
 
-            **Write:** a class `ToolCallError`, then `parse_tool_call(call)` and `run_all(calls)`
+            **Your job:** write a class `ToolCallError`, then `parse_tool_call(call)` and `run_all(calls)`
 
+            **What goes in**
             - `ToolCallError`: a one-line custom exception class based on `Exception`
             - `call`: a dict with a `"name"` string and an optional `"args"` list
             - `calls`: a list of such dicts
@@ -1832,8 +2043,7 @@ EXERCISES = [
             - **`run_all` returns:** a list of strings, one per call, in the same order
 
             **Rules for `parse_tool_call`**
-            - If `"name"` is missing or is the empty string `""`, raise
-              `ToolCallError("malformed tool call")`.
+            - If `"name"` is missing or is the empty string `""`, raise a `ToolCallError` with the exact message `"malformed tool call"`.
             - A missing `"args"` means `[]`.
             - Args are returned unchanged, **except** when the name is `"add"`: then
               return a new list with every arg converted by `int()` (e.g. `["1", "20"]`

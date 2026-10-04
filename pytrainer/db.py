@@ -96,13 +96,6 @@ CREATE TABLE IF NOT EXISTS reviews (
     review TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS personal_lessons (
-    exercise_id TEXT NOT NULL,
-    profile_hash TEXT NOT NULL,
-    content TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    PRIMARY KEY (exercise_id, profile_hash)
-);
 CREATE TABLE IF NOT EXISTS lesson_state (
     topic_id TEXT PRIMARY KEY,
     read_at TEXT NOT NULL
@@ -207,7 +200,7 @@ def backup() -> None:
 
 def export_all() -> dict:
     tables = ["settings", "attempts", "exercise_state", "drafts", "topic_state", "activity",
-              "placement", "custom_exercises", "submissions", "chats", "reviews", "lab_state", "lesson_state", "personal_lessons"]
+              "placement", "custom_exercises", "submissions", "chats", "reviews", "lab_state", "lesson_state"]
     return {"exported_at": now(), "version": 1,
             "tables": {t: [dict(r) for r in q(f"SELECT * FROM {t}")] for t in tables}}
 

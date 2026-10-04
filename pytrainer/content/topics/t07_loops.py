@@ -306,11 +306,44 @@ EXERCISES = [
     {
         "id": "loops-s1",
         "lesson": r'''
-            ## for loops
+            ## Do it again for every item
 
-            A **`for` loop** runs the same lines once for each item of a list. You write
-            `for`, a variable name, `in`, the list and a colon. The indented lines below it
-            are the lines that repeat.
+            A chat has three messages, and you want to greet each of the three senders. You could write
+            three `print` lines. That works for three people. It does not work for three thousand. What
+            you want to say is: do this for each item of the list.
+
+            ```python
+            for name in ["Ada", "Linus", "Grace"]:
+                print("Hello", name)
+            # Hello Ada
+            # Hello Linus
+            # Hello Grace
+            ```
+
+            Read the first line as "for each name in this list, run the indented lines". Python gives the
+            first item the name `name` and runs the block. Then it gives the second item that name and
+            runs the block again, and so on. When no items are left, the loop is over. The shape is the
+            one you know from `if` and `def`: a line that ends with a colon, and an indented block.
+
+            This is called a **`for` loop**. The name after `for` is the **loop variable**, and the
+            indented lines are the **body** of the loop. One run of the body is an **iteration**, and
+            going through items one at a time is called **iterating** over them.
+
+            ```quiz
+            How many times does this loop print `hi`?
+
+            ~~~python
+            for x in [7, 7, 7, 7]:
+                print("hi")
+            ~~~
+            - [x] 4 times :: Right. The body runs once for each item, and the list has four items. What the items are makes no difference.
+            - [ ] Once :: Equal items are still separate items. The loop visits every one of them.
+            - [ ] 7 times :: The loop counts items, and there are four of them. Their value, 7, is only what `x` stands for.
+            ```
+
+            ### A loop that adds things up
+
+            The body may use the loop variable in any way, for example to build a total:
 
             ```python
             total = 0
@@ -324,14 +357,7 @@ EXERCISES = [
             # done: 245
             ```
 
-            Python assigns the first item, `120`, to `n` and runs the two indented lines.
-            Then it assigns `80` to `n` and runs them again. Then it does the same with `45`.
-            When the list has no more items, the loop ends.
-
-            The last line is not indented, so it is not part of the loop. It runs once, after
-            the loop ends. `total += n` means the same as `total = total + n`.
-
-            Step through the code and watch `n` and `total` change.
+            Press Next and watch `n` and `total` change on each iteration:
 
             ```diagram
             {"type": "trace", "title": "A for loop over three numbers", "code": ["total = 0", "for n in [120, 80, 45]:", "    total += n", "    print(\"running total:\", total)", "print(\"done:\", total)"], "steps": [
@@ -351,15 +377,34 @@ EXERCISES = [
             ]}
             ```
 
-            The variable `n` is the **loop variable**. The indented lines are the loop
-            **body**. One run of the body is an **iteration**. To **iterate** over a list
-            means to go through its items one at a time.
+            The last line of that program is not indented. It is not part of the loop, so it runs once,
+            after the loop has finished.
+
+            ```try
+            for word in ["red", "green"]:
+                print(word)
+            print("end")
+            ---
+            Add a third item to the list so that the program prints `red`, `green`, `blue` and then `end`.
+            ---
+            for word in ["red", "green", "blue"]:
+                print(word)
+            print("end")
+            ---
+            The body ran one more time, because the list has one more item. The line after the loop still ran once.
+            ```
+
+            **Watch out:** only the indented lines repeat. If you indent the last line too, it becomes
+            part of the body and runs on every iteration.
+
+            **In short:** `for item in items:` runs its indented body once for each item, with `item`
+            standing for that item.
         ''',
         "title": "What gets printed?",
         "difficulty": 0,
         "mode": "predict",
         "prompt": r'''
-            Read the code and type exactly what it prints.
+            Read the program in the editor. Type exactly what it prints, one line of output per line.
         ''',
         "code": r'''
             total = 0
@@ -375,25 +420,25 @@ EXERCISES = [
             done
         ''',
         "explanation": r'''
-            The indented lines run once per item. `total` grows 0 -> 3 -> 8 -> 10 and is
-            printed each round. `print("done")` is not indented, so it runs once, after
-            the loop finishes.
+            The two indented lines run once for each of the three numbers. `total` goes from 0 to 3, then
+            to 8, then to 10, and it is printed on every iteration. `print("done")` is not indented, so it
+            runs once, after the loop has finished.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "The indented lines repeat for each number; the last line is not indented.",
-            "Keep a running total: add each number, then print the total so far.",
-            "Round 1: 0 + 3. Round 2: add 5. Round 3: add 2. Each round prints the new total, then done is printed once.",
+            "The indented lines repeat for each number. The last line is not indented.",
+            "Keep a running total: add each number to it, and write down the total after each addition.",
+            "Your first three lines are the total after each of the three numbers was added to it, starting from 0. Your fourth line is the text that is printed once, after the loop.",
         ],
     },
     {
         "id": "loops-s3",
         "lesson": r'''
-            ## The accumulator
+            ## A variable that collects the result
 
-            An **accumulator** is a variable that collects a result across the iterations of
-            a loop. To add up a list of numbers, you start the accumulator at `0` and add
-            each item to it.
+            The loop in the last step added numbers into `total`. A variable that gathers a result over
+            the iterations of a loop is the most useful pattern there is for loops. It has three parts,
+            and each part has its place.
 
             ```python
             latencies = [300, 150, 250]
@@ -404,39 +449,78 @@ EXERCISES = [
             # 700
             ```
 
-            The accumulator appears in three places. Before the loop you create it with its
-            starting value. In the body you update it. After the loop you use it: you print
-            it or return it.
+            1. Before the loop, the variable is created with a starting value.
+            2. In the body, it is updated.
+            3. After the loop, it is used: printed, or handed back.
 
-            The line that creates the accumulator must run exactly once. If it is in the
-            body, Python runs it on every iteration and the earlier items are lost.
+            A variable that is used like this is called an **accumulator**.
 
-            ```python
+            ```order
+            prices = [4, 6]
+            total = 0
+            for p in prices:
+                total += p
+            print(total)
+            ---
+            The list and the starting value have to exist before the loop, the update belongs in the body, and the result is printed after the loop. The program prints 10.
+            ```
+
+            ### The starting value runs once
+
+            See what happens when part 1 slips into the body:
+
+            ```predict
             latencies = [300, 150, 250]
             for ms in latencies:
                 total_ms = 0
                 total_ms += ms
             print(total_ms)
-            # 250
+            ---
+            The line `total_ms = 0` now runs on every iteration, so the total is thrown away each time. Only the last item survives, and the program prints 250.
             ```
 
-            With an empty list the body never runs. The starting value is then the final
-            result, so it must be the correct result for a list with no items. For a sum,
-            that value is `0`.
+            There is a second reason to create the accumulator before the loop. With an empty list the
+            body never runs, so the starting value is the final result. It has to be the right answer for
+            "no items at all". For a sum, that is 0.
+
+            ```quiz
+            `counts` is an empty list. What does this program print?
+
+            ~~~python
+            total = 0
+            for n in counts:
+                total += n
+            print(total)
+            ~~~
+            - [x] `0` :: Right. The body never runs, so `total` still has its starting value.
+            - [ ] `None` :: `total` was given the value 0 before the loop, and nothing changed it.
+            - [ ] Nothing, because of an error :: Looping over an empty list is fine. The body is skipped, and the program carries on.
+            ```
+
+            **Watch out:** an accumulator that is created only inside the body does not exist at all when
+            the list is empty. Using it after the loop then stops the program with an error.
+
+            **In short:** create the accumulator before the loop, update it in the body, and use it after
+            the loop.
         ''',
         "title": "Fix the token total",
         "difficulty": 0,
         "prompt": r'''
-            Fix the bug: `total_tokens` should add up the token counts of several messages,
-            but right now it only returns the last one (and crashes on an empty list).
+            A conversation is made of several messages, and each message has a token count. The function
+            below should add the counts up. Instead it gives back only the last one, and it stops with an
+            error when the list is empty.
 
-            **Write:** `total_tokens(counts)` (fix the starter)
+            **Your job:** find the bug in `total_tokens(counts)` and fix it. The code is already in the
+            editor.
 
-            - `counts`: a list of ints, e.g. `[120, 80, 45]`
-            - **Returns:** an int, the sum of all numbers in `counts`
+            **What goes in**
+            - `counts`: a list of whole numbers, for example `[120, 80, 45]`
+
+            **What comes out**
+            - a whole number, the sum of all the numbers in `counts`: `245` for the example value
 
             **Rules**
-            - If `counts` is empty, return `0`.
+            - An empty list gives `0`.
 
             **Examples**
             ```python
@@ -474,19 +558,19 @@ EXERCISES = [
                 return total
         ''',
         "hints": [
-            "Look at where total is set to 0. How many times does that line run?",
-            "The accumulator is reset on every round, so earlier numbers are lost. It must be set only once.",
-            "Move the line total = 0 above the for line (same indentation as for). Keep total += n inside the loop.",
+            "Look at the line that sets `total` to 0. How many times does it run?",
+            "The accumulator is set back to 0 on every iteration, so the earlier numbers are lost. It has to be created only once.",
+            "Move the line that creates `total` up, so that it stands before the `for` line and at the same indentation as the `for`. The line that adds stays inside the loop.",
         ],
     },
     {
         "id": "loops-s4",
         "lesson": r'''
-            ## Counting what matches
+            ## Counting the ones that pass a test
 
-            To count the items that pass a test, use an accumulator that starts at `0`. In
-            the body, add `1` to it instead of adding the item, and do that only when the
-            test is true. An accumulator used this way is called a **counter**.
+            How many answers scored above 0.5? This question does not ask for a sum. It asks for the
+            number of items that pass a test. The accumulator pattern still works, with two changes: add
+            1 in place of the item, and do it only when the test is true.
 
             ```python
             scores = [0.9, 0.4, 0.75, 0.2]
@@ -498,14 +582,31 @@ EXERCISES = [
             # 2
             ```
 
-            The `if` is in the loop body, so Python checks it for every item. The line
-            `good += 1` is indented under the `if`, so it runs only when `s > 0.5` is true.
-            Here that happens for `0.9` and `0.75`.
+            An accumulator that counts is called a **counter**.
 
-            `>` is true only when the left value is strictly greater. A value equal to the
-            limit does not pass. `>=` is also true when the two values are equal.
+            Look at the two levels of indentation. The `if` is in the body of the loop, so Python checks
+            it for every item. The line `good += 1` is indented under the `if`, so it runs only for the
+            items that pass. Here those are `0.9` and `0.75`.
 
-            ```python
+            ```fill
+            words = ["hi", "hello", "hey", "howdy"]
+            long_words = 0
+            for w in words:
+                if len(w) > 3:
+                    ___
+            print(long_words)
+            ---
+            - [x] long_words += 1 :: Right. Two words have more than 3 characters, `hello` and `howdy`, and each adds 1. The program prints 2.
+            - [ ] long_words += len(w) :: This adds the length of each long word, not 1. The program prints 10, which is a sum of lengths and not a count.
+            - [ ] long_words = 1 :: This sets the counter to 1 each time and never adds to it. The program prints 1 however many words pass.
+            ```
+
+            ### The boundary matters here too
+
+            `>` is true only when the left value is really greater. An item that is equal to the limit
+            does not pass. `>=` lets equal values through as well.
+
+            ```predict
             scores = [0.5, 0.9, 0.5]
             strict = 0
             loose = 0
@@ -515,23 +616,35 @@ EXERCISES = [
                 if s >= 0.5:
                     loose += 1
             print(strict, loose)
-            # 1 3
+            ---
+            Only `0.9` is greater than 0.5, so `strict` is 1. All three scores are at least 0.5, so `loose` is 3.
             ```
+
+            **Watch out:** check the indentation of the line that adds 1. At the level of the `if`, it
+            would run for every item and count the whole list.
+
+            **In short:** to count the matching items, start a counter at 0 and add 1 inside an `if` in
+            the loop body.
         ''',
         "title": "Count long messages",
         "difficulty": 0,
         "prompt": r'''
-            Find how many messages are longer than a token limit.
+            Some messages in a conversation are too long for a model. Before sending anything, your app
+            wants to know how many messages are over the token limit.
 
-            **Write:** `count_over(counts, limit)`
+            **Your job:** write `count_over(counts, limit)` so that it gives back that number.
 
-            - `counts`: a list of ints (token counts), e.g. `[120, 80, 45, 300]`
-            - `limit`: an int, e.g. `100`
-            - **Returns:** an int, how many numbers in `counts` are **strictly greater than** `limit`
+            **What goes in**
+            - `counts`: a list of whole numbers, the token count of each message, for example
+              `[120, 80, 45, 300]`
+            - `limit`: a whole number, for example `100`
+
+            **What comes out**
+            - a whole number: how many numbers in `counts` are greater than `limit`
 
             **Rules**
-            - A number **equal** to `limit` does not count (it is not greater).
-            - If `counts` is empty, return `0`.
+            - A number that is equal to `limit` does not count. It is not greater.
+            - An empty list gives `0`.
 
             **Examples**
             ```python
@@ -567,19 +680,18 @@ EXERCISES = [
                 return found
         ''',
         "hints": [
-            "Use an accumulator that starts at 0, a for loop and an if inside it.",
-            "Go through every number; each time one is bigger than limit, add 1 to your counter.",
-            "Set found = 0. For each n in counts: if n > limit, do found += 1. After the loop, return found.",
+            "You need a counter that starts at 0, a `for` loop, and an `if` inside the loop.",
+            "Go through every number. Each time a number is greater than the limit, add 1 to the counter.",
+            "Create the counter before the loop. In the body, test whether the number is greater than `limit`, and add 1 under that test. After the loop, hand the counter back.",
         ],
     },
     {
         "id": "loops-s2",
         "lesson": r'''
-            ## Looping over numbers: `range`
+            ## Looping over numbers
 
-            A `for` loop does not need a list. `range` produces whole numbers one at a time,
-            and a `for` loop can iterate over them. `range(3)` produces three numbers,
-            starting at `0`.
+            "Try three times." "Number the lines from 1 to 10." Sometimes there is no list to loop over,
+            only a count. For that, `range` produces whole numbers one after another:
 
             ```python
             for i in range(3):
@@ -589,48 +701,77 @@ EXERCISES = [
             # round 2
             ```
 
-            The values you write between the parentheses are **arguments**. With two
-            arguments, the first is the **start** and the second is the **stop**. The
-            numbers begin at the start and end before the stop. As with slices, the start is
-            included and the stop is excluded.
+            `range(3)` gives three numbers, and it starts at 0: they are 0, 1 and 2. The 3 itself never
+            appears.
+
+            With two arguments, the first is the **start** and the second is the **stop**. The numbers
+            begin at the start and end before the stop. It is the rule you know from slices: the start is
+            included and the stop is left out.
 
             ```python
-            nums = []
-            for i in range(1, 5):
-                nums.append(i)
-            print(nums)
+            print(list(range(1, 5)))
             # [1, 2, 3, 4]
-            ```
-
-            This loop appends each number to `nums`. Here the accumulator is a list that
-            starts empty.
-
-            The stop is never produced. For a range that ends at `n`, the stop must be
-            `n + 1`. When the start equals the stop, as in `range(1, 1)`, there are no
-            numbers and the body does not run.
-
-            `list(range(...))` puts the numbers in a list so that you can print them.
-
-            ```python
-            print(list(range(1, 4)))
-            # [1, 2, 3]
             print(list(range(1, 1)))
             # []
             ```
+
+            `list(...)` gathers the numbers into a list, so that you can see them. The second line shows
+            that a range can be empty: when the start equals the stop, there are no numbers, and a loop
+            over it never runs its body.
+
+            ```predict
+            print(list(range(4)))
+            print(list(range(2, 6)))
+            print(len(list(range(10))))
+            ---
+            `range(4)` starts at 0 and stops before 4. `range(2, 6)` starts at 2 and stops before 6. `range(10)` gives the ten numbers from 0 to 9.
+            ```
+
+            ```quiz
+            Which call produces the numbers 1, 2, 3, 4, 5?
+            - [x] `range(1, 6)` :: Right. The stop is left out, so to end at 5 the stop has to be 6.
+            - [ ] `range(1, 5)` :: This stops before 5, so it gives 1, 2, 3, 4.
+            - [ ] `range(5)` :: With one argument the numbers start at 0: 0, 1, 2, 3, 4.
+            ```
+
+            ### Building a list in a loop
+
+            An accumulator does not have to be a number. It can be a list that starts empty and grows
+            with `append`:
+
+            ```python
+            squares = []
+            for i in range(1, 4):
+                squares.append(i * i)
+            print(squares)
+            # [1, 4, 9]
+            ```
+
+            **Watch out:** the stop is never produced. To end at a certain number, the stop has to lie
+            one past it.
+
+            **In short:** `range(start, stop)` gives the whole numbers from `start` up to, but not
+            including, `stop`.
         ''',
         "title": "Count up to n",
         "difficulty": 0,
         "prompt": r'''
-            Fill in the blank: the function is almost done, only the `___` is missing.
+            A numbered list needs the numbers 1, 2, 3 and so on, up to some number `n`. The function
+            below builds them with a loop, and it is finished except for one detail.
 
-            **Write:** `count_up(n)` (replace the `___` in the starter)
+            **Your job:** finish `count_up(n)`. It is written except for one gap, marked `___`. The gap is
+            the stop of the `range`.
 
-            - `n`: an int, e.g. `3`
-            - **Returns:** a list of ints counting from `1` up to **and including** `n`, e.g. `[1, 2, 3]`
+            **What goes in**
+            - `n`: a whole number, for example `3`
+
+            **What comes out**
+            - a list of whole numbers that counts from `1` up to `n`, with `n` included: `[1, 2, 3]` for
+              the example value
 
             **Rules**
-            - `n` itself must be in the list (remember: `range` stops *before* its stop value).
-            - If `n` is `0`, return an empty list `[]`.
+            - `n` itself is in the list.
+            - When `n` is `0`, the result is the empty list `[]`.
 
             **Examples**
             ```python
@@ -667,19 +808,18 @@ EXERCISES = [
                 return numbers
         ''',
         "hints": [
-            "range(start, stop) never includes the stop value.",
-            "To include n itself, the stop value must be one more than n.",
-            "Replace ___ with n + 1.",
+            "`range(start, stop)` never produces the stop value itself.",
+            "For `n` to be in the list, the stop has to lie one past `n`.",
+            "Replace the three underscores with an expression that is one more than the parameter.",
         ],
     },
     {
         "id": "loops-s6",
         "lesson": r'''
-            ## Skipping an item: `continue`
+            ## Skip this one, carry on with the next
 
-            `continue` is a statement you write in a loop body. When Python reaches it, the
-            current iteration ends at once. Python goes back to the `for` line and takes the
-            next item. The lines below `continue` do not run for the current item.
+            A list of tokens contains filler items, `"<pad>"`, that carry no meaning. You want to keep
+            everything else. Inside the loop, you need a way to say: not this one, next.
 
             ```python
             tokens = ["Hello", "<pad>", "world", "<pad>"]
@@ -692,14 +832,13 @@ EXERCISES = [
             # ['Hello', 'world']
             ```
 
-            A **token** is a small piece of text that an AI model reads. `"<pad>"` is a filler token
-            that carries no meaning, so the code drops it.
+            `continue` ends the current iteration at once. Python goes back to the `for` line and takes
+            the next item. The lines below `continue` in the body do not run for the current item.
 
-            When `tok` is `"<pad>"`, the `if` test is true and `continue` runs. Python skips
-            `kept.append(tok)` for that item. For every other item the test is false, so the
-            `append` line runs.
+            So for `"<pad>"` the test is true, `continue` runs, and the `append` line is skipped. For
+            every other token the test is false, and the `append` line runs.
 
-            Step through the code and watch which line follows `continue`.
+            Press Next and watch which line comes after `continue`:
 
             ```diagram
             {"type": "trace", "title": "continue skips the rest of one iteration", "code": ["tokens = [\"Hello\", \"<pad>\", \"world\", \"<pad>\"]", "kept = []", "for tok in tokens:", "    if tok == \"<pad>\":", "        continue", "    kept.append(tok)", "print(kept)"], "steps": [
@@ -723,28 +862,52 @@ EXERCISES = [
             ]}
             ```
 
-            An `if` with `continue` at the top of a loop body is called a **guard**.
+            ```predict
+            for n in [1, 2, 3, 4]:
+                if n % 2 == 0:
+                    continue
+                print(n)
+            print("end")
+            ---
+            `n % 2 == 0` is true for the even numbers 2 and 4, so `continue` skips the `print` for them. The odd numbers 1 and 3 are printed, and `end` is printed once after the loop.
+            ```
 
-            `continue` ends only the current iteration. The loop goes on with the remaining
-            items. A different statement, `break`, ends the whole loop. A later lesson
-            covers it.
+            An `if` with `continue` at the top of a loop body is called a **guard**. It keeps unwanted
+            items away from the rest of the body.
+
+            ```quiz
+            What does `continue` do?
+            - [x] It skips the rest of this iteration, and the loop goes on with the next item :: Right. Only the current item is affected. The loop itself keeps running.
+            - [ ] It ends the whole loop :: That is the job of another keyword, `break`, which a later step covers. `continue` ends one iteration only.
+            - [ ] It skips the next item :: The item that is skipped is the current one. The lines below `continue` do not run for it.
+            ```
+
+            **Watch out:** `continue` belongs under an `if`. Without a condition it would skip the rest
+            of the body for every item.
+
+            **In short:** `continue` ends the current iteration, and the loop carries on with the next
+            item.
         ''',
         "title": "Skip empty messages",
         "difficulty": 0,
         "prompt": r'''
-            Fill in the blank: a chat log sometimes contains empty messages, and they should be
-            dropped before sending the history to a model.
+            A chat log sometimes contains empty messages. They should be dropped before the history is
+            sent to a model. The function below does that with a guard at the top of its loop, and one
+            word of it is missing.
 
-            **Write:** `non_empty(messages)` (replace the `___` in the starter)
+            **Your job:** finish `non_empty(messages)`. It is written except for one gap, marked `___`.
 
-            - `messages`: a list of strings, possibly empty, e.g. `["hi", "", "bye"]`
-            - **Returns:** a **new** list with every message except the empty strings `""`,
-              in the original order
+            **What goes in**
+            - `messages`: a list of strings, for example `["hi", "", "bye"]`. It may be empty.
+
+            **What comes out**
+            - a new list with every message except the empty strings `""`, in the original order
 
             **Rules**
-            - Only the exact empty string `""` is dropped (a message `" "` with a space is kept).
-            - An empty list, or a list of only `""`, returns `[]`.
-            - Keep the `continue` structure of the starter (a check looks for `continue`).
+            - Only the exact empty string `""` is dropped. A message `" "` that holds a space is kept.
+            - An empty list, or a list of nothing but `""`, gives `[]`.
+            - Keep the structure of the code as it is. A check looks for the keyword that belongs in the
+              gap.
 
             **Examples**
             ```python
@@ -795,20 +958,19 @@ EXERCISES = [
                 return kept
         ''',
         "hints": [
-            "One keyword skips the rest of the current round and moves on to the next item.",
-            "When the message is empty, the append below must not run for it: jump straight to the next message.",
-            "Replace ___ with the keyword continue.",
+            "One keyword skips the rest of the current iteration and moves on to the next item.",
+            "When the message is empty, the `append` line below must not run for it. Python should go straight to the next message.",
+            "The gap is a single keyword, the one this lesson is about. Write it in place of the three underscores.",
         ],
     },
     {
         "id": "loops-s5",
         "lesson": r'''
-            ## while loops
+            ## Repeat until something changes
 
-            A `for` loop runs once per item, so the number of iterations is known when it
-            starts. A **`while` loop** repeats its body as long as a test is true. Use it
-            when you do not know the number of iterations in advance, for example when you
-            retry a call until it succeeds.
+            A `for` loop knows in advance how often it will run: once for each item. Some jobs do not
+            know that. Keep retrying until the call succeeds. Keep cutting a text until it fits. For those
+            jobs there is a loop that repeats for as long as a condition is true:
 
             ```python
             length = 900
@@ -822,12 +984,12 @@ EXERCISES = [
             # fits: 150
             ```
 
-            The test after `while` is the **loop condition**. Python checks it before each
-            iteration. If it is true, Python runs the body and checks the condition again.
-            If it is false, Python continues with the first line after the loop. Here
-            `length` is 900, 650, 400 and then 150, and `150 > 250` is false.
+            After `while` comes a condition, like the one in an `if`. Python checks it. When it is true,
+            Python runs the body and then checks the condition again. When it is false, Python carries on
+            with the first line after the loop. The test is called the **loop condition**, and the whole
+            thing is a **`while` loop**.
 
-            Step through the code and watch the condition being checked before each iteration.
+            Press Next and watch the condition being checked before every iteration:
 
             ```diagram
             {"type": "trace", "title": "A while loop", "code": ["length = 900", "while length > 250:", "    print(\"too long:\", length)", "    length -= 250", "print(\"fits:\", length)"], "steps": [
@@ -847,29 +1009,61 @@ EXERCISES = [
             ]}
             ```
 
-            `length -= 250` means `length = length - 250`. In the same way, `x *= 2` means
-            `x = x * 2`.
+            ```predict
+            n = 1
+            while n < 20:
+                n *= 3
+            print(n)
+            ---
+            `n` goes from 1 to 3 to 9 to 27. After 9 the condition `9 < 20` is still true, so the body runs once more. `27 < 20` is false, so the loop ends, and the program prints 27.
+            ```
 
-            The body must change a value that the condition uses. If `length` never changed,
-            the condition would stay true and the loop would never end. That is an
-            **infinite loop**.
+            ### The body has to change something
+
+            The body must change a value that the condition uses. If it does not, the condition stays
+            true and the loop never ends. That is called an **infinite loop**. In this app, a program that
+            runs for too long is stopped with a time limit message.
+
+            ```quiz
+            Why does this loop never end?
+
+            ~~~python
+            count = 0
+            while count < 3:
+                print(count)
+            ~~~
+            - [x] Nothing in the body changes `count` :: Right. `count` stays 0, so `count < 3` stays true for ever. A line such as `count += 1` in the body would fix it.
+            - [ ] `0 < 3` is false :: It is true, which is why the body runs at all. The trouble is that it never becomes false.
+            - [ ] A `while` loop needs a list :: A `while` loop needs only a condition. Lists are for `for` loops.
+            ```
+
+            **Watch out:** the condition is checked before each iteration, not in the middle of the body.
+            The body always runs to its end.
+
+            **In short:** `while condition:` repeats its body for as long as the condition is true, so the
+            body has to change something that the condition looks at.
         ''',
         "title": "Retry waits",
         "difficulty": 0,
         "prompt": r'''
-            When an API call fails, clients retry and **double** the wait each time
-            (this is called *exponential backoff*).
+            When a call to an API fails, a client waits a moment and tries again. If the call fails
+            again, it waits twice as long before the next try. This pattern is called exponential
+            backoff. You want the list of waiting times, in seconds.
 
-            **Write:** `retry_waits(max_wait)`
+            **Your job:** write `retry_waits(max_wait)` so that it gives back that list.
 
-            - `max_wait`: an int, the largest wait allowed, e.g. `10`
-            - **Returns:** a list of ints: the waits `1, 2, 4, 8, ...` (start at `1`, double each time)
-              for as long as the wait is `<= max_wait`
+            **What goes in**
+            - `max_wait`: a whole number, the longest wait that is allowed, for example `10`
+
+            **What comes out**
+            - a list of whole numbers: the waits `1, 2, 4, 8, ...`, starting at `1` and doubling each
+              time, for as long as the wait is not more than `max_wait`: `[1, 2, 4, 8]` for the example
+              value
 
             **Rules**
-            - A wait exactly equal to `max_wait` is included.
-            - If `max_wait` is less than `1`, return `[]`.
-            - Use a `while` loop (a check looks for `while`).
+            - A wait that is exactly equal to `max_wait` is in the list.
+            - When `max_wait` is less than `1`, the result is `[]`.
+            - Use a `while` loop. A check looks for it.
 
             **Examples**
             ```python
@@ -910,21 +1104,22 @@ EXERCISES = [
                 return waits
         ''',
         "hints": [
-            "You need a list to collect waits, a wait variable that starts at 1, and a while loop.",
-            "While the current wait is small enough, add it to the list and then double it.",
-            "Set waits = [] and wait = 1. While wait <= max_wait: append wait, then wait *= 2. Return waits after the loop.",
+            "You need a list that collects the waits, a variable for the current wait that starts at 1, and a `while` loop.",
+            "As long as the current wait is not above the maximum, add it to the list, and then double it.",
+            "Create an empty list and a wait of 1. The loop condition compares the wait with `max_wait` and lets equal values through. In the body, append the wait, and then double it with an augmented assignment. After the loop, hand back the list.",
         ],
     },
     {
         "id": "loops-1",
         "lesson": r'''
-            ## Position and item together: `enumerate`
+            ## The position and the item together
 
-            `enumerate` takes a list and produces one pair per item. A pair is a tuple with
-            two values: here a number and the item. You write two loop variables
-            separated by a comma, and Python assigns the number to the first and the item to
-            the second. Assigning the parts of a pair to separate names is called
-            **unpacking**.
+            You want to number the lines of a transcript: `1. hi`, `2. hello`. Inside a `for` loop you
+            have each item, but not its position. You could keep a counter of your own, with `i = 0`
+            before the loop and `i += 1` in the body. That is two extra lines, and when you forget the
+            second one, every number is wrong.
+
+            Python does the counting for you:
 
             ```python
             roles = ["system", "user", "assistant"]
@@ -935,43 +1130,69 @@ EXERCISES = [
             # 2 assistant
             ```
 
-            The numbers start at `0`, so they are the indexes of the items. Counting from 0
-            is called **0-based**. To count from 1 instead (**1-based**), pass `start=1`.
+            `enumerate(roles)` hands the loop a pair for each item: a number, and the item. With two
+            loop variables and a comma between them, the pair is unpacked, as you learned in the
+            Variables chapter. The first variable gets the number and the second gets the item.
+
+            The numbers start at 0, so they are the indexes of the items. Counting from 0 is called
+            **0-based**. People count from 1, which is called **1-based**, and for that `enumerate`
+            takes the keyword argument `start=1`:
 
             ```python
-            roles = ["system", "user", "assistant"]
-            for i, role in enumerate(roles, start=1):
+            for i, role in enumerate(["system", "user"], start=1):
                 print(f"#{i} {role}")
             # #1 system
             # #2 user
-            # #3 assistant
             ```
 
-            You can get the same numbers with your own counter: `i = 0` before the loop and
-            `i += 1` in the body. That takes two more lines, and the numbers are wrong if
-            you leave out the `i += 1`. `enumerate` does the counting for you.
+            ```quiz
+            In `for i, x in enumerate(["a", "b", "c"]):`, what is `i` during the last iteration?
+            - [x] `2` :: Right. Without `start`, the numbers begin at 0, so three items are numbered 0, 1 and 2.
+            - [ ] `3` :: That would be the last number with `start=1`. By default the count starts at 0.
+            - [ ] `"c"` :: That is `x`, the item. `i` is the number that comes with it.
+            ```
+
+            ```fill
+            steps = ["open", "read", "close"]
+            for ___ in enumerate(steps, start=1):
+                print(n, step)
+            ---
+            - [x] n, step :: Right. The number goes to the first name and the item to the second, so the program prints `1 open`, `2 read` and `3 close`.
+            - [ ] step, n :: The names are the wrong way round. `step` gets the number and `n` gets the item, so the program prints `open 1` and so on.
+            - [ ] n :: With a single name, `n` is the whole pair, and the name `step` does not exist. Python stops with a `NameError`.
+            ```
+
+            **Watch out:** the number comes first and the item second. With the two loop variables the
+            other way round, nothing fails, and every use of them is wrong.
+
+            **In short:** `for i, item in enumerate(items, start=1):` gives you each item together with
+            its number.
         ''',
         "hints": [
-            'enumerate gives you a position and the item together; it can start counting at 1.',
-            'Build a new list: for each message, add a string made of its number, a dot, a space and the text.',
-            'Set lines = []. Loop with for i, text in enumerate(messages, start=1): append the f-string with i, then a dot and a space, then text. Return lines.',
+            "`enumerate` gives you the position and the item together, and it can start counting at 1.",
+            "Build a new list. For each message, add a string made of its number, a dot, a space and the text.",
+            "Start with an empty list. Loop over `enumerate` of the messages, with the keyword argument that starts the count at 1, and with two loop variables. In the body, append an f-string made of the number, a dot, a space and the text. After the loop, hand back the list.",
         ],
         "title": "Numbered transcript",
         "difficulty": 1,
         "prompt": r'''
-            Number the messages of a chat transcript so they can be displayed.
+            A chat transcript is shown as a numbered list, so that people can refer to "message 3".
 
-            **Write:** `number_lines(messages)`
+            **Your job:** write `number_lines(messages)` so that it gives back the messages with their
+            numbers in front.
 
-            - `messages`: a list of strings, e.g. `["hi", "hello!"]`
-            - **Returns:** a **new** list of strings, each one shaped `"<position>. <text>"`,
-              e.g. `["1. hi", "2. hello!"]`
+            **What goes in**
+            - `messages`: a list of strings, for example `["hi", "hello!"]`
+
+            **What comes out**
+            - a new list of strings, each of the form `"<position>. <text>"`: `["1. hi", "2. hello!"]` for
+              the example value
 
             **Rules**
-            - Positions start at `1`, not `0` (*1-based*).
-            - The format is the number, a dot, one space, then the text.
-            - If `messages` is empty, return `[]`.
-            - Use `enumerate` (a check looks for it).
+            - The positions start at `1`, not at `0`.
+            - The format is the number, a dot, one space, and then the text.
+            - An empty list gives `[]`.
+            - Use `enumerate`. A check looks for it.
 
             **Examples**
             ```python
@@ -1012,59 +1233,79 @@ EXERCISES = [
     {
         "id": "loops-2",
         "lesson": r'''
-            ## Two lists side by side: `zip`
+            ## Two lists side by side
 
-            **Parallel lists** are two lists where the item at index `i` of one belongs with
-            the item at index `i` of the other. `zip(a, b)` iterates over both lists at the
-            same time. On each iteration it produces a pair: one item from `a` and the item
-            at the same index of `b`.
+            One list holds the roles of a conversation, and another holds the token counts. Item 0 of the
+            first belongs with item 0 of the second, item 1 with item 1, and so on. You need to walk through both without losing those pairings.
 
             ```python
             roles = ["user", "assistant"]
             tokens = [12, 30]
-            total = 0
             for role, n in zip(roles, tokens):
                 print(f"{role}: {n}")
-                total += n
-            print(total)
             # user: 12
             # assistant: 30
-            # 42
             ```
 
-            On the first iteration `role` is `"user"` and `n` is `12`. On the second, `role`
-            is `"assistant"` and `n` is `30`. Python unpacks each pair into the two loop
-            variables, the same way it does with `enumerate`.
+            Lists whose same-position items belong together are called **parallel lists**.
 
-            `zip` stops when the shorter list has no more items. It does not raise an error,
-            and the extra items of the longer list are never used. Check that your lists
-            have the same length.
+            `zip(roles, tokens)` pairs the items up: the first with the first, the second with the
+            second. On each iteration it hands the loop one pair, and the two loop variables unpack it,
+            the same way as with `enumerate`.
 
-            ```python
-            roles = ["user", "assistant"]
-            tokens = [12, 30, 99]
-            for role, n in zip(roles, tokens):
-                print(role, n)
-            # user 12
-            # assistant 30
+            ```order
+            items = ["pen", "ink"]
+            prices = [2, 7]
+            for item, price in zip(items, prices):
+                print(f"{item}: {price}")
+            ---
+            Both lists have to exist before `zip` can pair them up. The body then runs once for each pair, and the program prints `pen: 2` and `ink: 7`.
             ```
+
+            The body of such a loop is an ordinary body. An accumulator, an `if` or a `continue` works in
+            it as before.
+
+            ### When the lists are not the same length
+
+            ```predict
+            names = ["a", "b", "c"]
+            sizes = [1, 2]
+            for name, size in zip(names, sizes):
+                print(name, size)
+            print("end")
+            ---
+            `zip` stops as soon as the shorter list has no more items. There is no error, and `"c"` is never used. The program prints `a 1`, `b 2` and `end`.
+            ```
+
+            **Watch out:** because `zip` stops quietly at the shorter list, a missing item does not show
+            up as an error. It shows up as a result that is too small. Make sure the two lists have the
+            same length.
+
+            **In short:** `for a, b in zip(list_a, list_b):` walks through two lists together, one pair
+            at a time.
         ''',
         "title": "Cost per request",
         "difficulty": 1,
         "prompt": r'''
-            Two parallel lists describe a batch of API calls: call number `i` used
-            `tokens[i]` tokens, and its model costs `prices[i]` dollars **per 1000 tokens**.
+            Two parallel lists describe a batch of API calls. Call number `i` used `tokens[i]` tokens, and
+            the model it went to costs `prices[i]` dollars for every 1000 tokens. You want the cost of the
+            whole batch.
 
-            **Write:** `total_cost(tokens, prices)`
+            **Your job:** write `total_cost(tokens, prices)` so that it gives back the total cost in
+            dollars.
 
-            - `tokens`: a list of ints, e.g. `[2000, 1000]`
-            - `prices`: a list of floats (dollars per 1000 tokens), same length, e.g. `[0.15, 2.5]`
-            - **Returns:** a number (float), the total cost of all calls in dollars
+            **What goes in**
+            - `tokens`: a list of whole numbers, for example `[2000, 1000]`
+            - `prices`: a list of floats of the same length, the price in dollars for 1000 tokens, for
+              example `[0.15, 2.5]`
+
+            **What comes out**
+            - a number (a float): the cost of all the calls together: `2.8` for the example values
 
             **Rules**
             - The cost of one call is its tokens divided by 1000, times its price.
-            - If both lists are empty, return `0` (or `0.0`).
-            - Walk the two lists together with `zip` (a check looks for it).
+            - When both lists are empty, the result is `0` (or `0.0`).
+            - Walk through the two lists together with `zip`. A check looks for it.
 
             **Examples**
             ```python
@@ -1108,23 +1349,19 @@ EXERCISES = [
                 return total
         ''',
         "hints": [
-            "zip(a, b) gives you one item from each list per round, as a pair.",
-            "Keep a running total. For each pair of token count and price, add the cost of that call.",
-            "Set total = 0.0. Loop with for count, price in zip(tokens, prices): add count / 1000 * price to total. Return total after the loop.",
+            "`zip(a, b)` gives you one item from each list on every iteration, as a pair.",
+            "Keep a running total. For each pair of a token count and a price, add the cost of that call.",
+            "Start a total at 0.0. Loop over `zip` of the two lists, with two loop variables. In the body, add the tokens divided by 1000 and multiplied by the price. After the loop, hand back the total.",
         ],
     },
     {
         "id": "loops-7",
         "lesson": r'''
-            ## Stopping early: `break`
+            ## Stop as soon as you have enough
 
-            `break` is a statement you write in a loop body. When Python reaches it, the
-            loop ends at once. The remaining items are not visited, and Python continues
-            with the first line after the loop.
-
-            Language models split text into **tokens**: small pieces of text. A list of tokens can end
-            with a special token. A value that marks the end of the data is called a **sentinel**. Here the
-            sentinel is `"<eos>"`, short for "end of sequence".
+            The output of a model is a list of tokens, and it ends with a special end marker, `"<eos>"`,
+            short for "end of sequence". Anything after the marker is junk. Once you have seen the
+            marker, there is no reason to look at the rest of the list.
 
             ```python
             tokens = ["The", "answer", "<eos>", "junk"]
@@ -1137,11 +1374,11 @@ EXERCISES = [
             # ['The', 'answer']
             ```
 
-            When `tok` is `"<eos>"`, `break` runs and the loop ends. The loop never assigns
-            `"junk"` to `tok`. If the sentinel is not in the list, `break` never runs and
-            the loop ends after the last item.
+            `break` ends the whole loop at once. The remaining items are never visited, and Python
+            carries on with the first line after the loop. A value that marks the end of the data, as
+            `"<eos>"` does here, is called a **sentinel**.
 
-            Step through the code and watch which line follows `break`.
+            Press Next and watch which line comes after `break`:
 
             ```diagram
             {"type": "trace", "title": "break ends the loop", "code": ["tokens = [\"The\", \"answer\", \"<eos>\", \"junk\"]", "shown = []", "for tok in tokens:", "    if tok == \"<eos>\":", "        break", "    shown.append(tok)", "print(shown)"], "steps": [
@@ -1161,10 +1398,28 @@ EXERCISES = [
             ]}
             ```
 
-            `break` ends the whole loop. `continue` ends only the current iteration.
+            ```predict
+            for n in [4, 8, 15, 16]:
+                if n > 10:
+                    break
+                print(n)
+            print("after", n)
+            ---
+            4 and 8 are printed. At 15 the test is true, so `break` ends the loop before the `print`, and 16 is never visited. After a loop, the loop variable still holds the last item it was given, which is 15.
+            ```
 
-            `+=` also works on strings. `text += p` builds a new string with `p` added at
-            the end of `text`. Joining strings end to end is called **concatenation**.
+            You now know three ways to cut something short. Keep them apart:
+
+            ```match
+            `continue` :: ends this iteration, and the loop goes on with the next item
+            `break` :: ends the whole loop, and the remaining items are never visited
+            `return` :: ends the whole function, and hands a value back
+            ```
+
+            ### Adding to a string
+
+            One more tool for this step. An accumulator can be a string as well. `text += part` builds a
+            longer string, with the part joined on at the end:
 
             ```python
             text = ""
@@ -1173,24 +1428,34 @@ EXERCISES = [
             print(text)
             # token
             ```
+
+            **Watch out:** when the sentinel is not in the list, `break` never runs. The loop then ends
+            in the normal way, after the last item, and that is not an error.
+
+            **In short:** `break` ends a loop at once, and Python carries on with the first line after
+            the loop.
         ''',
         "title": "Read a stream until done",
         "difficulty": 1,
         "prompt": r'''
-            A streaming model API sends its answer in small text pieces. The piece `"[DONE]"`
-            marks the end; anything after it must be ignored.
+            A model API that streams its answer sends the text in small pieces, one after another. The
+            piece `"[DONE]"` marks the end of the answer, and anything that comes after it must be
+            ignored.
 
-            **Write:** `read_stream(pieces)`
+            **Your job:** write `read_stream(pieces)` so that it gives back the answer as one string.
 
-            - `pieces`: a list of strings, e.g. `["Par", "is", ".", "[DONE]"]`
-            - **Returns:** one string: all pieces **before** the first `"[DONE]"`, glued
-              together in order with nothing between them
+            **What goes in**
+            - `pieces`: a list of strings, for example `["Par", "is", ".", "[DONE]"]`
+
+            **What comes out**
+            - one string: all the pieces before the first `"[DONE]"`, joined in order with nothing
+              between them: `"Paris."` for the example value
 
             **Rules**
-            - Stop at the first `"[DONE]"`; pieces after it are not included.
-            - If there is no `"[DONE]"`, glue all the pieces.
-            - An empty list, or a list that starts with `"[DONE]"`, returns `""`.
-            - Use `break` (a check looks for it).
+            - The answer stops at the first `"[DONE]"`. Pieces after it are not included.
+            - When there is no `"[DONE]"`, all the pieces are joined.
+            - An empty list, or a list that starts with `"[DONE]"`, gives `""`.
+            - Use `break`. A check looks for it.
 
             **Examples**
             ```python
@@ -1238,41 +1503,55 @@ EXERCISES = [
                 return text
         ''',
         "hints": [
-            "Use a string accumulator that starts as an empty string, and break when you see the marker.",
-            "Go through the pieces in order. If a piece is the marker, leave the loop; otherwise add it to the end of your text.",
-            "Set text = \"\". For each piece: if piece == \"[DONE]\", break; otherwise text += piece. Return text after the loop.",
+            "Use a string accumulator that starts as an empty string, and `break` when you see the marker.",
+            "Go through the pieces in order. When a piece is the marker, leave the loop. Otherwise add the piece to the end of your text.",
+            "Start with an empty string. In the loop, first test whether the piece is equal to the marker, and `break` under that test. Below the test, add the piece to the text with `+=`. After the loop, hand back the text.",
         ],
     },
     {
         "id": "loops-8",
         "lesson": r'''
-            ## The third argument of `range`
+            ## The third number of range
 
-            You know `range(stop)` and `range(start, stop)`. `range` also accepts a third
-            argument. The official documentation lists every form that a built-in function
-            accepts, so reading it is faster than guessing.
+            You know `range(stop)` and `range(start, stop)`. There is a third form. The documentation of
+            a built-in lists every form that it accepts, so reading it is quicker than guessing.
 
             ```python
-            print(list(range(4)))
-            # [0, 1, 2, 3]
-            print(list(range(2, 6)))
-            # [2, 3, 4, 5]
             print(list(range(0, 10, 3)))
             # [0, 3, 6, 9]
             ```
 
-            `list(range(...))` puts the numbers in a list so that you can print them. The
-            last line passes a third argument, `3`. Each number is now 3 more than the
-            previous one.
+            With a third argument of 3, each number is 3 more than the one before it. The stop is still
+            left out.
 
-            For this step, read the `range` documentation linked with this step. Find out what the
-            third argument is called and what `range` produces when that argument is
-            negative. Check the rule for `stop` in that case and whether `stop` is still
-            excluded.
+            In the Basics chapter you met the signature, the line in the docs that shows the parameters
+            of a function. For `range` the docs write `range(start, stop[, step])`. The square brackets
+            mean that the third argument may be left out, and when it is left out it is 1.
 
-            A **signature** is the line in the documentation that lists the arguments a
-            function accepts. The docs show `range(start, stop[, step])`. The square brackets
-            mean the third argument is optional. It is `1` when you leave it out.
+            ```predict
+            print(list(range(0, 10, 5)))
+            print(list(range(1, 8, 2)))
+            print(list(range(10, 20, 4)))
+            ---
+            From 0 in steps of 5, stopping before 10: 0 and 5. From 1 in steps of 2, stopping before 8: 1, 3, 5, 7. From 10 in steps of 4, stopping before 20: 10, 14, 18.
+            ```
+
+            ```quiz
+            Which numbers does `range(2, 11, 3)` produce?
+            - [x] 2, 5, 8 :: Right. It starts at 2 and adds 3 each time. The next number would be 11, and the stop is left out.
+            - [ ] 2, 5, 8, 11 :: The stop value is never produced, with a step as well as without one.
+            - [ ] 3, 6, 9 :: The first number is always the start, which is 2 here. The step only decides how far apart the numbers are.
+            ```
+
+            For this step, read the `range` entry that is linked in the task. Find out what `range`
+            produces when the third argument is negative, and how the rule about the stop reads in that
+            case.
+
+            **Watch out:** a step never changes the rule that the stop is left out. Check the last number
+            you expect against the stop.
+
+            **In short:** `range(start, stop, step)` moves from `start` towards `stop` in steps of `step`
+            and never produces `stop` itself.
         ''',
         "title": "Countdown with range",
         "difficulty": 1,
@@ -1286,18 +1565,22 @@ EXERCISES = [
             ],
         },
         "prompt": r'''
-            Before retrying a failed API call, a CLI shows a countdown: `3... 2... 1...`.
+            Before a command-line tool retries a failed API call, it shows a countdown: 3, 2, 1. You need
+            the numbers for that countdown as a list.
 
-            **Write:** `countdown(n)`
+            **Your job:** write `countdown(n)` so that it gives back the numbers from `n` down to `1`.
 
-            - `n`: a non-negative int, e.g. `3`
-            - **Returns:** a list of ints from `n` down to `1`, e.g. `[3, 2, 1]`
+            **What goes in**
+            - `n`: a whole number that is 0 or more, for example `3`
+
+            **What comes out**
+            - a list of whole numbers from `n` down to `1`: `[3, 2, 1]` for the example value
 
             **Rules**
-            - `1` is the last number; `0` is never included.
-            - `countdown(0)` returns `[]`.
-            - Produce the numbers with a **single `range` call with three arguments**
-              (a check looks for it). Don't sort or reverse a list.
+            - `1` is the last number. `0` is never in the list.
+            - `countdown(0)` gives `[]`.
+            - Produce the numbers with one `range` call that has three arguments. A check looks for it.
+              Do not sort or reverse a list.
 
             **Examples**
             ```python
@@ -1341,39 +1624,45 @@ EXERCISES = [
                 return numbers
         ''',
         "hints": [
-            "The third argument of range is the step, and it may be negative.",
-            "Start at n, go down by 1 each time, and choose a stop value so that 1 is the last number (stop is excluded).",
-            "Loop with for i in range(n, 0, -1) and append each i to a list; return the list. (list(range(n, 0, -1)) also works.)",
+            "The third argument of `range` is the step, and the docs say what happens when it is negative.",
+            "Start at `n` and go down by 1 each time. Choose the stop so that 1 is the last number that is produced: the stop itself is left out.",
+            "Build an empty list. Loop over one `range` call with three arguments: the start, a stop that lies just past the last number you want, and a negative step. Append each number, and hand back the list after the loop.",
         ],
     },
     {
         "id": "loops-3",
         "hints": [
-            'Walk the indexes backwards with range(len(token_counts) - 1, -1, -1) and keep a running total.',
-            'Add messages from the newest one while the total stays within budget. The first message that would go over ends the loop for good.',
-            'Set kept = [] and total = 0. For each index from the last down to 0: if total + that count > budget, break; otherwise add it to total and append the index. Reverse kept before returning it.',
+            "Walk through the indexes backwards, with a `range` that has a negative step, and keep a running total.",
+            "Add messages from the newest one for as long as the total stays within the budget. The first message that would go over the budget ends the loop for good.",
+            "Start with an empty list and a total of 0. Loop over the indexes from the last one down to 0. When the total plus the count of that message is over the budget, `break`. Otherwise add the count to the total and append the index. After the loop, reverse the list of indexes and hand it back.",
         ],
         "title": "Fit messages in a budget",
         "difficulty": 2,
         "placement": True,
         "prompt": r'''
-            A chat model has a limited context window, so an app keeps only the most recent
-            messages that fit in a token budget.
+            A model can only read a limited number of tokens, so a chat app sends only the most recent
+            messages that fit into a token budget. It walks backwards from the newest message and keeps
+            messages until one does not fit.
 
-            **Write:** `fit_history(token_counts, budget)`
+            **Your job:** write `fit_history(token_counts, budget)` so that it gives back the positions
+            of the messages that are kept.
 
-            - `token_counts`: a list of ints, the token count of each message, **oldest first**,
-              e.g. `[50, 10, 30, 20]`
-            - `budget`: an int, the maximum total tokens to keep, e.g. `60`
-            - **Returns:** a list of ints: the **indices** (positions) of the kept messages,
-              in ascending order, e.g. `[1, 2, 3]`
+            **What goes in**
+            - `token_counts`: a list of whole numbers, the token count of each message, the oldest first,
+              for example `[50, 10, 30, 20]`
+            - `budget`: a whole number, the most tokens that may be kept in total, for example `60`
+
+            **What comes out**
+            - a list of whole numbers: the indexes of the kept messages, in ascending order: `[1, 2, 3]`
+              for the example values
 
             **Rules**
-            - Start from the **newest** message (the last one) and go backwards.
-            - Keep a message if the running total of kept tokens stays `<= budget`.
-            - Stop at the **first** message that does not fit: older messages are dropped too,
-              even if they are small enough to fit.
-            - If nothing fits, or the list is empty, return `[]`.
+            - Start at the newest message, which is the last one, and go backwards.
+            - A message is kept when the running total of kept tokens, with this message added, is not
+              more than `budget`.
+            - Stop at the first message that does not fit. All older messages are dropped too, even
+              those that would be small enough.
+            - When nothing fits, or when the list is empty, the result is `[]`.
 
             **Examples**
             ```python
@@ -1425,31 +1714,39 @@ EXERCISES = [
     {
         "id": "loops-4",
         "hints": [
-            "You don't know in advance how many pages you will visit, so this is a job for a while loop.",
-            "Keep the current page position (starting at 0), a counter of pages read and a list of all items. Each round reads one page, adds its items and jumps to its next position.",
-            "Set items = [], pos = 0, count = 0. While pos is not None and count < max_pages: unpack page_items, nxt = pages[pos]; add page_items to items (items.extend(page_items) or items += page_items); add 1 to count; set pos = nxt. Return items.",
+            "You do not know in advance how many pages you will visit, so this is a job for a `while` loop.",
+            "Keep three things: the position of the current page, starting at 0, a count of the pages read, and a list of all the items. Each iteration reads one page, adds its items, and moves to the position that the page names as next.",
+            "The loop runs while the position is not `None` and the count is below `max_pages`. In the body, unpack the page at the current position into its items and its next position, add the items to your list with `extend`, add 1 to the count, and make the next position the current one. After the loop, hand back the list.",
         ],
         "title": "Follow the cursors",
         "difficulty": 2,
         "prompt": r'''
-            A paginated API returns results one page at a time, and each page says where
-            the next one is (this is called *cursor pagination*).
+            An API with many results sends them one page at a time, and each page says where the next
+            page is. This is called cursor pagination. To get everything, you start at the first page and
+            keep following the links.
 
-            **Write:** `collect(pages, max_pages)`
+            **Your job:** write `collect(pages, max_pages)` so that it gives back the items of all the
+            pages that were read.
 
-            - `pages`: a list of `(items, next)` tuples, always at least one. `items` is a list;
-              `next` is the **position in `pages`** of the following page, or `None` on the last
-              page. E.g. `[(["a", "b"], 2), (["z"], None), (["c"], 1)]`
-            - `max_pages`: an int, the most pages you may read, e.g. `10`
-            - **Returns:** one flat list with **all** the items of the pages you read, in the
-              order you visited them
+            **What goes in**
+            - `pages`: a list of `(items, next)` tuples, with at least one tuple. `items` is a list.
+              `next` is the position in `pages` of the page that follows, or `None` on the last page. For
+              example: `[(["a", "b"], 2), (["z"], None), (["c"], 1)]`
+            - `max_pages`: a whole number, the most pages that may be read, for example `10`
+
+            **What comes out**
+            - one flat list with all the items of the pages that were read, in the order in which the
+              pages were visited
 
             **Rules**
-            - Start at position `0` and follow the `next` links (not the order of the list).
-            - Stop when `next` is `None` **or** after reading `max_pages` pages, whichever comes first.
-            - A page with an empty `items` list is not the end: keep following its `next`.
-            - Links may form a loop (a page pointing back to an earlier one); `max_pages` stops it.
-            - Use a `while` loop (a check looks for `while`).
+            - Start at position `0`, and follow the `next` links. The order of the list `pages` does not
+              matter.
+            - Stop when `next` is `None`, or after `max_pages` pages have been read, whichever comes
+              first.
+            - A page whose `items` list is empty is not the end. Keep following its `next`.
+            - The links may run in a circle, with a page that points back to an earlier one. `max_pages`
+              is what stops the reading then.
+            - Use a `while` loop. A check looks for it.
 
             **Examples**
             ```python
@@ -1511,31 +1808,38 @@ EXERCISES = [
     {
         "id": "loops-5",
         "hints": [
-            'A for loop can have an else block that runs only if the loop did NOT break.',
-            "Skip banned models with continue; break as soon as a model has a big enough window. The else block handles 'nothing found'.",
-            'Loop for name, window in models: if name in banned, continue; if window >= required_tokens, break. Put else: return None under the for (same indentation). After the loop, return name.',
+            "A `for` loop can have an `else` block. It runs only when the loop ended without a `break`.",
+            "Skip banned models with `continue`, and `break` as soon as a model has a window that is big enough. The `else` block handles the case where nothing was found.",
+            "Loop over the models with two loop variables, the name and the window. A banned name gets `continue`. A window that is at least the required size gets `break`. Under the loop, at the indentation of the `for`, an `else` block hands back `None`. After that, hand back the name.",
         ],
         "title": "First model that fits",
         "difficulty": 3,
         "prompt": r'''
-            Pick which model to send a request to: the first one (in order of preference)
-            that is allowed and has a big enough context window.
+            Your app has several models, listed in order of preference. For each request it picks the
+            first model that is allowed and whose context window is big enough for the request.
 
-            **Write:** `choose(models, required_tokens, banned)`
+            **Your job:** write `choose(models, required_tokens, banned)` so that it gives back the name
+            of that model.
 
-            - `models`: a list of `(name, context_window)` tuples in preference order,
-              e.g. `[("mini", 8000), ("std", 32000)]`
-            - `required_tokens`: an int, e.g. `10000`
-            - `banned`: a set of model names that must not be chosen, e.g. `{"std"}` (may be `set()`)
-            - **Returns:** the **name** (a string) of the first model whose context window is
-              `>= required_tokens` and whose name is not in `banned`, or `None` if there is none
+            **What goes in**
+            - `models`: a list of `(name, context_window)` tuples in order of preference, for example
+              `[("mini", 8000), ("std", 32000)]`
+            - `required_tokens`: a whole number, for example `10000`
+            - `banned`: a set of model names that must not be chosen, for example `{"std"}`. It may be
+              the empty set, `set()`.
+
+            **What comes out**
+            - the name (a string) of the first model whose context window is at least `required_tokens`
+              and whose name is not in `banned`, or `None` when there is no such model
 
             **Rules**
-            - A window exactly equal to `required_tokens` is big enough.
-            - Skip banned models even if they fit.
-            - Return `None` when nothing fits, when every model is banned, or when `models` is empty.
-            - Use a **`for ... else`** loop: the `else` clause handles the "not found" case
-              (a check looks for a `for` loop with an `else`).
+            - A window that is exactly equal to `required_tokens` is big enough.
+            - A banned model is skipped, even when it would fit.
+            - The result is `None` when nothing fits, when every model is banned, and when `models` is
+              empty.
+            - Use a `for` loop with an `else` block. A `for` loop may have an `else`, and that block runs
+              only when the loop ended without a `break`. It handles the case "nothing found". A check
+              looks for it.
 
             **Examples**
             ```python
@@ -1591,31 +1895,37 @@ EXERCISES = [
     {
         "id": "loops-6",
         "hints": [
-            "Check the arguments first, then use a while loop with a start position that moves by size - overlap.",
-            "Slice size words from each start. Stop right after the chunk whose end reaches the end of the list.",
-            "If size <= 0 or overlap < 0 or overlap >= size, return []. step = size - overlap, start = 0, chunks = []. While start < len(words): end = start + size; append words[start:end]; if end >= len(words) break; start += step. Return chunks.",
+            "Check the arguments first. Then use a `while` loop with a start position that moves forward by `size - overlap`.",
+            "Each iteration slices one chunk from the start position. When that chunk reaches the end of the list, stop. Otherwise move the start forward.",
+            "Hand back an empty list for settings that make no sense. Work out the step as the size minus the overlap. While the start is inside the list: slice `size` items from the start, append the slice to the chunks, `break` when the end of that slice has reached the end of the list, and otherwise move the start forward by the step. After the loop, hand back the chunks.",
         ],
         "title": "Chunk with overlap",
         "difficulty": 3,
         "prompt": r'''
-            RAG pipelines split documents into overlapping chunks before embedding them,
-            so that an idea cut at a chunk border still appears whole in one chunk.
+            Before the documents of a RAG app are turned into embeddings, they are split into pieces
+            called chunks. The chunks overlap a little, so that an idea that is cut at the border of one
+            chunk still appears whole in the next one.
 
-            **Write:** `chunk(words, size, overlap)`
+            **Your job:** write `chunk(words, size, overlap)` so that it gives back the list of chunks.
 
-            - `words`: a list (of words, or any items), e.g. `["a", "b", "c", "d", "e"]`
-            - `size`: an int, the number of words per chunk, e.g. `3`
-            - `overlap`: an int, how many words a chunk shares with the previous one, e.g. `1`
-            - **Returns:** a list of lists (the chunks), in order
+            **What goes in**
+            - `words`: a list of words, or of any other items, for example `["a", "b", "c", "d", "e"]`
+            - `size`: a whole number, the number of words in a chunk, for example `3`
+            - `overlap`: a whole number, the number of words that a chunk shares with the chunk before
+              it, for example `1`
+
+            **What comes out**
+            - a list of lists: the chunks, in order
 
             **Rules**
-            - The first chunk starts at position `0`; each next chunk starts `size - overlap`
-              words after the previous one.
-            - Stop as soon as a chunk reaches the end of the list: never add a trailing chunk
-              that is entirely contained in the previous one.
+            - The first chunk starts at position `0`. Each following chunk starts `size - overlap` words
+              after the one before it.
+            - Stop as soon as a chunk reaches the end of the list. Never add a last chunk that lies
+              completely inside the chunk before it.
             - The last chunk may be shorter than `size`.
-            - Invalid settings return `[]`: `size <= 0`, or `overlap < 0`, or `overlap >= size`.
-            - An empty `words` list returns `[]`.
+            - Settings that make no sense give `[]`: a `size` of 0 or less, a negative `overlap`, and an
+              `overlap` that is equal to `size` or greater.
+            - An empty `words` list gives `[]`.
 
             **Examples**
             ```python

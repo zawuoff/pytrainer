@@ -262,11 +262,15 @@ EXERCISES = [
         "id": "generators-s1",
         "title": "Countdown",
         "lesson": r'''
-            ## Generator functions and `yield`
+            ## Handing out one value at a time
 
-            A normal function runs its whole body and returns one value with `return`. A
-            **generator function** is a function whose body contains the keyword `yield`. It
-            produces a series of values, one at a time.
+            A model writes its reply one small piece at a time. Suppose your function waits until the whole
+            reply exists and then returns it as a list. The user looks at an empty screen for ten seconds.
+            A log file with ten million lines has the same problem: a function that returns every line in
+            one list must hold all of them in the computer's memory before your loop sees the first one.
+
+            What you want is a function that hands over one value, waits until you ask for more, and then
+            hands over the next one. Python has a keyword for that:
 
             ```python
             def three_models():
@@ -281,13 +285,12 @@ EXERCISES = [
             # llama
             ```
 
-            Calling `three_models()` returns a **generator**: an object that runs the function
-            body in steps. The `for` loop asks the generator for a value. The body runs until it
-            reaches a `yield`, and the value after `yield` is assigned to `model`. The function
-            is suspended at that line. On the next pass of the loop, the body continues from the
-            line after that `yield`. When the body ends, the loop ends.
+            There is no list here and no `return`. Each `yield` hands one value to the `for` loop, and the
+            loop variable `model` receives it. Then the function stops at that line, but it is not over. It
+            is paused. When the loop comes round for the next value, the function goes on from the line
+            where it paused.
 
-            Step through the code to see each `yield` give one value to the loop.
+            Press Next and watch Python jump between the function and the loop:
 
             ```diagram
             {"type": "trace", "title": "Each yield gives one value to the for loop", "code": ["def three_models():", "    yield \"gpt-4o\"", "    yield \"claude\"", "    yield \"llama\"", "", "for model in three_models():", "    print(model)"], "steps": [
@@ -306,29 +309,63 @@ EXERCISES = [
             ]}
             ```
 
-            `yield` also works inside a loop. This generator function yields once per pass of
-            its `while` loop.
+            A function with `yield` in its body is called a **generator function**. The loop ends when the
+            function reaches the end of its body.
 
-            ```python
-            def count_up_to(n):
-                i = 1
-                while i <= n:
-                    yield i
-                    i += 1
-
-            for x in count_up_to(3):
-                print(x)
-            # 1
-            # 2
-            # 3
+            ```quiz
+            The loop has printed `gpt-4o` and asks for the next value. Where does `three_models` go on?
+            - [x] At the line after `yield "gpt-4o"` :: Yes. The function was paused at that `yield`, so it goes on with the line below it and reaches `yield "claude"`.
+            - [ ] At the first line of its body :: A normal function starts at the top on every call. A generator function that is paused goes on from where it stopped. If it started again, the loop would get `gpt-4o` forever.
+            - [ ] Nowhere, because it ended at the first `yield` :: That is what `return` would do. `yield` pauses the function without ending it, and that is why all three names are printed.
             ```
 
-            Each value that a generator produces is said to be **yielded**.
+            ### `yield` inside a loop
+
+            `yield` can also sit inside a loop. The function then hands out one value on every iteration,
+            and its variables keep their values while it is paused:
+
+            ```python
+            def powers(limit):
+                value = 1
+                while value < limit:
+                    yield value
+                    value = value * 2
+
+            for p in powers(5):
+                print(p)
+            # 1
+            # 2
+            # 4
+            ```
+
+            After each pause the function goes on with `value = value * 2` and then tests
+            `value < limit` again. When the test is false, the body ends, and so does the `for` loop.
+
+            ```predict
+            def count_up(start, stop):
+                n = start
+                while n <= stop:
+                    yield n
+                    n += 2
+
+            for x in count_up(1, 6):
+                print(x)
+            print("end")
+            ---
+            The function hands out 1 and pauses. Each time the loop asks again, it goes on with `n += 2` and tests `n <= stop` again, so it hands out 3 and then 5. When `n` is 7 the test is false and the body ends. That ends the `for` loop, and `end` is printed.
+            ```
+
+            **Watch out:** the values come out only when something loops over the call.
+            `print(three_models())` does not show the three names. It shows a line such as
+            `<generator object three_models at 0x7f3a5c1d2e40>`. The next step explains what that object is.
+
+            **In short:** `yield` hands one value to the loop and pauses the function until the loop asks
+            for the next one.
         ''',
         "difficulty": 0,
         "mode": "predict",
         "prompt": r'''
-            Read the code and type exactly what it prints.
+            Read the program in the editor. Type exactly what it prints, with each printed line on a line of its own.
         ''',
         "code": r'''
             def countdown(n):
@@ -347,78 +384,119 @@ EXERCISES = [
             liftoff
         ''',
         "explanation": r'''
-            Each time the loop asks for a value, `countdown` runs until it hits `yield`, hands
-            out `n`, and pauses. On the next request it continues with `n -= 1`. When `n`
-            reaches `0` the `while` ends, the generator is finished, and the `for` loop stops.
+            The `for` loop asks `countdown(3)` for a value, so the body starts with `n` equal to 3. The test
+            `3 > 0` is true, `yield n` hands 3 to the loop, and `print(x)` shows `3`. The loop asks again,
+            and the function goes on at the line after the `yield`: `n -= 1` makes `n` 2, the `while` test
+            is still true, and 2 is handed out. The same happens for 1. Then `n` becomes 0, the test `0 > 0`
+            is false, and the body ends. That ends the `for` loop too, and the last line prints `liftoff`.
         ''',
         "starter": "",
         "tests": "",
         "hints": [
-            "Every `yield` hands one value to the `for` loop, which prints it.",
-            "`n` starts at 3 and goes down by 1 after each yield; the loop inside stops when `n` is no longer above 0.",
-            "Write the yielded values one per line in order, then the line printed after the loop.",
+            "Each `yield` hands one value to the `for` loop, and the loop prints it. Ask yourself where the function goes on when the loop wants the next value.",
+            "After a `yield`, the function carries on with the line below it, so `n` gets smaller by 1 before the `while` test is tried again. When the test is false, the function ends, and so does the `for` loop.",
+            "Write down the value of `n` each time the `yield` line is reached, one number per line, until the `while` test is false. The last line of your answer comes from the `print` after the loop.",
         ],
     },
     {
         "id": "generators-s2",
         "title": "Watch it pause",
         "lesson": r'''
-            ## Pause and resume
+            ## Nothing runs until you ask
 
-            Calling a generator function does not run any line of its body. The call only creates
-            a generator object and returns it.
-
-            The built-in function `next()` asks a generator for one value. Each `next(gen)` call
-            runs the body from the line where it stopped, up to the next `yield`. The call
-            returns the yielded value. The generator is then **suspended**: it stops at that
-            `yield` and keeps the values of its local variables. The following `next(gen)`
-            **resumes** it at the line after that `yield`.
+            In the last step the body of a generator function ran when the loop asked for a value. So what
+            happens on the line that calls the function, before anything has asked? Put a `print` in the
+            body and find out:
 
             ```python
-            def steps():
-                print("start")
-                yield "first"
-                print("resumed")
-                yield "second"
+            def load_docs():
+                print("opening a.txt")
+                yield "a.txt"
+                print("opening b.txt")
+                yield "b.txt"
 
-            gen = steps()
-            print("nothing ran yet")
-            print(next(gen))
-            print(next(gen))
-            # nothing ran yet
-            # start
-            # first
-            # resumed
-            # second
+            docs = load_docs()
+            print("nothing was opened")
+            # nothing was opened
             ```
 
-            `start` is printed after `nothing ran yet`. The line `print("start")` runs during
-            the first `next(gen)`, not during `steps()`.
+            `opening a.txt` is not printed. Calling a generator function does not run its body at all. The
+            call hands you an object that is ready to run the body later, one piece at a time. That object
+            is called a **generator**, and here it is stored under the name `docs`.
 
-            A `for` loop calls `next()` for you once per pass. Step through the same generator in
-            a `for` loop and watch the two `print` calls inside the body run between the passes.
+            You ask a generator for one value with the built-in function `next()`:
+
+            ```python
+            def load_docs():
+                print("opening a.txt")
+                yield "a.txt"
+                print("opening b.txt")
+                yield "b.txt"
+
+            docs = load_docs()
+            first = next(docs)
+            # opening a.txt
+            print("got", first)
+            # got a.txt
+            ```
+
+            `next(docs)` ran the body up to the first `yield` and handed back the value of that `yield`.
+            Then the generator paused again. A second `next(docs)` would go on from the line after that
+            `yield`. The Python documentation says that the function is **suspended** at a `yield` and
+            **resumed** by `next()`.
+
+            ```predict
+            def greet():
+                print("one")
+                yield "hello"
+                print("two")
+                yield "bye"
+
+            g = greet()
+            print("ready")
+            print(next(g))
+            print("end")
+            ---
+            `greet()` runs nothing, so `ready` comes first. `next(g)` runs the body up to the first `yield`: it prints `one` and hands back `"hello"`, which the outer `print` shows. Nobody asks for a second value, so the generator stays suspended and `two` is never printed.
+            ```
+
+            A `for` loop does the asking for you. It calls `next()` once per iteration. Press Next and
+            watch the two `opening` lines appear between the `got` lines, not before them:
 
             ```diagram
-            {"type": "trace", "title": "steps() is suspended at each yield and resumed by the loop", "code": ["def steps():", "    print(\"start\")", "    yield \"first\"", "    print(\"resumed\")", "    yield \"second\"", "", "for value in steps():", "    print(\"got\", value)"], "steps": [
+            {"type": "trace", "title": "A for loop calls next() once per iteration", "code": ["def load_docs():", "    print(\"opening a.txt\")", "    yield \"a.txt\"", "    print(\"opening b.txt\")", "    yield \"b.txt\"", "", "for name in load_docs():", "    print(\"got\", name)", "print(\"done\")"], "steps": [
               {"line": 1, "vars": {}, "out": ""},
-              {"line": 7, "vars": {}, "out": "", "note": "steps() creates the generator. Nothing is printed yet."},
-              {"line": 2, "vars": {}, "out": "", "note": "The loop calls next(), so the body starts running."},
-              {"line": 3, "vars": {}, "out": "start\n", "note": "The generator yields 'first' and is suspended at this line."},
-              {"line": 8, "vars": {"value": "'first'"}, "out": "start\n"},
-              {"line": 7, "vars": {"value": "'first'"}, "out": "start\ngot first\n"},
-              {"line": 4, "vars": {}, "out": "start\ngot first\n", "note": "The loop calls next() again. The body resumes at the line after the first yield."},
-              {"line": 5, "vars": {}, "out": "start\ngot first\nresumed\n"},
-              {"line": 8, "vars": {"value": "'second'"}, "out": "start\ngot first\nresumed\n"},
-              {"line": 7, "vars": {"value": "'second'"}, "out": "start\ngot first\nresumed\ngot second\n", "note": "The next call to next() reaches the end of the body. StopIteration is raised and the loop ends."},
-              {"line": null, "vars": {"value": "'second'"}, "out": "start\ngot first\nresumed\ngot second\n"}
+              {"line": 7, "vars": {}, "out": "", "note": "load_docs() makes the generator. No line of the body has run yet."},
+              {"line": 2, "vars": {}, "out": "", "note": "The loop asks for the first value, so the body starts."},
+              {"line": 3, "vars": {}, "out": "opening a.txt\n", "note": "yield hands 'a.txt' to the loop. The function is suspended at this line."},
+              {"line": 8, "vars": {"name": "'a.txt'"}, "out": "opening a.txt\n"},
+              {"line": 7, "vars": {"name": "'a.txt'"}, "out": "opening a.txt\ngot a.txt\n", "note": "The loop asks for the next value."},
+              {"line": 4, "vars": {}, "out": "opening a.txt\ngot a.txt\n", "note": "The function is resumed at the line after the first yield."},
+              {"line": 5, "vars": {}, "out": "opening a.txt\ngot a.txt\nopening b.txt\n"},
+              {"line": 8, "vars": {"name": "'b.txt'"}, "out": "opening a.txt\ngot a.txt\nopening b.txt\n"},
+              {"line": 7, "vars": {"name": "'b.txt'"}, "out": "opening a.txt\ngot a.txt\nopening b.txt\ngot b.txt\n", "note": "The loop asks again. The body has no more lines, so the loop ends."},
+              {"line": 9, "vars": {"name": "'b.txt'"}, "out": "opening a.txt\ngot a.txt\nopening b.txt\ngot b.txt\n"},
+              {"line": null, "vars": {"name": "'b.txt'"}, "out": "opening a.txt\ngot a.txt\nopening b.txt\ngot b.txt\ndone\n"}
             ]}
             ```
+
+            ```match
+            `docs = load_docs()` :: makes a generator and runs no line of the body
+            `next(docs)` :: runs the body up to the next `yield` and hands back one value
+            `for name in docs:` :: asks for a value on every iteration until the body ends
+            ```
+
+            **Watch out:** a generator function that seems to do nothing is usually one that nobody asked.
+            A call on a line of its own, such as `load_docs()`, runs no line of the body and raises no
+            error.
+
+            **In short:** calling a generator function only makes a generator, and each `next()` runs the
+            body as far as the next `yield`.
         ''',
         "difficulty": 0,
         "mode": "predict",
         "prompt": r'''
-            Read the code and type exactly what it prints. Careful: think about **when**
-            each line inside `steps` actually runs.
+            Read the program in the editor. Type exactly what it prints, with each printed line on a line of its own. Think about when each line inside `steps` runs.
         ''',
         "code": r'''
             def steps():
@@ -440,17 +518,19 @@ EXERCISES = [
             2
         ''',
         "explanation": r'''
-            `gen = steps()` runs nothing. The first `next(gen)` runs the body until the first
-            `yield`: it prints `A`, then yields `1`, which gets printed. Then `C` is
-            printed outside. The second `next(gen)` resumes right after the first `yield`:
-            it prints `B` and yields `2`.
+            `gen = steps()` makes the generator and runs no line of the body, so nothing is printed yet.
+            The first `next(gen)` starts the body: `print("A")` runs, then `yield 1` hands back 1 and
+            suspends the function. The outer `print` shows that `1`. Next, `print("C")` runs in the main
+            program while the generator is still suspended. The second `next(gen)` resumes the body at the
+            line after the first `yield`: it prints `B`, and `yield 2` hands back 2, which the outer `print`
+            shows.
         ''',
         "starter": "",
         "tests": "",
         "hints": [
-            "Creating the generator with `steps()` does not run any of its lines.",
-            "Each `next(gen)` runs from where it paused up to the next `yield`, including any prints on the way, and then returns the yielded value.",
-            "Go line by line: first `next` -> prints inside, then the value; then `C`; second `next` -> prints inside, then the value. Five lines in total.",
+            "The line `gen = steps()` prints nothing. Look again at the first example in the lesson.",
+            "Each `next(gen)` runs the body from where it is suspended up to the next `yield`. A `print` on the way runs first. Then the value comes back, and the outer `print` shows it.",
+            "Go through the last three lines of the program one at a time. For each `next(gen)`, write first what the body prints on its way to the `yield`, then the value that is handed back. The line that prints `C` runs between the two. Your answer has five lines.",
         ],
     },
     {
@@ -459,57 +539,97 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Exhausted generators
+            ## A generator can be used only once
 
-            A generator yields each of its values once. After the last value it is
-            **exhausted**: it has no more values and it cannot start again. To get the values a
-            second time, call the generator function again. That call creates a new generator.
-
-            `list(gen)` calls `next()` repeatedly and puts every remaining value into a list.
+            You have a stream of chunks, and you loop over it twice: once to count the chunks and once to
+            print them. The count is right. The second loop prints nothing, and there is no error.
 
             ```python
-            def two():
-                yield 1
-                yield 2
-
-            gen = two()
-            print(list(gen))
-            # [1, 2]
-            print(list(gen))
-            # []
-            print(list(two()))
-            # [1, 2]
+            def chunks():
+                yield "intro"
+                yield "body"
+            stream = chunks()
+            count = 0
+            for c in stream:
+                count += 1
+            print(count)
+            # 2
+            for c in stream: print(c)
+            print("second loop is over")
+            # second loop is over
             ```
 
-            The second `list(gen)` returns `[]` because the first one exhausted `gen`. The last
-            line calls `two()` again, so it reads from a new generator.
+            A generator only moves forward. The first loop ran the body of `chunks` to its end. After that
+            the generator has nothing more to hand out, and it cannot go back to the top. A generator in
+            this state is called **exhausted**.
 
-            `next()` on an exhausted generator raises the exception `StopIteration`. It means
-            that there are no more values. A `for` loop and `list()` catch `StopIteration` for
-            you and stop.
+            To get the values a second time, call the generator function again. Every call makes a new
+            generator that starts at the top of the body.
+
+            The built-in `list()` shows what a generator still has: `list(gen)` asks for every remaining
+            value and puts them in a list.
+
+            ```try
+            def chunks():
+                yield "intro"
+                yield "body"
+
+            stream = chunks()
+            print(list(stream))
+            print(list(stream))
+            ---
+            Run it. The second line of output is `[]`, because the first `list()` exhausted `stream`. Change the last line so that the program prints `['intro', 'body']` twice.
+            ---
+            def chunks():
+                yield "intro"
+                yield "body"
+
+            stream = chunks()
+            print(list(stream))
+            print(list(chunks()))
+            ---
+            `chunks()` made a second generator, and that one starts at the top of the body.
+            ```
+
+            `list()` collects what is left, not everything the generator ever had. A value that was taken
+            earlier does not come back:
 
             ```python
-            def two():
-                yield 1
-                yield 2
+            def letters():
+                yield "a"
+                yield "b"
+                yield "c"
 
-            gen = two()
-            print(next(gen), next(gen))
-            # 1 2
-            try:
-                next(gen)
-            except StopIteration:
-                print("no more values")
-            # no more values
+            gen = letters()
+            print(next(gen))
+            # a
+            print(list(gen))
+            # ['b', 'c']
             ```
 
-            `print(gen)` does not print the values. It prints a description of the object, such
-            as `<generator object two at 0x7f3a5c1d2e40>`. Use `print(list(gen))` to see the
-            values.
+            ### When nothing is left
+
+            `next()` cannot hand back a value from an exhausted generator, so it raises an exception
+            called `StopIteration`. A `for` loop and `list()` catch that exception for you and stop
+            quietly. That is why the second loop above printed nothing. A `next()` call of your own does
+            not catch it.
+
+            ```quiz
+            `gen` is a generator with two values, and both have been taken with `next(gen)`. What does a third `next(gen)` do?
+            - [x] It raises `StopIteration` :: Right. The body has ended, so there is no value to hand back. Without a `try`, the program stops with a traceback whose last line is `StopIteration`.
+            - [ ] It hands back `None` :: `None` can be a real value that a generator yields, so Python does not use it as the sign for "finished". It raises an exception instead.
+            - [ ] It starts again and hands back the first value :: A generator never goes back to the top. Only a new call of the generator function gives you the first value again.
+            ```
+
+            **Watch out:** an exhausted generator is not an error. A `for` loop over it runs zero times,
+            and `list()` of it is `[]`. When a loop over a generator does nothing, check whether an earlier
+            line has already used the generator up.
+
+            **In short:** a generator hands out each value once, and for a second round you call the
+            generator function again.
         ''',
         "prompt": r'''
-            Read the code and type exactly what it prints. Think about what is **left** in the
-            generator after each line.
+            Read the program in the editor. Type exactly what it prints, one line for each `print`. For each line, ask yourself what is still left in the generator.
         ''',
         "code": r'''
             def tokens():
@@ -529,63 +649,96 @@ EXERCISES = [
             ['Hel', 'lo']
         ''',
         "explanation": r'''
-            `next(gen)` takes the first value, `"Hel"`. `list(gen)` then collects only what is
-            **left**: `['lo']`. After that the generator is exhausted, so the next `list(gen)` is
-            `[]`. Calling `tokens()` again creates a brand-new generator that starts from the top.
+            `next(gen)` takes the first value, and `print` shows it as plain text: `Hel`. `list(gen)`
+            collects what is left, which is only `"lo"`, so the second line is the list `['lo']`. Now the
+            generator is exhausted, and the next `list(gen)` finds nothing: `[]`. The last line calls
+            `tokens()` again. That makes a new generator, which starts at the top of the body, so `list`
+            collects both values: `['Hel', 'lo']`. Python prints the strings inside a list with single
+            quotes.
         ''',
         "starter": "",
         "tests": "",
         "hints": [
-            "A generator keeps its position: values already taken are gone.",
-            "After `next(gen)` took the first value, `list(gen)` only gets the rest; then nothing is left. `tokens()` makes a fresh generator.",
-            "Write four lines: the first value as plain text, then a one-item list, then an empty list, then a two-item list - lists printed with quotes like `['a']`.",
+            "A generator only moves forward. A value that has been taken is gone from that generator.",
+            "After `next(gen)` took the first value, `list(gen)` collects only what is left. After that, nothing is left. The last line does not read from `gen` at all: it calls the function again.",
+            "Write four lines. The first is one value as plain text. The other three are lists, written the way Python prints a list, with square brackets and with single quotes around each string: first the values that are still left, then what an exhausted generator gives, then the values of a brand-new generator.",
         ],
     },
     {
         "id": "generators-s3",
         "title": "Yield the even numbers",
         "lesson": r'''
-            ## Yield only some items
+            ## Hand out only the matches
 
-            A generator function can yield some items of a list and skip the others. Put the
-            `yield` inside an `if` inside a `for` loop. The `yield` runs only for the items where
-            the condition is `True`.
+            Your app keeps a record of what every request cost, and you care only about the expensive ones. A normal function would collect those costs in a list and return it, so every match has to exist before anyone sees the first. A generator can hand the matches out one at a time instead.
+
+            Put the `yield` inside an `if`, and put the `if` inside a `for` loop:
 
             ```python
-            def long_words(words):
-                for w in words:
-                    if len(w) > 3:
-                        yield w
+            def expensive(costs, limit):
+                for cost in costs:
+                    if cost > limit:
+                        yield cost
 
-            print(list(long_words(["hi", "hello", "yo", "model"])))
-            # ['hello', 'model']
-            print(list(long_words(["hi", "yo"])))
-            # []
+            print(list(expensive([0.2, 1.5, 0.7, 3.0], 1.0)))
+            # [1.5, 3.0]
             ```
 
-            When the condition is `False`, the `yield` line does not run and the loop moves to
-            the next item. If no item meets the condition, the generator yields nothing and
-            `list()` returns `[]`.
+            The loop looks at one cost after another. When the `if` condition is true, the `yield` hands that cost out and the function pauses, as in the earlier steps. When the condition is false, the `yield` line is skipped, nothing is handed out, and the loop moves on to the next cost. A generator that passes on only the values that pass a test is often called a **filter**.
 
-            This function does not create a result list and does not call `.append()`. It yields
-            each matching item as soon as the loop reaches it. A generator that yields only the
-            items that meet a condition is called a **filtering generator**.
+            Skipped values cost no pause at all. Predict what this prints, and think about which lines run before the first `got`:
 
-            A generator is **lazy**: it does work only when a value is requested. `long_words`
-            checks the next word only when the caller asks for the next value.
+            ```predict
+            def big(numbers):
+                for n in numbers:
+                    print("check", n)
+                    if n > 10:
+                        yield n
+
+            for x in big([5, 20, 7]):
+                print("got", x)
+            ---
+            The loop asks for a value, so the body starts. It checks 5, and the condition is false, so the body goes straight on to the next number without pausing. It checks 20, the condition is true, and `yield` hands 20 to the loop, which prints `got 20`. When the loop asks again, the body resumes after the `yield`, checks 7, finds nothing to hand out, and ends. That ends the `for` loop too.
+            ```
+
+            The condition decides which values come out. Fill the gap so that the generator hands out the words that have 3 letters or fewer:
+
+            ```fill
+            def short_words(words):
+                for w in words:
+                    if len(w) ___ 3:
+                        yield w
+
+            print(list(short_words(["a", "hello", "yes", "model"])))
+            ---
+            - [x] <= :: Yes. The words `a` (1 letter) and `yes` (3 letters) pass, so the list is `['a', 'yes']`.
+            - [ ] < :: This keeps only the words with fewer than 3 letters. `yes` has exactly 3, so it is left out and only `['a']` comes out.
+            - [ ] > :: This keeps the long words, `hello` and `model`. It is the opposite of what we want.
+            - [ ] == :: This keeps only words of exactly 3 letters, so only `['yes']` comes out. `a` is shorter, and it should come out too.
+            ```
+
+            If no value passes the test, the generator hands out nothing. `list()` of it is `[]`, and a `for` loop over it runs zero times. That is not an error.
+
+            **Watch out:** the `yield` must be inside the `if`. If it sits at the same indentation as the `if`, it runs for every item, and the generator hands out the matches and the other values too.
+
+            **In short:** a `yield` inside an `if` hands out only the values that pass the test, and the loop goes on silently past the rest.
         ''',
         "difficulty": 0,
         "prompt": r'''
-            Filter a list of numbers lazily, handing out the matching ones one at a time.
+            Your app has a list of whole numbers, and only some of them matter. The function `evens` should hand out the even numbers one at a time, as a generator. A whole number is even when it divides by 2 with nothing left over (2, 4, 6, 0, ...).
 
-            **Write:** complete the generator `evens(numbers)` by replacing the `___`
+            **Your job:** the function is already in the editor except for one line, marked `___`. The `if` already finds the even numbers, but nothing is handed out yet. Replace `___` with the line that hands out each even number.
 
-            - `numbers`: a list of `int`s, e.g. `[1, 2, 3, 4]`
-            - **Yields:** each even number from `numbers`, in their original order
+            **What goes in**
+            - `numbers`: a list of whole numbers, for example `[1, 2, 3, 4]`
+
+            **What comes out**
+            - a generator that hands out each even number of `numbers`, one at a time
 
             **Rules**
-            - The function must use `yield` (it is a *generator function*).
-            - If there are no even numbers, it yields nothing.
+            - `evens` must be a generator function, not a function that returns a list. A check tests this.
+            - The even numbers come out in the same order as in `numbers`.
+            - If there is no even number, nothing comes out: `list(evens([1, 3, 5]))` is `[]`.
 
             **Examples**
             ```python
@@ -620,78 +773,97 @@ EXERCISES = [
                         yield n
         ''',
         "hints": [
-            "A generator hands out values with a special keyword instead of `return`.",
-            "Inside the `if`, hand out the current number `n` and let the loop continue.",
-            "Replace `___` with `yield n`.",
+            "Look at the first example of the lesson. Which keyword sits inside the `if` there, and what does it do with the value?",
+            "The `if` already picks out the even numbers. The missing line only has to hand the current number to whoever is looping, and the function then carries on with the next number.",
+            "Write one line inside the `if`: first the keyword that hands out a value, then the name of the loop variable that holds the current number.",
         ],
     },
     {
         "id": "generators-s4",
         "title": "Fix the bug: only one line",
         "lesson": r'''
-            ## `return` vs `yield`
+            ## Why only one value came back
 
-            `return` and `yield` both give a value to the code that called the function. They
-            differ in what happens to the function afterwards.
+            You wrote a function that should give back every model name in a list. You run it and get one name, as plain text, and no error. Where did the other names go?
 
-            - `return x` ends the function. A loop inside the function stops, and the remaining
-              items are never visited.
-            - `yield x` produces `x` and suspends the function. On the next request, the
-              function continues from the same line, so the loop goes on.
+            Look at what happens to a loop when the function reaches `return`:
 
             ```python
-            def first_only(items):
-                for x in items:
-                    return x
+            def first_model(models):
+                for m in models:
+                    print("looking at", m)
+                    return m
 
-            def every_one(items):
-                for x in items:
-                    yield x
-
-            print(first_only(["a", "b", "c"]))
-            # a
-            print(list(every_one(["a", "b", "c"])))
-            # ['a', 'b', 'c']
+            print(first_model(["gpt-4o", "claude", "llama"]))
+            # looking at gpt-4o
+            # gpt-4o
             ```
 
-            `first_only` ends during the first pass of its loop, so it returns only `"a"`.
+            The loop looked at one name only. `return` ends the whole function on the spot, even in the middle of a loop, so `claude` and `llama` were never visited.
 
-            This is a common bug. If a function should produce every matching item and you get
-            only one, look for a `return` inside the loop.
-
-            Inside a generator function, a `return` with no value is allowed. It ends the
-            generator, and no more values are yielded.
+            `yield` behaves differently. It hands a value out and pauses the function, and the loop is still alive when the function is asked again:
 
             ```python
-            def until_stop(items):
-                for x in items:
-                    if x == "STOP":
-                        return
-                    yield x
+            def every_model(models):
+                for m in models:
+                    print("looking at", m)
+                    yield m
 
-            print(list(until_stop(["a", "b", "STOP", "c"])))
-            # ['a', 'b']
+            print(list(every_model(["gpt-4o", "claude", "llama"])))
+            # looking at gpt-4o
+            # looking at claude
+            # looking at llama
+            # ['gpt-4o', 'claude', 'llama']
             ```
+
+            Now check that you can tell where such a loop stops. Predict what this prints:
+
+            ```predict
+            def first_even(numbers):
+                for n in numbers:
+                    print("checking", n)
+                    if n % 2 == 0:
+                        return n
+
+            print(first_even([3, 5, 8, 10]))
+            print("done")
+            ---
+            The loop checks 3 and 5, and the condition is false for both. It checks 8, the condition is true, and `return n` ends the function and hands back 8. The number 10 is never checked, so there is no `checking 10` line. The outer `print` shows the returned 8, and the last line prints `done`.
+            ```
+
+            Match each statement to what it does inside a loop:
+
+            ```match
+            `return m` :: ends the whole function, so the loop never reaches the other items
+            `yield m` :: hands out m and pauses, and the loop goes on at the next request
+            `print(m)` :: shows m on the screen and the loop goes on at once, but nothing is handed to the caller
+            ```
+
+            **Watch out:** a function becomes a generator function only because it contains `yield`. After you change `return` to `yield`, the callers get a generator, not a single value, so they have to loop over it or call `list()` on it.
+
+            **In short:** `return` inside a loop ends the function at the first pass, and `yield` hands out a value and lets the loop go on.
         ''',
         "difficulty": 0,
         "prompt": r'''
-            Skip blank lines in a document before it is processed. Right now this function only
-            ever gives you the first non-blank line.
+            A document is a list of lines, and some of the lines are blank. Before the lines are processed, a helper should skip the blank ones and hand out all the others. The helper in the editor is supposed to be a generator, but it stops as soon as it finds the first good line, and it gives that line back as plain text.
 
-            **Write:** fix the bug in `non_empty(lines)`
+            **Your job:** fix the bug in `non_empty(lines)` so that it is a generator function that hands out every line that is not blank. The code is already there. What is wrong is what the function does when it finds a good line.
 
-            - `lines`: a list of strings, e.g. `["hi", "", "  ", "there"]`
-            - **Yields:** **every** line that is not blank, unchanged, in order
+            **What goes in**
+            - `lines`: a list of strings, for example `["hi", "", "  ", "there"]`
+
+            **What comes out**
+            - a generator that hands out every line that is not blank, unchanged, one at a time, in the original order
 
             **Rules**
-            - It must be a *generator function* (it uses `yield`).
-            - A line is blank if it is empty or contains only whitespace (`""`, `"  "`).
-            - If all lines are blank, it yields nothing.
+            - A line is blank when it is empty or contains only whitespace, so `""` and `"  "` are blank.
+            - If every line is blank, nothing comes out.
+            - `non_empty` must be a generator function. A check tests this.
 
             **Examples**
             ```python
             list(non_empty(["hi", "", "  ", "there"]))   # ["hi", "there"]
-            list(non_empty(["", " "]))                  # []
+            list(non_empty(["", " "]))                   # []
             ```
         ''',
         "starter": r'''
@@ -721,24 +893,20 @@ EXERCISES = [
                         yield line
         ''',
         "hints": [
-            "What happens to a function the moment it reaches `return`?",
-            "`return` ends the function for good. You need the keyword that hands out a value and then keeps going.",
-            "Change `return line` to `yield line`.",
+            "Run the function by hand on `[\"hi\", \"\", \"there\"]`. At which line does it stop for the first time, and what happens to the items after it?",
+            "A function that ends the moment it finds a good line can never find a second one. The lesson showed another keyword that hands a value out and lets the loop carry on afterwards.",
+            "Only the line inside the `if` has to change. Replace the keyword that ends the function with the one that hands a value out and pauses. The loop and the test stay as they are.",
         ],
     },
     {
         "id": "generators-s5",
         "title": "Stream the words",
         "lesson": r'''
-            ## Streaming with a generator
+            ## Pieces that arrive one at a time
 
-            A chat application shows a reply piece by piece while the language model that writes the
-            reply is still writing it. The program talks to the model through its **API**: the set
-            of requests that the model's service accepts. The API **streams** the reply: it sends
-            each piece as soon as the model produces it, instead of sending the whole text at the end.
+            When a chat app shows a reply, the words appear one after another while the model is still writing. The code that draws the reply cannot wait for the whole text. It has to handle each piece as soon as the piece exists. How can you try that code before a real model is connected?
 
-            A generator works the same way. The code that loops over the generator receives each
-            piece as soon as it is yielded, before the next piece exists.
+            A generator is a good stand-in, because it hands out one value at a time. Here is one that hands out the letters of a word, and a loop that reacts to every letter:
 
             ```python
             def stream_letters(word):
@@ -746,56 +914,72 @@ EXERCISES = [
                     yield letter
 
             for piece in stream_letters("hey"):
-                print(piece, end="|")
-            print()
-            # h|e|y|
+                print("got", piece)
+            # got h
+            # got e
+            # got y
             ```
 
-            `print(piece, end="|")` writes `|` after the piece instead of a newline, so all the
-            pieces appear on one line. The final `print()` writes the newline.
+            The generator and the loop take turns. The loop gets `h` and prints it, then the generator goes on and hands out `e`, and so on. A series of values handed out one at a time like this is called a **stream**.
 
-            A `for` loop works on a list and on a generator in the same way. An **iterable** is
-            any object that a `for` loop can loop over. Lists, strings and generators are all
-            iterables. A generator differs from a list in one way: it computes each item when
-            the loop asks for it.
+            ```quiz
+            The loop has just printed `got h`. What has the generator done with the letters `e` and `y` so far?
+            - [x] Nothing yet. It is paused at the `yield` that handed out `h` :: Right. The generator looks at the next letter only when the loop asks for it, so `e` and `y` have not been touched.
+            - [ ] It has already collected all three letters in a list :: A generator does not build a list. Each letter is produced when it is asked for, which is why it works on a text that is still being written.
+            - [ ] It has thrown them away :: Nothing is thrown away. The letters are still waiting in the string, and the generator will reach them on the next requests.
+            ```
 
-            In the next example the outer loop runs twice: first `source` is a list, then it is
-            a generator. The inner loop is the same code for both and prints the same line.
+            The `for` loop inside a generator can go through any list. To make a stream of pieces from a text, cut the text into a list first. The `split(",")` method from the strings chapter cuts a string at every comma:
 
             ```python
-            def stream_letters(word):
-                for letter in word:
-                    yield letter
+            def stream_tags(text):
+                for tag in text.split(","):
+                    yield tag
 
-            for source in (["h", "i"], stream_letters("hi")):
-                for piece in source:
-                    print(piece, end="|")
-                print()
-            # h|i|
-            # h|i|
+            print(list(stream_tags("ai,python,rag")))
+            # ['ai', 'python', 'rag']
             ```
+
+            Put these lines in order to get a program that streams two model names and prints each name on a line of its own:
+
+            ```order
+            def stream_models(models):
+                for model in models:
+                    yield model
+            for name in stream_models(["gpt-4o", "claude"]):
+                print(name)
+            ---
+            The `def` comes first, because the function must exist before the loop calls it. The `for` loop sits inside the function, and the `yield` sits inside that loop. The loop that uses the stream comes last and prints `gpt-4o` and then `claude`.
+            ```
+
+            **Watch out:** do not `yield` the whole list. Writing `yield` followed by the list of tags hands out one value, the entire list, so the loop receives a single piece instead of three. Yield inside the loop, one item per pass.
+
+            **In short:** to turn a list of pieces into a stream, loop over the list and `yield` each piece.
         ''',
         "difficulty": 0,
         "prompt": r'''
-            Simulate a model streaming its reply, one word at a time.
+            A chat app shows a model's reply one word at a time. To test the screen code before a real model is connected, you want a stand-in: a function that takes a finished text and hands it out word by word, the way a real model would.
 
-            **Write:** `stream_words(text)` - a **generator function** (it uses `yield`)
+            **Your job:** write the generator function `stream_words(text)`. Every time something asks it for a value, it hands out the next word of `text`.
 
-            - `text`: a string, e.g. `"Hello from the model"`
-            - **Yields:** the words of `text`, one string per `yield`, in order
+            **What goes in**
+            - `text`: a string, for example `"Hello from the model"`
+
+            **What comes out**
+            - a generator that hands out the words of `text` as strings, one at a time, in the order they appear in the text
 
             **Rules**
-            - The function must use `yield` (calling it gives a generator, not a list).
-            - Words are separated by whitespace; several spaces in a row count as one gap.
-            - Empty text yields nothing.
+            - It must be a generator function, so calling it gives a generator and not a list. A check tests this.
+            - Words are separated by whitespace. Several spaces in a row count as one gap, so `"a  b"` has the words `"a"` and `"b"` and never an empty word.
+            - Empty text hands out nothing.
 
             **Examples**
             ```python
             gen = stream_words("Hello from the model")
-            next(gen)                                  # "Hello"
-            next(gen)                                  # "from"
-            list(stream_words("RAG  needs   retrieval"))  # ["RAG", "needs", "retrieval"]
-            list(stream_words(""))                     # []
+            next(gen)                                      # "Hello"
+            next(gen)                                      # "from"
+            list(stream_words("RAG  needs   retrieval"))   # ["RAG", "needs", "retrieval"]
+            list(stream_words(""))                         # []
             ```
         ''',
         "starter": r'''
@@ -827,71 +1011,70 @@ EXERCISES = [
                     yield word
         ''',
         "hints": [
-            "Loop over the words and hand each one out with `yield`.",
-            "`text.split()` gives you the list of words; a `for` loop visits them one by one.",
-            "1) Write a `for` loop over `text.split()`. 2) Inside it, `yield` the current word.",
+            "The last example of the lesson turned a string into a list of pieces and then handed each piece out. What did its `for` loop go through?",
+            "Cut `text` into its words with the string method that treats any run of whitespace as a single gap, then loop over those words and hand out each one.",
+            "In order: cut the text into words with that method, start a `for` loop over the result, and inside the loop hand out the current word. There is no list to build and no `return`.",
         ],
     },
     {
         "id": "generators-1",
         "title": "Fake token stream",
         "lesson": r'''
-            ## `range` with a step
+            ## Send text a piece at a time
 
-            To cut a string into pieces of equal size, you need the start index of each piece:
-            `0`, then `size`, then `2 * size`, and so on.
-
-            `range` takes an optional third argument, the **step**: the amount added to get
-            each next number.
+            A reply may arrive in small pieces instead of as one complete string. To practice that behavior without a network, you can walk along existing text and hand out a short slice whenever the caller asks for more.
 
             ```python
-            print(list(range(0, 10, 4)))
-            # [0, 4, 8]
-
-            text = "streaming"
-            for start in range(0, len(text), 4):
-                print(start, text[start:start + 4])
-            # 0 stre
-            # 4 amin
-            # 8 g
+            text = "notebook"
+            for offset in range(0, len(text), 3):
+                print(text[offset:offset + 3])
+            # not
+            # ebo
+            # ok
             ```
 
-            Two rules make this work for any text length:
+            The third argument to `range` is the **step**: the distance between successive numbers. Here the starting positions are zero, three, and six. Each slice ends three positions after its start, and the stop position itself is excluded.
 
-            - `range(0, len(text), size)` stops before `len(text)`, so no piece starts past the
-              end. For an empty string the range is empty and the loop body never runs.
-            - A slice that goes past the end of a string does not raise an error. It stops at
-              the last character.
-
-            ```python
-            print(list(range(0, 0, 4)))
-            # []
-            print("ing"[0:4])
-            # ing
+            ```predict
+            print(list(range(0, 7, 3)))
+            print("notes"[3:6])
+            ---
+            range stops before seven, so it produces 0, 3, and 6. The slice reaches beyond the five-character string safely and gives the remaining text es.
             ```
 
-            In the APIs of language models, each small piece of a streamed reply is called a **delta**: the text
-            added since the previous piece. Joining all the deltas gives the full text.
+            A slice can end beyond the available text; Python returns only the characters that exist. That makes a shorter final piece natural. The range must still stop before the text length, so it does not start an empty extra piece when the length divides exactly.
 
-            ```python
-            print("".join(["stre", "amin", "g"]))
-            # streaming
+            You already know that `yield` pauses a function and hands out one value. Using it with these slices makes the production of pieces lazy: no later slice is produced until the caller requests it. A piece added to a streamed reply is often called a **delta**.
+
+            ```quiz
+            The input text is empty. How many starting positions should the stream visit?
+            - [x] Zero :: There is no text to send, so an empty range should produce no pieces.
+            - [ ] One :: Yielding an empty string would add a piece that contains no input characters.
             ```
+
+            **Watch out:** a step of zero makes `range` raise `ValueError`. A piece size must move the position forward.
+
+            **In short:** stepped starting positions and safe slices let a generator hand out consecutive pieces of text.
         ''',
         "hints": [
-            "A function with `yield` in it is a generator function; each `yield` hands out one piece.",
-            "Walk through the start positions 0, size, 2*size, ... and yield a slice of `size` characters starting at each one.",
-            "1) Use `range` with three arguments (start, stop, step) to get the start positions up to `len(text)`. 2) For each start, yield the slice from `start` to `start + size`. Slicing past the end is safe, and for empty text the range is empty.",
+            "Revisit how a stepped range supplies starting positions.",
+            "Each position identifies the beginning of one slice. Yield that slice rather than returning a list of slices.",
+            "Visit starts separated by the requested size, stopping before the text length. Yield up to that many characters from each start; slicing handles the shorter remainder.",
         ],
         "difficulty": 1,
         "prompt": r'''
             Simulate a model streaming its answer in small pieces (called *deltas*).
 
-            **Write:** `stream_deltas(text, size)` - a **generator function** (it uses `yield`)
+            **Your job:** write `stream_deltas(text, size)` - a **generator function** (it uses `yield`)
+
+            **What goes in**
 
             - `text`: the full answer as a string, e.g. `"Hello world"`
             - `size`: how many characters per piece, an `int` of at least 1, e.g. `4`
             - **Yields:** consecutive pieces of `text` (strings), in order, one per `yield`
+
+            **What comes out**
+            - A generator handing out strings one at a time. Joining its pieces in order reconstructs the original text.
 
             **Rules**
             - The function must use `yield`.
@@ -946,61 +1129,62 @@ EXERCISES = [
         "id": "generators-2",
         "title": "Count without a list",
         "lesson": r'''
-            ## Generator expressions
+            ## Add values without storing an intermediate list
 
-            The list comprehension `[n * n for n in nums]` builds a complete list immediately.
-            A **generator expression** has the same syntax with round brackets instead of square
-            ones. It returns a generator, and it computes each value only when that value is
-            requested.
+            You want one total from thousands of records. Building a list of every intermediate number wastes space when you will immediately add those numbers and discard the list. Python can calculate one value at a time instead.
 
             ```python
-            nums = [1, 2, 3, 4]
-            squares = [n * n for n in nums]
-            lazy = (n * n for n in nums)
-            print(squares)
-            # [1, 4, 9, 16]
-            print(type(lazy))
-            # <class 'generator'>
-            print(list(lazy))
-            # [1, 4, 9, 16]
+            lengths = (len(name) for name in ["oak", "birch", "elm"])
+            print(sum(lengths))
+            # 11
+            print(list(lengths))
+            # []
             ```
 
-            `squares` is a list that already holds four numbers. `lazy` is a generator that has
-            computed nothing yet. `list(lazy)` requests every value, so the squares are computed
-            at that point.
+            The parentheses create a **generator expression**. Its shape resembles a list comprehension, but it computes each result only when requested. `sum` requests numbers one by one, adds them, and keeps a running total. The generator is exhausted afterwards, which explains the empty list on the second line.
 
-            Generator expressions are useful as arguments to functions that read values one by
-            one, such as `sum()`, `max()`, `min()` and `"".join()`. When a generator expression
-            is the only argument of a call, you can leave out its own brackets.
-
-            ```python
-            prompts = ["Summarize this", "Translate to French"]
-            print(sum(len(p) for p in prompts))
-            # 33
-            print(max(len(p) for p in prompts))
-            # 19
+            ```fill
+            numbers = [2, 5, 8]
+            print(___(n * 2 for n in numbers))
+            ---
+            - [x] sum :: Adding the three generated values gives 30.
+            - [ ] max :: This keeps only the largest generated value, which is 16.
+            - [ ] min :: This keeps only the smallest generated value, which is 4.
             ```
 
-            `sum()` requests one length, adds it to the total and requests the next one. No list
-            of lengths is ever stored. With millions of prompts, a list of lengths would take a
-            lot of the computer's memory, and the generator expression takes almost none.
-            Computing a value only when it is requested is called **lazy evaluation**.
+            When the expression is the only argument in a function call, its own parentheses may be left out. The parentheses of the call are enough. This saves punctuation without changing how the generator behaves.
+
+            A generator expression can read a list or another generator. It does not need to index the input or know its length first. This is useful for inputs that permit only one pass, such as a stream of documents.
+
+            ```quiz
+            What does sum return when its generator produces no numbers?
+            - [x] 0 :: Zero is the starting total, and no values are added.
+            - [ ] None :: sum has a defined empty-input result rather than an absent answer.
+            ```
+
+            **Watch out:** changing the parentheses to square brackets eagerly builds a whole list. The numerical answer may match, but the memory behavior changes.
+
+            **In short:** a generator expression supplies intermediate values only when the consumer asks for them.
         ''',
         "hints": [
-            "A generator expression looks like a list comprehension with round brackets instead of square ones - and it can go straight inside `sum(...)`.",
-            "The number of words in one document is `len(doc.split())`. Add that up over all the docs.",
-            "Return `sum(...)` where the inside is a generator expression producing `len(doc.split())` for each `doc` in `docs`. No square brackets and no `for` statement block.",
+            "Which consumer adds up a sequence of numbers?",
+            "Generate one word count per document without making a list of those counts.",
+            "Split each document on whitespace, measure how many pieces it has, and feed those measurements through a generator expression to the adding consumer.",
         ],
         "difficulty": 1,
         "prompt": r'''
             Count the words in a whole document collection without building a big list in
             memory.
 
-            **Write:** `total_words(docs)`
+            **Your job:** write `total_words(docs)`
+
+            **What goes in**
 
             - `docs`: any iterable of document strings - a list like `["the cat", "sat"]`, or
               a generator that produces strings
-            - **Returns:** an `int`, the total number of words across all documents
+
+            **What comes out**
+            - an `int`, the total number of words across all documents
 
             **Rules**
             - Words are separated by whitespace (several spaces count as one gap); an empty
@@ -1054,50 +1238,42 @@ EXERCISES = [
         "title": "First chunk over the limit",
         "difficulty": 1,
         "lesson": r'''
-            ## `next()` with a default
+            ## Stop searching when you have an answer
 
-            `next()` on an exhausted generator raises `StopIteration`. `next()` also accepts a
-            second argument, the **default**: a value that `next()` returns instead of raising
-            when there are no more values.
+            You want the first record that needs attention. Reading the rest of a large stream after finding it would waste work, and the stream might never end. Ask for one matching item, then stop.
 
             ```python
-            gen = (w for w in ["hi", "hello"] if len(w) > 3)
-            print(next(gen, "none"))
-            # hello
-            print(next(gen, "none"))
-            # none
+            scores = [4, 9, 2, 12]
+            matches = (score for score in scores if score > 8)
+            print(next(matches, None))
+            # 9
+            print(next(matches, None))
+            # 12
             ```
 
-            `next()` with a generator expression finds the first item that matches a condition.
-            The generator expression tests the items one by one. `next()` takes the first value
-            it yields, and the remaining items are never tested.
+            The condition in the generator expression filters out values that do not qualify. `next` asks that generator to keep reading until it can hand back one qualifying value. It does not collect all matches first.
 
-            ```python
-            nums = [3, 8, 11, 20]
-            print(next((n for n in nums if n > 10), None))
-            # 11
-            print(next((n for n in nums if n > 99), None))
-            # None
+            The second argument to `next` is a **default**. When nothing remains, Python gives back that value instead of raising `StopIteration`. Choose a default that your caller can distinguish from a real result, such as `None` when real results are strings.
+
+            ```predict
+            values = iter(["ready"])
+            print(next(values, "missing"))
+            print(next(values, "missing"))
+            ---
+            The first request consumes the only string. The second finds the iterator exhausted and returns the supplied fallback.
             ```
 
-            The call needs two pairs of brackets: one pair for `next(...)` and one pair around
-            the generator expression. A generator expression can drop its own brackets only when
-            it is the only argument.
+            `iter` turns an iterable, such as a list, into an object that remembers its current reading position. That object is an **iterator**. A generator already is an iterator, so it can be passed directly to `next`.
 
-            `next()` does not accept a list directly. First call `iter(items)`. It returns an
-            **iterator**: an object that returns the values of a collection one at a time and
-            keeps its current position. Then pass that iterator to `next()`. A generator is an
-            iterator too.
-
-            ```python
-            it = iter(["a", "b"])
-            print(next(it))
-            # a
-            print(next(it))
-            # b
-            print(next(it, "done"))
-            # done
+            ```quiz
+            Why not build a list of all matches before selecting the first one?
+            - [x] It would read beyond the answer :: The list construction consumes every input item before selection happens.
+            - [ ] Lists change the matching values :: Building a list does not itself change those values.
             ```
+
+            **Watch out:** when `next` has a default argument, put parentheses around a generator expression passed as its other argument. Without them, Python reports that the generator expression must be parenthesized.
+
+            **In short:** a filtered generator and `next` find one result without reading the rest of the stream.
         ''',
         "research": {
             "note": "Read the docs for the built-in `next()` - especially what its second argument does - then come back.",
@@ -1107,11 +1283,15 @@ EXERCISES = [
             Before sending text chunks to a model, find the first one that is too long for the
             size limit.
 
-            **Write:** `first_too_long(chunks, limit)`
+            **Your job:** write `first_too_long(chunks, limit)`
+
+            **What goes in**
 
             - `chunks`: any iterable of strings - a list, or a generator, e.g. `["short", "a much longer chunk"]`
             - `limit`: an `int`, the maximum allowed number of characters, e.g. `10`
-            - **Returns:** the **first** chunk (a string) whose length is **greater than** `limit`,
+
+            **What comes out**
+            - the **first** chunk (a string) whose length is **greater than** `limit`,
               or `None` if there is none
 
             **Rules**
@@ -1168,9 +1348,9 @@ EXERCISES = [
                 return next((c for c in chunks if len(c) > limit), None)
         ''',
         "hints": [
-            "A generator expression can describe 'the chunks that are too long'; `next()` takes the first thing out of it.",
-            "Build a generator expression over `chunks` with an `if` that keeps only chunks longer than `limit`, and give `next()` a default for when it is empty.",
-            "Return `next(` + a generator expression `(c for c in chunks if len(c) > limit)` + `, None)`. Mind the brackets: the generator expression needs its own pair.",
+            "You only need one qualifying item, so which operation asks for just the next result?",
+            "Filter lazily with the strict length condition, and supply a default for no match.",
+            "Describe the qualifying strings in a generator expression. Pass that iterator to next together with the absent-result default; keep the expression parenthesized because there are two arguments.",
         ],
     },
     {
@@ -1178,43 +1358,44 @@ EXERCISES = [
         "title": "Preview a stream",
         "difficulty": 1,
         "lesson": r'''
-            ## The first `n` items of a stream
+            ## Take a bounded preview of an endless stream
 
-            A list can be sliced: `items[:3]`. A generator cannot. It has no indexes, and it can
-            only produce its next value. Some iterators are **infinite**: they never run out of
-            values. `itertools.count()` yields 0, 1, 2 and so on without end, so `list()` on it
-            never finishes.
-
-            The `itertools` module is part of the standard library. `itertools.islice(iterable, n)`
-            returns an iterator over at most `n` items. It reads no more items than it needs.
-            The name is short for "iterator slice".
+            A source may keep producing log entries indefinitely. To show a preview, you need to request a limited number of items before building a list. Reading the whole source first would never finish.
 
             ```python
             from itertools import count, islice
-
-            print(list(islice(count(), 5)))
-            # [0, 1, 2, 3, 4]
-            print(list(islice(["a", "b"], 5)))
-            # ['a', 'b']
+            source = count(10)
+            print(list(islice(source, 3)))
+            # [10, 11, 12]
+            print(next(source))
+            # 13
             ```
 
-            The second call asks for 5 items, but the list has 2. `islice` returns the items
-            that exist and raises no error.
+            `count` produces consecutive numbers without an end. `islice`, from the standard-library module `itertools`, makes a limited view of an iterable. Here it allows only three values through. The call to `list` then collects those three values, not the endless original source.
 
-            `islice` is lazy. It returns an iterator, not a list. Pass it to `list(...)` or loop
-            over it to get the values.
-
-            `itertools` has other functions that you will see in real code. `chain(a, b)` yields
-            every item of `a` and then every item of `b`. `groupby` groups consecutive
-            items that have the same key, and `batched` (Python 3.12 and newer) splits an iterable
-            into tuples of a fixed size.
-
-            ```python
-            from itertools import chain
-
-            print(list(chain(["a"], ["b", "c"])))
-            # ['a', 'b', 'c']
+            ```predict
+            from itertools import islice
+            source = iter(["a", "b", "c"])
+            print(list(islice(source, 0)))
+            print(next(source))
+            ---
+            Taking zero items produces an empty list and leaves the source untouched. Its next value is still a.
             ```
+
+            The limit is a maximum, not a promise that enough input exists. If the source ends early, `islice` ends with it. You do not need to catch an error to handle a short stream.
+
+            Like a generator expression, `islice` is lazy. Creating it does not collect its values. A loop or another consumer asks for them later. This separation lets you put a safe bound around an expensive or infinite source before doing any collection.
+
+            ```quiz
+            The source has two values and the requested limit is five. What does list(islice(source, 5)) contain?
+            - [x] The two available values :: It stops when the source ends.
+            - [ ] Five values padded with None :: islice never invents missing input values.
+            - [ ] No values :: A short source is still a valid source.
+            ```
+
+            **Watch out:** ordinary slicing on a generator raises `TypeError` because generators have no indexed storage. Converting an infinite source to a list first is worse: it never finishes.
+
+            **In short:** limit the iterator before collecting a preview.
         ''',
         "research": {
             "note": "Skim the `itertools` docs: find `islice` and look at its example calls, then come back.",
@@ -1225,12 +1406,16 @@ EXERCISES = [
             Show a quick preview of a stream (for example the first log lines, or the first
             items of an endless feed) without reading the whole thing.
 
-            **Write:** `preview(stream, n)`
+            **Your job:** write `preview(stream, n)`
+
+            **What goes in**
 
             - `stream`: any iterable - a list, a generator, or an **infinite** iterator like
               `itertools.count()`
             - `n`: an `int` (0 or more), how many items to show, e.g. `3`
-            - **Returns:** a **list** of the first `n` items, in order
+
+            **What comes out**
+            - a **list** of the first `n` items, in order
 
             **Rules**
             - If `stream` has fewer than `n` items, return all of them.
@@ -1288,9 +1473,9 @@ EXERCISES = [
                 return list(islice(stream, n))
         ''',
         "hints": [
-            "You can't slice a generator with `[:n]`, but the `itertools` module has a slicing tool that works on any iterable.",
-            "`islice(stream, n)` gives a lazy iterator over at most `n` items; turn it into a list.",
-            "1) `from itertools import islice` at the top. 2) Return `list(islice(stream, n))`.",
+            "Review the itertools tool that limits how much of a source can be read.",
+            "Apply the limit before collecting values. Reversing those operations would consume an infinite input.",
+            "Import the iterator-slicing tool, make a bounded view of the source using n, then collect only that view into the required result type.",
         ],
     },
     {
@@ -1298,55 +1483,62 @@ EXERCISES = [
         "title": "Prepend the system prompt",
         "difficulty": 1,
         "lesson": r'''
-            ## `yield from`
+            ## Pass through another stream's items
 
-            A generator function often needs to yield every value of another iterable. You can
-            write a loop that yields the values one by one.
-
-            ```python
-            def with_header(lines):
-                yield "HEADER"
-                for line in lines:
-                    yield line
-
-            print(list(with_header(["a", "b"])))
-            # ['HEADER', 'a', 'b']
-            ```
-
-            `yield from iterable` does the same as that loop in one statement. It yields each
-            value of the iterable in order. When the iterable has no more values, the function
-            continues with the next line.
+            Your stream needs a marker before or after existing items. You could write a loop whose only job is to yield every incoming value. Python has a shorter form for that exact job.
 
             ```python
-            def with_footer(lines):
+            def tagged(lines):
+                yield "BEGIN"
                 yield from lines
-                yield "FOOTER"
+                yield "END"
 
-            print(list(with_footer(["a", "b"])))
-            # ['a', 'b', 'FOOTER']
-            print(list(with_footer(x * 2 for x in [1, 2])))
-            # [2, 4, 'FOOTER']
+            print(list(tagged(["one", "two"])))
+            # ['BEGIN', 'one', 'two', 'END']
             ```
 
-            `yield from` accepts any iterable: a list, a string, a generator expression or a
-            call to another generator function. `yield from` stays lazy. It reads one value
-            from the iterable each time a value is requested.
+            `yield from lines` hands out the values of `lines` individually and in order. When that iterable finishes, your function continues with the next statement. Passing work to another iterable this way is called **delegation**.
 
-            Using `yield from` on a call to another generator function is called **delegating**
-            to a sub-generator. You can write a large generator function as several small ones
-            and combine them this way.
+            ```predict
+            def tagged(lines):
+                yield "BEGIN"
+                yield from lines
+                yield "END"
+            print(list(tagged([])))
+            ---
+            The empty input contributes no values, but the statements before and after yield from still run. The result contains BEGIN and END.
+            ```
+
+            Delegation stays lazy. The outer generator asks the inner iterable for a value only when its own caller requests another value. It can therefore wrap a generator without converting the entire source into a list. That matters when the input is large, expensive, or still arriving.
+
+            Contrast `yield lines` with `yield from lines`. The first hands out one value: the iterable itself. The second hands out its contents. Neither copies or edits the input items merely by passing them along.
+
+            ```match
+            `yield value` :: hands out one value
+            `yield from values` :: hands out each value from the iterable
+            `return` :: finishes the generator rather than sending another item
+            ```
+
+            **Watch out:** strings are iterable too. Delegating to a string sends one character at a time. If you want the entire string to be one item, use an ordinary yield for it.
+
+            **In short:** use one yield for one item and yield from to pass along an existing stream.
         ''',
         "prompt": r'''
             Chat APIs expect the *system* message first, followed by the conversation. Build that
             message stream lazily.
 
-            **Write:** `with_system(system, messages)` - a **generator function**
+            **Your job:** write `with_system(system, messages)` - a **generator function**
+
+            **What goes in**
 
             - `system`: the system prompt, a string, e.g. `"Be brief."`
             - `messages`: any iterable of message dicts (a list or a generator), e.g.
               `[{"role": "user", "content": "Hi"}]`
             - **Yields:** first the dict `{"role": "system", "content": system}`, then every
               message from `messages`, unchanged and in order
+
+            **What comes out**
+            - A generator whose first item is the system-message dictionary and whose later items are the original messages in order.
 
             **Rules**
             - It must be a generator function, and use **`yield from`** (a check looks for it).
@@ -1402,18 +1594,18 @@ EXERCISES = [
                 yield from messages
         ''',
         "hints": [
-            "Two things are handed out in order: one dict you build yourself, then everything in `messages`.",
-            "`yield` the system dict first; then pass along every message with a single `yield from` line.",
-            "1) `yield {\"role\": \"system\", \"content\": system}`. 2) `yield from messages`.",
+            "There is one new message, followed by an existing sequence of messages.",
+            "Use an ordinary yield for the new item and delegation for the existing stream.",
+            "Construct and hand out the system message first. Afterwards delegate to the original messages iterable, without collecting or changing it.",
         ],
     },
     {
         "id": "generators-3",
         "title": "Batch for embeddings",
         "hints": [
-            "Turn the input into one iterator with `iter()`, then keep taking up to `n` items from that same iterator. `itertools.islice(it, n)` takes up to `n` items.",
-            "Loop: grab a list of up to `n` items; if it is empty you are done, otherwise yield it. Taking only `n` at a time is what makes it work on infinite inputs.",
-            "1) If `n < 1`, raise `ValueError`. 2) `it = iter(iterable)`. 3) Repeat forever: batch = `list(islice(it, n))`; if the batch is empty, stop; else yield it.",
+            "A batch is a small bounded preview from one continuing iterator.",
+            "Create the iterator once, then repeatedly read a limited group from that same position.",
+            "Reject an invalid batch size. Take up to the size limit into a fresh list, stop if that list is empty, otherwise hand it out and repeat.",
         ],
         "difficulty": 2,
         "placement": True,
@@ -1421,12 +1613,17 @@ EXERCISES = [
             Embedding APIs accept a limited number of inputs per request, so texts are sent in
             *batches*.
 
-            **Write:** `batched(iterable, n)` - a **generator function** (it uses `yield`)
+            **Your job:** write `batched(iterable, n)` - a **generator function** (it uses `yield`)
+
+            **What goes in**
 
             - `iterable`: anything you can loop over - a list, a string, a `range`, or another
               generator (possibly infinite, e.g. `itertools.count()`)
             - `n`: the maximum batch size, an `int`, e.g. `2`
             - **Yields:** **lists** of up to `n` consecutive items, in order
+
+            **What comes out**
+            - A generator handing out lists, with at most the requested number of consecutive input items per list.
 
             **Rules**
             - Every batch has exactly `n` items except the last, which may be smaller.
@@ -1507,9 +1704,9 @@ EXERCISES = [
         "id": "generators-4",
         "title": "Render a streamed reply",
         "hints": [
-            "Split the job in two: a generator that filters chunks, and a normal function that loops over that generator and prints.",
-            "In `text_deltas`, dig into `chunk[\"choices\"][0][\"delta\"][\"content\"]` safely with `.get()` and skip chunks where any part is missing, None or empty. In `render`, print each piece right away with `end=\"\"` and collect the pieces.",
-            "1) `text_deltas`: for each chunk, get `\"choices\"` (default `[]`) and skip if empty; get the first choice's `\"delta\"` (default `{}`), then its `\"content\"`; yield it if truthy. 2) `render`: for each delta, `print(delta, end=\"\", flush=True)` and append it to a list. 3) Call `print()` once at the end and return the joined text.",
+            "Separate extracting useful text from displaying useful text.",
+            "The extractor should safely skip missing or empty nested values. The display function must act on each piece before requesting the next.",
+            "Read choices safely and examine the first delta when present. Yield only nonempty text. In render, print each arriving piece without a separator, retain it for the returned string, and print one final newline.",
         ],
         "difficulty": 2,
         "prompt": r'''
@@ -1525,13 +1722,18 @@ EXERCISES = [
             {"id": "x"}                                       # no "choices" key at all
             ```
 
-            **Write:** `text_deltas(chunks)` and `render(chunks)`
+            **Your job:** write `text_deltas(chunks)` and `render(chunks)`
+
+            **What goes in**
 
             - `chunks`: any iterable of chunk dicts like the ones above (a list, or a generator
               that is still receiving data)
             - `text_deltas` **yields:** the `content` strings found at
               `chunk["choices"][0]["delta"]["content"]`, in order
             - `render` **returns:** the full reply text (a `str`), and also prints it
+
+            **What comes out**
+            - `text_deltas` yields useful text pieces. `render` prints them incrementally, adds a final newline, and gives back their combined string.
 
             **Rules**
             - `text_deltas` must be a *generator function* (it uses `yield`).
@@ -1638,66 +1840,64 @@ EXERCISES = [
         "id": "generators-5",
         "title": "Sliding window iterator",
         "lesson": r'''
-            ## The iterator protocol
+            ## Make an object remember the next position
 
-            A `for` loop uses two methods of an object. Together they are called the
-            **iterator protocol**.
-
-            - `__iter__` returns an iterator. In a class that is its own iterator, it returns `self`.
-            - `__next__` returns the next value, or raises `StopIteration` when no values are
-              left.
-
-            `iter(obj)` calls `obj.__iter__()` and `next(obj)` calls `obj.__next__()`. A
-            generator has both methods already. A class can define them itself and store its
-            position in attributes.
+            Sometimes the progress of a stream belongs in an object. You may want explicit attributes for its current position and whether it has finished. A class can support the same next-item behavior as a generator.
 
             ```python
-            class Countdown:
-                def __init__(self, n):
-                    self.n = n
+            class Once:
+                def __init__(self, value):
+                    self.value, self.finished = value, False
                 def __iter__(self):
                     return self
                 def __next__(self):
-                    if self.n <= 0:
-                        raise StopIteration
-                    self.n -= 1
-                    return self.n + 1
-
-            print(list(Countdown(3)))
-            # [3, 2, 1]
+                    if self.finished:
+                        raise (StopIteration)
+                    self.finished = True
+                    return self.value
+            print(list(Once("ready")))
+            # ['ready']
             ```
 
-            Click through the stages to see what a `for` loop over `Countdown(3)` does.
+            The two special methods form the **iterator protocol**: the agreement that lets `for`, `next`, and `list` read values. `__iter__` supplies the iterator. When an object is its own iterator, it returns itself. `__next__` supplies one value or raises `StopIteration` when finished.
 
-            ```diagram
-            {"type": "flow", "title": "What for value in Countdown(3) does", "steps": [
-              {"label": "iter()", "detail": "The for loop calls iter() on the object once. iter() calls the __iter__ method, which returns self. The object is its own iterator.", "code": "it = iter(Countdown(3))\n# it.n is 3"},
-              {"label": "next()", "detail": "The loop calls next(it) at the start of each pass. next() calls the __next__ method.", "code": "value = next(it)"},
-              {"label": "Value returned", "detail": "__next__ subtracts 1 from self.n and returns the old number. The loop assigns it to value and runs the loop body.", "code": "pass 1: value = 3, it.n is 2\npass 2: value = 2, it.n is 1\npass 3: value = 1, it.n is 0"},
-              {"label": "StopIteration", "detail": "When self.n is 0, __next__ raises StopIteration. The for loop catches the exception and ends. Every later next(it) raises StopIteration again.", "code": "next(it)\n# StopIteration"}
-            ], "loop": {"from": 2, "to": 1, "label": "while __next__ returns a value"}}
+            ```quiz
+            After the Once object has produced its value, what should another next call do?
+            - [x] Signal exhaustion again :: Exhaustion is a persistent state for this iterator.
+            - [ ] Start over automatically :: Restarting would violate the promise that the same iterator is exhausted.
+            - [ ] Return None :: None would be another ordinary item, not the signal that iteration has ended.
             ```
 
-            After the loop ends, the iterator is exhausted. `self.n` stays at `0`, so every
-            later `next()` call raises `StopIteration` again.
+            Putting it together for moving windows requires two decisions: where the next window starts, and which window is the last. Keep those decisions distinct. A final window might reach the end before the next starting position would pass it. Mark completion at the moment the final window is produced.
+
+            The class constructor should check impossible settings before iteration begins. An empty input should start already finished. That keeps later `__next__` calls focused on one task: either return a window and advance state, or report exhaustion.
+
+            **Watch out:** returning a value without updating the stored position makes every request repeat the same window. The program runs but a consuming loop may never finish.
+
+            **In short:** an iterator object stores progress between calls and uses StopIteration to signal a permanent end.
         ''',
         "hints": [
-            "The iterator protocol: `__iter__` returns `self`, and `__next__` returns the next value or raises `StopIteration` when there are no more.",
-            "Keep the current start position and a 'done' flag on `self`. Each `__next__` returns `tokens[start:start + size]`, marks itself done if that window reached the end, and moves `start` forward by `stride`.",
-            "1) `__init__`: validate (ValueError), store tokens/size/stride, `start = 0`, `done = True` if tokens is empty. 2) `__iter__`: return self. 3) `__next__`: if done, raise `StopIteration`; take the window; if `start + size >= len(tokens)`, set done; add `stride` to start; return the window.",
+            "The protocol needs both a way to obtain the iterator and a way to request one value.",
+            "Keep a current position and a persistent finished flag. The stopping rule is about the first window reaching the end.",
+            "Validate settings in construction and mark empty input finished. Each request checks completion, takes the current window, records whether it reached the end, advances the position, and returns the window.",
         ],
         "difficulty": 3,
         "prompt": r'''
             RAG pipelines split documents into overlapping token *windows* before embedding
             them.
 
-            **Write:** a class `SlidingWindow(tokens, size, stride)` that is an **iterator**
+            **Your job:** write a class `SlidingWindow(tokens, size, stride)` that is an **iterator**
+
+            **What goes in**
 
             - `tokens`: a list of tokens, e.g. `[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]` or `["a", "b"]`
             - `size`: the window length, an `int`, e.g. `4`
             - `stride`: how far each window moves forward, an `int`, e.g. `3`
             - **Each `next()` returns:** one window, a list `tokens[start:start + size]`, for
               `start = 0, stride, 2*stride, ...`
+
+            **What comes out**
+            - An iterator object. Each next-item request gives back one window list until the defined stopping point, then raises StopIteration.
 
             **Rules**
             - Implement the *iterator protocol* yourself: `__iter__` returns the object itself,
@@ -1796,20 +1996,25 @@ EXERCISES = [
         "id": "generators-6",
         "title": "Flatten nested content",
         "hints": [
-            "This is recursion with generators: `yield from flatten(child)` passes along everything the inner call yields.",
-            "Decide per value: strings/bytes -> yield as a leaf; dict -> recurse into its values; otherwise try `iter(obj)` - if that raises `TypeError` it's a leaf, if it works recurse into each item.",
-            "1) If it's a `str` or `bytes`, yield it. 2) Elif it's a dict, `yield from flatten(value)` for each value. 3) Else `try: items = iter(obj)` / `except TypeError:` yield obj and return. 4) For each item, `yield from flatten(item)`. Never turn anything into a list, so infinite generators stay lazy.",
+            "Decide whether a value is a leaf before treating it as a container.",
+            "Strings and bytes must stay whole; dictionaries contribute values; other iterables contribute their items.",
+            "Handle those special cases first. For remaining values, try obtaining an iterator: failure means a leaf. Otherwise recursively delegate for each item, never collecting the entire source.",
         ],
         "difficulty": 3,
         "prompt": r'''
             Tool results and message contents can be nested to any depth. Pull out every plain
             value (every *leaf*) so it can be indexed.
 
-            **Write:** `flatten(obj)` - a recursive **generator function** (it calls itself for the nested parts)
+            **Your job:** write `flatten(obj)` - a recursive **generator function** (it calls itself for the nested parts)
+
+            **What goes in**
 
             - `obj`: any value - a list, tuple, dict, generator, string, number, `None`, ... nested
               in any combination, e.g. `["a", ("b", ["c"]), {"k": "d"}]`
             - **Yields:** the leaves of `obj`, one per `yield`, in order
+
+            **What comes out**
+            - A generator handing out leaf values, preserving traversal order and treating complete strings and bytes as leaves.
 
             **Rules**
             - Lists, tuples and any other iterables (including generators) are descended into.

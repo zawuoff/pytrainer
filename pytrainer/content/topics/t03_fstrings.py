@@ -253,53 +253,73 @@ EXERCISES = [
     {
         "id": "fstrings-s1",
         "lesson": r'''
-            ## F-strings
+            ## Put values straight into your text
 
-            A **string literal** is text written between quotes in your code, such as `"hello"`. An
-            **f-string** is a string literal with the letter `f` directly before the opening quote.
-            Its full name is *formatted string literal*.
-
-            Inside an f-string, a pair of curly braces `{}` is a **placeholder**. Python evaluates
-            the code inside the braces, converts the result to text and inserts that text where the
-            braces are.
+            So far you have built messages by gluing pieces together with `+` and `str()`. With one value
+            that is fine. With three it turns into a tangle of quotes and plus signs:
 
             ```python
             model = "gpt-4o"
             tokens = 512
+            print(model + " used " + str(tokens) + " tokens")
+            # gpt-4o used 512 tokens
             print(f"{model} used {tokens} tokens")
             # gpt-4o used 512 tokens
+            ```
+
+            The last `print` gives the same output, and its code reads like the sentence it produces. It
+            needs two things: the letter `f` directly before the opening quote, and curly braces around
+            each value. Python works out what is inside the braces, turns the result into text, and puts
+            that text in place of the braces. No `str()` is needed.
+
+            A string with an `f` in front is called an **f-string**, short for formatted string. Each pair
+            of braces is a **placeholder**.
+
+            The braces can hold anything that produces a value, a calculation for example:
+
+            ```python
+            tokens = 512
             print(f"next call: {tokens * 2} tokens")
             # next call: 1024 tokens
-            print("{model}")
-            # {model}
             ```
 
-            The braces can hold any **expression**: code that produces a value. Python calculates
-            `tokens * 2` first, then inserts `1024`.
-
-            The third string has no `f`. Python treats its braces as ordinary characters and prints
-            them unchanged.
-
-            Step through the code to see the output of each line.
-
-            ```diagram
-            {"type": "trace", "title": "Three print calls, one without the f", "code": ["model = \"gpt-4o\"", "tokens = 512", "print(f\"{model} used {tokens} tokens\")", "print(f\"next call: {tokens * 2} tokens\")", "print(\"{model}\")"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"model": "'gpt-4o'"}, "out": ""},
-              {"line": 3, "vars": {"model": "'gpt-4o'", "tokens": "512"}, "out": ""},
-              {"line": 4, "vars": {"model": "'gpt-4o'", "tokens": "512"}, "out": "gpt-4o used 512 tokens\n"},
-              {"line": 5, "vars": {"model": "'gpt-4o'", "tokens": "512"}, "out": "gpt-4o used 512 tokens\nnext call: 1024 tokens\n"},
-              {"line": null, "vars": {"model": "'gpt-4o'", "tokens": "512"}, "out": "gpt-4o used 512 tokens\nnext call: 1024 tokens\n{model}\n"}
-            ]}
+            ```try
+            name = "Ada"
+            city = "Paris"
+            print("Hello")
+            ---
+            Change the last line into an f-string that uses both variables, so that the program prints `Hello Ada from Paris`.
+            ---
+            name = "Ada"
+            city = "Paris"
+            print(f"Hello {name} from {city}")
+            ---
+            Each placeholder was replaced by the value of its variable. Everything outside the braces was copied as it stands.
             ```
 
-            Inserting values into a string this way is called **string interpolation**.
+            ### Without the f, braces are only characters
+
+            ```quiz
+            `city` is `"Paris"`. What does `print("{city}")` show?
+            - [x] `{city}` :: Right. The string has no `f` in front, so the braces and the name are ordinary characters. Python prints them as they are and reports no error.
+            - [ ] `Paris` :: That needs the `f`: `print(f"{city}")`. Without it, nothing is replaced.
+            - [ ] An error message :: A string that contains braces is a perfectly valid string. That is what makes this mistake easy to miss.
+            ```
+
+            Putting values into a string in this way is called **string interpolation**. You will meet
+            that term in documentation.
+
+            **Watch out:** the placeholder holds the name without quotes. `f"{'city'}"` inserts the word
+            `city`, not the value of the variable.
+
+            **In short:** in an f-string, each `{...}` is replaced by the value of what is inside it. A
+            string without the `f` keeps its braces as plain text.
         ''',
         "title": "What gets printed?",
         "difficulty": 0,
         "mode": "predict",
         "prompt": r'''
-            Read the code and type exactly what it prints.
+            Read the program in the editor. Type exactly what it prints, one line of output per line.
         ''',
         "code": r'''
             model = "gpt-4o"
@@ -314,29 +334,28 @@ EXERCISES = [
             520
         ''',
         "explanation": r'''
-            Line 1 is an f-string, so `{model}` and `{tokens}` are replaced by their values.
-            Line 2 has **no `f`**, so the braces are printed as plain text. Line 3 shows that
-            any expression works inside the braces: `tokens + 8` is computed first (520).
+            The first `print` has an f-string, so `{model}` and `{tokens}` are replaced by their values:
+            `gpt-4o used 512 tokens`. The second string has no `f`, so its braces are plain characters and
+            the output is `{model}`. The third is an f-string again, and Python works out `tokens + 8`
+            before it inserts the result, `520`.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "Check each string: does it start with the letter f before the quote?",
-            "In an f-string, each {...} is replaced by the value of what is inside. Without the f, braces stay as text.",
-            "Line 1: substitute gpt-4o and 512. Line 2: no f, so print it literally. Line 3: compute 512 + 8.",
+            "Look at each string in turn. Does it have the letter `f` directly before its opening quote?",
+            "In an f-string, each pair of braces is replaced by the value of what is inside. Without the `f`, the braces stay as they are.",
+            "For the first line of output, put the two values into the sentence. For the second, the string has no `f`, so copy it character by character. For the third, work out the sum inside the braces.",
         ],
     },
     {
         "id": "fstrings-s2",
         "lesson": r'''
-            ## Prompt templates
+            ## A sentence with a gap in it
 
-            A **template** is a string with fixed text and one or more placeholders. A prompt
-            is the text you send to an AI model. Most prompts are templates: the same sentence,
-            with one part that changes.
+            Most of the prompts an app sends to a model are the same sentence with one part that
+            changes: "Translate this into French", "Summarise that in three lines". You want to reuse the fixed wording while changing only the requested word or language.
 
-            A **parameter** is a name in the parentheses of a function definition. It holds the
-            value that is passed in when the function is called. An f-string inside a function can
-            use a parameter in a placeholder. Python builds a new string on every call.
+            An f-string inside a function is exactly that. The parameter fills the gap, and every call
+            builds a new string:
 
             ```python
             def greet(name):
@@ -348,14 +367,23 @@ EXERCISES = [
             # Hello Linus, how can I help?
             ```
 
-            Python copies everything outside the braces exactly: every space, comma and full stop.
-            Only the text inserted for `{name}` changes between calls.
+            Fixed wording with gaps for changing values is called a **template**.
 
-            The string that the function returns is its **return value**. Building text from a
-            template is called **string formatting**.
+            Everything outside the braces is copied exactly, every space, comma and full stop. Only the
+            text that replaces `{name}` changes from call to call.
 
-            The braces hold the variable name without quotes. With quotes, the expression is a
-            string, so Python inserts the word itself.
+            ```predict
+            def tag(word):
+                return f"#{word}!"
+
+            print(tag("python"))
+            print(tag("ai") + tag("rag"))
+            ---
+            The template puts `#` in front of the word and `!` behind it, with no spaces. The second line joins the results of two calls: `#ai!` and `#rag!`.
+            ```
+
+            The braces hold the name of the variable, without quotes. With quotes, the placeholder holds
+            a string, and Python inserts that string itself:
 
             ```python
             name = "Ada"
@@ -364,21 +392,40 @@ EXERCISES = [
             print(f"Hello {'name'}")
             # Hello name
             ```
+
+            ```quiz
+            `word` is `"cat"`. Which line hands back `Translate cat into French.`?
+            - [x] `return f"Translate {word} into French."` :: Right. The `f` switches the braces on, and the braces hold the variable.
+            - [ ] `return f"Translate word into French."` :: Without braces, `word` is four ordinary letters. The result is `Translate word into French.`
+            - [ ] `return "Translate {word} into French."` :: The `f` is missing, so the braces stay in the text as they are.
+            ```
+
+            Building text from a template is called **string formatting**.
+
+            **Watch out:** spaces inside a template count. A space before or after the braces appears in
+            every result.
+
+            **In short:** an f-string in a function is a template, and each call fills its placeholders
+            with the arguments of that call.
         ''',
         "title": "Fill in the prompt",
         "difficulty": 0,
         "prompt": r'''
-            A small helper that builds a prompt for a language model.
+            Apps that talk to a language model rarely send a fixed text. They send a template with the
+            user's topic filled in.
 
-            **Write:** replace the `___` in `ask(topic)`
+            **Your job:** finish `ask(topic)`. It is written except for one gap, marked `___`. Replace the
+            gap so that the topic appears in the sentence.
 
-            - `topic`: a string, e.g. `"RAG"`
-            - **Returns:** a string like `"Explain RAG in one sentence."`
+            **What goes in**
+            - `topic`: a string, for example `"RAG"`
+
+            **What comes out**
+            - a string such as `"Explain RAG in one sentence."`
 
             **Rules**
-            - The value of `topic` must be inserted where the `___` is (inside an f-string, a
-              variable goes inside curly braces).
-            - Keep the rest of the text exactly as it is, including the final period.
+            - The value of `topic` appears in the place of the gap.
+            - The rest of the text stays exactly as it is, including the full stop at the end.
 
             **Examples**
             ```python
@@ -406,19 +453,18 @@ EXERCISES = [
                 return f"Explain {topic} in one sentence."
         ''',
         "hints": [
-            "Inside an f-string, a variable is inserted with curly braces.",
-            "Replace the three underscores with the parameter name wrapped in braces.",
-            "The parameter is called topic, so the blank becomes {topic}. Keep the f and the rest of the text exactly as it is.",
+            "Inside an f-string, how do you mark the place where a value goes?",
+            "The gap has to become a placeholder that holds the parameter of the function.",
+            "Replace the three underscores with the parameter name inside curly braces. Keep the `f` and the rest of the text as they are.",
         ],
     },
     {
         "id": "fstrings-s3",
         "lesson": r'''
-            ## The f prefix
+            ## The letter that switches the braces on
 
-            A **prefix** is a letter written directly before the opening quote of a string literal.
-            The `f` prefix is what makes Python evaluate the placeholders. Without it, the braces
-            are ordinary characters.
+            Your status line prints `{model} is ready`, braces and all. There is no error message. What
+            went wrong?
 
             ```python
             model = "claude"
@@ -426,33 +472,60 @@ EXERCISES = [
             # {model} is ready
             print(f"{model} is ready")
             # claude is ready
-            print(f'{model} is ready')
-            # claude is ready
             ```
 
-            The first string has no prefix, so Python prints the braces and the name as text. Python
-            does not report an error for this. The string is valid, and the output is wrong.
+            The only difference between the two lines is the `f`. A letter that stands directly before
+            the opening quote of a string is called a **prefix**. Without the `f` prefix, braces are
+            ordinary characters. And Python does not complain, because a string with braces in it is a
+            valid string. Only the output is wrong, so this is a bug you find by looking at the output.
 
-            The `f` goes directly before the opening quote, with no space. `f "..."` is a
-            `SyntaxError`. The prefix works the same way with single quotes: `f'...'`.
+            Two details about the prefix. It stands directly before the quote, with no space:
+            `f "..."` is a `SyntaxError`. And it works with single quotes too: `f'...'`.
 
-            When your output shows `{something}` with the braces, check first whether the `f`
-            prefix is missing.
+            ```match
+            `f"{n} left"` :: the value of `n`, followed by ` left`
+            `"{n} left"` :: the characters `{n} left`, braces included
+            `f"n left"` :: the characters `n left`, because nothing is in braces
+            ```
+
+            The third line of that table is the opposite mistake: the `f` is there, and the braces are
+            missing. Fix one:
+
+            ```try
+            count = 3
+            print(f"count items in the cart")
+            ---
+            The `f` is there, but the output still shows the word `count`. Fix the string so that the program prints `3 items in the cart`.
+            ---
+            count = 3
+            print(f"{count} items in the cart")
+            ---
+            A value is inserted only when both parts are present: the `f` before the quote, and braces around the name.
+            ```
+
+            **Watch out:** when your output shows something like `{name}` with its braces, look for a
+            missing `f` first.
+
+            **In short:** the `f` prefix makes Python fill in the placeholders, and without it a string
+            keeps its braces as plain text.
         ''',
         "title": "Fix the status line",
         "difficulty": 0,
         "prompt": r'''
-            A status message for a model. It currently returns the braces as plain text.
-            Find and fix the bug.
+            An app shows a status line for each model, such as `gpt-4o is ready`. The function for it
+            gives back the text with the braces still in it, instead of the model name.
 
-            **Write:** fix `status(model)`
+            **Your job:** find the bug in `status(model)` and fix it. The code is already in the editor.
 
-            - `model`: a string, the model name, e.g. `"gpt-4o"`
-            - **Returns:** a string: the model name, then ` is ready`
+            **What goes in**
+            - `model`: the name of the model, a string, for example `"gpt-4o"`
+
+            **What comes out**
+            - a string: the model name, followed by ` is ready`
 
             **Rules**
-            - The braces must be replaced by the value of `model` (not shown as `{model}`).
-            - One space between the name and `is ready`, no period at the end.
+            - The braces are replaced by the value of `model`. They do not appear in the result.
+            - There is one space between the name and `is ready`, and no full stop at the end.
 
             **Examples**
             ```python
@@ -480,75 +553,86 @@ EXERCISES = [
                 return f"{model} is ready"
         ''',
         "hints": [
-            "Look at the start of the string. What makes Python treat braces as placeholders?",
-            "Braces are only replaced in an f-string. This string is missing something before the quote.",
-            "Add the letter f directly in front of the opening quote, with no space.",
+            "Look at the very start of the string. What makes Python treat braces as placeholders?",
+            "Braces are only replaced in an f-string. This string is missing something in front of its opening quote.",
+            "Add the prefix from the lesson directly in front of the opening quote, with no space between them.",
         ],
     },
     {
         "id": "fstrings-s4",
         "lesson": r'''
-            ## Two decimals
+            ## Always two digits after the point
 
-            Inside the braces, you can add a colon after the value and then a **format spec**
-            (format specification). The format spec tells Python how to convert the value to text.
+            A price of 1.5 should appear on a bill as `1.50`. Printing the number gives `1.5`, and
+            `round(1.5, 2)` is still `1.5`, because rounding never adds zeros. Text that people read needs
+            a fixed look, and an f-string can give it one.
 
-            The spec `.2f` shows a number with exactly 2 digits after the decimal point.
+            Inside the braces, after the value, write a colon and then an instruction for how the value
+            is shown:
 
             ```python
             price = 1.5
-            cost = 0.126
-            text = f"{price:.2f}"
-            print(text)
+            print(f"{price:.2f}")
             # 1.50
-            print(f"${cost:.2f}")
-            # $0.13
+            print(f"{0.126:.2f}")
+            # 0.13
             print(f"{3:.2f}")
             # 3.00
-            print(price)
-            # 1.5
             ```
 
-            `.2f` has two parts. `.2` is the **precision**: the number of digits after the decimal
-            point. `f` is the **type**: it shows the value as a decimal number with exactly that many
-            digits after the point.
+            The part after the colon is called the **format spec**. In `.2f`, the `.2` asks for two
+            digits after the decimal point, which is called the **precision**. The `f` means "show this
+            as a number with a decimal point". It is not the `f` prefix of the string, only the same
+            letter.
 
-            Python rounds when the value has more digits, so `0.126` becomes `0.13`. Python adds
-            zeros when the value has fewer digits, so `3` becomes `3.00`.
+            Python rounds when the value has more digits, so `0.126` becomes `0.13`. It adds zeros when
+            the value has fewer, so `3` becomes `3.00`.
 
-            Step through the code and compare `price` with `text`.
-
-            ```diagram
-            {"type": "trace", "title": "Formatting with .2f", "code": ["price = 1.5", "cost = 0.126", "text = f\"{price:.2f}\"", "print(text)", "print(f\"${cost:.2f}\")", "print(f\"{3:.2f}\")", "print(price)"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"price": "1.5"}, "out": ""},
-              {"line": 3, "vars": {"price": "1.5", "cost": "0.126"}, "out": ""},
-              {"line": 4, "vars": {"price": "1.5", "cost": "0.126", "text": "'1.50'"}, "out": "", "note": "text is a new string. price still holds the float 1.5."},
-              {"line": 5, "vars": {"price": "1.5", "cost": "0.126", "text": "'1.50'"}, "out": "1.50\n"},
-              {"line": 6, "vars": {"price": "1.5", "cost": "0.126", "text": "'1.50'"}, "out": "1.50\n$0.13\n"},
-              {"line": 7, "vars": {"price": "1.5", "cost": "0.126", "text": "'1.50'"}, "out": "1.50\n$0.13\n3.00\n"},
-              {"line": null, "vars": {"price": "1.5", "cost": "0.126", "text": "'1.50'"}, "out": "1.50\n$0.13\n3.00\n1.5\n"}
-            ]}
+            ```predict
+            rate = 2.5
+            print(f"{rate:.1f}")
+            print(f"{rate:.3f}")
+            print(f"{7.268:.2f} seconds")
+            ---
+            With a precision of 1 the value shows as `2.5`. With a precision of 3, zeros are added: `2.500`. `7.268` is rounded to two digits, `7.27`, and the text after the braces is copied as it is.
             ```
 
-            The value comes first, then the colon, then the spec: `{price:.2f}`. The spec changes
-            only the text that is produced. The variable `price` still holds `1.5`.
+            Text outside the braces can stand right next to a placeholder, with no space, so a unit or a
+            sign can sit against the number: `f"{2.5:.1f}s"` gives `2.5s`.
+
+            ### The spec changes the text, not the value
+
+            ```quiz
+            After `price = 1.5` and `text = f"{price:.2f}"`, what is `price`?
+            - [x] The number `1.5` :: Right. The f-string built a new string, `"1.50"`, and stored it under `text`. The variable `price` was only read.
+            - [ ] The string `"1.50"` :: That is `text`. A format spec never changes the variable it reads.
+            - [ ] The number `1.50` :: A number does not remember zeros at its end. `1.50` and `1.5` are the same number. Only text can keep the extra zero.
+            ```
+
+            **Watch out:** the order inside the braces is value, colon, spec: `{price:.2f}`. The spec
+            alone, or the spec in front of the value, is an error.
+
+            **In short:** `{value:.2f}` shows a number with exactly two digits after the point, rounding
+            it or adding zeros as needed.
         ''',
         "title": "Price with two decimals",
         "difficulty": 0,
         "prompt": r'''
-            A price label for a billing page.
+            A billing page shows prices. Every price needs the same look: a dollar sign, and exactly two
+            digits after the decimal point.
 
-            **Write:** `price_label(price)`
+            **Your job:** write `price_label(price)` so that it gives back the text for a price.
 
-            - `price`: a number (float or int), e.g. `1.5`
-            - **Returns:** a string: `$` followed by the price with **exactly 2 decimals**
+            **What goes in**
+            - `price`: a number, a float or an int, for example `1.5`
+
+            **What comes out**
+            - a string: `$` followed by the price with exactly 2 decimals: `"$1.50"` for the example value
 
             **Rules**
-            - Always 2 decimals, even for whole numbers (`3` becomes `"$3.00"`).
-            - Round to 2 decimals (`0.126` becomes `"$0.13"`).
-            - No space between `$` and the number.
-            - Reminder of the syntax: inside an f-string, `{value:.2f}` shows `value` with 2 decimals.
+            - There are always 2 decimals, even for a whole number: `3` gives `"$3.00"`.
+            - The price is rounded to 2 decimals: `0.126` gives `"$0.13"`.
+            - There is no space between `$` and the number.
 
             **Examples**
             ```python
@@ -581,56 +665,81 @@ EXERCISES = [
                 return f"${price:.2f}"
         ''',
         "hints": [
-            "Use an f-string with a format spec after a colon inside the braces.",
-            "The $ is ordinary text before the braces; the braces hold the price plus a spec for 2 decimals.",
-            "Write return, then an f-string that starts with $, then {price:.2f} as the placeholder.",
+            "An f-string with a format spec after a colon controls how many decimals are shown.",
+            "The dollar sign is ordinary text in front of the braces. The braces hold the price, and a spec for 2 decimals.",
+            "Hand back an f-string that starts with `$` and continues with one placeholder: the parameter, a colon, and the spec from the lesson for two digits after the point.",
         ],
     },
     {
         "id": "fstrings-s5",
         "lesson": r'''
-            ## Thousands separators
+            ## Big numbers that people can read
 
-            A long number such as `1000000` is hard to read because you have to count the digits.
-            A **thousands separator** is a character placed between groups of three digits, as in
-            `1,000,000`.
-
-            The format spec `,` tells Python to add a comma between each group of three digits.
+            Is `128000000` a hundred and twenty-eight million, or twelve million? You have to count the
+            digits to know. People avoid that by writing `128,000,000`, and an f-string can do it for
+            them:
 
             ```python
             context = 128000
             total = 1234567
-            print(f"{context:,} tokens")
-            # 128,000 tokens
+            print(f"{context:,}")
+            # 128,000
             print(f"{total:,}")
             # 1,234,567
             print(f"{512:,}")
             # 512
             ```
 
-            Python counts the groups from the right. A number below 1000 has only one group, so it
-            gets no comma.
+            A comma as the format spec asks for a **thousands separator**: a comma between each group of
+            three digits, counted from the right. A number below 1000 has only one group, so it gets no
+            comma. The Python docs call this the grouping option.
 
-            The Python docs call this the **grouping** option of the format spec.
+            ```predict
+            print(f"{9999:,}")
+            print(f"{1000000:,} tokens")
+            print(f"{250:,} and {2500:,}")
+            ---
+            `9999` has two groups: `9,999`. A million has three: `1,000,000`. In the last line the first number is below 1000 and stays as it is, and the second becomes `2,500`.
+            ```
 
-            The result is a string. `"128,000"` is text for people to read, and you cannot do
-            arithmetic with it. Keep the original number in its variable for calculations.
+            ### The result is text
+
+            `f"{context:,}"` builds a string. `"128,000"` is made for people to read, and a program
+            cannot calculate with it.
+
+            ```quiz
+            What does `int("128,000")` do?
+            - [x] It stops with a `ValueError` :: Right. `int()` accepts digits, and spaces around them. A comma in the middle is not part of a number for Python.
+            - [ ] It gives `128000` :: `int()` does not remove commas. The text has to be only digits.
+            - [ ] It gives `128` :: `int()` never reads part of a string. It converts the whole text or it stops.
+            ```
+
+            So keep the number itself in its variable, and format it only at the moment you show it.
+
+            **Watch out:** the colon is still needed. In `{context:,}` the comma is the spec, and it
+            stands after the colon like every spec.
+
+            **In short:** `{value:,}` shows a number with a comma between each group of three digits.
         ''',
         "title": "Big numbers with commas",
         "difficulty": 0,
         "prompt": r'''
-            A label showing a model's context window size.
+            A model's context window is the number of tokens it can handle at once, and for current
+            models it is a large number. A label on a settings page should show it in a form that is easy
+            to read.
 
-            **Write:** `context_label(tokens)`
+            **Your job:** write `context_label(tokens)` so that it gives back that label.
 
-            - `tokens`: an integer, e.g. `128000`
-            - **Returns:** a string: the number with commas between thousands, then a space and
-              the word `tokens`
+            **What goes in**
+            - `tokens`: a whole number, for example `128000`
+
+            **What comes out**
+            - a string: the number with commas between the thousands, then a space and the word `tokens`:
+              `"128,000 tokens"` for the example value
 
             **Rules**
-            - Use a comma every 3 digits (`1000000` becomes `1,000,000`).
-            - Numbers below 1,000 get no comma (`512`).
-            - Reminder of the syntax: inside an f-string, `{value:,}` adds the commas.
+            - There is a comma after every 3 digits, counted from the right: `1000000` gives `1,000,000`.
+            - A number below 1,000 gets no comma: `512` stays `512`.
 
             **Examples**
             ```python
@@ -664,20 +773,18 @@ EXERCISES = [
         ''',
         "hints": [
             "A format spec after a colon inside the braces can add thousands separators.",
-            "Put tokens in braces with the comma spec, then the word tokens after it as plain text.",
-            "Return an f-string: {tokens:,} followed by a space and the word tokens.",
+            "The braces hold the number and the spec for the separators. The word `tokens` comes after the braces, as plain text.",
+            "Hand back an f-string with one placeholder, the parameter with the spec for thousands separators, followed by a space and the word `tokens`.",
         ],
     },
     {
         "id": "fstrings-s6",
         "lesson": r'''
-            ## Percentages
+            ## From a fraction to a percentage
 
-            A **fraction** here means a number between 0 and 1, such as `0.873`. Code usually stores
-            a rate as a fraction, and a report shows it as a percentage: `87.3%`.
-
-            The `%` format spec does three things. It multiplies the value by 100, shows it with a
-            fixed number of decimals and adds a `%` sign.
+            Code usually stores a rate as a number between 0 and 1: a success rate of `0.873`. A report
+            shows the same thing as `87.3%`. Turning one into the other takes three steps: multiply by
+            100, round, and add the percent sign. One format spec does all three:
 
             ```python
             rate = 0.873
@@ -689,34 +796,65 @@ EXERCISES = [
             # 100%
             ```
 
-            `.1%` means a percentage with 1 decimal. The number after the point is the precision,
-            the same as in `.2f`. `.0%` shows no decimals.
+            `.1%` means "as a percentage, with 1 digit after the point". The number in front of the `%`
+            is the precision, the same as in `.2f`, and `.0%` shows no decimals at all.
 
-            `%` is a **presentation type** in the format spec. `f` is another presentation type.
+            ```quiz
+            What does `f"{0.25:.0%}"` produce?
+            - [x] `25%` :: Right. 0.25 times 100 is 25, and a precision of 0 shows no decimals.
+            - [ ] `0.25%` :: The `%` spec multiplies by 100 before it adds the sign. It does not only attach the sign.
+            - [ ] `25.0%` :: That would be `.1%`. With `.0%` there is no digit after the point.
+            ```
 
-            Use the fraction as the value, not the percentage. Python always multiplies by 100, so
-            `87.3` is shown as `8730.0%`.
+            ### Give it the fraction, not the percentage
+
+            The spec always multiplies by 100. Hand it a number that is already a percentage, and the
+            result is a hundred times too big:
 
             ```python
             print(f"{87.3:.1%}")
             # 8730.0%
             ```
+
+            The program below makes a mistake of the same kind:
+
+            ```try
+            done = 45
+            total = 60
+            print(f"{done:.0%} finished")
+            ---
+            The output is a silly number, because `done` is a count and not a fraction. Change the placeholder so that the program prints `75% finished`.
+            ---
+            done = 45
+            total = 60
+            print(f"{done / total:.0%} finished")
+            ---
+            45 out of 60 is the fraction 0.75, and the `%` spec turns a fraction into a percentage.
+            ```
+
+            **Watch out:** do not multiply by 100 yourself. The `%` spec does it, and doing it twice gives
+            a number like `8730.0%`.
+
+            **In short:** `{fraction:.1%}` multiplies by 100, shows 1 decimal and adds the `%` sign.
         ''',
         "title": "Success rate",
         "difficulty": 0,
         "prompt": r'''
-            A monitoring dashboard shows what share of API calls succeeded.
+            A monitoring dashboard shows what share of the calls to an API succeeded. The app stores that
+            share as a fraction between 0 and 1, and the dashboard shows it as a percentage.
 
-            **Write:** `success_label(rate)`
+            **Your job:** write `success_label(rate)` so that it gives back the text for the dashboard.
 
-            - `rate`: a fraction between 0 and 1 (float or int), e.g. `0.873`
-            - **Returns:** a string: the rate as a **percentage with 1 decimal**, a `%` sign,
-              then a space and the word `success`
+            **What goes in**
+            - `rate`: a fraction between 0 and 1, a float or an int, for example `0.873`
+
+            **What comes out**
+            - a string: the rate as a percentage with 1 decimal and a `%` sign, then a space and the word
+              `success`: `"87.3% success"` for the example value
 
             **Rules**
-            - The number is multiplied by 100 and rounded to 1 decimal (`0.873` shows as `87.3%`).
-            - Always 1 decimal, even for whole percentages (`1` shows as `100.0%`).
-            - Reminder of the syntax: inside an f-string, `{value:.1%}` does the conversion.
+            - The fraction is multiplied by 100 and rounded to 1 decimal: `0.873` shows as `87.3%`.
+            - There is always 1 decimal, even for a whole percentage: `1` shows as `100.0%`.
 
             **Examples**
             ```python
@@ -753,24 +891,24 @@ EXERCISES = [
                 return f"{rate:.1%} success"
         ''',
         "hints": [
-            "A format spec ending in % turns a fraction into a percentage.",
-            "Put rate in braces with a spec for a percentage with 1 decimal, then add the word success after it.",
-            "Return an f-string: {rate:.1%} followed by a space and the word success. Don't multiply by 100 yourself.",
+            "One format spec turns a fraction into a percentage.",
+            "The braces hold the rate and a spec for a percentage with 1 decimal. The word `success` comes after the braces.",
+            "Hand back an f-string: one placeholder with the parameter and the percentage spec with 1 decimal, then a space and the word `success`. Do not multiply by 100 yourself.",
         ],
     },
     {
         "id": "fstrings-1",
         "lesson": r'''
-            ## Newlines in a string
+            ## One string, two lines
 
-            One string can hold several lines. An **escape sequence** is a backslash followed by a
-            character, and Python reads the pair as one special character. The escape sequence `\n`
-            is the **newline character**. When Python prints it, the output continues on a new line.
+            A settings panel shows a small card with two lines of text. The function that builds the card
+            returns one string. So how does one string hold two lines?
+
+            With the newline character. You met `\n` in the Data Types chapter as something to strip
+            away. Now you put it in on purpose:
 
             ```python
-            model = "gpt-4o"
-            temperature = 0.7
-            card = f"Model: {model}\nTemperature: {temperature:.2f}"
+            card = "Model: gpt-4o\nTemperature: 0.70"
             print(card)
             # Model: gpt-4o
             # Temperature: 0.70
@@ -778,38 +916,64 @@ EXERCISES = [
             # 3
             ```
 
-            `card` is one string, and `print` shows it as two lines. `len("a\nb")` is 3 because
-            `\n` is written with two characters in the code and stored as one character in the
-            string.
+            `card` is one string, and `print` shows it as two lines, because at the `\n` the output
+            moves on to a new line. `len("a\nb")` is 3: the `\n` is typed as two signs and stored as one
+            character.
 
-            Two other escape sequences are `\t`, the tab character, and `\\`, a single backslash.
+            A backslash followed by a character, which Python reads as one special character, is called
+            an **escape sequence**. `\n` is the newline. Two others are `\t`, a tab, and `\\`, a real
+            backslash.
 
-            Python keeps the spaces around `\n`. `"a \n b"` gives the lines `"a "` and `" b"`.
+            A `\n` works inside an f-string too, right next to placeholders:
 
-            A `\n` at the very end of a string is one more character, and `print` shows an empty
-            line after the text. Add it only when the task asks for it.
+            ```predict
+            user = "Ada"
+            print(f"Hi {user},\nwelcome back.")
+            print(len("x\ny\n"))
+            ---
+            The first string holds one newline, so `print` shows it as two lines: `Hi Ada,` and `welcome back.`. The second string has four characters: `x`, a newline, `y` and another newline.
+            ```
+
+            Python keeps every space around a `\n`.
+
+            ```quiz
+            What is on the second line of the output of `print("a \n b")`?
+            - [x] A space, then `b` :: Right. The space after `\n` belongs to the string, so the second line starts with it. In the same way the first line ends with a space.
+            - [ ] Only `b` :: Python does not tidy spaces away. Every character between the quotes is kept.
+            - [ ] `\n b` :: The `\n` itself is never shown. It is the character that ends the first line.
+            ```
+
+            **Watch out:** a `\n` at the very end of a string is one more character, and `print` then
+            shows an empty line under the text. Put one there only when a task asks for it.
+
+            **In short:** `\n` inside a string starts a new line, so one string can hold several lines.
         ''',
         "title": "Model card",
         "difficulty": 1,
         "hints": [
-            "You need an f-string, a newline character, and a format spec for decimals.",
-            "Build one string with two parts: the model line, then \\n, then the temperature line with 2 decimals.",
-            "Start with f\"Model: {model}, then add \\n, then Temperature: followed by {temperature:.2f}. Do not end with \\n.",
+            "Three things from this chapter meet here: an f-string, the newline character, and a format spec for decimals.",
+            "Build one string with two parts: the line for the model, then the newline, then the line for the temperature with 2 decimals.",
+            "One f-string does it: the text `Model: `, a placeholder for the model, the newline escape, the text `Temperature: `, and a placeholder for the temperature with the 2-decimal spec. Nothing comes after it.",
         ],
         "prompt": r'''
-            A short "model card" shown in a chat app's settings panel.
+            The settings panel of a chat app shows a small "model card": the name of the model on one
+            line, and its temperature on the next.
 
-            **Write:** `model_card(model, temperature)`
+            **Your job:** write `model_card(model, temperature)` so that it gives back the card as one
+            string that holds two lines.
 
-            - `model`: a string, the model name, e.g. `"gpt-4o"`
-            - `temperature`: a number (float or int), e.g. `0.7`
-            - **Returns:** one string made of **two lines** separated by a newline character `\n`
+            **What goes in**
+            - `model`: the name of the model, a string, for example `"gpt-4o"`
+            - `temperature`: a number, a float or an int, for example `0.7`
+
+            **What comes out**
+            - one string with two lines, separated by a newline character `\n`
 
             **Rules**
             - Line 1 is `Model: ` followed by the model name.
-            - Line 2 is `Temperature: ` followed by the temperature with **exactly 2 decimals**
-              (rounded: `0.456` shows as `0.46`, `1` shows as `1.00`).
-            - Exactly one `\n` (between the lines). No `\n` at the end.
+            - Line 2 is `Temperature: ` followed by the temperature with exactly 2 decimals. It is rounded:
+              `0.456` shows as `0.46`, and `1` shows as `1.00`.
+            - There is exactly one `\n`, between the two lines. There is none at the end.
 
             **Examples**
             ```python
@@ -817,8 +981,9 @@ EXERCISES = [
             model_card("m", 1)          # returns "Model: m\nTemperature: 1.00"
             model_card("m", 0.456)      # returns "Model: m\nTemperature: 0.46"
             ```
-            Printed, the first one looks like:
-            ```
+
+            Printed, the first one looks like this:
+            ```text
             Model: gpt-4o
             Temperature: 0.70
             ```
@@ -859,57 +1024,87 @@ EXERCISES = [
     {
         "id": "fstrings-2",
         "lesson": r'''
-            ## The = specifier
+            ## Print the name along with the value
 
-            To find a bug, you often print variables to see their values. A line of values such as
-            `gpt-4o 512 0.35` does not show which value belongs to which variable. You could write
-            `f"model={model}"` for each one. The **`=` specifier** is shorter: write `=` after the
-            expression inside the braces.
+            When you hunt a bug, you print variables to see what they hold. A line such as
+            `gpt-4o 512 0.35` then leaves you guessing which number is which. You could write
+            `f"model={model} tokens={tokens}"`, typing every name twice. There is a shorter way:
 
             ```python
             model = "gpt-4o"
             tokens = 512
-            latency = 0.3456
             print(f"{model=} {tokens=}")
             # model='gpt-4o' tokens=512
-            print(f"{latency=:.2f}")
-            # latency=0.35
             ```
 
-            For `{model=}`, Python inserts the text of the expression, an equals sign and then the
-            value.
+            Put an `=` right after the name inside the braces. Python then inserts three things: the
+            text of what you wrote, an equals sign, and the value. This is called the **`=` specifier**.
+            The Python docs also call it a self-documenting expression.
 
-            A string value is shown with quotes around it. The quotes make an empty string or a
-            space at the end of a string visible.
+            Notice the quotes around `gpt-4o`. A string value is shown with quotes here, and that is
+            useful, because it makes an empty string or a space at the end visible.
 
-            You can add a format spec. The `=` goes before the colon: `{latency=:.2f}`.
+            ```predict
+            city = "Rome "
+            count = 0
+            print(f"{city=}")
+            print(f"{count=} {count + 1=}")
+            ---
+            The quotes show that `city` ends with a space: `city='Rome '`. The specifier works with any expression: it shows the text `count + 1`, an equals sign, and the result, 1.
+            ```
 
-            The Python docs call a placeholder with `=` a **self-documenting expression**.
+            ### Together with a format spec
+
+            You can still add a format spec. The `=` goes first, then the colon, then the spec:
+
+            ```python
+            ratio = 0.3456
+            print(f"{ratio=:.1f}")
+            # ratio=0.3
+            ```
+
+            ```quiz
+            `share` is `0.25`. Which placeholder shows `share=25%`?
+            - [x] `{share=:.0%}` :: Right. The name, then `=`, then the colon and the spec.
+            - [ ] `{share:.0%=}` :: The `=` has to stand before the colon. After the spec, Python does not accept it.
+            - [ ] `{share:=.0%}` :: After the colon, everything is read as the format spec, and there `=` means something else. The name is not printed.
+            ```
+
+            **Watch out:** the `=` specifier is a tool for debugging. Text that users will read is better
+            written out, because they should not see the names of your variables.
+
+            **In short:** `{name=}` inserts the name, an equals sign and the value, and a format spec can
+            follow after `=:`.
         ''',
         "title": "Debug line",
         "hints": [
-            "The f-string = specifier, like {model=}, prints the name, an equals sign and the value.",
-            "Use three placeholders separated by spaces, one per parameter, each with =. Latency also needs a 2-decimal spec after the =.",
-            "Write {model=}, a space, {tokens=}, a space, then {latency=:.2f}. Note the = comes before the colon.",
+            "The `=` specifier of an f-string prints a name, an equals sign and the value.",
+            "Use three placeholders with a space between them, one for each parameter, each with `=` after the name. The latency also needs a spec for 2 decimals, placed after the `=`.",
+            "Hand back one f-string with three placeholders in the order of the task. Each holds a parameter name followed by `=`. In the last one, a colon and the 2-decimal spec come after the `=`.",
         ],
         "difficulty": 1,
         "prompt": r'''
-            A one-line debug log for an API call.
+            When a call to a model API goes wrong, a one-line debug log shows you at a glance what was
+            sent and how long it took: the model, the number of tokens and the latency, which is the time
+            the call took in seconds.
 
-            **Write:** `debug_line(model, tokens, latency)`
+            **Your job:** write `debug_line(model, tokens, latency)` so that it gives back that line.
 
-            - `model`: a string, e.g. `"gpt-4o"`
-            - `tokens`: an integer, e.g. `512`
-            - `latency`: a number of seconds (float or int), e.g. `0.3456`
-            - **Returns:** a string like `"model='gpt-4o' tokens=512 latency=0.35"`
+            **What goes in**
+            - `model`: a string, for example `"gpt-4o"`
+            - `tokens`: a whole number, for example `512`
+            - `latency`: a number of seconds, a float or an int, for example `0.3456`
+
+            **What comes out**
+            - a string such as `"model='gpt-4o' tokens=512 latency=0.35"`
 
             **Rules**
-            - Three parts, in this order, separated by single spaces: `model=...`, `tokens=...`,
-              `latency=...`.
-            - The model name appears **with quotes** around it (`model='gpt-4o'`).
-            - `latency` is shown with exactly 2 decimals (`2` shows as `2.00`).
-            - You must use the f-string **`=` specifier** (a *self-documenting expression*: inside
-              the braces, a name followed by `=`). A check looks for it in your code.
+            - There are three parts in this order, with single spaces between them: `model=...`,
+              `tokens=...` and `latency=...`.
+            - The model name appears with quotes around it: `model='gpt-4o'`.
+            - `latency` is shown with exactly 2 decimals: `2` shows as `2.00`.
+            - Use the `=` specifier of f-strings, a name followed by `=` inside the braces. A check looks
+              for it in your code.
 
             **Examples**
             ```python
@@ -944,33 +1139,31 @@ EXERCISES = [
     {
         "id": "fstrings-7",
         "lesson": r'''
-            ## Width and alignment
+            ## Columns that line up
 
-            A table is readable when every column has a fixed width. A whole number in a format
-            spec that does not follow a `.` is the **width**: the minimum number of characters
-            the result must have. Python
-            adds spaces to reach the width. Those extra spaces are called **padding**.
-
-            The **alignment** option decides where the padding goes. `<` left-aligns the value, so
-            the spaces go after it. `>` right-aligns the value, so the spaces go before it.
+            A usage table in a terminal has model names of different lengths and numbers of different
+            sizes. Printed one after the other, they make a ragged mess. For the rows to line up, each
+            column needs a fixed width.
 
             ```python
             name = "gpt-4o"
-            tokens = 512
             print(f"[{name:<10}]")
             # [gpt-4o    ]
             print(f"[{name:>10}]")
             # [    gpt-4o]
-            print(f"[{tokens:>6}]")
+            print(f"[{512:>6}]")
             # [   512]
-            print(f"[{'a-very-long-name':<5}]")
-            # [a-very-long-name]
             ```
 
-            The square brackets are ordinary text that shows where the spaces are. `gpt-4o` has 6
-            characters, so Python adds 4 spaces to reach 10.
+            The square brackets are ordinary text. They are only there to show where the spaces are.
 
-            Step through the code and count the spaces in each output line.
+            A whole number in the format spec is the **width**: the smallest number of characters the
+            result may have. Python fills the rest with spaces, and those spaces are called **padding**.
+            The sign in front of the width decides where the padding goes. `<` puts the value on the
+            left and the spaces after it. `>` puts the value on the right and the spaces before it. This
+            is called the **alignment**.
+
+            Press Next and count the spaces in each line of output:
 
             ```diagram
             {"type": "trace", "title": "Padding to a width", "code": ["name = \"gpt-4o\"", "tokens = 512", "print(f\"[{name:<10}]\")", "print(f\"[{name:>10}]\")", "print(f\"[{tokens:>6}]\")", "print(f\"[{'a-very-long-name':<5}]\")"], "steps": [
@@ -984,34 +1177,54 @@ EXERCISES = [
             ]}
             ```
 
-            Width is a minimum. The last line has a 16-character value and a width of 5, and Python
-            shows the value in full.
+            The last line of that program shows that the width is a minimum. A value that is longer than
+            the width is shown in full, and nothing is cut off.
 
-            Without an alignment option, Python left-aligns strings and right-aligns numbers.
+            ```predict
+            print(f"[{'ab':<4}]")
+            print(f"[{'ab':>4}]")
+            print(f"[{7:>3}][{'toolong':<3}]")
+            ---
+            `ab` has 2 characters, so a width of 4 adds 2 spaces: after the value for `<`, and before it for `>`. In the last line, `7` gets 2 spaces in front, and `toolong` is longer than its width of 3, so it is shown in full.
+            ```
 
-            Width counts characters. `{name:<10}{tokens:>6}` produces 16 characters when both
-            values fit.
+            ```quiz
+            What does `f"[{42:5}]"` produce? The spec has a width and no alignment sign.
+            - [x] `[   42]` :: Right. Without a sign, Python right-aligns numbers and left-aligns strings.
+            - [ ] `[42   ]` :: That is how a string would be padded. Numbers go to the right by default, so that their digits line up.
+            - [ ] `[42]` :: The width of 5 still applies. Only the alignment was left to the default.
+            ```
+
+            Two placeholders side by side make a row with two columns, and their widths add up.
+
+            **Watch out:** the width counts every character of the result. A placeholder with a width of
+            10 and one with a width of 6 give 16 characters, as long as both values fit.
+
+            **In short:** `{value:<10}` pads on the right, `{value:>10}` pads on the left, and a value
+            that is longer than the width is shown in full.
         ''',
         "title": "Aligned usage cell",
         "difficulty": 1,
         "prompt": r'''
-            A usage table in a terminal: model names on the left, token counts on the right,
-            so that every row lines up.
+            A usage table in a terminal has the model names on the left and the token counts on the
+            right. For the rows to line up, every row is built from two columns of fixed width.
 
-            **Write:** `usage_cell(name, tokens)`
+            **Your job:** write `usage_cell(name, tokens)` so that it gives back one row.
 
-            - `name`: a string, the model name, e.g. `"gpt-4o"`
-            - `tokens`: an integer, e.g. `512`
-            - **Returns:** one string: `name` **left-aligned** in 10 characters, immediately
-              followed by `tokens` **right-aligned** in 6 characters (16 characters in total
-              when both fit)
+            **What goes in**
+            - `name`: the name of the model, a string, for example `"gpt-4o"`
+            - `tokens`: a whole number, for example `512`
+
+            **What comes out**
+            - one string: `name` left-aligned in 10 characters, directly followed by `tokens`
+              right-aligned in 6 characters. When both values fit, that is 16 characters in total.
 
             **Rules**
-            - Padding is done with spaces.
-            - Nothing between the two columns: the padding *is* the gap.
-            - A name longer than 10 characters is shown **in full** (not cut); the number
-              column still follows it directly.
-            - No thousands separators.
+            - The padding is made of spaces.
+            - Nothing stands between the two columns. The padding is the gap.
+            - A name that is longer than 10 characters is shown in full, not cut. The number column
+              follows it directly.
+            - The number has no thousands separators.
 
             **Examples**
             ```python
@@ -1049,29 +1262,32 @@ EXERCISES = [
                 return f"{name:<10}{tokens:>6}"
         ''',
         "hints": [
-            "A format spec can set a width and an alignment: < for left, > for right.",
-            "Use two placeholders right next to each other: the name with left alignment and width 10, then tokens with right alignment and width 6.",
-            "Return an f-string with {name:<10} immediately followed by {tokens:>6}, with no space between the two placeholders.",
+            "A format spec can set a width and an alignment: one sign for left, another for right.",
+            "Use two placeholders directly next to each other: the name, left-aligned in a width of 10, and then the tokens, right-aligned in a width of 6.",
+            "Hand back an f-string with two placeholders and nothing between them. The first holds the name, the sign for left alignment and the width 10. The second holds the tokens, the sign for right alignment and the width 6.",
         ],
     },
     {
         "id": "fstrings-8",
         "lesson": r'''
-            ## Reading the format spec reference
+            ## Looking up a format option
 
-            You have used several format spec options: `.2f`, `,`, `%`, `<`, `>` and widths. There
-            are more. The official Python reference lists all of them, so you can look an option up
-            when you need it.
+            You now know several format options: `.2f`, the comma, `%`, `<`, `>` and the width. There are
+            more, and nobody keeps them all in their head. The official reference lists every one of
+            them, and it sums up the whole format spec in a single dense line:
 
-            The docs describe the parts of a spec with a short list of rules. Written on one
-            line, the rules say:
+            ```text
+            [[fill]align][sign]["z"]["#"]["0"][width][grouping]["." precision][type]
+            ```
 
-            `[[fill]align][sign]["z"]["#"]["0"][width][grouping]["." precision][type]`
+            It looks forbidding, and it follows three simple rules.
 
-            Read it from left to right. You can ignore `sign`, `"z"` and `"#"` for now. Each `[...]` is an optional part. Text in double quotes,
-            such as `"0"`, is a character you type exactly as shown. The parts you use must
-            appear in this order. In `>10,` the `>` is the align part, `10` is the width and `,` is
-            the grouping part.
+            - Each `[...]` is a part that you may leave out.
+            - Text in double quotes, such as `"0"`, is a character that you type exactly as shown.
+            - The parts that you do use appear in this order, from left to right.
+
+            You can ignore `sign`, `"z"` and `"#"` for now. Take the spec `>10,` and read it against the
+            line: `>` is the align part, `10` is the width, and `,` is the grouping.
 
             ```python
             tokens = 12345
@@ -1081,12 +1297,32 @@ EXERCISES = [
             # [*****12345]
             ```
 
-            The second spec starts with a **fill** character: the character Python uses for padding
-            instead of a space. The fill goes directly before the alignment option.
+            The second spec starts with a **fill** character. It is the character Python pads with, in
+            place of a space, and it stands directly before the alignment sign.
 
-            For this step, open the reference and find the part that pads a number with zeros
-            instead of spaces. Read its description and the examples, then come back. The terms to
-            search for are *zero padding* and *width*.
+            ```match
+            `>` in `{x:>8.2f}` :: the align part: the padding goes in front
+            `8` in `{x:>8.2f}` :: the width: at least 8 characters
+            `.2` in `{x:>8.2f}` :: the precision: 2 digits after the point
+            `f` in `{x:>8.2f}` :: the type: show a number with a decimal point
+            ```
+
+            ```quiz
+            You want a number right-aligned in 12 characters, with thousands separators. Which spec has its parts in the right order?
+            - [x] `>12,` :: Right. Align, then width, then grouping, as in the line from the reference.
+            - [ ] `,12>` :: The parts are in the reverse order. Python stops with a `ValueError` about the format spec.
+            - [ ] `12>,` :: The align sign has to come before the width. After a width, Python expects the grouping or the precision, so it stops with a `ValueError` about the format spec.
+            ```
+
+            For this step, open the reference that is linked in the task. Find the option that pads a
+            number with zeros in place of spaces, and read its description. The words to look for are
+            "zero padding" and "width".
+
+            **Watch out:** the order of the parts is fixed. A spec whose parts are in another order is
+            either an error or means something different.
+
+            **In short:** the reference line lists the parts of a format spec in the order in which they
+            must be written, and every part is optional.
         ''',
         "title": "Zero-padded request ids",
         "difficulty": 1,
@@ -1100,20 +1336,25 @@ EXERCISES = [
             ],
         },
         "prompt": r'''
-            Every API request gets an id like `REQ-00042`. Padding the number with zeros keeps
-            the ids the same length, so they line up in logs and sort correctly as text.
+            Every request to your API gets an id such as `REQ-00042`. The number is padded with zeros so
+            that all ids have the same length. They then line up in a log, and they sort correctly when
+            they are sorted as text.
 
-            **Write:** `request_id(n)`
+            **Your job:** write `request_id(n)` so that it gives back the id for request number `n`.
 
-            - `n`: a non-negative integer, e.g. `42`
-            - **Returns:** a string: `REQ-` followed by `n` padded with **leading zeros** to
-              **5 digits**
+            **What goes in**
+            - `n`: a whole number that is 0 or more, for example `42`
+
+            **What comes out**
+            - a string: `REQ-` followed by `n`, padded with zeros in front to 5 digits: `"REQ-00042"` for
+              the example value
 
             **Rules**
-            - Numbers with fewer than 5 digits get zeros in front (`42` becomes `00042`).
-            - Numbers with 5 or more digits are shown in full, without cutting
-              (`123456` becomes `123456`).
-            - Use a format spec for the padding (the docs linked above explain how).
+            - A number with fewer than 5 digits gets zeros in front: `42` becomes `00042`.
+            - A number with 5 digits or more is shown in full, with nothing cut off: `123456` stays
+              `123456`.
+            - The padding is done by a format spec. The reference linked above explains which option
+              does it.
 
             **Examples**
             ```python
@@ -1151,17 +1392,17 @@ EXERCISES = [
                 return f"REQ-{n:05}"
         ''',
         "hints": [
-            "Look in the format spec grammar for the option that goes right before the width.",
-            "A 0 placed directly in front of the width pads a number with zeros instead of spaces. You need a width of 5.",
-            "Return an f-string that starts with REQ- followed by a placeholder for n whose spec is a zero and then the width 5.",
+            "In the line from the reference, find the option that stands directly before the width.",
+            "That option pads a number with zeros in place of spaces. You also need a width.",
+            "Hand back an f-string that starts with `REQ-` and continues with a placeholder for `n`. Its spec is the zero option, followed by the width that the task asks for.",
         ],
     },
     {
         "id": "fstrings-3",
         "hints": [
-            'Everything can be done with format specs: width, alignment, precision, separators and percent.',
-            'Build one f-string with three placeholders separated by |. For strings, a precision like .12 cuts the text; for numbers use , and %.',
-            'Column 1: name with < alignment, width 12 and precision .12. Column 2: tokens with >, width 8 and ,. Column 3: share with >, width 7 and .1%.',
+            "Everything here is done with format specs: width, alignment, precision, separators and percent.",
+            "Build one f-string with three placeholders and a `|` between them. For a string, a precision cuts the text to that many characters. The numbers use the comma and the percent spec.",
+            "Column 1 is the name with left alignment, width 12 and precision 12. Column 2 is the tokens with right alignment, width 8 and the thousands separator. Column 3 is the share with right alignment, width 7 and the percent spec with 1 decimal.",
         ],
         "title": "Fixed-width row",
         "difficulty": 2,
@@ -1174,24 +1415,31 @@ EXERCISES = [
             ],
         },
         "prompt": r'''
-            One row of a usage table, printed in fixed-width columns so rows line up.
+            A usage table has three columns: the model name, the number of tokens, and the share of all
+            tokens that this model used. Each row is printed in columns of fixed width, so that the rows
+            line up.
 
-            **Write:** `format_row(name, tokens, share)`
+            **Your job:** write `format_row(name, tokens, share)` so that it gives back one row of that
+            table.
 
-            - `name`: a string, the model name, e.g. `"gpt-4o"`
-            - `tokens`: an integer, e.g. `12345`
-            - `share`: a fraction between 0 and 1, e.g. `0.4567` (meaning 45.67%)
-            - **Returns:** one string with three columns separated by `|` (no spaces around the `|`
-              other than the padding), 29 characters long when every value fits its column
+            **What goes in**
+            - `name`: the name of the model, a string, for example `"gpt-4o"`
+            - `tokens`: a whole number, for example `12345`
+            - `share`: a fraction between 0 and 1, for example `0.4567`, which means 45.67%
+
+            **What comes out**
+            - one string with three columns and a `|` between them. When every value fits its column, the
+              string is 29 characters long.
 
             **Rules**
-            - Column 1: `name` **left-aligned** in 12 characters (padded with spaces on the right).
-              A name longer than 12 characters is **cut** to its first 12 characters.
-            - Column 2: `tokens` **right-aligned** in 8 characters, with comma thousands separators.
-              (If the number with commas is wider than 8, it is simply shown in full.)
-            - Column 3: `share` as a **percentage** with 1 decimal and a `%` sign, **right-aligned**
-              in 7 characters (`1` shows as `100.0%`, `0.00049` shows as `0.0%`).
-            - The first `|` is always at position 12 (right after the name column).
+            - Column 1 is `name`, left-aligned in 12 characters, with spaces as padding on the right. A
+              name that is longer than 12 characters is cut to its first 12 characters.
+            - Column 2 is `tokens`, right-aligned in 8 characters, with commas as thousands separators.
+              A number that is wider than 8 characters with its commas is shown in full.
+            - Column 3 is `share` as a percentage with 1 decimal and a `%` sign, right-aligned in 7
+              characters. `1` shows as `100.0%`, and `0.00049` shows as `0.0%`.
+            - There are no spaces around the `|` signs apart from the padding, so the first `|` always
+              comes directly after the 12 characters of the name column.
 
             **Examples**
             ```python
@@ -1240,29 +1488,34 @@ EXERCISES = [
     {
         "id": "fstrings-4",
         "hints": [
-            "Zero padding is a format spec (like {7:03}), and the width inside a spec can itself come from a variable.",
-            "First handle an index outside 1..total with an if. Then work out how many digits total has and pad index to that many digits.",
-            "If not 1 <= index <= total, return the invalid label. Otherwise compute width = len(str(total)) and use a nested spec like {index:0{width}} in the label.",
+            "Zero padding is a format spec, and the width inside a spec can itself come from a variable: a placeholder inside the spec.",
+            "Handle an index outside the range first, with an `if`. Then work out how many digits the total has, and pad the index to that many digits.",
+            "When the index is not between 1 and the total, hand back the invalid label. Otherwise count the digits of the total, by taking `len` of its text form. Use that count as the width of a zero-padded placeholder for the index, written as a second pair of braces inside the spec.",
         ],
         "title": "Chunk labels",
         "difficulty": 2,
         "prompt": r'''
-            When a document is split into chunks, each chunk gets a label such as
-            `"report.pdf [003/120]"`. Padding with zeros makes the labels sort correctly as text.
+            When a long document is split into pieces, called chunks, each chunk gets a label such as
+            `report.pdf [003/120]`: the file, the number of the chunk, and the number of chunks. The chunk
+            number is padded with zeros, so that the labels sort correctly when they are sorted as text.
 
-            **Write:** `chunk_label(source, index, total)`
+            **Your job:** write `chunk_label(source, index, total)` so that it gives back the label.
 
-            - `source`: a string, the file name, e.g. `"report.pdf"`
-            - `index`: an integer, the chunk number, **starting at 1**
-            - `total`: an integer, how many chunks there are, e.g. `120`
-            - **Returns:** a string: `source`, a space, then `[index/total]`
+            **What goes in**
+            - `source`: the name of the file, a string, for example `"report.pdf"`
+            - `index`: the number of the chunk, a whole number. The first chunk is number 1.
+            - `total`: the number of chunks, a whole number, for example `120`
+
+            **What comes out**
+            - a string: `source`, a space, and then `[index/total]`: `"report.pdf [003/120]"` for chunk 3
+              of 120
 
             **Rules**
-            - `index` is padded with leading zeros to have **as many digits as `total`**
-              (`total` 120 has 3 digits, so index 3 shows as `003`). `total` itself is shown as is.
-            - If `total` has 1 digit, there is no padding (`[3/9]`).
-            - If `index` is not between 1 and `total` (inclusive) - e.g. `0`, a negative number, or
-              bigger than `total` - return `source` followed by ` [invalid]` instead.
+            - `index` is padded with zeros in front until it has as many digits as `total`. A `total` of
+              120 has 3 digits, so index 3 shows as `003`. `total` itself is shown as it is.
+            - When `total` has 1 digit, nothing is padded: `[3/9]`.
+            - When `index` is not between 1 and `total`, both included, the result is `source` followed
+              by ` [invalid]`. That covers `0`, a negative number, and a number greater than `total`.
 
             **Examples**
             ```python
@@ -1316,33 +1569,41 @@ EXERCISES = [
     {
         "id": "fstrings-5",
         "hints": [
-            "Build each of the three lines as its own f-string with width and alignment specs, then join them with \\n.",
-            "Compute the cost first (prices are per 1,000,000 tokens). The trick: make the money text \"$\" plus 4 decimals as its own string, then right-align that whole string in 10 characters.",
-            "cost = (input_tokens * price_in + output_tokens * price_out) / 1_000_000. money = f\"${cost:.4f}\". Header: 'MODEL' left in 14, then 'INPUT', 'OUTPUT', 'COST' right in 10 each. Row: model <14, tokens >10 with commas, money >10. Third line: 44 dashes. Return the lines joined with \\n (none at the end).",
+            "Build each of the three lines as a string of its own, with specs for width and alignment. Then join the lines with `\\n`.",
+            "Work out the cost first. The prices are for 1,000,000 tokens. The trick for the last column: make the money text, `$` and 4 decimals, as a string of its own, and then right-align that whole string in 10 characters.",
+            "Five steps: the cost, from the two token counts and the two prices, divided by a million. The money text. The header, with `MODEL` left in 14 and the other three titles right in 10 each. The row, with the same widths, commas for the token counts, and the money text. Last, hand back the header, the row and 44 dashes, joined with newlines and with no newline at the end.",
         ],
         "title": "Cost report",
         "difficulty": 3,
         "prompt": r'''
-            A small cost report for one model's API usage, aligned like a table.
+            A cost report shows what one model's API usage cost: the tokens that went in, the tokens that
+            came out, and the price. It is laid out like a small table, with a header, one row and a
+            line of dashes.
 
-            **Write:** `cost_report(model, input_tokens, output_tokens, price_in, price_out)`
+            **Your job:** write
+            `cost_report(model, input_tokens, output_tokens, price_in, price_out)` so that it gives back
+            the report as one string.
 
-            - `model`: a string, e.g. `"gpt-4o-mini"`
-            - `input_tokens`, `output_tokens`: integers, e.g. `12000`
-            - `price_in`, `price_out`: floats, dollars **per 1,000,000 tokens**, e.g. `0.15`
-            - **Returns:** one string of **three lines** joined with `\n`, no `\n` at the end
+            **What goes in**
+            - `model`: a string, for example `"gpt-4o-mini"`
+            - `input_tokens`, `output_tokens`: whole numbers, for example `12000`
+            - `price_in`, `price_out`: floats, the price in dollars for 1,000,000 tokens, for example `0.15`
+
+            **What comes out**
+            - one string of three lines, joined with `\n`, with no `\n` at the end
 
             **Rules**
-            - Cost = `input_tokens` times `price_in` plus `output_tokens` times `price_out`, all
-              divided by 1,000,000.
-            - Line 1 (header) is exactly `MODEL              INPUT    OUTPUT      COST`
-              (`MODEL` left-aligned in 14 characters, then `INPUT`, `OUTPUT`, `COST` each
-              right-aligned in 10 characters).
-            - Line 2 uses the same columns: model name left-aligned in 14; input tokens and output
-              tokens right-aligned in 10 each **with comma thousands separators**; the cost as `$`
-              followed by the amount with **4 decimals**, and the **whole** `$...` text right-aligned
-              in 10 characters (so the `$` sits right next to the number).
-            - Line 3 is 44 `-` characters.
+            - The cost is `input_tokens` times `price_in`, plus `output_tokens` times `price_out`, and
+              that sum divided by 1,000,000.
+            - Line 1, the header, is exactly `MODEL              INPUT    OUTPUT      COST`. That is
+              `MODEL` left-aligned in 14 characters, and then `INPUT`, `OUTPUT` and `COST`, each
+              right-aligned in 10 characters.
+            - Line 2 has the same columns. The model name is left-aligned in 14. The input tokens and the
+              output tokens are right-aligned in 10 each, with commas as thousands separators. The cost
+              is `$` followed by the amount with 4 decimals, and that whole text, `$` included, is
+              right-aligned in 10 characters, so the `$` stands directly against the number.
+            - Line 3 is 44 `-` characters. A string times a number repeats the string: `"-" * 3` is
+              `"---"`.
 
             **Examples**
             ```python
@@ -1350,14 +1611,16 @@ EXERCISES = [
             cost_report("gpt-4o", 1200000, 2000000, 2.50, 10.00)
             cost_report("m", 0, 0, 1.0, 1.0)
             ```
+
             Printed, the first one is:
-            ```
+            ```text
             MODEL              INPUT    OUTPUT      COST
             gpt-4o-mini       12,000     3,400   $0.0038
             --------------------------------------------
             ```
+
             The second line of the other two:
-            ```
+            ```text
             gpt-4o         1,200,000 2,000,000  $23.0000
             m                      0         0   $0.0000
             ```
@@ -1411,28 +1674,34 @@ EXERCISES = [
     {
         "id": "fstrings-6",
         "hints": [
-            "Try the units in order (k, then M, then B) with if statements, and look at the formatted text, not just the raw number.",
-            "Format n divided by the unit size with one decimal. If that displayed number is below 1000, use this unit; otherwise try the next one. B is used when nothing smaller works.",
-            "Return str(n) when n < 1000. Make shown = f\"{n / 1000:.1f}\"; if float(shown) < 1000 return shown + \"k\". Do the same with 1_000_000 and \"M\". Otherwise return the value divided by 1_000_000_000 with one decimal plus \"B\".",
+            "Try the units in order, `k`, then `M`, then `B`, with `if` statements. Look at the formatted text, not only at the raw number.",
+            "Format `n` divided by the size of the unit with one decimal. When the number that is shown is below 1000, use that unit. Otherwise try the next one. `B` takes whatever is left.",
+            "Below 1000, hand back the number as text. Otherwise format `n` divided by a thousand with one decimal, and store the text. When that text, turned back into a float, is below 1000, hand it back with `k` joined on. Do the same with a million and `M`. Otherwise hand back `n` divided by a billion with one decimal, and `B`.",
         ],
         "title": "Human-readable token counts",
         "difficulty": 3,
         "prompt": r'''
-            Dashboards show token counts in short form, like `"128.0k"` or `"1.5M"`.
+            Dashboards show token counts in a short form that is quick to read, such as `128.0k` for
+            128,000 or `1.5M` for 1,500,000.
 
-            **Write:** `humanize(n)`
+            **Your job:** write `humanize(n)` so that it gives back the short form of a count.
 
-            - `n`: a non-negative integer token count, e.g. `128000`
-            - **Returns:** a string
+            **What goes in**
+            - `n`: a number of tokens, a whole number that is 0 or more, for example `128000`
+
+            **What comes out**
+            - a string
 
             **Rules**
-            - Below 1,000: the plain integer as text (`0` returns `"0"`, `999` returns `"999"`).
-            - Otherwise divide by 1,000 (suffix `k`), 1,000,000 (suffix `M`) or 1,000,000,000
-              (suffix `B`), show **one decimal** (rounded), then the suffix with no space.
-            - Use the smallest unit whose **displayed** (rounded) number is below 1000. A value must
-              never be shown as `"1000.0k"` or `"1000.0M"`: `999_990` is `"1.0M"`, and
-              `999_960_000` is `"1.0B"`.
-            - `B` is the largest unit, so it may show 1000 or more (`"1234.6B"`).
+            - Below 1,000 the result is the plain number as text: `0` gives `"0"`, and `999` gives `"999"`.
+            - From 1,000 on, the number is divided by 1,000 (letter `k`), by 1,000,000 (letter `M`) or by
+              1,000,000,000 (letter `B`), shown with one decimal, rounded, and followed by the letter
+              with no space.
+            - Use the smallest unit for which the number that is shown, after rounding, is below 1000. A
+              value must never appear as `"1000.0k"` or `"1000.0M"`: `999_990` is `"1.0M"`, and
+              `999_960_000` is `"1.0B"`. (Python lets you write `999_990` for 999990. The underscores only
+              help the eye.)
+            - `B` is the largest unit, so with `B` the number may be 1000 or more: `"1234.6B"`.
 
             **Examples**
             ```python

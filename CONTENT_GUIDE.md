@@ -459,3 +459,212 @@ Rules: use only concepts from this chapter and earlier chapters in the path, PLU
 things to find out. Keep scope small enough for the level. Vary the themes across chapters
 (tiny games, text tools, trackers, AI-app bits, data crunching, simulations...). Validate:
 `python3 scripts/validate_content.py mini:<chapter> ...` → 0 failing.
+
+# v6: THE TEACHER REWRITE (supersedes the voice rules above for `lesson`, `prompt` and `hints`)
+
+The v4 lessons are accurate but read like a reference manual: a definition, a bold term, the next
+definition. A beginner needs a teacher. Everything a learner reads in a step (`lesson`, `prompt`,
+`hints`, and `explanation` on predict steps) is rewritten to the rules below. Nothing else in an
+exercise changes.
+
+## Who you are writing for
+
+Someone smart who has never programmed, studying alone in the evening, a little nervous. They do
+not know what "argument", "iterate" or "in place" mean until you tell them. They will read every
+word, so every word must help. Write the way the best teacher you ever had would explain it across
+a table: one idea at a time, a reason for each idea, and a chance to try it before moving on.
+
+## The lesson (`lesson` field)
+
+A lesson teaches the ONE idea that this step's exercise needs. Use this shape:
+
+1. **`## ` heading** in plain words that says what the learner will be able to do
+   ("The last item, without counting"), not the name of a feature ("Negative indexes").
+2. **Start with a situation or a question**, never a definition. Two or three sentences that make
+   the learner want the idea: a small problem they can picture, ideally from an AI app (a chat
+   history, a list of model names, a bill for tokens) and always explained in everyday words.
+3. **Show the smallest example that works** in a ```python block, then say in plain words what
+   each part did. Build up in small steps. If an idea has two parts, teach one, let them try it,
+   then teach the other.
+4. **Idea first, name second.** Describe the thing in everyday words and let it work in an example.
+   Only then give it its real name in bold: "Programmers call this number an **index**." Every
+   technical term gets this treatment the first time the chapter uses it. From then on, use the
+   real term, because the learner needs it for docs, error messages and job interviews.
+   One short, accurate everyday comparison is welcome when it truly helps ("a variable is a label
+   stuck on a value"). No extended metaphors, no themed stories, no jokes that need explaining.
+5. **Make them do something every screenful.** At least one interactive block (next section), and
+   two or three in most lessons, each placed directly after the idea it exercises.
+6. **`**Watch out:**`** the one mistake beginners really make here, what the error message looks
+   like, and what it means.
+7. **`**In short:**`** one sentence they can repeat from memory.
+
+Rules:
+
+- 150-400 words of prose, plus examples and blocks. Short sentences. Short paragraphs.
+- Say "you". Use contractions sparingly. No hype ("awesome", "super easy", "simply", "just").
+  Never tell the learner something is easy or obvious.
+- Explain *why*, not only *what*: "Python counts from 0, so the third item is at position 2."
+- Never use a word or a Python feature that neither this chapter (in an earlier step) nor an
+  earlier chapter has taught. If you need one, explain it in a sentence where you use it.
+- Later steps refer back: "Remember the `-1` trick from two steps ago?"
+- ASCII only. No em dashes, no emojis, no curly quotes.
+- Every ```python block is a complete program that runs with the standard library, prints
+  something, and is 12 lines or fewer. Show what it prints as `# ` comment lines directly under
+  the `print` that printed them. Full-line `#` comments in lesson examples are output only.
+- **Never give away this step's exercise.** Teach the idea with different names and different
+  data. The lesson for a predict step must not contain the program the learner has to predict.
+- A lesson on a difficulty 2-3 step is a short "Putting it together" (which ideas from the chapter
+  combine here and how to plan the work), still with at least one interactive block.
+
+## Interactive blocks
+
+Fenced blocks that the app turns into small activities inside the lesson. They are plain text, so
+they are easy to write and `lesson_tools.py check` can run the code in them. A section break is a
+line that contains only `---`. Use a mix across a chapter; never the same type three steps in a row.
+
+**quiz**: one question, 2-5 options, exactly one marked `[x]`. Every option carries feedback
+after ` :: ` that says *why* it is right or wrong (the wrong options are the mistakes beginners
+really make). The question is markdown; for a code sample inside it use a `~~~python` fence.
+The app shuffles the options of a quiz and of a fill block, so never refer to an option by its
+position ("the first one") and do not write "all of the above".
+
+    ```quiz
+    A list has 5 items. Which index reads the same item as `[-1]`?
+    - [ ] `[5]` :: Counting starts at 0, so 5 items use positions 0 to 4. `[5]` is past the end.
+    - [x] `[4]` :: Yes. Five items sit at positions 0, 1, 2, 3 and 4, so the last one is at 4.
+    - [ ] `[0]` :: `[0]` is the first item, not the last.
+    ```
+
+**predict**: the learner types what the code prints, then the app runs it and compares. Code,
+`---`, then the explanation shown afterwards. The code must run cleanly, print 1-8 lines and
+print the same thing every time.
+
+    ```predict
+    messages = ["hi", "hello", "how are you?"]
+    messages.append("fine, thanks")
+    print(messages[-1])
+    ---
+    `append` put a fourth message at the end, so `-1` now reads `"fine, thanks"`.
+    ```
+
+**fill**: code with exactly one `___` gap and 2-4 options (raw code, exactly one `[x]`), each
+with feedback. Optional third section: an explanation. With the right option the code must run
+and print something; each wrong option must fail or print something else.
+
+    ```fill
+    models = ["small", "medium", "large"]
+    print(models[___])
+    ---
+    - [x] -1 :: Right. `-1` is the last item however long the list is.
+    - [ ] 3 :: A list of 3 items has positions 0, 1 and 2. Position 3 raises an IndexError.
+    - [ ] 0 :: That is the first item.
+    ```
+
+**order**: 3-8 lines of code written in the CORRECT order (the app shuffles them), `---`, then
+an explanation. The learner arranges them; any order that prints the same output counts.
+
+    ```order
+    name = "Ada"
+    greeting = "Hello, " + name
+    print(greeting)
+    ---
+    Python runs lines from top to bottom, so `name` must exist before the line that uses it.
+    ```
+
+**try**: a small editor in the lesson. Starter code, `---`, the goal in words, `---`, solution
+code (never shown; its output is the target), and optionally `---` plus an explanation shown on
+success. The starter may contain a bug to fix. Use it for "change one thing and see".
+
+    ```try
+    temperature = 0.7
+    print("temperature is", temperature)
+    ---
+    Change one number so the program prints `temperature is 0.2`.
+    ---
+    temperature = 0.2
+    print("temperature is", temperature)
+    ---
+    The name stayed the same. Only the value stored under it changed.
+    ```
+
+**match**: 3-6 `left :: right` pairs (the app shuffles the right side). Good for vocabulary and
+for "what does each line print". Optional `---` plus an explanation.
+
+    ```match
+    `"hello"` :: text
+    `42` :: a whole number
+    `3.5` :: a number with a decimal point
+    ```
+
+**diagram**: the JSON widgets that already exist (`list-index`, `slice`, `alias-copy`, `dict`,
+`stack-queue`, `trace`, `recursion`, `set-ops`, `flow`, `vectors`, `chunks`). Keep the ones that
+help, move them next to the idea they show, and introduce each with a sentence that tells the
+learner what to try. Make a trace with `python3 scripts/lesson_tools.py trace FILE.py`; never
+write trace steps by hand. A diagram is extra: a lesson still needs at least one of the six
+blocks above.
+
+Blocks may only use what the lesson has taught up to that point. A block is practice for the idea,
+not a second exercise: it should take under a minute.
+
+## The task (`prompt` field)
+
+The learner must be able to tell exactly what to make and how they will know it is right, without
+being told how to write it. Use this shape (predict steps keep a one-line prompt):
+
+```markdown
+<The situation in 1-3 plain sentences: what this is for and why anyone would want it.>
+
+**Your job:** <one sentence in plain words. Name the function and say what it gives back.
+For a fill-the-gap or fix-the-bug step, say that the code is already there and what is missing
+or wrong in terms of behaviour, not the fix.>
+
+**What goes in**
+- `param`: what it is in plain words, with an example value
+
+**What comes out**
+- what is returned (or printed), in plain words, with an example
+
+**Rules**
+- one bullet for every behaviour a check tests: edge cases, exact text, rounding, error type
+
+**Examples**
+```python
+function_name("a", 2)    # returns "..."
+```
+```
+
+- Read every test and make sure the prompt states that behaviour, in Rules or in Examples. A
+  careful beginner who can write the code must pass every check on the first try.
+- Use words the chapter has taught. Explain the task's own words ("an allow-list is the list of
+  things that are permitted"). Give the reason for an odd rule when there is one.
+- Say what, never how: no solution code, no "use `x[-1]`", no algorithm. If a check enforces a
+  feature ("uses a `for` loop"), say that the check exists.
+- 2-4 examples with exact results, one of them an edge case.
+- A script step uses "**Your job:** write a script that ..." and shows the exact output of a run.
+
+## Hints (`hints`, exactly 3)
+
+A hint moves the learner one step, then stops. None of them may contain the answer or a line of it.
+
+1. Point at the idea: which part of the lesson to look at again, or a question to ask themselves.
+2. The approach in plain words.
+3. The steps in order, in words. Name a tool if needed ("the method that adds one item to the
+   end"), but do not write the expression. "Replace `___` with `-1`" is an answer, not a hint.
+
+## What you may and may not change
+
+- Rewrite: `lesson`, `prompt`, `hints`, and `explanation` (predict steps).
+- Frozen, byte for byte: `id`, `title`, `difficulty`, `mode`, `code`, `solution`, `tests`,
+  `starter`, `placement`, `impl`, `mutants`, `setup_files`, `research`, `concepts`, the order of
+  the exercises, `TOPIC` and `REFERENCE`.
+- `LESSON` (the chapter notes) stays a compact cheat-sheet. Touch it only to fix a mistake.
+
+## Check your work
+
+```
+python3 scripts/lesson_tools.py check tNN_<file>.py     # 0 problems; read every warning
+python3 scripts/validate_content.py <topic-id>          # 0 failing, 0 structural issues
+```
+
+`check` runs every example and every block, compares frozen fields with the last commit, and
+refuses a hint or prompt that quotes a line of the solution.

@@ -302,10 +302,11 @@ EXERCISES = [
         "title": "Fill in the condition",
         "difficulty": 0,
         "lesson": r'''
-            ## The if statement
+            ## Do something only when it is true
 
-            An `if` statement runs a block of code only when a condition is `True`. A **condition**
-            is an expression that Python evaluates to `True` or `False`, such as `cost > 10`.
+            Until now, every line of your programs ran, from top to bottom, every time. A useful program
+            makes decisions. It refuses a prompt that is too long. It warns you when the bill gets high.
+            For that, Python needs a way to run some lines only some of the time.
 
             ```python
             cost = 12
@@ -316,17 +317,34 @@ EXERCISES = [
             # checked
             ```
 
-            You write `if`, then the condition, then a colon `:`. The lines indented by 4 spaces
-            under it are the **if block**, also called a **branch**. Python runs the block when the
-            condition is `True` and skips it when the condition is `False`.
+            Read `if cost > 10:` as a question. When the answer is `True`, Python runs the indented line
+            under it. When the answer is `False`, Python skips that line. The last line is not indented,
+            so it runs either way.
 
-            `print("checked")` is not indented, so it is not part of the block. It runs in both cases.
+            The question after `if` is called the **condition**. It is a comparison like the ones in the
+            last chapter, or anything else that gives `True` or `False`. The indented lines are the `if`
+            **block**, and programmers also call them a **branch**. The shape is the same as for `def`: a
+            line that ends with a colon, and under it a block indented by 4 spaces.
 
-            ### if inside a function
+            ```try
+            cost = 12
+            if cost > 10:
+                print("over budget")
+            print("checked")
+            ---
+            Change the first line so that the program prints only `checked`.
+            ---
+            cost = 8
+            if cost > 10:
+                print("over budget")
+            print("checked")
+            ---
+            With a cost of 10 or less the condition is `False`, so Python skips the indented line. The last line is outside the block and runs every time.
+            ```
 
-            A `return` statement ends the function call immediately and sends its value to the
-            code that called the function. When the condition is `False`, Python skips the block and continues with the
-            next line after it.
+            ### An if inside a function
+
+            Decisions get more useful inside a function, together with `return`:
 
             ```python
             def check(cost):
@@ -340,7 +358,8 @@ EXERCISES = [
             # over budget
             ```
 
-            Step through both calls to see which `return` line runs each time.
+            A `return` ends the call at once. So the line `return "ok"` is only reached when the
+            condition was `False`. Press Next and follow both calls:
 
             ```diagram
             {"type": "trace", "title": "Two calls to check(cost)", "code": ["def check(cost):", "    if cost > 10:", "        return \"over budget\"", "    return \"ok\"", "", "print(check(3))", "print(check(12))"], "steps": [
@@ -355,20 +374,35 @@ EXERCISES = [
             ]}
             ```
 
-            `>` means "more than" and does not include the limit itself: `10 > 10` is `False`.
-            `>=` means "more than or equal to", so `10 >= 10` is `True`.
+            ```quiz
+            What does `check(10)` hand back?
+            - [x] `"ok"` :: Right. `10 > 10` is `False`, because `>` means "more than" and does not include the limit itself. Python skips the block and reaches the last line.
+            - [ ] `"over budget"` :: That needs a cost above 10. For the limit itself to count, the condition would have to use `>=`.
+            - [ ] `None` :: `None` comes back only when a call reaches the end without a `return`. Here the last line of the function is a `return`.
+            ```
+
+            **Watch out:** the `if` line ends with a colon. Without it, Python stops with
+            `SyntaxError: expected ':'`.
+
+            **In short:** `if condition:` runs its indented block only when the condition is `True`, and
+            Python then carries on with the lines after the block.
         ''',
         "prompt": r'''
-            A request is refused when the prompt is too long. Finish the check.
+            An AI model refuses a prompt that is too long, so your app checks the length first and reports
+            what it found.
 
-            **Write:** replace `___` in `check_length(tokens)`
+            **Your job:** finish `check_length(tokens)`. It is written except for one gap, marked `___`.
+            The gap is the condition of the `if`.
 
-            - `tokens`: the prompt length, an `int`, e.g. `5000`
-            - **Returns:** the string `"too long"` or the string `"ok"`
+            **What goes in**
+            - `tokens`: the length of the prompt in tokens, a whole number, for example `5000`
+
+            **What comes out**
+            - the string `"too long"` or the string `"ok"`
 
             **Rules**
-            - Return `"too long"` when `tokens` is **more than** `4000`.
-            - Otherwise return `"ok"`. Exactly `4000` is `"ok"`.
+            - More than `4000` tokens is too long.
+            - Everything else is ok. Exactly `4000` tokens is still ok.
 
             **Examples**
             ```python
@@ -405,9 +439,9 @@ EXERCISES = [
                 return "ok"
         ''',
         "hints": [
-            "The blank is a comparison that is True only for values bigger than the limit.",
-            "Compare tokens to 4000. 'More than' does not include 4000 itself.",
-            "Replace ___ with tokens, the greater-than sign, and 4000 (not >=).",
+            "The gap is a condition: a comparison that is `True` only when the prompt is too long.",
+            "Compare `tokens` with the limit from the task. \"More than\" does not include the limit itself.",
+            "Write the parameter, then the operator for \"greater than\", then the limit. Do not use the operator that also accepts equal values.",
         ],
     },
     {
@@ -415,15 +449,14 @@ EXERCISES = [
         "title": "Fix: compare, don't assign",
         "difficulty": 0,
         "lesson": r'''
-            ## Assignment and equality
+            ## One equals sign stores, two compare
 
-            `=` and `==` are two different operators.
+            In a chat, the message with the role `system` holds the instructions for the model. To treat
+            it differently, your code has to ask: is this role equal to `"system"`? The natural thing to
+            type is `if role = "system":`, and Python refuses to run it.
 
-            - `=` is the **assignment operator**. `role = "user"` makes the name `role` refer to the
-              string `"user"`.
-            - `==` is the **equality operator**. `role == "user"` compares the two values and
-              produces `True` or `False`. It does not change `role`.
-            - `!=` is the "not equal" operator. It produces `True` when the two values differ.
+            The reason is that `=` already has a job. It stores a value under a name. A question needs a
+            sign of its own, and that sign is `==`:
 
             ```python
             role = "user"
@@ -435,31 +468,60 @@ EXERCISES = [
             # True
             ```
 
-            The condition of an `if` must be a comparison, not an assignment. Python rejects
-            `if role = "user":` with a `SyntaxError` before it runs any line of the file. The
-            message reads `invalid syntax. Maybe you meant '==' or ':=' instead of '='?`. (`:=` is
-            another operator that you do not need yet. Use `==` here.)
+            `==` is called the **equality operator**. It compares two values and gives a bool, and it
+            changes nothing. `=` is the **assignment operator**. `!=` asks the opposite question: are the
+            two values different?
 
-            Python compares strings character by character, and uppercase and lowercase letters are
-            different characters.
-
-            ```python
-            print("User" == "user")
-            # False
+            ```match
+            `role = "user"` :: stores the string under the name `role`
+            `role == "user"` :: asks whether `role` is equal to `"user"`
+            `role != "user"` :: asks whether `role` is different from `"user"`
             ```
+
+            When you do type one `=` in a condition, Python's message is unusually helpful:
+
+            ```text
+            SyntaxError: invalid syntax. Maybe you meant '==' or ':=' instead of '='?
+            ```
+
+            It even suggests `==`. (The other sign it mentions, `:=`, is one you do not need yet.) Because
+            this is a syntax error, Python finds it before it runs anything, so not one line of the file
+            runs.
+
+            Strings are compared exactly, character by character, and a capital letter is a different
+            character from its small letter:
+
+            ```predict
+            role = "User"
+            print(role == "user")
+            print(role.lower() == "user")
+            print(role != "user")
+            ---
+            `"User"` and `"user"` differ in their first character, so the first line is `False` and the third is `True`. `role.lower()` hands back `"user"`, which is equal to `"user"`, so the second line is `True`.
+            ```
+
+            **Watch out:** `=` inside a condition is always this mistake. When the error message asks
+            "Maybe you meant '=='?", the answer is yes.
+
+            **In short:** `=` stores a value under a name, and `==` asks whether two values are equal.
         ''',
         "prompt": r'''
-            Only messages with the `"system"` role hold the model's instructions. This check
-            has one bug: Check fails with a `SyntaxError`. Read the message, find the line, fix it.
+            In a chat with an AI model every message has a role. The message with the role `"system"`
+            holds the instructions for the model. This function should say whether a role is the system
+            role, but Check fails with a `SyntaxError` before any of the code runs.
 
-            **Write:** fix `is_system(role)`
+            **Your job:** find the bug in `is_system(role)` and fix it. The code is already in the editor.
 
-            - `role`: a message role, a string, e.g. `"user"`
-            - **Returns:** the boolean `True` or `False` (not the text `"True"`)
+            **What goes in**
+            - `role`: the role of a message, a string, for example `"user"`
+
+            **What comes out**
+            - a bool: `True` when `role` is exactly `"system"`, and `False` otherwise
 
             **Rules**
-            - Return `True` only when `role` is exactly `"system"` (lowercase).
-            - Any other role returns `False`, including `"System"` with a capital S.
+            - Only the lowercase word `"system"` gives `True`.
+            - Every other role gives `False`. That includes `"System"` with a capital S.
+            - The result is the bool `True` or `False`, not the text `"True"`.
 
             **Examples**
             ```python
@@ -492,9 +554,9 @@ EXERCISES = [
                 return False
         ''',
         "hints": [
-            "The error points at the if line. A single = means 'store', not 'compare'.",
-            "To compare two values for equality you need a different operator.",
-            "Change the single = on the if line to a double ==.",
+            "Read the error message. It names the line, and it even suggests what you may have meant.",
+            "A single `=` stores a value. The `if` line needs the operator that compares two values.",
+            "On the `if` line, replace the sign that stores with the sign that compares. Nothing else has to change.",
         ],
     },
     {
@@ -502,10 +564,10 @@ EXERCISES = [
         "title": "Pass or fail",
         "difficulty": 0,
         "lesson": r'''
-            ## if and else
+            ## One way or the other
 
-            An `if` on its own runs its block or does nothing. Add `else:` to give Python a second
-            block to run when the condition is `False`.
+            An `if` on its own either does something or does nothing. Often you want one thing or
+            another: fast or slow, pass or fail. For the second half, add `else:`.
 
             ```python
             latency = 3.2
@@ -516,13 +578,26 @@ EXERCISES = [
             # slow
             ```
 
-            Exactly one of the two blocks runs. `else` has no condition. Its block runs every time
-            the `if` condition is `False`.
+            (Latency is the time an answer takes, here in seconds.) The `else:` line has no condition of
+            its own. Its block runs whenever the condition of the `if` was `False`. So exactly one of the
+            two blocks runs, never both and never neither.
 
-            ### return instead of else
+            ```fill
+            stock = 0
+            if stock > 0:
+                print("available")
+            ___
+                print("sold out")
+            ---
+            - [x] else: :: Right. `stock > 0` is `False`, so the block under `else:` runs and the program prints `sold out`.
+            - [ ] else :: The colon is missing. Like `if`, an `else` line ends with a colon, and without it Python stops with a `SyntaxError`.
+            - [ ] else stock == 0: :: An `else` never has a condition. It takes every case that the `if` did not, so Python stops with a `SyntaxError`.
+            ```
 
-            Inside a function you can leave out `else`. `return` ends the function call, so the
-            line after the `if` block only runs when the condition was `False`.
+            ### Inside a function you can leave else out
+
+            A `return` ends the call. So the line after the `if` block is only reached when the condition
+            was `False`, and that makes it the "else" without the word:
 
             ```python
             def speed(latency):
@@ -534,21 +609,38 @@ EXERCISES = [
             # fast slow
             ```
 
-            "At most" means `<=` and "at least" means `>=`. Both include the limit itself. The
-            value where the result changes is the **boundary**. `speed(2)` returns `"fast"` because
-            `2 <= 2` is `True`. Always test the boundary value itself.
+            Look at `speed(2)`. It is `"fast"`, because `2 <= 2` is `True`. "At most" is written `<=` and
+            "at least" is written `>=`, and both include the limit itself. The value at which the answer
+            flips is called the **boundary**. Whenever you write a condition, try the boundary value.
+
+            ```quiz
+            A ride is free for children under 6. Which condition is right for "free"?
+            - [x] `age < 6` :: Right. "Under 6" does not include 6 itself, so a child of exactly 6 pays.
+            - [ ] `age <= 6` :: This also lets a 6-year-old ride free. "Under" leaves the boundary out.
+            - [ ] `age > 6` :: This is `True` for everyone older than 6, which is the opposite group.
+            ```
+
+            **Watch out:** `else:` starts at the same indentation as its `if`. An `else` that is
+            indented differently either stops with a `SyntaxError` or attaches to the wrong `if`.
+
+            **In short:** `if` and `else` give two blocks of which exactly one runs, and in a function a
+            `return` after the `if` block does the job of `else`.
         ''',
         "prompt": r'''
-            An eval gives each answer a score from 0 to 1. Turn the score into a verdict.
+            A tool that tests AI answers gives each answer a score from 0 to 1. Such a test is called an
+            eval. Your report does not need the number, only a verdict: pass or fail.
 
-            **Write:** `grade(score)`
+            **Your job:** write `grade(score)` so that it gives back the verdict.
 
-            - `score`: a number from `0` to `1`, e.g. `0.9`
-            - **Returns:** the string `"pass"` or the string `"fail"`
+            **What goes in**
+            - `score`: a number from `0` to `1`, for example `0.9`
+
+            **What comes out**
+            - the string `"pass"` or the string `"fail"`
 
             **Rules**
-            - Return `"pass"` when `score` is **at least** `0.5` (so `0.5` itself passes).
-            - Otherwise return `"fail"` (this includes `0.49` and `0`).
+            - A score of at least `0.5` is a pass. `0.5` itself passes.
+            - Every lower score is a fail. That includes `0.49` and `0`.
 
             **Examples**
             ```python
@@ -582,9 +674,9 @@ EXERCISES = [
                 return "fail"
         ''',
         "hints": [
-            "Use an if with a comparison. 'At least' includes the boundary value.",
-            "If score is greater than or equal to 0.5 return one word, otherwise return the other.",
-            "1) An if that compares score with 0.5 using >=, returning pass inside it. 2) After the if block (not indented under it), return fail.",
+            "The function has two possible results, so it needs a condition. \"At least\" includes the boundary value itself.",
+            "When the score is high enough, the function hands back one word. In every other case it hands back the other word.",
+            "Write an `if` that compares `score` with 0.5, using the operator for \"greater than or equal to\", and hand back the passing word inside its block. After the block, at the indentation of the `if`, hand back the failing word.",
         ],
     },
     {
@@ -592,11 +684,10 @@ EXERCISES = [
         "title": "Small, medium, large",
         "difficulty": 0,
         "lesson": r'''
-            ## elif
+            ## More than two outcomes
 
-            Some decisions have more than two outcomes. `elif` (short for "else if") adds another
-            condition to an `if` statement. An `if` followed by `elif` and `else` lines is a
-            **conditional chain**.
+            Fast, normal, slow, timed out: that is four outcomes, and `if` with `else` only gives two.
+            `elif`, short for "else if", adds another question to the same decision:
 
             ```python
             ms = 250
@@ -613,11 +704,12 @@ EXERCISES = [
             # labelled
             ```
 
-            Python checks the conditions from the top. It runs the block under the first condition
-            that is `True` and skips every branch after it, even a branch whose condition is also
-            `True`. Here `ms < 5000` is `True` for 250, but Python never checks it.
+            Python asks the questions from the top. It runs the block under the first one that is `True`
+            and then skips everything else in the decision, even questions that would also be `True`.
+            Here `250 < 5000` is true as well, but Python never gets to ask it. An `if` followed by
+            `elif` and `else` lines is called a **conditional chain**.
 
-            Step through the code to see which lines are skipped.
+            Press Next and watch which lines are skipped:
 
             ```diagram
             {"type": "trace", "title": "Which branch runs when ms is 250", "code": ["ms = 250", "if ms < 200:", "    print(\"fast\")", "elif ms < 1000:", "    print(\"normal\")", "elif ms < 5000:", "    print(\"slow\")", "else:", "    print(\"timeout\")", "print(\"labelled\")"], "steps": [
@@ -630,26 +722,55 @@ EXERCISES = [
             ]}
             ```
 
-            The second condition only needs `ms < 1000`. Python reaches that line only when
-            `ms < 200` was `False`, so `ms` is already known to be 200 or more.
+            ### Each question can rely on the ones before it
 
-            A chain can have any number of `elif` lines. The `else` is optional.
+            Python only reaches `elif ms < 1000` when `ms < 200` was `False`. At that point `ms` is
+            already known to be 200 or more, so the second question does not have to say so again.
 
-            Order matters. If `ms < 1000` came first, a value of 50 would print `normal`, because
-            `50 < 1000` is `True` and Python stops at the first match.
+            It also means that the order of the questions matters:
+
+            ```predict
+            ms = 50
+            if ms < 1000:
+                print("normal")
+            elif ms < 200:
+                print("fast")
+            else:
+                print("slow")
+            ---
+            The first question is already `True` for 50, so Python prints `normal` and never asks the second one. With the questions in this order, `fast` can never be printed. Ask the narrowest question first.
+            ```
+
+            ```quiz
+            A chain has an `if`, two `elif` lines and an `else`. How many of its four blocks run?
+            - [x] Exactly one :: Right. Python runs the block of the first condition that is `True`, or the `else` block when none is, and skips the rest.
+            - [ ] One for every condition that is `True` :: Python stops asking after the first `True`. Later conditions are not even checked.
+            - [ ] Possibly none :: That can happen in a chain without `else`. With an `else`, there is always a block that runs.
+            ```
+
+            **Watch out:** only the first match counts. A question that is too wide, placed too early,
+            swallows the cases that were meant for the questions below it.
+
+            **In short:** an `if` / `elif` / `else` chain asks its questions from the top and runs
+            exactly one block: the first one whose condition is `True`.
         ''',
         "prompt": r'''
-            Label a document by its size so you can decide how to process it.
+            Before your app processes a document it sorts it by size, because small, medium and large
+            documents are handled in different ways.
 
-            **Write:** `size_label(tokens)`
+            **Your job:** write `size_label(tokens)` so that it gives back the label for a document of
+            that length.
 
-            - `tokens`: the document length, an `int`, e.g. `500`
-            - **Returns:** one of the strings `"small"`, `"medium"`, `"large"`
+            **What goes in**
+            - `tokens`: the length of the document in tokens, a whole number, for example `500`
+
+            **What comes out**
+            - one of the strings `"small"`, `"medium"` and `"large"`
 
             **Rules**
-            - Fewer than `100` tokens: return `"small"`.
-            - From `100` up to `999` tokens: return `"medium"` (`100` is medium).
-            - `1000` tokens or more: return `"large"` (`1000` is large).
+            - Fewer than `100` tokens is `"small"`.
+            - From `100` up to `999` tokens is `"medium"`. `100` itself is medium.
+            - `1000` tokens or more is `"large"`. `1000` itself is large.
 
             **Examples**
             ```python
@@ -687,9 +808,9 @@ EXERCISES = [
                     return "large"
         ''',
         "hints": [
-            "Three outcomes means if, elif, else (or two ifs with early returns and a final return).",
-            "Check the smallest range first. Because the first match wins, the second check only needs '< 1000'.",
-            "1) First condition: under 100 gives small. 2) An elif: under 1000 gives medium. 3) An else gives large. Each branch returns its word, indented under its line.",
+            "Three outcomes need a chain with three branches.",
+            "Ask about the smallest size first. Because the first match wins, the second question does not have to repeat the lower limit.",
+            "The first branch takes fewer than 100 tokens and hands back the first label. The second branch, with `elif`, takes fewer than 1000 and hands back the middle label. The last branch, with `else`, hands back the remaining label.",
         ],
     },
     {
@@ -697,14 +818,15 @@ EXERCISES = [
         "title": "Both must be true",
         "difficulty": 0,
         "lesson": r'''
-            ## and, or, not
+            ## Two questions in one
 
-            A decision often depends on two conditions. The **boolean operators** `and`, `or` and
-            `not` combine conditions into one. They are also called **logical operators**.
+            Many decisions depend on two things at once. Retry a request only if the API was busy and you
+            have not tried too often already. Publish an answer only if its score is high and it was not
+            flagged. Three small words combine conditions:
 
-            - `a and b` is `True` only when both `a` and `b` are `True`.
-            - `a or b` is `True` when at least one of `a` and `b` is `True`.
-            - `not a` is `False` when `a` is `True`, and `True` when `a` is `False`.
+            - `a and b` is `True` only when both sides are `True`.
+            - `a or b` is `True` when at least one side is `True`.
+            - `not a` turns `True` into `False`, and `False` into `True`.
 
             ```python
             score = 0.9
@@ -717,8 +839,16 @@ EXERCISES = [
             # True
             ```
 
-            Each result is a `bool`. You can use it as the condition of an `if`, or return it
-            directly from a function.
+            `and`, `or` and `not` are called **boolean operators**, or logical operators.
+
+            ```match
+            `True and False` :: `False`, because `and` needs both sides
+            `True or False` :: `True`, because `or` needs only one side
+            `not True` :: the opposite of `True`
+            ```
+
+            The result of a boolean operator is a bool. You can use it as the condition of an `if`, or
+            hand it straight back from a function:
 
             ```python
             def can_publish(score, flagged):
@@ -728,22 +858,45 @@ EXERCISES = [
             # True False
             ```
 
-            Each side of `and` and `or` must be a complete expression. `score >= 0.5 and < 1` is a
-            `SyntaxError`. Write the name again: `score >= 0.5 and score < 1`.
+            ```predict
+            tokens = 300
+            cached = True
+            print(tokens < 500 and cached)
+            print(tokens > 500 or cached)
+            print(not cached)
+            ---
+            `300 < 500` is `True` and `cached` is `True`, so `and` gives `True`. `300 > 500` is `False`, but `or` only needs one side, and `cached` is `True`. `not` turns `True` into `False`.
+            ```
+
+            ```quiz
+            A shop gives a discount to students and to everyone over 65. A customer has `student = False` and `age = 70`. What is `student or age > 65`?
+            - [x] `True` :: Right. `student` is `False`, but `70 > 65` is `True`, and `or` needs only one side.
+            - [ ] `False` :: That would be the result of `and`, which needs both sides. `or` is satisfied by one.
+            - [ ] An error :: Mixing a bool and a comparison is fine, because a comparison produces a bool too.
+            ```
+
+            **Watch out:** each side of `and` and `or` has to be a complete condition.
+            `score >= 0.5 and < 1` is a `SyntaxError`. Write the name again: `score >= 0.5 and score < 1`.
+
+            **In short:** `and` needs both sides to be `True`, `or` needs one, and `not` flips a bool.
         ''',
         "prompt": r'''
-            When an API answers with status `429` (rate limited) you may retry, but only a
-            few times.
+            When an API is busy, it answers with the status code `429`, which means "too many requests,
+            try again later". Your app does try again, but only a few times.
 
-            **Write:** replace `___` in `should_retry(status, attempts)`
+            **Your job:** finish `should_retry(status, attempts)`. It is written except for one gap,
+            marked `___`. The gap is the word that joins the two conditions.
 
-            - `status`: the HTTP status code, an int, e.g. `429`
-            - `attempts`: how many attempts were already made, an int, e.g. `1`
-            - **Returns:** a `bool`: `True` only if `status` is `429` **and** `attempts` is less than `3`
+            **What goes in**
+            - `status`: the status code of the answer, a whole number, for example `429`
+            - `attempts`: the number of attempts made so far, a whole number, for example `1`
+
+            **What comes out**
+            - a bool: `True` only when `status` is `429` and `attempts` is less than `3`
 
             **Rules**
-            - Any other status gives `False`.
-            - `3` or more attempts gives `False`, even for `429`.
+            - Every other status gives `False`.
+            - `3` or more attempts gives `False`, even when the status is `429`.
 
             **Examples**
             ```python
@@ -779,9 +932,9 @@ EXERCISES = [
                 return status == 429 and attempts < 3
         ''',
         "hints": [
-            "The blank joins two conditions. Which boolean operator means 'both must be true'?",
-            "The result should be True only when the status check and the attempts check are both True.",
-            "Replace ___ with the word and.",
+            "The gap joins two conditions into one.",
+            "The result should be `True` only when the status check and the attempts check are both `True`. Which boolean operator needs both sides?",
+            "Replace the three underscores with the boolean operator from the lesson that means \"both must be true\". It is a plain English word.",
         ],
     },
     {
@@ -790,15 +943,17 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Tracing a conditional chain
+            ## Reading a chain before you run it
 
-            **Tracing** means reading code line by line and working out what each line does
-            before you run it. Two rules cover a conditional chain.
+            Before you press Run, you can work out what a program will do by reading it line by line,
+            the way Python does. This helps you find bugs without changing random lines, and a chain of conditions gives you a clear place to practise.
 
-            1. In an `if` / `elif` / `else` chain, exactly one block runs: the block under the
-               first condition that is `True`. If no condition is `True`, the `else` block runs.
-            2. A line that is not indented comes after the chain. It runs every time, whichever
-               block ran.
+            Two rules are all you need.
+
+            1. In an `if` / `elif` / `else` chain, exactly one block runs: the block under the first
+               condition that is `True`. When no condition is `True`, the `else` block runs.
+            2. A line that is back at the indentation of the `if` comes after the chain. It runs every
+               time, whichever block ran.
 
             ```python
             tokens = 50
@@ -811,12 +966,52 @@ EXERCISES = [
             # True
             ```
 
-            `50 > 100` is `False`, so Python skips `print("big")` and runs the `else` block. The
-            last line is not indented, so it runs next. `50 < 100` is `True` and `50 > 10` is
-            `True`, so `and` produces `True`.
+            Following execution line by line is called **tracing**.
+
+            Trace it. `50 > 100` is `False`, so Python skips `print("big")` and runs the `else` block.
+            The last line is not indented, so it runs next. `50 < 100` is `True` and `50 > 10` is `True`,
+            so `and` gives `True`.
+
+            ```quiz
+            In the program above, why does the last `print` run although the `else` block has already run?
+            - [x] It is not indented, so it is not part of the chain :: Right. The chain ends where the indentation goes back to the left edge. Everything after that runs in every case.
+            - [ ] Because its condition is `True` :: The last line has no condition of its own. It prints the result of a comparison, whatever that result is.
+            - [ ] Because `else` always runs the next two lines :: A block is exactly the lines that are indented under its line, here one line.
+            ```
+
+            Now reason the other way round. Decide which block you want, then find a value that leads to
+            it:
+
+            ```try
+            tokens = 50
+            if tokens > 100:
+                print("big")
+            elif tokens > 10:
+                print("medium")
+            else:
+                print("small")
+            ---
+            Change only the first line so that the program prints `small`.
+            ---
+            tokens = 5
+            if tokens > 100:
+                print("big")
+            elif tokens > 10:
+                print("medium")
+            else:
+                print("small")
+            ---
+            The `else` block is reached only when both conditions are `False`, which means a value of 10 or less.
+            ```
+
+            **Watch out:** check the conditions in order and stop at the first one that is `True`. A
+            later condition that is also true does not matter.
+
+            **In short:** to trace a chain, find the first condition that is `True`, run only its block,
+            and then carry on after the chain.
         ''',
         "prompt": r'''
-            Read the code and type exactly what it prints.
+            Read the program in the editor. Type exactly what it prints, one line of output per line.
         ''',
         "code": r'''
             tokens = 900
@@ -833,47 +1028,48 @@ EXERCISES = [
             True
         ''',
         "explanation": r'''
-            900 is not greater than 1000, so the first block is skipped. It is greater
-            than 500, so `long` prints and the `else` is skipped. The last line is outside
-            the if (not indented), so it always runs: both sides of `and` are true.
+            `900 > 1000` is `False`, so the first block is skipped. `900 > 500` is `True`, so `long` is
+            printed, and the `else` block is skipped. The last line is not indented, so it is outside the
+            chain and always runs. `900 >= 900` is `True` and `900 < 1000` is `True`, so `and` gives
+            `True`.
         ''',
         "starter": "",
         "tests": "",
         "hints": [
-            "Check each condition from the top with tokens = 900. Only one block of an if/elif/else chain runs.",
-            "The first condition is false, the second is true. The last print is not part of the if chain.",
-            "Line 1: the text of the first block whose condition is true. Line 2: is 900 >= 900 and 900 < 1000? Print True or False.",
+            "Check each condition from the top, with `tokens` standing for 900. Only one block of the chain runs.",
+            "The first condition is `False` and the second is `True`. The last `print` is not part of the chain.",
+            "Your first line is the text printed by the block whose condition is the first to be `True`. Your second line is `True` or `False`: ask whether 900 is at least 900 and also less than 1000.",
         ],
     },
     {
         "id": "conditionals-2",
-        "hints": ['A comparison already produces True or False, so you can return it directly.', "Write one chained comparison that says 't is between 0 and 2, both ends included'.", 'Return 0, then <=, then t, then <=, then 2 in a single expression. No if needed.'],
+        "hints": [
+            "A comparison already produces `True` or `False`, so the function can hand it straight back.",
+            "One chained comparison can say \"`t` lies between 0 and 2, with both ends included\".",
+            "Write one `return` line with `t` in the middle: the lower limit, the operator that includes the limit, `t`, the same operator again, and the upper limit. No `if` is needed.",
+        ],
         "title": "Temperature in range",
         "difficulty": 1,
         "lesson": r'''
-            ## Chained comparisons
+            ## Between two limits
 
-            A setting often has to lie between two limits. A **chained comparison** uses two
-            comparison operators in one expression.
+            The temperature setting of a model has to lie between 0 and 2. In maths you would write that
+            with the value in the middle of two signs. Python lets you write almost the same:
 
             ```python
             t = 1.5
             print(0 <= t <= 2)
             # True
-            print(0 <= 3 <= 2)
+            t = 3
+            print(0 <= t <= 2)
             # False
             ```
 
-            `0 <= t <= 2` means `0 <= t and t <= 2`. Both comparisons must be `True`. The second
-            line prints `False` because `3 <= 2` is `False`.
+            `0 <= t <= 2` means `0 <= t and t <= 2`. Both comparisons have to be `True`. Two comparison
+            operators in one expression are called a **chained comparison**.
 
-            `<=` includes the limit. A range with "both ends included" is called **inclusive** and
-            uses `<=` on both sides. Use `<` on a side that excludes its limit.
-
-            ### Returning a comparison
-
-            A comparison already produces `True` or `False`. A function can return that value
-            directly, without an `if`.
+            `<=` includes its limit. A range in which both ends count is called **inclusive**, and it has
+            `<=` on both sides. Use `<` on a side whose limit should not count:
 
             ```python
             def is_small(n):
@@ -883,24 +1079,55 @@ EXERCISES = [
             # True False False
             ```
 
-            `is_small(100)` is `False` because `100 < 100` is `False`.
+            `is_small(100)` is `False`, because `100 < 100` is `False`.
 
-            `if ...: return True` followed by `else: return False` gives the same result in four
-            lines. Returning the comparison itself is shorter and does the same thing.
+            ```quiz
+            For which value of `n` is `10 < n <= 20` `True`?
+            - [x] For 20, but not for 10 :: Right. `10 < n` leaves 10 out, and `n <= 20` lets 20 in.
+            - [ ] For 10, but not for 20 :: It is the other way round. The side with `<` leaves its limit out, and that is the side with 10.
+            - [ ] For both 10 and 20 :: That would need `<=` on both sides.
+            ```
+
+            ### A comparison is already the answer
+
+            Notice that `is_small` has no `if`. A comparison produces `True` or `False`, and a function
+            can hand that bool straight back. Writing `if ...: return True` followed by `return False`
+            gives the same result in three lines.
+
+            ```fill
+            def is_teen(age):
+                return ___
+
+            print(is_teen(13), is_teen(19), is_teen(20))
+            ---
+            - [x] 13 <= age <= 19 :: Right. Both ends count, so 13 and 19 are teens and 20 is not. The program prints `True True False`.
+            - [ ] 13 < age < 19 :: `<` on both sides leaves out 13 and 19 themselves. The program prints `False False False`.
+            - [ ] 13 <= age < 19 :: The upper end is left out, so 19 does not count. The program prints `True False False`.
+            ```
+
+            **Watch out:** decide for each end whether the limit itself counts. "Between 0 and 2, both
+            included" needs `<=` twice.
+
+            **In short:** `low <= x <= high` is `True` when `x` lies between the two limits, and a
+            function can return that comparison directly.
         ''',
         "prompt": r'''
-            Model APIs only accept a `temperature` between 0 and 2. Validate it before sending.
+            Model APIs accept a `temperature` setting only between 0 and 2. The temperature controls how
+            much variety the answers have. A request with a value outside that range is refused, so your
+            app checks the value before it sends anything.
 
-            **Write:** `valid_temperature(t)`
+            **Your job:** write `valid_temperature(t)` so that it says whether the value is allowed.
 
-            - `t`: the temperature, an `int` or `float`, e.g. `0.7`
-            - **Returns:** the boolean `True` or `False`
+            **What goes in**
+            - `t`: the temperature, a whole number or a float, for example `0.7`
+
+            **What comes out**
+            - a bool: `True` when `t` is between `0` and `2`, and `False` otherwise
 
             **Rules**
-            - Return `True` when `t` is between `0` and `2`, **both ends included**.
-            - Otherwise return `False`.
-            - Use a **chained comparison** (two comparison operators in one expression, like
-              `low <= value <= high`). A check looks for it.
+            - Both ends are included: `0` and `2` are allowed.
+            - Use a chained comparison, which means two comparison operators in one expression. A check
+              looks for it.
 
             **Examples**
             ```python
@@ -942,14 +1169,21 @@ EXERCISES = [
     },
     {
         "id": "conditionals-1",
-        "hints": ['An if / elif / else chain that compares reason with each string using ==.', 'Check each known reason in turn and return its label. Two different reasons share one label, and everything else (including None) ends in the final else.', '1) reason == stop -> complete. 2) elif length -> truncated. 3) elif reason is one of the two tool reasons (use in with a tuple, or or) -> needs tool. 4) elif content_filter -> blocked. 5) else -> unknown.'],
+        "hints": [
+            "Each row of the table is one branch of an `if` / `elif` / `else` chain.",
+            "Test each known reason in turn and hand back its label. Two different reasons share one label, and everything else, `None` included, ends in the last branch.",
+            "Write five branches in the order of the table. Four of them compare `reason` with one string. The branch for the two tool reasons asks whether `reason` is one of them, with `in` and a tuple. The `else` branch hands back the label for everything else.",
+        ],
         "title": "Classify finish_reason",
         "difficulty": 1,
         "lesson": r'''
-            ## Membership with in
+            ## Several values, one answer
 
-            `in` is the **membership operator**. `value in (a, b)` is `True` when `value` equals
-            one of the items in the tuple. Use it when several values share one result.
+            When a model stops writing, it gives a reason. Two of the possible reasons, `"tool_calls"` and
+            the older `"function_call"`, mean the same thing to your app. Two branches that do the same
+            thing would be clumsy. One question that covers both values is better.
+
+            You met `in` with sets. It works with a tuple as well:
 
             ```python
             reason = "function_call"
@@ -959,11 +1193,12 @@ EXERCISES = [
             # False
             ```
 
-            ### in inside an elif chain
+            `value in (a, b)` is `True` when the value is equal to one of the items. `in` is called the
+            **membership operator**.
 
-            Each branch of a chain can handle one known value, or a group of values with `in`.
-            The `else` branch handles every other value. That includes `None` and text with
-            different capital letters, because `==` and `in` compare strings exactly.
+            Inside a chain, each branch can take one value with `==`, or a group of values with `in`. The
+            `else` branch takes everything that is left. That includes `None`, and text with different
+            capital letters, because `==` and `in` compare strings exactly.
 
             ```python
             def label(role):
@@ -972,28 +1207,56 @@ EXERCISES = [
                 elif role in ("assistant", "model"):
                     return "AI"
                 else:
-                    return "unknown"
+                    return "unrecognised"
 
             print(label("model"), label(None), label("User"))
-            # AI unknown unknown
+            # AI unrecognised unrecognised
             ```
 
-            `if reason == "a" or "b":` is always true. Python evaluates it as
-            `(reason == "a") or "b"`, and the non-empty string `"b"` is truthy. Write
-            `reason in ("a", "b")` instead.
+            ```predict
+            def kind(ext):
+                if ext in ("jpg", "png"):
+                    return "image"
+                elif ext == "txt":
+                    return "text"
+                else:
+                    return "other"
+
+            print(kind("png"), kind("txt"), kind("PNG"))
+            ---
+            `"png"` is one of the two items in the tuple, so the first call gives `image`. `"txt"` matches the second branch. `"PNG"` in capitals is a different string from `"png"`, so no branch matches and the `else` gives `other`.
+            ```
+
+            ### A tempting line that does not work
+
+            ```quiz
+            Someone writes `if reason == "length" or "stop":` to catch two reasons. For which values of `reason` does the block run?
+            - [x] For every value :: Right. Python reads it as `(reason == "length") or "stop"`. The right side is a string that is not empty, so it is truthy, and the whole condition always counts as true.
+            - [ ] Only for `"length"` and `"stop"` :: That is what the author wanted. It needs `reason in ("length", "stop")`.
+            - [ ] Only for `"length"` :: The left side is true only for `"length"`, but the right side is a truthy string, and `or` needs only one side.
+            ```
+
+            **Watch out:** `x == "a" or "b"` does not ask whether `x` is one of the two. Write
+            `x in ("a", "b")`.
+
+            **In short:** `value in (a, b, c)` asks whether the value is one of several, and the `else`
+            of a chain takes everything that is left.
         ''',
         "prompt": r'''
-            A chat completion ends with a `finish_reason` string. Translate it into a short
-            label for your logs.
+            When a model finishes its answer, the API tells you why it stopped, in a short string called
+            the `finish_reason`. Your logs should show a label that a person can read instead.
 
-            **Write:** `explain_finish(reason)`
+            **Your job:** write `explain_finish(reason)` so that it translates the reason into its label.
 
-            - `reason`: the finish reason, usually a string like `"stop"`, but it can be `None`
-            - **Returns:** one of the strings `"complete"`, `"truncated"`, `"needs tool"`, `"blocked"`, `"unknown"`
+            **What goes in**
+            - `reason`: the finish reason, usually a string such as `"stop"`. It can also be `None`.
+
+            **What comes out**
+            - one of the strings `"complete"`, `"truncated"`, `"needs tool"`, `"blocked"` and `"unknown"`
 
             **Rules**
 
-            | `reason` | return |
+            | `reason` | label |
             | --- | --- |
             | `"stop"` | `"complete"` |
             | `"length"` | `"truncated"` |
@@ -1001,7 +1264,7 @@ EXERCISES = [
             | `"content_filter"` | `"blocked"` |
             | anything else | `"unknown"` |
 
-            - Matching is exact: `"STOP"` (capitals) is `"unknown"`.
+            - The match is exact: `"STOP"` in capitals is `"unknown"`.
             - `None` and the empty string `""` are `"unknown"`.
 
             **Examples**
@@ -1057,11 +1320,16 @@ EXERCISES = [
         "title": "A title or Untitled",
         "difficulty": 1,
         "lesson": r'''
-            ## Truthiness and the or fallback
+            ## When a value might be missing
 
-            The condition of an `if` does not have to be a comparison. `if name:` tests the
-            truthiness of `name`. An empty string, `0` and `None` are falsy. A string with at
-            least one character is truthy.
+            Every document in your app should show a title. Some arrive without one: the title is
+            `None`, or an empty string, or a string of nothing but spaces. This step collects three small
+            tools for that situation.
+
+            ### A condition does not have to be a comparison
+
+            `if name:` tests the truthiness of `name`, which you know from the last chapter. An empty
+            string, `0` and `None` are falsy. A string with at least one character is truthy.
 
             ```python
             name = ""
@@ -1072,10 +1340,10 @@ EXERCISES = [
             # no name
             ```
 
-            ### The value of a or b
+            ### or hands back one of its two values
 
-            `a or b` evaluates to `a` when `a` is truthy. Otherwise it evaluates to `b`. The
-            result is one of the two values, not always a `bool`.
+            So far `or` gave you `True` or `False`. In fact it does something more useful. `a or b` hands
+            back `a` when `a` is truthy, and otherwise it hands back `b`:
 
             ```python
             print("draft" or "Untitled")
@@ -1084,14 +1352,22 @@ EXERCISES = [
             # Untitled
             ```
 
-            A value that is used when the real one is missing is a **fallback**, also called a
-            **default**.
+            A value that is used when the real one is missing is called a **fallback**, or a **default**.
 
-            ### Stripping a value that may be None
+            ```predict
+            print("" or "empty")
+            print("Ada" or "nobody")
+            print(0 or 5)
+            ---
+            The empty string is falsy, so `or` hands back the right side, `empty`. `"Ada"` is truthy, so it is handed back and the right side is ignored. `0` is falsy, so the result is 5.
+            ```
 
-            Missing data is often `None`. `None` has no `.strip()` method, so `None.strip()` stops
-            the program with an `AttributeError`: the value does not have that method. `(note or "")` evaluates to `""` when `note` is `None`, and `""` does
-            have `.strip()`.
+            ### Cleaning a value that may be None
+
+            `None` is not a string, so it has no `.strip()` method. `None.strip()` stops the program with
+            `AttributeError: 'NoneType' object has no attribute 'strip'`. The fallback trick solves that.
+            `(note or "")` is the empty string when `note` is `None`, and an empty string can be
+            stripped:
 
             ```python
             note = None
@@ -1100,25 +1376,40 @@ EXERCISES = [
             # True
             ```
 
-            After that line `note` is always a string with no spaces or newlines at either end.
-            A plain `if note:` then tells you whether any characters are left.
+            After that line `note` is always a string, with no spaces or newlines at its ends. A plain
+            `if note:` then tells you whether any characters are left.
 
-            When `0` is a valid value, do not test truthiness, because `0` is falsy. Test
-            `is None` or `is not None` instead.
+            ```quiz
+            `count` is `0`, and 0 is a perfectly good count. What does `count or 10` give?
+            - [x] `10` :: Right, and that is the danger. `0` is falsy, so `or` throws it away and hands back the fallback, although 0 was a real value.
+            - [ ] `0` :: `or` only hands back its left side when that side is truthy, and `0` is falsy.
+            - [ ] `True` :: `or` hands back one of its two values. It does not turn them into a bool.
+            ```
+
+            **Watch out:** when `0` is a valid value, do not test truthiness. Ask `is None` or
+            `is not None` instead.
+
+            **In short:** `value or fallback` gives the fallback when the value is empty or `None`, and
+            `if value:` asks whether there is anything in it.
         ''',
         "prompt": r'''
-            Documents in your RAG index should always show a title. Some arrive with no title
-            (`None`), an empty one, or one full of spaces.
+            The documents in the search index of your RAG app should always show a title. Some arrive
+            with no title at all (`None`), some with an empty one, and some with a title that is nothing
+            but spaces.
 
-            **Write:** `clean_title(title)`
+            **Your job:** write `clean_title(title)` so that it gives back a title that can be shown.
 
-            - `title`: a string like `"  Intro to RAG "`, or `None`
-            - **Returns:** a string: the title with spaces/newlines removed from both ends,
-              or `"Untitled"` if nothing is left
+            **What goes in**
+            - `title`: a string such as `"  Intro to RAG "`, or `None`
+
+            **What comes out**
+            - a string: the title without spaces and newlines at both ends, or `"Untitled"` when nothing
+              is left
 
             **Rules**
-            - `None`, `""` and whitespace-only text (like `"   "` or `"\n"`) all give `"Untitled"`.
-            - Spaces in the middle stay.
+            - `None`, `""` and text that is only spaces or newlines, such as `"   "` or `"\n"`, all give
+              `"Untitled"`.
+            - Spaces in the middle of a title stay.
 
             **Examples**
             ```python
@@ -1160,9 +1451,9 @@ EXERCISES = [
                 return "Untitled"
         ''',
         "hints": [
-            "None can't be stripped, so first turn it into empty text. Empty text is falsy.",
-            "Replace None with an empty string using or, strip the result, then return it if anything is left. Otherwise return the fallback.",
-            "1) title = (title or \"\").strip(). 2) if title: return title. 3) After the if, return \"Untitled\".",
+            "`None` cannot be stripped, so first turn a possible `None` into an empty string. An empty string is falsy.",
+            "Replace `None` by an empty string with `or`, strip the result, and hand it back when anything is left. Otherwise hand back the fallback.",
+            "The body has three steps. Store the cleaned title under a name: the parameter or an empty string, in parentheses, with the trimming method called on it. When that name is truthy, hand it back. After the `if`, hand back the fallback text from the task.",
         ],
     },
     {
@@ -1170,10 +1461,11 @@ EXERCISES = [
         "title": "1 token, 2 tokens",
         "difficulty": 1,
         "lesson": r'''
-            ## Conditional expressions
+            ## Choosing a value in one line
 
-            A **conditional expression** chooses between two values in one line. Other languages
-            call it a **ternary operator**, because it has three parts: two values and a condition.
+            A usage line should read `1 token` but `2 tokens`. That is a tiny choice between two words,
+            and a four-line `if` and `else` feels heavy for it. Python has a compact form for exactly
+            this:
 
             ```python
             score = 0.8
@@ -1182,14 +1474,34 @@ EXERCISES = [
             # pass
             ```
 
-            The order is: the value used when the condition is `True`, then `if` and the
-            condition, then `else` and the value used when the condition is `False`.
+            Read it aloud: "pass, if the score is at least 0.5, else fail". The order is: the value for
+            `True`, then `if` and the condition, then `else` and the value for `False`.
 
-            An `if` statement runs a block. A conditional expression is an **expression**: it
-            produces a value. You can assign that value to a name, return it, or join it to a
-            string with `+`.
+            This form is called a **conditional expression**. Other languages call it the **ternary
+            operator**, because it has three parts. The important word is expression. An `if` statement
+            runs a block. A conditional expression produces a value, so you can assign it, return it, or
+            join it to a string.
 
-            Put parentheses around a conditional expression when you join it to something else.
+            ```fill
+            stock = 0
+            label = ___
+            print(label)
+            ---
+            - [x] "in stock" if stock > 0 else "sold out" :: Right. `stock > 0` is `False`, so the value after `else` is chosen and the program prints `sold out`.
+            - [ ] "sold out" if stock > 0 else "in stock" :: The two values are the wrong way round. The value before `if` is the one for `True`, so this prints `in stock`.
+            - [ ] if stock > 0 "in stock" else "sold out" :: The value for `True` comes first, before the `if`. In this order Python stops with a `SyntaxError`.
+            ```
+
+            ```quiz
+            What does `"even" if 7 % 2 == 0 else "odd"` give?
+            - [x] `"odd"` :: Right. `7 % 2` is 1, so the condition is `False` and the value after `else` is chosen.
+            - [ ] `"even"` :: That is the value for `True`. The remainder of 7 divided by 2 is 1, not 0.
+            - [ ] `False` :: The expression hands back one of its two values. The bool only decides which one.
+            ```
+
+            ### Parentheses when you join
+
+            When a conditional expression is joined to something else, put it in parentheses:
 
             ```python
             n = 3
@@ -1199,24 +1511,32 @@ EXERCISES = [
             #  items
             ```
 
-            Without the parentheses Python reads the second line as
-            `(str(n) + " item") if n == 1 else " items"`, so the number is lost when `n` is not 1.
+            Without the parentheses, Python reads the second line as
+            `(str(n) + " item") if n == 1 else " items"`. So when `n` is not 1, the number is lost.
 
-            Use a conditional expression for a short choice between two values. Use a normal
-            `if` statement for anything longer.
+            **Watch out:** a conditional expression is for a short choice between two values. For
+            anything longer, an ordinary `if` statement is easier to read.
+
+            **In short:** `a if condition else b` is the value `a` when the condition is `True`, and the
+            value `b` when it is `False`.
         ''',
         "prompt": r'''
-            A usage line should read naturally: `1 token`, but `2 tokens` and `0 tokens`.
+            A line that reports usage should read naturally: `1 token`, but `2 tokens` and `0 tokens`.
 
-            **Write:** `token_label(n)`
+            **Your job:** write `token_label(n)` so that it gives back the count followed by the right
+            word.
 
-            - `n`: a token count, an int, e.g. `5`
-            - **Returns:** a string: the number, a space, then `token` if `n` is exactly `1`,
-              otherwise `tokens`
+            **What goes in**
+            - `n`: a number of tokens, a whole number, for example `5`
+
+            **What comes out**
+            - a string: the number, a space, and then `token` when `n` is exactly `1`, or `tokens` for
+              every other number: `"5 tokens"` for the example value
 
             **Rules**
-            - Use a **conditional expression** (`x if condition else y`) to pick the word (a check looks for it).
-            - `0` uses the plural: `"0 tokens"`.
+            - Pick the word with a conditional expression, the one-line form `a if condition else b`. A
+              check looks for it.
+            - `0` takes the plural: `"0 tokens"`.
 
             **Examples**
             ```python
@@ -1252,9 +1572,9 @@ EXERCISES = [
                 return str(n) + " " + word
         ''',
         "hints": [
-            "A one-line if picks between two values: value_if_true if condition else value_if_false.",
-            "Pick the word with a conditional expression that checks whether n equals 1, then glue the number (as text), a space and the word.",
-            "1) word = \"token\" if n == 1 else \"tokens\". 2) Return str(n) + \" \" + word.",
+            "A conditional expression picks between two values in one line: the value for `True`, then `if` and the condition, then `else` and the value for `False`.",
+            "Pick the word with a conditional expression that asks whether `n` is equal to 1. Then join the number as text, a space and the word.",
+            "First store the word under a name: the singular if `n` equals 1, else the plural. Then hand back three pieces joined with `+`: the number turned into a string, a string with one space, and the word.",
         ],
     },
     {
@@ -1268,11 +1588,10 @@ EXERCISES = [
             ],
         },
         "lesson": r'''
-            ## The match statement
+            ## One value, many cases
 
-            A `match` statement compares one value against several possibilities. Each
-            possibility is written after the word `case` and is called a **pattern**. Comparing
-            a value against patterns this way is called **structural pattern matching**.
+            A chain such as `if status == 200 ... elif status == 404 ...` repeats the same name on every
+            line. When all the questions are about one value, the `match` statement is tidier:
 
             ```python
             status = 404
@@ -1288,14 +1607,16 @@ EXERCISES = [
             # handled
             ```
 
-            - You write `match`, the value, and a colon. Each `case` line is indented and has its
-              own indented block.
-            - Python tries the cases from top to bottom and runs only the block of the first
-              pattern that matches.
-            - `|` inside a pattern means "or": `404 | 410` matches either number.
-            - `_` is the **wildcard** pattern. `case _:` matches any value, so put it last.
+            - `match status:` names the value that is being looked at.
+            - Each `case` line is one possibility, and it has its own indented block. What stands after
+              `case` is called a **pattern**.
+            - Python tries the cases from top to bottom and runs only the block of the first pattern
+              that matches.
+            - `|` inside a pattern means "or", so `404 | 410` matches either number.
+            - `_` matches anything. It is called the **wildcard**, and `case _:` goes last, where it
+              does the job of `else`.
 
-            Step through the code to see which `case` lines Python tries.
+            Press Next to see which `case` lines Python tries:
 
             ```diagram
             {"type": "trace", "title": "Matching status 404 against each case", "code": ["status = 404", "match status:", "    case 200:", "        print(\"ok\")", "    case 404 | 410:", "        print(\"not found\")", "    case _:", "        print(\"something else\")", "print(\"handled\")"], "steps": [
@@ -1309,23 +1630,52 @@ EXERCISES = [
             ]}
             ```
 
-            Inside a function, each `case` block can `return` its result.
+            ```quiz
+            In the program above, what is printed when `status` is `500`?
+            - [x] `something else` and then `handled` :: Right. 500 matches neither 200 nor `404 | 410`, so the wildcard case takes it. The last line is outside the `match` and always runs.
+            - [ ] Only `handled` :: That would happen without the `case _:` line. With it, there is a case for every value.
+            - [ ] Nothing, because of an error :: A value that matches no earlier case is not an error. It falls through to the wildcard.
+            ```
 
-            `match` needs Python 3.10 or newer. On older versions the `match` line is a
-            `SyntaxError`.
+            Put a `match` statement together yourself:
+
+            ```order
+            color = "red"
+            match color:
+                case "red" | "orange":
+                    print("warm")
+                case _:
+                    print("other")
+            ---
+            The value has to exist before `match` looks at it. Each `case` line is followed by its own block, and the wildcard case comes last. The program prints `warm`.
+            ```
+
+            Inside a function, each `case` block can hand back its result with `return`.
+
+            **Watch out:** the indentation has two levels. The `case` lines are indented under `match`,
+            and each block is indented under its `case`.
+
+            **In short:** `match value:` compares one value with the pattern of each `case`, from the
+            top, and `case _:` takes whatever is left.
         ''',
         "prompt": r'''
-            A chat app sorts each message by its role.
+            A chat app sorts every message by its role, because instructions, chat messages and results
+            from tools are shown in different ways.
 
-            **Write:** `role_kind(role)`
+            **Your job:** write `role_kind(role)` so that it gives back the kind of a message with that
+            role.
 
-            - `role`: a message role, usually a string like `"user"`, but it can be anything (e.g. `None`)
-            - **Returns:** one of the strings `"instructions"`, `"chat"`, `"tool result"`, `"unknown"`
+            **What goes in**
+            - `role`: the role of a message, usually a string such as `"user"`. It can be anything,
+              `None` included.
+
+            **What comes out**
+            - one of the strings `"instructions"`, `"chat"`, `"tool result"` and `"unknown"`
 
             **Rules**
-            - Use a **`match` statement** (a check looks for it).
+            - Use a `match` statement. A check looks for it.
 
-            | `role` | return |
+            | `role` | kind |
             | --- | --- |
             | `"system"` | `"instructions"` |
             | `"user"` or `"assistant"` | `"chat"` |
@@ -1383,36 +1733,53 @@ EXERCISES = [
                         return "unknown"
         ''',
         "hints": [
-            "match role: followed by one case per row of the table. The docs section shows | and _.",
-            "Write a case for system, one case that covers user or assistant with |, one for tool, and a wildcard case last.",
-            "1) match role: 2) case \"system\": return instructions. 3) case \"user\" | \"assistant\": return chat. 4) case \"tool\": return tool result. 5) case _: return unknown.",
+            "Start with `match role:`, and give each row of the table a `case` of its own.",
+            "One case takes the system role. One case takes two roles at once, joined with `|`. One takes the tool role, and a wildcard case comes last.",
+            "Under `match role:`, write four `case` lines in the order of the table, each with a block that hands back the kind for that row. The second pattern is two strings with `|` between them, and the last pattern is `_`.",
         ],
     },
     {
         "id": "conditionals-3",
-        "hints": ['Rules checked in a fixed order with early returns: the first matching rule wins.', "Write one if per rule, in the order given, each returning its model name. Rule 3 needs two conditions joined with and. The final return is the 'otherwise'.", '1) if prompt_tokens > 128000 return reject. 2) if needs_vision return vision-large. 3) if budget_mode and prompt_tokens <= 8000 return mini. 4) if prompt_tokens > 32000 return long-context. 5) return standard.'],
+        "hints": [
+            "The rules are checked in a fixed order, and the first one that matches decides. A `return` inside an `if` ends the function, which gives you exactly that behaviour.",
+            "Write one `if` for each rule, in the order of the task, and let each hand back its model name. Rule 3 needs two conditions joined with `and`. The last line of the function is the \"everything else\".",
+            "Five steps, top to bottom: more than 128000 tokens gives the reject string. A request that needs vision gives the vision string. Budget mode together with at most 8000 tokens gives the mini string. More than 32000 tokens gives the long-context string. A final line outside every `if` gives the standard string.",
+        ],
         "title": "Route to a model tier",
         "difficulty": 2,
         "placement": True,
         "prompt": r'''
-            A router decides which model tier handles each request.
+            An AI app often has several models to choose from: a cheap small one, a standard one, one
+            that can read very long prompts, and one that can look at images. A router decides which of
+            them handles each request.
 
-            **Write:** `pick_model(prompt_tokens, needs_vision=False, budget_mode=False)`
+            **Your job:** write `pick_model(prompt_tokens, needs_vision=False, budget_mode=False)` so
+            that it gives back the name of the right model tier.
 
-            - `prompt_tokens`: prompt length, an `int`, e.g. `500`
-            - `needs_vision`: `True` if the request has images; defaults to `False`
-            - `budget_mode`: `True` if the user wants the cheapest option; defaults to `False`
-            - **Returns:** one of the strings `"reject"`, `"vision-large"`, `"mini"`, `"long-context"`, `"standard"`
+            The `=False` in the `def` line is a default value, as in the signature of `round`. A call may
+            leave that argument out, or give it by name, as in `pick_model(500, budget_mode=True)`.
 
-            **Rules**: check them **in this order**, the first one that matches wins:
-            1. `prompt_tokens` more than `128000` -> `"reject"` (even if the other flags are set)
-            2. `needs_vision` is true -> `"vision-large"` (even in budget mode)
-            3. `budget_mode` is true **and** `prompt_tokens` is `8000` or less -> `"mini"`
-            4. `prompt_tokens` more than `32000` -> `"long-context"`
-            5. otherwise -> `"standard"`
+            **What goes in**
+            - `prompt_tokens`: the length of the prompt in tokens, a whole number, for example `500`
+            - `needs_vision`: `True` when the request contains images. When it is left out it is `False`.
+            - `budget_mode`: `True` when the user wants the cheapest option. When it is left out it is
+              `False`.
 
-            Boundaries: `8000` can be mini, `8001` cannot; `32000` is standard, `32001` is
-            long-context; `128000` is long-context, `128001` is reject.
+            **What comes out**
+            - one of the strings `"reject"`, `"vision-large"`, `"mini"`, `"long-context"` and `"standard"`
+
+            **Rules**
+
+            Check the rules in this order. The first rule that matches decides the result.
+
+            1. More than `128000` prompt tokens gives `"reject"`, whatever the other two arguments are.
+            2. `needs_vision` gives `"vision-large"`, even in budget mode.
+            3. `budget_mode` together with `8000` prompt tokens or fewer gives `"mini"`.
+            4. More than `32000` prompt tokens gives `"long-context"`.
+            5. Everything else gives `"standard"`.
+
+            The boundaries: `8000` can be mini and `8001` cannot. `32000` is standard and `32001` is
+            long-context. `128000` is long-context and `128001` is rejected.
 
             **Examples**
             ```python
@@ -1473,23 +1840,32 @@ EXERCISES = [
         "title": "Truthy defaults",
         "difficulty": 2,
         "prompt": r'''
-            A chat UI needs a name to show next to each message, falling back when data is missing.
+            A chat screen shows a name next to each message. The app has up to three sources for that
+            name: a nickname, a full name and a numeric user id. Any of them can be missing, so the app
+            takes the best one that is there.
 
-            **Write:** `display_name(nickname, full_name, user_id)`
+            **Your job:** write `display_name(nickname, full_name, user_id)` so that it gives back the
+            name to show.
 
-            - `nickname`: a string like `" ada "`, or `None`
-            - `full_name`: a string like `"Ada Lovelace"`, or `None`
-            - `user_id`: an `int` like `42`, or `None`
-            - **Returns:** a string
+            **What goes in**
+            - `nickname`: a string such as `" ada "`, or `None`
+            - `full_name`: a string such as `"Ada Lovelace"`, or `None`
+            - `user_id`: a whole number such as `42`, or `None`
 
-            **Rules**: use the first one that applies:
-            1. If `nickname` has real characters, return it with surrounding whitespace removed.
-            2. Else if `full_name` has real characters, return it with surrounding whitespace removed.
-            3. Else if `user_id` is not `None`, return `"user-"` followed by the id, e.g. `"user-42"`.
-               **`0` is a valid id** and gives `"user-0"`.
-            4. Else return `"Anonymous"`.
+            **What comes out**
+            - a string, chosen by the first of these rules that applies
 
-            - `None`, `""` and whitespace-only text (like `"   "` or `" \n"`) all count as empty.
+            **Rules**
+            1. When `nickname` has real characters, the result is the nickname without the spaces and
+               newlines at its ends.
+            2. Otherwise, when `full_name` has real characters, the result is the full name without the
+               spaces and newlines at its ends.
+            3. Otherwise, when `user_id` is not `None`, the result is `user-` followed by the id, for
+               example `"user-42"`. The id `0` is a real id and gives `"user-0"`.
+            4. Otherwise the result is `"Anonymous"`.
+
+            `None`, `""` and text that is only spaces or newlines, such as `"   "` or `" \n"`, have no
+            real characters.
 
             **Examples**
             ```python
@@ -1544,9 +1920,9 @@ EXERCISES = [
                 return "Anonymous"
         ''',
         "hints": [
-            "None has no .strip(), so turn None into \"\" first (x or \"\" does that). Empty text is falsy. For the id, 0 is falsy but still valid, so test it with is not None.",
-            "Check the three sources in order with early returns: clean the nickname and return it if anything is left, then the same for the full name, then the id, then the fallback.",
-            "1) nickname = (nickname or \"\").strip(); if it is truthy return it. 2) Same for full_name. 3) if user_id is not None, return \"user-\" glued to str(user_id). 4) return \"Anonymous\".",
+            "`None` has no `.strip()`, so turn a possible `None` into an empty string first. An empty string is falsy. For the id, 0 is falsy but valid, so truthiness is the wrong test there.",
+            "Go through the three sources in order, with an early `return` for each: clean the nickname and hand it back when anything is left, do the same for the full name, then look at the id, and end with the fallback.",
+            "For each of the two names: replace `None` by an empty string with `or`, strip the result, and hand it back when it is truthy. Then, when the id is not `None`, hand back the text `user-` joined to the id as a string. The last line hands back the fallback name from rule 4.",
         ],
     },
     {
@@ -1560,29 +1936,33 @@ EXERCISES = [
             ],
         },
         "prompt": r'''
-            Chat messages arrive as tuples of different shapes. Summarize each one in a line of text.
+            Chat messages reach your code as tuples of different shapes: a role and a text, or, when the
+            assistant wants to use a tool, three items. Your logs need one readable line for each
+            message, and anything with an unexpected shape should be marked as invalid.
 
-            **Write:** `summarize(message)`
+            **Your job:** write `summarize(message)` so that it gives back that line. Use a `match`
+            statement whose patterns have the shapes of the tuples.
 
-            - `message`: usually a tuple like `("user", "hi")` or `("assistant", "tool", "search")`,
-              but it can be anything (a string, `None`, a tuple of the wrong length)
-            - **Returns:** a string
+            **What goes in**
+            - `message`: usually a tuple such as `("user", "hi")` or `("assistant", "tool", "search")`.
+              It can be anything: a string, `None`, or a tuple of the wrong length.
 
-            **Rules**
-            - You must use a **`match` statement** (a check looks for it).
+            **What comes out**
+            - a string, chosen by this table
 
-            | message | return |
+            | `message` | result |
             | --- | --- |
-            | `("system", text)` where `text` is a `str` | `"system: "` followed by text |
-            | `("user", text)` where `text` is a **non-empty** `str` | `"user: "` followed by text |
-            | `("assistant", "tool", name)` where `name` is a `str` | `"assistant calls "` followed by name |
-            | `("assistant", text)` where `text` is a `str` | `"assistant: "` followed by text |
+            | `("system", text)`, where `text` is a `str` | `"system: "` followed by the text |
+            | `("user", text)`, where `text` is a `str` that is not empty | `"user: "` followed by the text |
+            | `("assistant", "tool", name)`, where `name` is a `str` | `"assistant calls "` followed by the name |
+            | `("assistant", text)`, where `text` is a `str` | `"assistant: "` followed by the text |
             | anything else | `"invalid"` |
 
-            - "Anything else" includes: unknown roles like `"tool"`, the wrong number of items
-              (`("user",)`, `("system", "a", "b")`), an empty user text, a text that is not a
-              string (`("user", 42)`, `("assistant", 5)`), and values that are not tuples
-              (`"hello"`, `None`).
+            **Rules**
+            - A `match` statement is required. A check looks for it.
+            - "Anything else" covers: unknown roles such as `"tool"`, the wrong number of items
+              (`("user",)` or `("system", "a", "b")`), an empty user text, a text that is not a string
+              (`("user", 42)` or `("assistant", 5)`), and values that are not tuples (`"hello"` or `None`).
 
             **Examples**
             ```python
@@ -1643,9 +2023,9 @@ EXERCISES = [
                         return "invalid"
         ''',
         "hints": [
-            "match can compare a tuple against tuple patterns. str(text) inside a pattern matches only strings and captures the value. A case can have a guard: case pattern if condition:",
-            "Write one case per row of the table, each pattern shaped like the tuple it describes. Use a guard for 'non-empty'. End with case _ for everything else.",
-            "1) case (\"system\", str(text)). 2) case (\"user\", str(text)) with the guard if text. 3) case with three items: \"assistant\", \"tool\", str(name). 4) case (\"assistant\", str(text)). 5) case _ returns invalid. Build each result with +.",
+            "`match` can compare a tuple with patterns that are shaped like a tuple. Inside a pattern, `str(text)` matches only a string and gives it the name `text`. A case can also carry an extra condition, called a guard: `case pattern if condition:`.",
+            "Write one `case` for each row of the table, with a pattern shaped like the tuple in that row. The \"not empty\" rule needs a guard. A last `case _` takes everything else.",
+            "Five cases, in the order of the table: the system pair, the user pair with a guard that tests the text, the assistant triple with `\"tool\"` in the middle, the assistant pair, and the wildcard. Build each result by joining the fixed text and the captured name with `+`.",
         ],
     },
     {
@@ -1653,23 +2033,37 @@ EXERCISES = [
         "title": "Rate limit status",
         "difficulty": 3,
         "prompt": r'''
-            A dashboard shows how much of an API rate limit has been used.
+            An API allows only a certain number of requests in a period of time. That number is its rate
+            limit. A dashboard shows how much of the limit is used: fine, close to the limit, or blocked.
+            The two numbers come from different places, so each may be a number, text that holds a
+            number, or missing.
 
-            **Write:** `rate_status(used, limit)`
+            **Your job:** write `rate_status(used, limit)` so that it gives back the status line for the
+            dashboard.
 
-            - `used`: requests used so far: an `int`, numeric text such as `" 85 "`, or `None`
-            - `limit`: the maximum allowed: an `int`, numeric text such as `"100\n"`, or `None`
-            - **Returns:** a string, exactly one of the formats below
+            **What goes in**
+            - `used`: the requests used so far: a whole number, numeric text such as `" 85 "`, or `None`
+            - `limit`: the highest number allowed: a whole number, numeric text such as `"100\n"`, or
+              `None`
 
-            **Rules**: check **in this order**, the first one that matches wins:
-            1. If either argument is `None`: `"ERROR: missing value"` (even if the other is `0`).
-            2. Convert numeric text to a whole number; surrounding spaces/newlines are allowed.
-            3. If `limit` is `0` or negative: `"ERROR: limit must be positive"`.
-            4. If `used` is equal to or more than `limit`: `"BLOCKED"`.
-            5. If `used` is **at least 80%** of `limit`: `"WARN <p>%"`, where `p` is the whole
-               percent `used * 100 / limit` rounded **down** (e.g. 5 of 6 is 83.33... -> `"WARN 83%"`).
-               Exactly 80% counts (4 of 5, 56 of 70); make sure it is not missed by a tiny float error.
-            6. Otherwise: `"OK <remaining> left"`, where remaining is `limit - used`.
+            **What comes out**
+            - a string in exactly one of the formats below
+
+            **Rules**
+
+            Check the rules in this order. The first rule that matches decides the result.
+
+            1. When either argument is `None`, the result is `"ERROR: missing value"`, even when the other
+               argument is `0`.
+            2. Numeric text is converted to a whole number. Spaces and newlines around it are allowed.
+            3. When `limit` is `0` or negative, the result is `"ERROR: limit must be positive"`.
+            4. When `used` is equal to `limit` or more, the result is `"BLOCKED"`.
+            5. When `used` is at least 80% of `limit`, the result is `"WARN <p>%"`. Here `<p>` is the
+               whole percent, `used * 100 / limit` rounded down. For example, 5 of 6 is 83.33..., which
+               gives `"WARN 83%"`. Exactly 80% counts (4 of 5, or 56 of 70), and a tiny float error must
+               not make it slip through.
+            6. In every other case the result is `"OK <remaining> left"`, where `<remaining>` is `limit`
+               minus `used`.
 
             **Examples**
             ```python
@@ -1737,9 +2131,9 @@ EXERCISES = [
                 return "OK " + str(limit - used) + " left"
         ''',
         "hints": [
-            "Early returns in the given order. int() converts both ints and numeric text (it ignores spaces). // divides and rounds down.",
-            "Check None before converting. After converting, go through the rules top to bottom. Compare 'at least 80%' with whole numbers by multiplying both sides by 100 instead of dividing.",
-            "1) If either is None, return the missing error. 2) Convert both with int(). 3) limit <= 0 -> positive error. 4) used >= limit -> BLOCKED. 5) used * 100 >= limit * 80 -> WARN plus str(used * 100 // limit) plus %. 6) Otherwise OK plus str(limit - used) plus left.",
+            "Use early returns in the order of the rules. `int()` accepts whole numbers as well as numeric text, and it ignores spaces around the digits. `//` divides and rounds down.",
+            "Test for `None` before you convert anything. After converting, go through the rules from top to bottom. To test \"at least 80%\" without floats, multiply instead of dividing: compare 100 times the used count with 80 times the limit.",
+            "Six steps: when either value is `None`, give the missing-value error. Convert both values with `int()`. A limit of 0 or less gives the other error. A used count at or above the limit gives the blocked text. Then the 80% test with whole numbers gives `WARN`, a space, the percent from floor division as text, and `%`. In every other case give `OK`, the remaining count as text, and `left`.",
         ],
     },
 ]

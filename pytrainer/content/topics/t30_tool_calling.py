@@ -247,26 +247,24 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Tool calls
+            ## Read a request to run a function
+
+            A chat app needs information that is not in the conversation. The model can ask your application to run a named function with particular inputs. Before anything happens, your code receives that request as data and decides how to handle it.
 
             A model produces text. It cannot run a Python function. Its reply can contain
             a **tool call** instead: data that names a function and gives the arguments
             for it. Your code reads the tool call and runs the function. A tool call is
             also called a function call.
 
-            With the Anthropic API the reply is a dict. Its `content` key holds a list of
+            The Anthropic-shaped reply used here is a plain Python dict. Its `content` key holds a list of
             dicts called blocks. A tool call is a block whose `"type"` is `"tool_use"`.
             The reply's `stop_reason` is then `"tool_use"` as well.
 
             ```python
-            reply = {
-                "stop_reason": "tool_use",
-                "content": [
-                    {"type": "text", "text": "Let me check."},
-                    {"type": "tool_use", "id": "toolu_01", "name": "get_weather",
-                     "input": {"city": "Paris"}},
-                ],
-            }
+            reply = {"stop_reason": "tool_use", "content": [
+                {"type": "text", "text": "Let me check."},
+                {"type": "tool_use", "id": "toolu_01", "name": "get_weather",
+                 "input": {"city": "Paris"}}]}
             block = reply["content"][1]
             print(block["name"])
             # get_weather
@@ -276,13 +274,31 @@ EXERCISES = [
             # toolu_01
             ```
 
+            ```quiz
+            Which part actually executes the local function?
+            - [x] Your application code :: The model supplies a request, not Python execution.
+            - [ ] The name string :: A string naming a function does not call it.
+            ```
+
             The block gives you three values. `name` is the name of the tool. `input`
             holds the arguments and is already a dict. `id` identifies this call. You
             need the id when you send the result back.
 
             The model never runs the function. Your code does.
+
+            ```match
+            name :: which function is requested
+            input :: values requested for its arguments
+            id :: identifier used to attach the result
+            ```
+
+            **Watch out:** A proposed tool call is not permission to run an arbitrary function. The examples below use a controlled local interface and no network.
+
+            **In short:** The model proposes a tool call; your application controls execution and returns the result.
         ''',
-        "prompt": r'''Read the code and type exactly what it prints.''',
+        "prompt": r'''
+            Read the program, then enter exactly what its print calls display, one output line per line.
+        ''',
         "code": r'''
             reply = {
                 "stop_reason": "tool_use",
@@ -305,15 +321,15 @@ EXERCISES = [
             2
         ''',
         "explanation": r'''
-            `stop_reason` says why the model stopped: it requested a tool call. The second content
+            Read the output from top to bottom. `stop_reason` says why the model stopped: it requested a tool call. The second content
             block is the `tool_use` block: its `name` is `get_weather`, its `input` dict has
             `city` = `Oslo`, and that dict has 2 keys.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "`block` is the second item of the content list (index 1).",
-            "Each print reads one key: the reply's stop_reason, then the block's name, then a key inside input, then the size of input.",
-            "Line 1: the stop_reason string. Line 2: the tool name. Line 3: the city value. Line 4: how many keys the input dict has.",
+            "Locate the selected block before reading its fields.",
+            "Some printed values belong to the outer reply and others to the nested input.",
+            "Follow each access in order and count only the keys of the dictionary passed to len.",
         ],
     },
     {
@@ -321,9 +337,11 @@ EXERCISES = [
         "title": "Describe a tool",
         "difficulty": 0,
         "lesson": r'''
-            ## Tool definitions
+            ## Describe what a callable tool is for
 
-            The model can only request a tool that your request describes. A
+            You expose a document lookup function to the model. Its name alone may not explain when to use it or what input it expects. Send a description of the operation and a description of its arguments, keeping those distinct from the Python function itself.
+
+            Your request describes the tools the model is meant to request. A
             **tool definition** is a dict that describes one tool. It has three keys.
 
             - `name`: the string the model uses to request the tool.
@@ -347,21 +365,43 @@ EXERCISES = [
             # search_docs ['query']
             ```
 
+            ```quiz
+            Does a tool definition execute the function?
+            - [x] No :: It describes the interface available to request.
+            - [ ] Yes :: Descriptive data has no execution effect by itself.
+            ```
+
             `input_schema` is the key name that Anthropic uses. You send a list of tool
             definitions with every request.
 
             The model decides when to call a tool mostly from its description. A vague
             description leads to calls at the wrong time, or to no calls.
+
+            ```order
+            schema = {"type": "object", "properties": {}}
+            definition = {"name": "ping", "input_schema": schema}
+            print(definition["name"])
+            ---
+            Build the argument description before placing it inside the complete definition.
+            ```
+
+            **Watch out:** A description helps the model choose, but it does not enforce valid arguments or authorization. Your application still needs checks before execution.
+
+            **In short:** A tool definition explains the operation and its expected inputs without running it.
         ''',
         "prompt": r'''
             Every tool definition has the same structure. Complete the function by replacing the `___`.
 
-            **Write:** `make_tool(name, description)`
+            **Your job:** write `make_tool(name, description)`
 
+            **What goes in**
             - `name`: a string, e.g. `"get_time"`
             - `description`: a string, e.g. `"Current time."`
-            - **Returns:** an Anthropic-style tool definition dict with no arguments:
-              `{"name": name, "description": description, "input_schema": {"type": "object", "properties": {}, "required": []}}`
+
+            **What comes out**
+            - Return an Anthropic-style tool definition dict with no arguments:
+              Its `name` and `description` come from the supplied arguments. Its `input_schema` is
+              `{"type": "object", "properties": {}, "required": []}`.
 
             **Rules**
             - Exactly the three keys `name`, `description`, `input_schema`.
@@ -410,9 +450,9 @@ EXERCISES = [
                 }
         ''',
         "hints": [
-            "Only one value is missing, and it arrives as a parameter.",
-            "The `description` key should hold whatever the caller passed in.",
-            "Replace ___ with the parameter named description (no quotes).",
+            "The missing value describes what the tool does.",
+            "Its value should come from the caller, like the completed entries beside it.",
+            "Match the incomplete field to the relevant argument and preserve all the supplied wording.",
         ],
     },
     {
@@ -420,9 +460,11 @@ EXERCISES = [
         "title": "Fix: does it want a tool?",
         "difficulty": 0,
         "lesson": r'''
-            ## The stop reason
+            ## Use the stopping reason for the right response shape
 
-            Every Anthropic reply has a `stop_reason` key. Its value is a string that
+            Your application receives a reply but never enters its tool-handling branch. The comparison runs without an error, so inspect the exact status text it is testing. Two interfaces can describe the same event with different strings.
+
+            The completed Anthropic-shaped replies in this exercise have a `stop_reason` key. Its value is a string that
             says why the model stopped writing. Read it before you read the content,
             because it tells you what your code must do next.
 
@@ -435,6 +477,12 @@ EXERCISES = [
             # max_tokens False
             ```
 
+            ```quiz
+            Why can a wrong status spelling be hard to notice?
+            - [x] The comparison still runs and returns False :: No Python exception announces that the vocabulary is wrong.
+            - [ ] Python automatically repairs it :: Equality compares the strings as written.
+            ```
+
             - `"end_turn"`: the model finished its answer.
             - `"tool_use"`: the model requests one or more tools.
             - `"max_tokens"`: the reply reached the token limit of the request.
@@ -442,15 +490,30 @@ EXERCISES = [
             OpenAI uses a different key and a different value: `finish_reason` is
             `"tool_calls"`. A comparison with the other provider's value raises no
             error. It is `False` for every reply, so the bug is easy to miss.
+
+            ```predict
+            reason = "finished"
+            print(reason == "finish")
+            print(reason == "finished")
+            ---
+            Equality uses the whole string, including its ending.
+            ```
+
+            **Watch out:** Keep response field names and status values from the same interface. Mixing vocabularies produces a logic bug even when all dictionary accesses work.
+
+            **In short:** Compare the stopping reason with the exact value required by this response contract.
         ''',
         "prompt": r'''
             The app must know when an Anthropic-style reply asks for a tool. The function
             below always returns `False`. Fix the bug.
 
-            **Write:** `wants_tool(reply)`
+            **Your job:** write `wants_tool(reply)`
 
+            **What goes in**
             - `reply`: a dict with a `"stop_reason"` key, e.g. `{"stop_reason": "tool_use", "content": [...]}`
-            - **Returns:** `True` if `stop_reason` is `"tool_use"`, otherwise `False`
+
+            **What comes out**
+            - Return `True` if `stop_reason` is `"tool_use"`, otherwise `False`
 
             **Examples**
             ```python
@@ -482,9 +545,9 @@ EXERCISES = [
                 return reply["stop_reason"] == "tool_use"
         ''',
         "hints": [
-            "Compare the string in the starter with the one in the prompt.",
-            "The starter uses the OpenAI spelling. Anthropic's stop_reason value is different.",
-            "Change the compared string to exactly tool_use.",
+            "Check the exact status vocabulary used by this response shape.",
+            "The starter compares against the spelling from a different interface.",
+            "Correct the expected status value while preserving the boolean comparison and response lookup.",
         ],
     },
     {
@@ -492,7 +555,9 @@ EXERCISES = [
         "title": "Find the tool calls",
         "difficulty": 0,
         "lesson": r'''
-            ## Content blocks
+            ## Select every requested operation
+
+            A response includes a sentence explaining what the model plans to do and two requests for tools. The sentence is useful for display, but it is not a call. Inspect the label of each block and preserve all the blocks representing operations.
 
             A reply's `content` is a list of dicts. Each dict is a **content block**:
             one part of the reply. Every block has a `type` key. A `"text"` block
@@ -509,6 +574,12 @@ EXERCISES = [
             # tool_use
             ```
 
+            ```quiz
+            Why not assume the first content block is a tool call?
+            - [x] Text may come first :: Block order does not determine block type.
+            - [ ] Every reply begins with a tool :: Replies can contain text, tools, or mixtures in this simulated format.
+            ```
+
             The model can request several tools in one reply, so the list can hold
             more than one `tool_use` block. You need all of them.
 
@@ -516,14 +587,28 @@ EXERCISES = [
             with an empty list, loop over the blocks, test `block["type"]` with `if`
             and `.append` each block that matches. A list comprehension with an `if`
             does the same.
+
+            ```predict
+            blocks = [{"type": "text"}, {"type": "tool_use"}, {"type": "tool_use"}]
+            print([b["type"] for b in blocks if b["type"] != "text"])
+            ---
+            Filtering removes text without losing either requested operation.
+            ```
+
+            **Watch out:** Do not stop after finding one matching block. A reply can request several operations, and each needs its own result tied to its own identifier.
+
+            **In short:** Filter by the type label, preserving every matching block in its original order.
         ''',
         "prompt": r'''
             Pull out every tool request from an Anthropic-style reply.
 
-            **Write:** `find_tool_calls(reply)`
+            **Your job:** write `find_tool_calls(reply)`
 
+            **What goes in**
             - `reply`: a dict whose `"content"` is a list of blocks; each block is a dict with a `"type"` key
-            - **Returns:** a list of the blocks whose `type` is `"tool_use"`, in their original order
+
+            **What comes out**
+            - Return a list of the blocks whose `type` is `"tool_use"`, in their original order
 
             **Rules**
             - Return the block dicts themselves (not just names).
@@ -567,9 +652,9 @@ EXERCISES = [
                 return [block for block in reply["content"] if block["type"] == "tool_use"]
         ''',
         "hints": [
-            "Loop over reply[\"content\"] and look at each block's type.",
-            "Keep a block only when its type equals \"tool_use\".",
-            "Start with an empty list, loop over the content blocks, append those whose type is tool_use, return the list.",
+            "Inspect the type label of each block.",
+            "Retain all matching blocks without changing their order.",
+            "Visit the content list, collect tool-request blocks, and return an empty list if none qualify.",
         ],
     },
     {
@@ -577,7 +662,9 @@ EXERCISES = [
         "title": "Call a tool by name",
         "difficulty": 0,
         "lesson": r'''
-            ## The tool registry
+            ## Connect a permitted name to its function
+
+            You received a tool name and a dictionary of argument values. The name needs to select a function your application has already registered. Then each argument value needs to reach the parameter with the corresponding name.
 
             A tool call gives you a name, which is a string, and arguments, which are
             a dict. A **tool registry** is a dict that maps each tool name to its
@@ -599,6 +686,12 @@ EXERCISES = [
             # 5
             ```
 
+            ```quiz
+            What does unpacking a dictionary in a call do?
+            - [x] Supplies its entries as named arguments :: Keys identify the function parameters.
+            - [ ] Passes the dictionary as one unnamed value :: That is a different kind of call.
+            ```
+
             `**args` **unpacks** the dict: each key becomes a keyword argument.
             `func(**{"a": 2, "b": 3})` is the same call as `func(a=2, b=3)`. In the
             functions chapter `**kwargs` collected keyword arguments into a dict.
@@ -613,16 +706,32 @@ EXERCISES = [
 
             `func(args)` passes the whole dict as one positional argument. With `add`
             that raises `TypeError`, because `b` gets no value.
+
+            ```fill
+            def repeat(word, times): return word * times
+            options = {"word": "ha", "times": 2}
+            print(repeat(___))
+            ---
+            - [x] **options :: The entries fill the two named parameters.
+            - [ ] options :: This provides one positional argument and leaves times missing.
+            ```
+
+            **Watch out:** A missing registry entry raises KeyError, while mismatched argument names can raise TypeError. These failures identify different parts of the requested call.
+
+            **In short:** Look up the permitted callable, then pass its argument dictionary as named values.
         ''',
         "prompt": r'''
             Run the tool the model asked for. Complete the function by replacing the `___`.
 
-            **Write:** `run_tool(tools, name, args)`
+            **Your job:** write `run_tool(tools, name, args)`
 
+            **What goes in**
             - `tools`: a dict mapping tool names to Python functions, e.g. `{"add": add}`
             - `name`: the tool name the model asked for, e.g. `"add"`
             - `args`: a dict of keyword arguments, e.g. `{"a": 2, "b": 3}`
-            - **Returns:** whatever the tool function returns
+
+            **What comes out**
+            - Return whatever the tool function returns
 
             **Rules**
             - Pass the arguments as keyword arguments (unpack `args`).
@@ -667,9 +776,9 @@ EXERCISES = [
                 return func(**args)
         ''',
         "hints": [
-            "The arguments are in a dict, but the function wants separate named arguments.",
-            "Two stars in front of a dict in a call spread it out as keyword arguments.",
-            "Replace ___ with args preceded by two asterisks.",
+            "The callable expects named parameters, but the values are stored in a dictionary.",
+            "Use the call syntax that expands a mapping into keyword arguments.",
+            "Leave the registry lookup intact and pass each stored argument value under its corresponding key.",
         ],
     },
     {
@@ -678,7 +787,9 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## OpenAI tool calls
+            ## Parse argument text before reading its fields
+
+            One tool interface gives you an argument dictionary; another gives you a string describing that dictionary. The displayed values can look similar, but Python treats them differently. Check the representation and convert text before reading fields from it.
 
             OpenAI sends the same information with different keys. The reply's message
             has a `tool_calls` list. Each call is a dict with an `id` and a `function`
@@ -696,6 +807,12 @@ EXERCISES = [
             # 2
             ```
 
+            ```quiz
+            Can you unpack raw JSON text as keyword arguments?
+            - [x] No :: Keyword unpacking needs a mapping, not the serialized string.
+            - [ ] Yes :: Looking like a dictionary does not make a string a dictionary.
+            ```
+
             `arguments` is a string of JSON text, not a dict. You parse it with
             `json.loads` from the JSON chapter, which returns a dict. Only then can
             you read a key. Anthropic's `input` is already a dict.
@@ -705,8 +822,23 @@ EXERCISES = [
             The model writes the `arguments` string, so the string can be invalid
             JSON. `json.loads` then raises `json.JSONDecodeError`. A real app
             catches that exception.
+
+            ```predict
+            import json
+            raw = '{"limit": 6}'
+            parsed = json.loads(raw)
+            print(type(raw).__name__, type(parsed).__name__)
+            ---
+            The parser changes the representation from text to an actual dictionary.
+            ```
+
+            **Watch out:** Malformed argument text raises JSONDecodeError. Successfully parsing it is only the first check; the resulting value must also match the tool's expected shape.
+
+            **In short:** Convert serialized arguments to Python values before inspecting or using them.
         ''',
-        "prompt": r'''Read the code and type exactly what it prints.''',
+        "prompt": r'''
+            Read the program, then enter exactly what its print calls display, one output line per line.
+        ''',
         "code": r'''
             import json
 
@@ -724,15 +856,15 @@ EXERCISES = [
             4
         ''',
         "explanation": r'''
-            `arguments` is a string of JSON text (`str`). `json.loads` turns it into a real
+            Read the output from top to bottom. `arguments` is a string of JSON text (`str`). `json.loads` turns it into a real
             `dict`. From the dict, `query` is `"refunds"` and `k` is the number `3`, so
             `k + 1` is `4`.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "`raw` is the value stored under arguments. Look at whether it has quotes around it.",
-            "json.loads turns JSON text into Python objects; numbers become ints.",
-            "Line 1: the type names of raw and args. Line 2: the tool name and the query. Line 3: k plus one.",
+            "Track the arguments before and after JSON parsing.",
+            "The raw value is text; the parsed object holds usable fields.",
+            "Evaluate the type names, nested name and query accesses, then the arithmetic on the parsed number.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 1
@@ -741,7 +873,9 @@ EXERCISES = [
         "title": "Parse an OpenAI tool call",
         "difficulty": 1,
         "lesson": r'''
-            ## Parsing an OpenAI tool call
+            ## Keep a call identifier beside its parsed arguments
+
+            After adapting a response, later code should not need to know which fields were nested or encoded as JSON. Return the call identifier, operation name, and parsed arguments together. The identifier stays attached so a later result can answer the correct request.
 
             In an OpenAI tool call the `id` is a key of the call dict itself. The name and the
             arguments are one level down, inside `call["function"]`, and the
@@ -753,9 +887,15 @@ EXERCISES = [
 
             call = {"id": "call_1", "type": "function",
                     "function": {"name": "ping", "arguments": "{}"}}
-            fn = call["function"]
-            print(call["id"], fn["name"], json.loads(fn["arguments"]))
+            details = call["function"]
+            print(call["id"], details["name"], json.loads(details["arguments"]))
             # call_1 ping {}
+            ```
+
+            ```quiz
+            How does this task treat whitespace-only argument text?
+            - [x] As no arguments :: That is an explicit adapter rule, separate from JSON parsing.
+            - [ ] As valid JSON whitespace :: Whitespace alone is not a complete JSON value.
             ```
 
             A function that returns several values separated by commas
@@ -777,14 +917,29 @@ EXERCISES = [
             ```
 
             Treat an empty string, or a string of only whitespace, as no arguments.
+
+            ```predict
+            text = "   "
+            print(bool(text))
+            print(bool(text.strip()))
+            ---
+            A whitespace string is nonempty until stripping removes its characters.
+            ```
+
+            **Watch out:** Do not treat every parsing failure as empty arguments. The contract allows blank text specially; malformed nonblank text is a different case.
+
+            **In short:** Adapt the response into a useful group of values without losing the call identifier.
         ''',
         "prompt": r'''
             Turn one OpenAI-style tool call into plain values.
 
-            **Write:** `parse_openai_call(call)`
+            **Your job:** write `parse_openai_call(call)`
 
+            **What goes in**
             - `call`: a dict like `{"id": "call_1", "type": "function", "function": {"name": "add", "arguments": "{\"a\": 1}"}}`
-            - **Returns:** a tuple `(call_id, name, args)`: the id string, the tool name string,
+
+            **What comes out**
+            - Return a tuple `(call_id, name, args)`: the id string, the tool name string,
               and the arguments parsed into a dict
 
             **Rules**
@@ -847,9 +1002,9 @@ EXERCISES = [
                 return call["id"], fn["name"], args
         ''',
         "hints": [
-            "The name and the arguments live inside call[\"function\"]; the id is at the top level.",
-            "Parse the arguments with json.loads, but only if the string has something other than spaces in it.",
-            "Get fn = call[\"function\"]; if fn[\"arguments\"].strip() is empty use {}, else json.loads it; return the id, fn[\"name\"] and the dict as a tuple.",
+            "The identifier is outside the nested function information.",
+            "Treat blank argument text separately from nonblank text that needs parsing.",
+            "Read the identifier and name, choose empty arguments or parsed arguments as specified, and return the three values in order.",
         ],
     },
     {
@@ -857,22 +1012,30 @@ EXERCISES = [
         "title": "Build a tool schema",
         "difficulty": 1,
         "lesson": r'''
-            ## Schema properties
+            ## Describe each parameter in the schema
+
+            Your tool has several named inputs, each with a type and a description. Store those descriptions as data and build the tool definition from them. This keeps the list of required argument names aligned with the fields you describe.
 
             Most tools take arguments. In the `input_schema`, each argument is one
-            entry in `properties`. The key is the argument name. The value is a dict
+            entry in `fields`. The key is the argument name. The value is a dict
             with the argument's `type` and a short `description` that tells the model
             what value to send.
 
             ```python
-            properties = {}
+            fields = {}
             params = {"city": ("string", "City name"), "days": ("integer", "1 to 7")}
             for name, (kind, text) in params.items():
-                properties[name] = {"type": kind, "description": text}
-            print(properties["days"])
+                fields[name] = {"type": kind, "description": text}
+            print(fields["days"])
             # {'type': 'integer', 'description': '1 to 7'}
             print(list(params))
             # ['city', 'days']
+            ```
+
+            ```quiz
+            What identifies a parameter inside fields?
+            - [x] Its dictionary key :: The value holds that parameter's description.
+            - [ ] Its list position :: Properties are addressed by name, not position.
             ```
 
             `for name, (kind, text) in params.items()` unpacks each key into `name`
@@ -883,20 +1046,35 @@ EXERCISES = [
             `"string"`, `"integer"`, `"number"`, `"boolean"`, `"array"` and `"object"`.
 
             The `required` list names the arguments the model must send. The model
-            ignores the order of that list. Keep the same order as `properties` so
+            ignores the order of that list. Keep the same order as `fields` so
             that the definition is easy to read and to test.
+
+            ```predict
+            parameters = {"count": ("integer", "Items to return")}
+            for label, (kind, description) in parameters.items():
+                print(label, kind)
+            ---
+            Nested unpacking separates the parameter name from both pieces of its description.
+            ```
+
+            **Watch out:** JSON type names are strings such as integer, not Python type objects such as int. This step builds a description; it does not validate a future call.
+
+            **In short:** Keep each parameter name attached to its type and description when building the schema.
         ''',
         "prompt": r'''
             Write a helper that builds a full Anthropic-style tool definition from a compact
             description of its parameters.
 
-            **Write:** `tool_schema(name, description, params)`
+            **Your job:** write `tool_schema(name, description, params)`
 
+            **What goes in**
             - `name`: a string, e.g. `"get_weather"`
             - `description`: a string
             - `params`: a dict mapping parameter name to a tuple `(json_type, param_description)`,
               e.g. `{"city": ("string", "City name")}`
-            - **Returns:** a dict:
+
+            **What comes out**
+            - Return a dict:
               `{"name": ..., "description": ..., "input_schema": {"type": "object", "properties": {...}, "required": [...]}}`
 
             **Rules**
@@ -955,9 +1133,9 @@ EXERCISES = [
                 }
         ''',
         "hints": [
-            "Loop over params.items(); each value is a (type, description) tuple you can unpack.",
-            "Build the properties dict and the required list in the same loop, then place them in the result.",
-            "Start properties = {} and required = []; for each name and (type, text) add properties[name] = {...} and append name; return the outer dict with input_schema holding both.",
+            "Each parameter entry describes both a type and a purpose.",
+            "The property names and required names must come from the same supplied parameters.",
+            "Visit parameters in order, build their property descriptions, collect their required names, and wrap both in the tool definition.",
         ],
     },
     {
@@ -965,7 +1143,9 @@ EXERCISES = [
         "title": "Check the arguments",
         "difficulty": 1,
         "lesson": r'''
-            ## Argument validation
+            ## Explain missing and unexpected argument names
+
+            A call misspells an argument name. Python may later complain that one argument is missing and another is unexpected. You can catch both facts before execution by comparing the received names with the tool's declared requirements.
 
             A model can send wrong arguments. It can leave out a required argument,
             or send a name that the tool does not have. Calling a function with a
@@ -984,23 +1164,45 @@ EXERCISES = [
             # ['cty']
             ```
 
-            Two checks find most mistakes.
+            ```quiz
+            Can one misspelling create two validation problems?
+            - [x] Yes :: The intended name is absent and the misspelled name is unknown.
+            - [ ] No :: Missing and unknown checks examine different sides of the contract.
+            ```
+
+            This step checks two kinds of naming mistake.
 
             - **Missing**: a name in `required` that is not a key of the arguments.
             - **Unknown**: a key of the arguments that is not a key of `properties`.
 
             Here the model wrote `cty` for `city`. `city` is missing and `cty` is
             unknown. You send the error messages back to the model as the tool
-            result. The model usually sends a corrected call in its next reply.
+            result. Those messages give the model information it can use when proposing another call; a correction is not guaranteed.
+
+            ```predict
+            required = ["term"]
+            supplied = {"termm": "invoice"}
+            print("term" in supplied)
+            print("termm" in required)
+            ---
+            The typo fails both the presence check and the allowed-name check.
+            ```
+
+            **Watch out:** This step checks names, not value types or permission to use the tool. A clean list of name errors therefore does not prove the whole call is valid.
+
+            **In short:** Check required names for omissions and supplied names for unexpected additions.
         ''',
         "prompt": r'''
             Validate a tool call's arguments against the tool's `input_schema` before running it.
 
-            **Write:** `check_args(schema, args)`
+            **Your job:** write `check_args(schema, args)`
 
+            **What goes in**
             - `schema`: an `input_schema` dict with `"properties"` (dict) and `"required"` (list)
             - `args`: the arguments dict the model sent
-            - **Returns:** a list of error strings (empty list if everything is fine)
+
+            **What comes out**
+            - Return a list of error strings (empty list if everything is fine)
 
             **Rules**
             - For each name in `required` (in that order) that is missing from `args`: add `"missing: <name>"`.
@@ -1058,9 +1260,9 @@ EXERCISES = [
                 return errors
         ''',
         "hints": [
-            "Two separate loops: one over schema[\"required\"], one over the keys of args.",
-            "Use `in` / `not in` to test whether a name is a key of a dict.",
-            "Start errors = []; loop required names, append \"missing: \" + name when absent from args; then loop args, append \"unknown: \" + name when not in properties; return errors.",
+            "Missing names and unknown names are different comparisons.",
+            "Visit the declared required names before examining supplied names.",
+            "Collect omissions in required order, then unexpected arguments in input order, and return the combined messages.",
         ],
     },
     {
@@ -1074,7 +1276,9 @@ EXERCISES = [
                        "url": "https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/overview"}],
         },
         "lesson": r'''
-            ## Tool results
+            ## Attach the result to the call it answers
+
+            Two tool requests can ask the same function different questions. Returning only the function name would not tell the model which answer belongs to which request. Carry the original call identifier into the result and put the output into the required text representation.
 
             After your code runs a tool, it sends the return value to the model. The
             model must know which tool call the value answers. Each `tool_use` block
@@ -1095,6 +1299,12 @@ EXERCISES = [
             # {'role': 'user', 'content': [{'type': 'tool_result', 'tool_use_id': 'toolu_01', 'content': '{"temp": 21}'}]}
             ```
 
+            ```quiz
+            Why preserve the call identifier?
+            - [x] It ties this output to one particular request :: Function names need not be unique across calls.
+            - [ ] It makes the output valid JSON :: Identification and serialization are separate concerns.
+            ```
+
             The content of a result is text. You convert a dict or a list to JSON
             text with `json.dumps`. You send a string unchanged.
 
@@ -1110,15 +1320,28 @@ EXERCISES = [
             print(json.dumps(output))
             # {"temp": 21}
             ```
+
+            ```match
+            original call id :: link back to the request
+            string result :: preserve as text
+            dictionary result :: serialize to JSON text
+            ```
+
+            **Watch out:** Do not JSON-encode an output that is already the required text. That would add a quoted representation rather than preserving the string itself.
+
+            **In short:** Result content carries the answer, and the call identifier says which request it answers.
         ''',
         "prompt": r'''
             Build the message that returns one tool's output to an Anthropic model.
 
-            **Write:** `tool_result_message(tool_use_id, output)`
+            **Your job:** write `tool_result_message(tool_use_id, output)`
 
+            **What goes in**
             - `tool_use_id`: the id from the `tool_use` block, e.g. `"toolu_01"`
             - `output`: what the tool returned: a string, or any JSON-serialisable value (dict, list, number...)
-            - **Returns:** `{"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use_id, "content": text}]}`
+
+            **What comes out**
+            - Return `{"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use_id, "content": text}]}`
 
             **Rules**
             - If `output` is a string, `text` is that string unchanged.
@@ -1174,9 +1397,9 @@ EXERCISES = [
                 return {"role": "user", "content": [block]}
         ''',
         "hints": [
-            "Two jobs: turn the output into text, then wrap it in the block and the message.",
-            "isinstance(output, str) tells you whether to leave it alone or to call json.dumps.",
-            "Compute text (the string itself, or json.dumps(output)); build the tool_result block with type, tool_use_id and content; return a user message whose content is a list holding that block.",
+            "Separate text conversion from result-message construction.",
+            "An existing string stays unchanged; another JSON-compatible value needs serialization.",
+            "Prepare the content text, attach it to the original call identifier in a result block, and wrap that block in the required message.",
         ],
     },
     {
@@ -1190,7 +1413,9 @@ EXERCISES = [
                        "url": "https://platform.openai.com/docs/guides/function-calling"}],
         },
         "lesson": r'''
-            ## OpenAI tool messages
+            ## Return one message for every requested result
+
+            You have a list of calls and a list of outputs from running them. Each output must be paired with the matching call identifier. Check that both lists cover the same number of operations before combining them, because ordinary pairing stops at the shorter list.
 
             OpenAI takes tool results in a different form. You do not send one `user`
             message that holds a list of results. You append one message per tool
@@ -1199,11 +1424,17 @@ EXERCISES = [
             ```python
             calls = [{"id": "call_a"}, {"id": "call_b"}]
             outputs = ["sunny", "rainy"]
-            messages = []
+            outgoing = []
             for call, out in zip(calls, outputs):
-                messages.append({"role": "tool", "tool_call_id": call["id"], "content": out})
-            print(len(messages), messages[1]["tool_call_id"])
+                outgoing.append({"role": "tool", "tool_call_id": call["id"], "content": out})
+            print(len(outgoing), outgoing[1]["tool_call_id"])
             # 2 call_b
+            ```
+
+            ```quiz
+            What happens when zip receives lists of different lengths?
+            - [x] It stops at the shorter list :: Unpaired items do not cause an exception by themselves.
+            - [ ] It raises a length error :: You must check lengths explicitly if the contract requires equality.
             ```
 
             The id goes under the key `tool_call_id`. Anthropic names it
@@ -1213,17 +1444,31 @@ EXERCISES = [
             in the loops chapter. If one list is shorter, `zip` stops at its end
             and raises no error.
 
-            Every call id in the model's reply must get one tool message with the
-            same id. If one is missing, the API rejects the next request.
+            The exercise requires one result message with the matching id for each call. That preserves the request-result pairing.
+
+            ```predict
+            calls = ["a", "b"]
+            outputs = ["done"]
+            print(list(zip(calls, outputs)))
+            ---
+            Only one pair exists; zip does not invent an output for the remaining call.
+            ```
+
+            **Watch out:** Silently losing the last call leaves the conversation incomplete. Validate the counts before building outgoing so every requested operation receives a result.
+
+            **In short:** Check the counts, pair calls and outputs by position, and preserve every call identifier.
         ''',
         "prompt": r'''
             Build the OpenAI-style messages that answer a list of tool calls.
 
-            **Write:** `openai_tool_messages(calls, outputs)`
+            **Your job:** write `openai_tool_messages(calls, outputs)`
 
+            **What goes in**
             - `calls`: a list of OpenAI tool call dicts (each has an `"id"`), e.g. `[{"id": "call_a", ...}]`
             - `outputs`: a list of tool outputs, same length and order as `calls` (strings or JSON-serialisable values)
-            - **Returns:** a list of dicts `{"role": "tool", "tool_call_id": <id>, "content": <text>}`, one per call, same order
+
+            **What comes out**
+            - Return a list of dicts `{"role": "tool", "tool_call_id": <id>, "content": <text>}`, one per call, same order
 
             **Rules**
             - A string output is used unchanged; anything else becomes `json.dumps(output)`.
@@ -1281,9 +1526,9 @@ EXERCISES = [
                 return messages
         ''',
         "hints": [
-            "Check the lengths first, then walk both lists together with zip.",
-            "Each pair (call, output) becomes one dict with role tool; convert non-strings with json.dumps.",
-            "If len(calls) != len(outputs) raise ValueError; otherwise loop over zip(calls, outputs), build the text, append {\"role\": \"tool\", \"tool_call_id\": call[\"id\"], \"content\": text}; return the list.",
+            "Check that every call has an output before pairing the lists.",
+            "Build one result message for each positional pair.",
+            "Reject unequal lengths, visit matched calls and outputs in order, serialize only non-strings, and preserve the matching identifiers.",
         ],
     },
     {
@@ -1291,7 +1536,9 @@ EXERCISES = [
         "title": "Tools that fail safely",
         "difficulty": 1,
         "lesson": r'''
-            ## Tool errors as results
+            ## Turn a tool failure into a marked result
+
+            A tool raises an exception while the surrounding conversation is still useful. You want the caller to know the operation failed without losing control of the whole loop. Return both the message and a separate signal that distinguishes failure from a successful textual answer.
 
             Tools fail often. The model requests a name that does not exist, it sends
             bad arguments, or the tool raises because of a network error. An
@@ -1305,13 +1552,19 @@ EXERCISES = [
 
             try:
                 print(divide(1, 0))
-            except Exception as exc:
-                print(f"Error: {exc}")
+            except Exception as failure:
+                print(f"Error: {failure}")
             # Error: division by zero
             ```
 
+            ```quiz
+            Why return an error flag as well as text?
+            - [x] Successful output can also look like an error sentence :: The explicit flag identifies the outcome unambiguously.
+            - [ ] All strings mean failure :: A successful tool may legitimately return text.
+            ```
+
             `divide(1, 0)` raises `ZeroDivisionError`, so the first `print` never
-            runs. The `except` block formats the exception. `{exc}` in an f-string
+            runs. The `except` block formats the exception. `{failure}` in an f-string
             gives the exception's message.
 
             Return two values: the content, and a boolean that says whether the
@@ -1320,16 +1573,32 @@ EXERCISES = [
 
             In most code you catch one specific exception type. Here you catch
             `Exception`, because every kind of tool failure must become a result.
+
+            ```predict
+            result = ("not found", True)
+            message, failed = result
+            print(failed)
+            print(message)
+            ---
+            The flag and the content are separate values with different purposes.
+            ```
+
+            **Watch out:** Exception messages in these exercises are safe fixtures. A production app should avoid forwarding credentials or private internal details when reporting tool failures.
+
+            **In short:** Keep execution failures distinguishable from successful values while preserving a usable result.
         ''',
         "prompt": r'''
             Run a tool without ever crashing the app.
 
-            **Write:** `safe_run(tools, name, args)`
+            **Your job:** write `safe_run(tools, name, args)`
 
+            **What goes in**
             - `tools`: a dict mapping tool names to functions
             - `name`: the requested tool name (string)
             - `args`: a dict of keyword arguments
-            - **Returns:** a tuple `(result, is_error)`
+
+            **What comes out**
+            - Return a tuple `(result, is_error)`
 
             **Rules**
             - Unknown `name`: return `(f"Error: unknown tool {name}", True)`, e.g. `"Error: unknown tool fly"`.
@@ -1391,9 +1660,9 @@ EXERCISES = [
                     return f"Error: {exc}", True
         ''',
         "hints": [
-            "Two failure cases: the name isn't in the registry, or the call raises.",
-            "Check the name with `in` first; wrap only the call itself in try/except Exception.",
-            "If name not in tools return the unknown-tool text and True; try calling tools[name](**args) and return (value, False); in except Exception as exc return (f\"Error: {exc}\", True).",
+            "An unknown name and a failing known function need separate handling.",
+            "Only the actual tool execution belongs inside the exception handler.",
+            "Check the registry, try the call when known, and return the appropriate content paired with its success-or-failure flag.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 2
@@ -1403,7 +1672,9 @@ EXERCISES = [
         "difficulty": 2,
         "placement": True,
         "lesson": r'''
-            ## Answering several tool calls
+            ## Handle a whole batch even when one call fails
+
+            A reply requests several tools, and one of them fails. The other results still matter. Treat each operation independently, keep its identifier, and collect both successes and marked failures into the response format the next model call expects.
 
             One reply can hold several `tool_use` blocks. Run each call and catch
             its errors, as in the previous exercise. Answer all of the calls in one
@@ -1417,7 +1688,6 @@ EXERCISES = [
             def add(a, b):
                 return a + b
 
-            # One success block and one error block:
             ok = {"type": "tool_result", "tool_use_id": "t1", "content": str(add(a=1, b=2))}
             bad = {"type": "tool_result", "tool_use_id": "t2",
                    "content": "Error: unknown tool sub", "is_error": True}
@@ -1425,19 +1695,40 @@ EXERCISES = [
             # {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "3"}, {"type": "tool_result", "tool_use_id": "t2", "content": "Error: unknown tool sub", "is_error": true}]}
             ```
 
+            ```quiz
+            Does one failed tool remove successful results from the batch?
+            - [x] No :: Each operation keeps its own result and status.
+            - [ ] Yes :: That would discard useful outcomes from unrelated calls.
+            ```
+
             `content` is always text: keep a string result unchanged, and convert any
             other result with `json.dumps(...)`. Successful blocks have no `is_error`
             key. When the reply holds no `tool_use` blocks, there is nothing to answer.
+
+            ```predict
+            results = [{"id": "a", "failed": False}, {"id": "b", "failed": True}]
+            print([r["id"] for r in results])
+            print(sum(r["failed"] for r in results))
+            ---
+            Both results remain present, while only one contributes to the failure count.
+            ```
+
+            **Watch out:** Only failure blocks carry the error marker required here. Do not attach a failure flag to every block merely because a different operation failed.
+
+            **In short:** Collect one correctly identified result per tool request, with failures marked individually.
         ''',
         "prompt": r'''
             Handle all the tool calls in one Anthropic-style reply.
 
-            **Write:** `handle_tool_calls(reply, tools)`
+            **Your job:** write `handle_tool_calls(reply, tools)`
 
+            **What goes in**
             - `reply`: a dict with `"content"`: a list of blocks (`"text"` and `"tool_use"` blocks;
               tool_use blocks have `"id"`, `"name"`, `"input"`)
             - `tools`: a dict mapping tool names to functions
-            - **Returns:** one message `{"role": "user", "content": [<tool_result block>, ...]}`
+
+            **What comes out**
+            - Return one message `{"role": "user", "content": [<tool_result block>, ...]}`
 
             **Rules**
             - One `tool_result` block per `tool_use` block, in the same order; text blocks are ignored.
@@ -1547,9 +1838,9 @@ EXERCISES = [
                 return {"role": "user", "content": results}
         ''',
         "hints": [
-            "Combine three earlier steps: finding tool_use blocks, safe running, and building tool_result blocks.",
-            "For each tool_use block build a result dict; set content and, only on failure, is_error. Collect them, then wrap in one user message.",
-            "Loop over content, skip non tool_use blocks; start item with type and tool_use_id; handle unknown name, then try/except around tools[name](**input); convert non-strings with json.dumps; append; return None if the list is empty, else the user message.",
+            "Combine selection, independent execution, and result formatting.",
+            "One failed call should produce a marked block while the other calls still run.",
+            "Select requests in order, handle each unknown name or exception, serialize its output, and return the collected blocks or the stated empty result.",
         ],
     },
     {
@@ -1560,16 +1851,19 @@ EXERCISES = [
             Models sometimes send `"3"` where you asked for a number. Check argument types
             against the schema before running a tool.
 
-            **Write:** `type_errors(schema, args)`
+            **Your job:** write `type_errors(schema, args)`
 
+            **What goes in**
             - `schema`: an `input_schema` dict; each property has a `"type"`:
               `"string"`, `"integer"`, `"number"`, `"boolean"`, `"array"` or `"object"`
             - `args`: the arguments dict
-            - **Returns:** a list of error strings `"<name>: expected <type>"`, in the order of the keys in `args`
+
+            **What comes out**
+            - Return a list of error strings `"<name>: expected <type>"`, in the order of the keys in `args`
 
             **Rules**
-            - Python types: string → `str`, integer → `int`, number → `int` or `float`,
-              boolean → `bool`, array → `list`, object → `dict`.
+            - Python types: string -> `str`, integer -> `int`, number -> `int` or `float`,
+              boolean -> `bool`, array -> `list`, object -> `dict`.
             - `True`/`False` are **not** valid integers or numbers (even though `bool` is a kind of `int` in Python).
             - Arguments not in `properties` are skipped (another check handles them).
             - Missing arguments are not reported here.
@@ -1641,9 +1935,9 @@ EXERCISES = [
                 return errors
         ''',
         "hints": [
-            "A dict mapping each JSON type name to Python type(s) keeps this short; isinstance accepts a tuple of types.",
-            "isinstance(True, int) is True, so integers and numbers need an extra check that the value is not a bool.",
-            "Loop over args.items(); skip names not in properties; look up the expected type; test isinstance with the mapped types; mark bools as wrong for integer/number; append \"name: expected type\" on failure.",
+            "Match JSON type names to Python value types.",
+            "Integer and number checks must explicitly exclude booleans.",
+            "Visit supplied arguments covered by the schema, check each supported type, and collect the required error messages in order.",
         ],
     },
     {
@@ -1655,15 +1949,20 @@ EXERCISES = [
             shape) and convert it for OpenAI, and convert OpenAI's tool calls back into
             Anthropic-style `tool_use` blocks so the rest of your code handles one shape.
 
-            **Write:** `to_openai_tools(tools)` and `from_openai_calls(tool_calls)`
+            **Your job:** write `to_openai_tools(tools)` and `from_openai_calls(tool_calls)`
 
+            **What goes in**
             `to_openai_tools(tools)`
             - `tools`: a list of `{"name", "description", "input_schema"}` dicts
-            - **Returns:** a list of `{"type": "function", "function": {"name": ..., "description": ..., "parameters": <input_schema>}}`, same order
+
+            **What comes out**
+            - Return a list of `{"type": "function", "function": {"name": ..., "description": ..., "parameters": <input_schema>}}`, same order
 
             `from_openai_calls(tool_calls)`
             - `tool_calls`: a list of `{"id", "type": "function", "function": {"name", "arguments": <JSON text>}}`
-            - **Returns:** a list of `{"type": "tool_use", "id": ..., "name": ..., "input": <parsed dict>}`, same order
+
+            **What comes out**
+            - Return a list of `{"type": "tool_use", "id": ..., "name": ..., "input": <parsed dict>}`, same order
 
             **Rules**
             - Empty or whitespace-only `arguments` parse to `{}`.
@@ -1751,9 +2050,9 @@ EXERCISES = [
                 return blocks
         ''',
         "hints": [
-            "Both functions are loops (or comprehensions) that build a new dict per item.",
-            "For the calls, reuse the parsing from 'Parse an OpenAI tool call' and catch json.JSONDecodeError to raise your own ValueError.",
-            "to_openai_tools: for each tool build {\"type\": \"function\", \"function\": {name, description, parameters=input_schema}}. from_openai_calls: for each call parse arguments ({} if blank) inside try/except json.JSONDecodeError, raise ValueError(f\"bad arguments for {name}\"), append the tool_use block.",
+            "Each adapter changes layout while preserving the information.",
+            "Tool definitions and tool calls have different nested shapes.",
+            "Build fresh definitions with renamed schema fields; parse each call's argument text, preserve its identifier, and translate malformed-argument errors as required.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 3
@@ -1762,7 +2061,9 @@ EXERCISES = [
         "title": "One full tool round",
         "difficulty": 3,
         "lesson": r'''
-            ## The tool loop
+            ## Repeat the conversation with a bounded tool round
+
+            One operation may provide enough information for a final answer, or the model may request another operation. Keep the conversation in order so the next call sees the request and its result. A fixed call limit makes the loop stop even if no final answer arrives.
 
             A **tool loop** repeats one round until the model stops requesting
             tools. In each round you call the model with the message list and
@@ -1776,29 +2077,51 @@ EXERCISES = [
             ```diagram
             {"type": "flow", "title": "The messages list during one tool round", "steps": [{"label": "User question", "detail": "The list starts with one user message. Your code passes the list to the model.", "code": "messages = [\n  {\"role\": \"user\", \"content\": \"Weather in Oslo?\"},\n]"}, {"label": "Assistant reply with a tool call", "detail": "The reply has stop_reason \"tool_use\". Your code appends its content as an assistant message.", "code": "messages = [\n  {\"role\": \"user\", \"content\": \"Weather in Oslo?\"},\n  {\"role\": \"assistant\", \"content\": [{\"type\": \"tool_use\", \"id\": \"t1\", \"name\": \"get_weather\", \"input\": {\"city\": \"Oslo\"}}]},\n]"}, {"label": "Tool results", "detail": "Your code runs get_weather(city=\"Oslo\") and appends one user message that holds the tool_result block. Then it calls the model again with the same list.", "code": "messages = [\n  {\"role\": \"user\", \"content\": \"Weather in Oslo?\"},\n  {\"role\": \"assistant\", \"content\": [{\"type\": \"tool_use\", \"id\": \"t1\", ...}]},\n  {\"role\": \"user\", \"content\": [{\"type\": \"tool_result\", \"tool_use_id\": \"t1\", \"content\": \"4C in Oslo\"}]},\n]"}, {"label": "Assistant reply with text", "detail": "This reply has stop_reason \"end_turn\". Your code appends it, joins the text blocks and returns. The list now has 4 messages.", "code": "messages = [\n  {\"role\": \"user\", \"content\": \"Weather in Oslo?\"},\n  {\"role\": \"assistant\", \"content\": [{\"type\": \"tool_use\", \"id\": \"t1\", ...}]},\n  {\"role\": \"user\", \"content\": [{\"type\": \"tool_result\", \"tool_use_id\": \"t1\", \"content\": \"4C in Oslo\"}]},\n  {\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"It is 4C in Oslo.\"}]},\n]"}], "loop": {"from": 2, "to": 1, "label": "while the reply asks for a tool"}}
             ```
+
+            ```quiz
+            What ends the loop without a final answer?
+            - [x] The configured round limit :: The app must retain control over repeated model calls.
+            - [ ] A tool result by itself :: A successful tool does not necessarily finish the conversation.
+            ```
+
+            ```order
+            history = ["question"]
+            history.append("tool request")
+            history.append("tool result")
+            print(history)
+            ---
+            The request precedes the result that answers it.
+            ```
+
+            **Watch out:** The fake model returns prepared data and does not think or execute functions. The loop tests your ordering and limits, not whether a real model will solve a task.
+
+            **In short:** Preserve the conversation, answer requested tools, and bound how many model rounds can run.
         ''',
         "prompt": r'''
             Run a complete tool-calling conversation against a (fake) Anthropic-style model.
 
-            **Write:** `chat_with_tools(model, tools, question, max_rounds=5)`
+            **Your job:** write `chat_with_tools(model, tools, question, max_rounds=5)`
 
+            **What goes in**
             - `model`: a function `model(messages)` that returns a reply dict
               `{"stop_reason": ..., "content": [blocks]}` (Anthropic shape)
             - `tools`: a dict mapping tool names to functions
             - `question`: the user's text
             - `max_rounds`: the maximum number of model calls
-            - **Returns:** a tuple `(answer, messages)`: the final text and the full message list
+
+            **What comes out**
+            - Return a tuple `(answer, messages)`: the final text and the full message list
 
             **Rules**
-            - Start with `messages = [{"role": "user", "content": question}]`.
+            - The starting conversation contains one user message whose content is the supplied question.
             - Each round: call `model(messages)`, then append `{"role": "assistant", "content": reply["content"]}`.
             - If `reply["stop_reason"] == "tool_use"`: run every `tool_use` block (in order) and append ONE
               `{"role": "user", "content": [tool_result blocks]}` message, then go to the next round.
               Tool result blocks follow the same rules as "Answer every tool call" (string unchanged,
-              else `json.dumps`; unknown tool / exception → `"Error: ..."` content with `"is_error": True`).
+              else `json.dumps`; unknown tool / exception -> `"Error: ..."` content with `"is_error": True`).
             - Otherwise: `answer` is the `text` of all `"text"` blocks joined with `""`; return `(answer, messages)`.
             - If the model has been called `max_rounds` times and still wants a tool, raise
-              `RuntimeError("too many tool rounds")` (do not call it again).
+              `RuntimeError` with the message `"too many tool rounds"` (do not call it again).
             - Pass the same list object to `model` each time (the model may look at it).
 
             **Examples**
@@ -1930,9 +2253,9 @@ EXERCISES = [
                 raise RuntimeError("too many tool rounds")
         ''',
         "hints": [
-            "A for loop over range(max_rounds) is the round counter; raising after the loop handles the limit.",
-            "Inside each round: call the model, append its reply as an assistant message, then either return the joined text or append a user message of tool results. A helper that turns one tool_use block into one tool_result block keeps it tidy.",
-            "messages = [user question]; for each round: reply = model(messages); append assistant content; if stop_reason is not tool_use, join text blocks and return (answer, messages); else build results for every tool_use block (unknown / exception / json.dumps rules) and append them as one user message. After the loop raise RuntimeError(\"too many tool rounds\").",
+            "Keep the model reply in history before supplying its tool results.",
+            "Each round either finishes with text or adds every requested result for another call.",
+            "Call within the limit, append the reply, return final text when finished, otherwise run and append results, and raise if no final reply arrives in time.",
         ],
     },
 ]

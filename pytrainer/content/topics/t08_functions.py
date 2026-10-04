@@ -269,54 +269,42 @@ EXERCISES = [
         "title": "Return vs print",
         "difficulty": 0,
         "lesson": r'''
-            ## Return and print
+            ## Give a result back to the next line
 
-            A **function** is a named block of code. `def` creates it. **Calling** a function
-            means writing its name followed by parentheses, which runs the code inside it.
-            AI apps are made of many small functions: one builds a prompt, one counts tokens,
-            one cleans a reply.
+            You have calculated a price and want to add it to a bill. Seeing the price on the screen is useful, but the next calculation needs the actual number. This is why functions can give values back as well as display them.
 
             ```python
-            def add_bang(word):
-                return word + "!"
+            def delivery_cost():
+                return 4
 
-            loud = add_bang("hi")
-            print(loud)
-            # hi!
+            fee = delivery_cost()
+            print(fee + 2)
+            # 6
             ```
 
-            `return` ends the function and sends a value to the line that called it. That
-            line is the **caller**, and the value is the **return value**. Here the call `add_bang("hi")` evaluates to
-            `"hi!"`, and the assignment stores it in `loud`.
+            The `def` line creates a named piece of reusable code, a **function**. Writing its name with parentheses calls it: Python runs the indented lines. `return` ends that run and gives its value to the calling line. Here the **return value** becomes the value of `fee`.
 
-            `print` does something different. It writes text to the screen and sends nothing
-            to the caller. A function that ends without running `return` returns `None`, the
-            value Python uses for "no value".
+            ```predict
+            def show_fee():
+                print(4)
 
-            ```python
-            def show(word):
-                print(word)
-
-            got = show("hey")
-            # hey
-            print(got)
-            # None
+            fee = show_fee()
+            print(fee)
+            ---
+            The function prints 4 itself. Because it reaches the end without return, the calling line receives None, which the last line prints.
             ```
 
-            Step through the program and watch `got` become `None`.
+            Printing sends text to the output area. It does not supply that displayed value to the calling line. A function that reaches its end without returning a value gives back `None`, Python's value for an absent result. Assigning the call to a variable stores this returned value, not whatever appeared on screen.
 
-            ```diagram
-            {"type": "trace", "title": "A function with no return", "code": ["def show(word):", "    print(word)", "", "got = show(\"hey\")", "print(got)"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 4, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"word": "'hey'"}, "out": ""},
-              {"line": 5, "vars": {"got": "None"}, "out": "hey\n"},
-              {"line": null, "vars": {"got": "None"}, "out": "hey\nNone\n"}
-            ]}
+            ```quiz
+            A function returns 9 but never prints. What appears when you only call it in a script?
+            - [x] Nothing. :: Returning gives the caller a value; displaying it is a separate action.
+            - [ ] 9 :: A script needs a print call to display the returned number.
             ```
 
-            Only a line that calls `print` writes text to the screen. A `return` on its own
-            writes nothing.
+            **Watch out:** correct-looking output can hide a wrong return value. Check what the calling line actually receives.
+
+            Use return when another part of the program needs your answer.
         ''',
         "mode": "predict",
         "prompt": r'''Read the code and type exactly what it prints.''',
@@ -337,15 +325,13 @@ EXERCISES = [
             None
         ''',
         "explanation": r'''
-            `shout("hi")` **returns** `"hi!"`, and the outer `print` writes it. `whisper("HEY")`
-            prints `HEY...` itself. It has no `return`, so the call returns `None`. `result`
-            is assigned `None`, and the last line prints it.
+            The first outer print displays the text returned by shout. Next, calling whisper runs its own print, producing the second line. That helper never returns a value explicitly, so result receives None, which the final print displays. Reading visible output and return values separately explains all three lines.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "Follow the code top to bottom. Only lines that call print() produce output.",
-            "shout gives back a value; whisper prints something itself but gives nothing back.",
-            "Line 1: the returned value of shout. Line 2: what whisper prints. Line 3: what a function with no return gives back.",
+            "Track displayed output separately from returned values.",
+            "The first helper returns text; the second displays text during its own call.",
+            "Follow each print in execution order, then consider the default return value of a function without return.",
         ],
     },
     {
@@ -353,44 +339,54 @@ EXERCISES = [
         "title": "Fill in the greeting",
         "difficulty": 0,
         "lesson": r'''
-            ## Parameters and arguments
+            ## Reuse the same code with different values
 
-            A function can receive a value each time you call it. You name that value in
-            the `def` line and use the name in the code below it.
+            A report needs a label for whichever document is being processed. Writing a separate function for every document would repeat the same work. Let the caller supply the changing part instead.
 
             ```python
-            def welcome(city):
-                return f"Welcome to {city}"
+            def document_label(title):
+                return f"Reading: {title}"
 
-            print(welcome("Paris"))
-            # Welcome to Paris
-            print(welcome("Tokyo"))
-            # Welcome to Tokyo
+            print(document_label("Guide"))
+            # Reading: Guide
+            print(document_label("Notes"))
+            # Reading: Notes
             ```
 
-            The parts of the definition:
+            The name `title` in the definition stands for the incoming value. That name is a **parameter**. The actual value supplied in a call, such as `"Guide"`, is an **argument**. Python assigns that value to the parameter for this call, then runs the function's indented **body**. The next call runs the same body with a different value.
 
-            - `def` starts the definition. The function name, parentheses and a colon follow.
-            - `city` is a **parameter**: a variable name listed in the parentheses.
-            - The indented lines under `def` are the **body**: the code that runs on each call.
-            - `"Paris"` is an **argument**: the value you write in the call.
+            ```fill
+            def document_label(title):
+                return f"Reading: {___}"
+            print(document_label("Manual"))
+            ---
+            - [x] title :: The parameter holds this call's document title.
+            - [ ] "Guide" :: A fixed string would ignore the caller's title.
+            - [ ] missing :: No value has been assigned to this name, so it raises NameError.
+            ```
 
-            When you call `welcome("Paris")`, Python assigns `"Paris"` to `city` and then
-            runs the body. The second call assigns `"Tokyo"` to `city` and runs the same body.
+            Remember the f-strings chapter: braces insert the value of an expression into text. Here the expression can be the parameter name. You do not need to assign the example title inside the function, because calling the function already supplies it.
 
-            Inside the body a parameter works like any other variable. You can use it in an
-            f-string or in a calculation.
+            ```match
+            parameter :: name written in the definition
+            argument :: value supplied in a call
+            body :: indented code run by the call
+            ```
 
-            If you write the value `"Paris"` in the body instead of `city`, the function
-            returns the same text for every argument.
+            **Watch out:** a hard-coded example may pass one check and fail another. Use the supplied value wherever the text must vary.
+
+            One definition can handle many inputs because each call supplies its own values.
         ''',
         "prompt": r'''
             A chat app greets each user by name. Complete the function by replacing the `___`.
 
-            **Write:** `greet(name)`
+            **Your job:** write `greet(name)`
 
+            **What goes in**
             - `name`: a string, e.g. `"Ada"`
-            - **Returns:** a string like `"Hello, Ada!"`
+
+            **What comes out**
+            - a string like `"Hello, Ada!"`
 
             **Rules**
             - Return the text (don't print it): `Hello`, a comma, one space, the name, then `!`.
@@ -401,6 +397,8 @@ EXERCISES = [
             greet("Ada")    # returns "Hello, Ada!"
             greet("Bob")    # returns "Hello, Bob!"
             ```
+
+            For an empty name, `greet("")` returns `"Hello, !"`.
         ''',
         "starter": r'''
             def greet(name):
@@ -422,9 +420,9 @@ EXERCISES = [
                 return f"Hello, {name}!"
         ''',
         "hints": [
-            "The function receives the name in the parameter `name`. Build a string that uses it.",
-            "An f-string lets you put a variable inside a string with curly braces.",
-            "Replace ___ with an f-string: the text Hello, then a comma and space, then {name}, then an exclamation mark.",
+            "Use the incoming name rather than one fixed example name.",
+            "Build the greeting as text, preserving the punctuation and spacing shown.",
+            "Replace the gap with a string expression that incorporates this call's name, and let the existing return give it back.",
         ],
     },
     {
@@ -432,53 +430,65 @@ EXERCISES = [
         "title": "Fix: nothing comes back",
         "difficulty": 0,
         "lesson": r'''
-            ## A function that prints returns None
+            ## Make a calculation available to its caller
 
-            `print` writes a value to the screen. It does not send the value to the caller.
-            Only `return` does that.
-
-            ```python
-            def triple_show(n):
-                print(n * 3)
-
-            def triple_give(n):
-                return n * 3
-
-            x = triple_show(2)
-            # 6
-            y = triple_give(2)
-            print(x, y + 1)
-            # None 7
-            ```
-
-            `triple_show(2)` prints `6`, then ends without a `return`, so `x` is `None`.
-            `triple_give(2)` prints nothing and returns `6`, so `y` is `6` and you can keep
-            calculating with it.
-
-            The tests in this app compare the **return value** of your function with the
-            expected value. A function that only prints returns `None`, so the test fails.
-
-            "Returns a value" and "gives back a value" mean the same thing.
-
-            `return` also ends the function immediately. Python skips any lines after it in
-            the body.
+            A helper displays a number, yet the next calculation fails. The displayed answer might be correct while the helper still gives back no usable number. Trace the result from the function to the line that called it.
 
             ```python
-            def check(n):
-                return n > 0
-                print("this line never runs")
+            def square(value):
+                return value * value
 
-            print(check(5))
-            # True
+            answer = square(3)
+            print(answer + 1)
+            # 10
             ```
+
+            The calculation runs inside `square`. Its return value becomes `answer`, so adding one works. If the helper only printed the square, `answer` would receive `None`. The visible number and the value stored by an assignment are separate things.
+
+            ```try
+            def next_page(page):
+                print(page + 1)
+
+            result = next_page(4)
+            print(result)
+            ---
+            Change the function so this whole program prints just one line: `5`.
+            ---
+            def next_page(page):
+                return page + 1
+
+            result = next_page(4)
+            print(result)
+            ---
+            The function gives back the number. Only the outer print displays it.
+            ```
+
+            Returning also stops the current call immediately. Any later statements in that body are skipped. This matters when you add debug prints: a print after an unconditional return will never run, even though the function was called correctly.
+
+            ```predict
+            def answer():
+                return 7
+                print("later")
+
+            print(answer())
+            ---
+            Only 7 appears. Returning finishes the call before the inner print can run.
+            ```
+
+            **Watch out:** `TypeError` involving `NoneType` in a later calculation often means an earlier helper forgot to return its result. Look at the producing function, not only the failing line.
+
+            A reusable calculation needs to hand its result back.
         ''',
         "prompt": r'''
             `double(n)` should give back twice `n`, but the checks receive `None`. Fix the bug.
 
-            **Write:** `double(n)`
+            **Your job:** write `double(n)`
 
+            **What goes in**
             - `n`: a number (int), e.g. `4` or `-3`
-            - **Returns:** `n` times 2, as a number
+
+            **What comes out**
+            - `n` times 2, as a number
 
             **Rules**
             - The value must be **returned** to the caller; printing it is not enough.
@@ -489,6 +499,8 @@ EXERCISES = [
             double(4)     # returns 8
             double(-3)    # returns -6
             ```
+
+            For zero, `double(0)` returns `0`.
         ''',
         "starter": r'''
             def double(n):
@@ -510,9 +522,9 @@ EXERCISES = [
                 return n * 2
         ''',
         "hints": [
-            "Look at how the result leaves the function. Showing a value is not the same as giving it back.",
-            "print only displays text. The caller needs the value handed back to them.",
-            "Change the print(...) line into a return statement that returns n * 2.",
+            "Compare displaying a result with giving a result back.",
+            "The calculation is already correct; inspect how it leaves the function.",
+            "Keep the arithmetic, but make its answer become the call's return value.",
         ],
     },
     {
@@ -520,43 +532,60 @@ EXERCISES = [
         "title": "Default price",
         "difficulty": 0,
         "lesson": r'''
-            ## Default values and keyword arguments
+            ## Choose a value when the caller leaves one out
 
-            A parameter can have a **default value**: the value Python assigns to it when
-            the call leaves that argument out. You write it in the `def` line as `name=value`.
+            Most reports show ten rows, but sometimes a caller wants fewer. Requiring every caller to write the usual number adds noise. You can put that usual value in the function definition and still let individual calls replace it.
 
             ```python
-            def make_tea(sugar=1):
-                return f"tea with {sugar} sugar"
+            def page_size(rows=10):
+                return rows
 
-            print(make_tea())
-            # tea with 1 sugar
-            print(make_tea(3))
-            # tea with 3 sugar
-            print(make_tea(sugar=0))
-            # tea with 0 sugar
+            print(page_size())
+            # 10
+            print(page_size(4))
+            # 4
+            print(page_size(rows=0))
+            # 0
             ```
 
-            The first call passes no argument, so `sugar` is `1`. The second call passes `3`
-            by position: Python assigns it to the first parameter.
+            The value after the equals sign is the parameter's **default value**. It is used only when that argument is omitted. Zero does not mean missing: the third call deliberately supplies zero, so zero wins.
 
-            The third call names the parameter: `sugar=0`. That is a **keyword argument**.
-            Keyword arguments make a call easier to read when the values are numbers.
-            `cost(500, price=0.004)` states what `0.004` is. `cost(500, 0.004)` does not.
+            An argument written with its parameter name, such as `rows=0`, is a **keyword argument**. An argument written without its name is matched by position. Naming arguments helps readers understand what a number means without looking up the definition.
 
-            Parameters with a default must come after parameters without one.
-            `def f(tokens, price=0.002)` works. `def f(price=0.002, tokens)` raises
-            `SyntaxError: parameter without a default follows parameter with a default`.
+            ```predict
+            def area(width, height=3):
+                return width * height
+
+            print(area(2))
+            print(area(2, height=5))
+            ---
+            The first call uses height 3. The named height in the second call replaces the default with 5.
+            ```
+
+            Required parameters come before parameters with defaults. That keeps the ordinary positional call unambiguous: Python knows which supplied value belongs to which required name before it fills omissions.
+
+            ```quiz
+            When is a default used?
+            - [x] When the caller omits that argument. :: Supplying any value replaces the default.
+            - [ ] Whenever the caller supplies zero. :: Zero is an explicit value, not an omission.
+            ```
+
+            **Watch out:** putting a required parameter after one with a default raises `SyntaxError`. Arrange the definition before debugging its body.
+
+            Defaults describe what happens when a caller leaves a choice unspecified.
         ''',
         "prompt": r'''
             An API bills per token. Compute the cost of a request.
 
-            **Write:** `request_cost(tokens, price=0.002)`
+            **Your job:** write `request_cost(tokens, price=0.002)`
 
+            **What goes in**
             - `tokens`: an int, the number of tokens used, e.g. `1000`
             - `price`: a float, the price of one token; it has the **default value** `0.002`
               (used when the caller leaves it out)
-            - **Returns:** `tokens` multiplied by `price` (a float)
+
+            **What comes out**
+            - `tokens` multiplied by `price` (a float)
 
             **Rules**
             - Calling with only `tokens` uses the price `0.002`.
@@ -568,6 +597,8 @@ EXERCISES = [
             request_cost(1000, 0.01)         # returns 10.0
             request_cost(500, price=0.004)   # returns 2.0
             ```
+
+            With no tokens, `request_cost(0)` returns `0.0`.
         ''',
         "starter": r'''
             def request_cost(tokens):
@@ -593,9 +624,9 @@ EXERCISES = [
                 return tokens * price
         ''',
         "hints": [
-            "You need a second parameter called price that has a default value.",
-            "A default is written in the def line as name=value. Then the body just multiplies.",
-            "Change the def line to take tokens and price=0.002, then return tokens multiplied by price.",
+            "The definition needs to describe what happens when price is omitted.",
+            "Allow both positional and named price arguments, with the stated default.",
+            "Add the optional parameter after the required one, then give back the cost calculated using the received values.",
         ],
     },
     {
@@ -603,60 +634,60 @@ EXERCISES = [
         "title": "Two answers at once",
         "difficulty": 0,
         "lesson": r'''
-            ## Returning two values
+            ## Give back a pair of related answers
 
-            A function can return two values in one `return` statement. Write them
-            separated by a comma. Python builds a **tuple** from them: an ordered group of
-            values that cannot be changed after it is created. Python prints a tuple in
-            parentheses.
+            A report needs both the first and last document name. Making two calls would repeat the same lookup work. You can group the answers and return that group in one call.
 
             ```python
-            def first_last(items):
+            def endpoints(items):
                 return items[0], items[-1]
 
-            pair = first_last(["a", "b", "c"])
+            pair = endpoints(["Guide", "FAQ", "Notes"])
             print(pair)
-            # ('a', 'c')
+            # ('Guide', 'Notes')
             ```
 
-            `return a, b` returns the tuple `(a, b)`. The function still returns one value:
-            the tuple.
+            The comma groups the two values into a tuple, which you met in the variables chapter. The function still returns one object, but that object holds two ordered answers. The order you choose becomes part of the function's promise to its callers.
 
-            **Unpacking** assigns each item of a tuple to its own variable. Write the
-            variable names on the left, separated by commas.
-
-            ```python
-            def first_last(items):
+            ```predict
+            def endpoints(items):
                 return items[0], items[-1]
 
-            start, end = first_last([10, 20, 30])
-            print(start, end)
-            # 10 30
+            start, finish = endpoints([8, 3, 5])
+            print(finish)
+            ---
+            Unpacking assigns the first returned item to start and the second to finish, so finish is 5.
             ```
 
-            The number of names on the left must equal the number of items in the tuple.
-            Otherwise Python raises `ValueError`.
-
-            Two built-in functions are useful in this step. `min(numbers)` returns the
-            smallest number in a list and `max(numbers)` returns the largest.
+            You can keep the tuple whole or unpack it into two names. For numeric summaries, `min` finds the smallest number and `max` the largest. If your input contains words but you need sizes, first think about the numeric measurements you will compare, rather than comparing the words themselves.
 
             ```python
-            counts = [120, 45, 300]
-            print(min(counts), max(counts))
-            # 45 300
+            sizes = [6, 2, 9]
+            print(min(sizes), max(sizes))
+            # 2 9
             ```
 
-            The order in the `return` statement is the order in the tuple. `return high, low`
-            returns the largest value first.
+            ```quiz
+            What does changing the order of the returned pair change?
+            - [x] Which answer the caller receives first. :: Tuples preserve positions, so callers depend on that order.
+            - [ ] Nothing; Python sorts tuples automatically. :: Creating a tuple never sorts its values.
+            ```
+
+            **Watch out:** unpacking two values into three names raises `ValueError`. Match the names to the shape the function promises.
+
+            Return related answers together, in an order the caller can rely on.
         ''',
         "prompt": r'''
             Before sending text to a model you often want quick stats about it. Find the
             shortest and longest word lengths in one call.
 
-            **Write:** `shortest_longest(words)`
+            **Your job:** write `shortest_longest(words)`
 
+            **What goes in**
             - `words`: a list of strings, never empty, e.g. `["hi", "hello", "hey"]`
-            - **Returns:** **two values** separated by a comma (a tuple): the length of the
+
+            **What comes out**
+            - **two values** separated by a comma (a tuple): the length of the
               shortest word, then the length of the longest word
 
             **Rules**
@@ -699,9 +730,9 @@ EXERCISES = [
                 return min(lengths), max(lengths)
         ''',
         "hints": [
-            "First get the length of every word, then find the smallest and largest of those numbers.",
-            "Build a list of lengths with a loop, then use min() and max() on it. Return both separated by a comma.",
-            "Make an empty list; loop over words and append len(word); finally return min of the list, max of the list.",
+            "The answers are numeric lengths, not the words themselves.",
+            "Measure each word, then find the smallest and largest measurements.",
+            "Collect the lengths, select their two endpoints, and return them together with the shortest first.",
         ],
     },
     {
@@ -709,62 +740,49 @@ EXERCISES = [
         "title": "Inside stays inside",
         "difficulty": 0,
         "lesson": r'''
-            ## Local scope
+            ## Keep a function's working names separate
 
-            **Scope** is the part of a program where a variable name can be used. A variable
-            assigned inside a function has **local scope**: it exists only while that call
-            runs. When the function returns, Python discards the variable.
-
-            This example raises an error on purpose. The last line uses `total` outside the
-            function.
+            Two helpers both use a name like `result`. You would not want running one helper to overwrite every other result in the program. Python gives each function call its own working names.
 
             ```python
-            def make_total():
-                total = 99
-                return total
+            status = "waiting"
 
-            print(make_total())
-            # 99
-            print(total)
-            # NameError: name 'total' is not defined
+            def check():
+                status = "ready"
+                return status
+
+            print(check())
+            # ready
+            print(status)
+            # waiting
             ```
 
-            A variable inside a function can have the **same name** as a variable outside it.
-            They are two separate variables. Assigning to the name inside the function
-            creates a local variable and leaves the outside variable unchanged.
+            The assignment inside `check` creates a name for that call. It does not reassign the name outside. Where a name can be used is its **scope**; a name belonging to a function call has **local scope**. Identical spelling does not mean two names refer to the same variable.
 
-            ```python
-            level = "outside"
+            ```predict
+            size = 12
 
-            def change():
-                level = "inside"
-                return level
+            def measure():
+                size = 4
+                return size + 1
 
-            result = change()
-            print(result)
-            # inside
-            print(level)
-            # outside
+            measured = measure()
+            print(measured, size)
+            ---
+            The local size supplies 4 to the calculation. The outside size is untouched and remains 12.
             ```
 
-            Step through the program. The variables panel shows the local `level` during
-            the call and the outside `level` after it.
+            Returning a local value lets the caller keep that value under its own name. You are passing a result out, not making the function's local names available everywhere. This separation lets you understand a small function without reading all the names used by the rest of the program.
 
-            ```diagram
-            {"type": "trace", "title": "Two variables named level", "code": ["level = \"outside\"", "", "def change():", "    level = \"inside\"", "    return level", "", "result = change()", "print(result)", "print(level)"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 3, "vars": {"level": "'outside'"}, "out": ""},
-              {"line": 7, "vars": {"level": "'outside'"}, "out": ""},
-              {"line": 4, "vars": {}, "out": ""},
-              {"line": 5, "vars": {"level": "'inside'"}, "out": ""},
-              {"line": 8, "vars": {"level": "'outside'", "result": "'inside'"}, "out": ""},
-              {"line": 9, "vars": {"level": "'outside'", "result": "'inside'"}, "out": "inside\n"},
-              {"line": null, "vars": {"level": "'outside'", "result": "'inside'"}, "out": "inside\noutside\n"}
-            ]}
+            ```quiz
+            A helper creates `temporary` only inside its body. Can unrelated code use that name afterwards?
+            - [x] No; the helper should return any value the caller needs. :: Local names belong to the function call.
+            - [ ] Yes; calling a function exposes all its names. :: Calls do not add their local names to the surrounding program.
             ```
 
-            To send a value out of a function, `return` it. To send a value in, pass it as
-            an argument.
+            **Watch out:** using an unavailable local name outside its function raises `NameError`. Save the function's return value instead.
+
+            Pass values in through arguments and values out through return.
         ''',
         "mode": "predict",
         "prompt": r'''Read the code and type exactly what it prints.''',
@@ -783,65 +801,73 @@ EXERCISES = [
             10
         ''',
         "explanation": r'''
-            Inside `reset`, `count = 0` creates a **new local variable** that only lives
-            inside the function, so `reset()` returns `0`. The `count` outside the
-            function is a different variable and still holds `10`.
+            The assignment inside reset belongs to that function call. Its return value supplies the first printed number. The outside count was assigned before the function ran and was never reassigned afterwards, so the final print still uses its original value.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "There are two variables called count here: one outside the function and one created inside it.",
-            "Assigning a variable inside a function creates a local one; it does not change the one outside.",
-            "Line 1 is what reset() returns (its own local count). Line 2 is the outside count, which nobody changed.",
+            "Separate names inside the call from names outside it.",
+            "An assignment in the helper creates a local value without reassigning the outside name.",
+            "Follow the returned local value for the first print, then read the untouched outside value for the next print.",
         ],
     },
     {
         "id": "functions-1",
         "title": "Build a message",
         "hints": [
-            "You need a default parameter value, a dict as the return value, type hints and a docstring.",
-            "Give role a default of \"user\" in the def line. Add `: str` after each parameter and `-> dict` before the colon. The first line of the body is a string describing the function.",
-            "Write the def line with content: str and role: str = \"user\" and a -> dict return hint; add a triple-quoted docstring line; return a dict with keys \"role\" and \"content\".",
+            "Review defaults, type hints, and where a docstring belongs.",
+            "Describe both input types and the returned dictionary, while making the speaker optional.",
+            "Update the definition, put a description first in the body, and give back the two required fields using the supplied values.",
         ],
         "difficulty": 1,
         "lesson": r'''
-            ## Type hints and docstrings
+            ## Tell readers what a helper expects
 
-            A function definition can state which types it expects and what it does. Other
-            programmers and your editor read this information.
+            A teammate finds your helper and wants to know what to pass and what comes back. Good names help, but a short description and notes about types make the promise clearer without reading the implementation.
 
             ```python
-            def tokens_to_cost(tokens: int, price: float = 0.002) -> float:
-                """Return the dollar cost of a request."""
-                return tokens * price
+            def heading(text: str, level: int = 1) -> str:
+                """Build a heading label for a report."""
+                return f"{level}: {text}"
 
-            print(tokens_to_cost(1000))
-            # 2.0
-            print(tokens_to_cost.__doc__)
-            # Return the dollar cost of a request.
+            print(heading("Overview"))
+            # 1: Overview
+            print(heading.__doc__)
+            # Build a heading label for a report.
             ```
 
-            - `tokens: int` is a **type hint**: a note that the parameter should be an int.
-              With a default value, the hint comes first: `price: float = 0.002`.
-            - `-> float` before the colon is the type hint for the return value.
-            - The string on the first line of the body is the **docstring**: a description
-              of the function. Triple quotes allow it to span several lines. Python stores
-              it, and you read it with `tokens_to_cost.__doc__`.
+            The annotations after parameter names describe expected types. The arrow describes the returned type. These are **type hints**: information for readers and checking tools. The default still follows the type note, so the definition can document both the expected kind of value and the usual value.
 
-            Python does **not** check type hints when the program runs. Calling
-            `tokens_to_cost("ab", 2)` raises no error and returns `"abab"`. Hints are
-            documentation for people and tools. Most AI projects use them on every function.
+            The first string inside the body describes the function. It is a **docstring**, and Python keeps it in the function's `__doc__` attribute, the stored information accessed with that dotted name.
 
-            The docstring must be the first statement in the body. A string placed after
-            other code is not stored in `__doc__`.
+            ```match
+            `text: str` :: input is expected to be text
+            `-> str` :: return value is expected to be text
+            `__doc__` :: stored description of the function
+            ```
+
+            Hints do not enforce types while Python runs. If an operation accepts a different type, the annotation does not block it. Validation requires real checks in the body. Likewise, a docstring describes behavior but does not implement it.
+
+            ```quiz
+            Where does Python recognize a function's docstring?
+            - [x] As the first statement in its body. :: Python saves that leading string as the description.
+            - [ ] Anywhere after the return statement. :: That text is neither reached nor stored as the function's docstring.
+            ```
+
+            **Watch out:** a helpful comment is not a docstring. Use a leading string when the function must carry its description.
+
+            Document the input, output, and purpose alongside the function definition.
         ''',
         "prompt": r'''
             Chat APIs take a list of message dicts. Write a helper that builds one message.
 
-            **Write:** `make_message(content, role="user")`
+            **Your job:** write `make_message(content, role="user")`
 
+            **What goes in**
             - `content`: a string, the message text, e.g. `"hi"`
             - `role`: a string, who is speaking, e.g. `"system"`; **default value** `"user"`
-            - **Returns:** a dict with exactly two keys, like `{"role": "user", "content": "hi"}`
+
+            **What comes out**
+            - a dict with exactly two keys, like `{"role": "user", "content": "hi"}`
 
             **Rules**
             - If `role` is left out, it is `"user"`.
@@ -856,6 +882,8 @@ EXERCISES = [
             make_message("be terse", "system")    # returns {"role": "system", "content": "be terse"}
             make_message("ok", role="assistant")  # returns {"role": "assistant", "content": "ok"}
             ```
+
+            An empty message is kept: `make_message("")` returns `{"role": "user", "content": ""}`.
         ''',
         "starter": r'''
             def make_message(content, role):
@@ -892,50 +920,63 @@ EXERCISES = [
         "id": "functions-2",
         "title": "Token stats",
         "hints": [
-            "Python has built-ins for the smallest, largest and total of a list: min(), max(), sum(). len() gives the count.",
-            "Handle the empty list first with an if, then return the three values separated by commas.",
-            "If the list is empty return 0, 0, 0.0. Otherwise return min(counts), max(counts), and sum(counts) divided by len(counts) (the / operator always gives a float).",
+            "Decide the empty-list answer before selecting extrema or dividing.",
+            "For nonempty data, minimum, maximum, and mean are separate calculations.",
+            "Return the specified empty tuple immediately when needed; otherwise calculate all three summaries and return them in the promised order.",
         ],
         "difficulty": 1,
         "lesson": r'''
-            ## Early return
+            ## Handle an empty input before calculating
 
-            Some inputs need separate handling, such as an empty list or a missing value.
-            Check for that input at the top of the function and return immediately.
-            Four built-in functions are useful here. `sum(numbers)` adds the items,
-            `len(numbers)` counts them, and `min(numbers)` and `max(numbers)` return the
-            smallest and largest. The `/` operator always returns a float: `4 / 2` is `2.0`.
+            A usage dashboard must still show something before any requests arrive. An average calculation that works for every nonempty list can fail when the list is empty. Decide what that case should mean before doing the ordinary work.
 
             ```python
-            def average(numbers):
-                if not numbers:
+            def average(values):
+                if not values:
                     return 0.0
-                return sum(numbers) / len(numbers)
+                return sum(values) / len(values)
 
-            print(average([2, 4]))
-            # 3.0
+            print(average([3, 9]))
+            # 6.0
             print(average([]))
             # 0.0
             ```
 
-            An empty list is falsy, so `not numbers` is `True` for `[]`. `return` ends the
-            function immediately, so the second `return` runs only when the list has items.
-            Without the check, `average([])` computes `0 / 0` and raises `ZeroDivisionError`.
+            An empty list is false in a condition, so `not values` selects the special case. Returning there ends the call immediately. The final calculation therefore only runs when there are values. This arrangement is an **early return**, also called a **guard clause**: it handles a case before the main calculation.
 
-            This pattern is called an **early return** or a **guard clause**: an `if` at the
-            top of a function that returns before the main code runs. The main code then
-            needs no extra indentation.
+            ```predict
+            def average(values):
+                if not values:
+                    return 0.0
+                return sum(values) / len(values)
 
-            `min([])` and `max([])` raise `ValueError`. Put the check for the empty list
-            before any call to them.
+            print(average([5]))
+            ---
+            The list is nonempty. Its sum and length are 5 and 1, and division gives the float 5.0.
+            ```
+
+            `sum` adds the numbers, `len` counts them, and `/` divides to produce a float. For a broader summary, `min` and `max` supply the endpoints. Empty inputs need attention for those operations too: there is no smallest or largest item to select.
+
+            ```quiz
+            Why put the empty-input check before the average calculation?
+            - [x] Division by a zero item count would otherwise fail. :: The guard prevents the invalid calculation from running.
+            - [ ] Empty lists automatically have an average of zero. :: Python does not choose a statistical convention for your application.
+            ```
+
+            **Watch out:** `min([])` raises `ValueError`, and dividing by zero raises `ZeroDivisionError`. Decide the empty result first.
+
+            Handle exceptional input shapes before calculations that assume ordinary data.
         ''',
         "prompt": r'''
             You log how many tokens each request used and want a quick summary.
 
-            **Write:** `token_stats(counts)`
+            **Your job:** write `token_stats(counts)`
 
+            **What goes in**
             - `counts`: a list of ints (token counts), e.g. `[10, 30, 20]`; may be empty
-            - **Returns:** **three values** (a tuple): the minimum, the maximum, and the
+
+            **What comes out**
+            - **three values** (a tuple): the minimum, the maximum, and the
               average of the counts
 
             **Rules**
@@ -985,79 +1026,67 @@ EXERCISES = [
         "title": "Reuse your helper",
         "difficulty": 1,
         "lesson": r'''
-            ## Calling one function from another
+            ## Build one helper from another
 
-            A function you wrote can be called anywhere a built-in function such as `len` or
-            `max` can be called. That includes the body of another function.
+            A report already has a helper that calculates a document's size. Another helper needs that same answer to decide whether the document is large. Calling the first helper keeps the calculation in one place, so a later correction benefits both uses.
 
             ```python
-            def total(counts):
-                result = 0
-                for c in counts:
-                    result += c
-                return result
+            def combined_size(parts):
+                total_size = 0
+                for part in parts:
+                    total_size += len(part)
+                return total_size
 
-            def is_over_budget(counts, budget):
-                return total(counts) > budget
+            def fits(parts, limit):
+                return combined_size(parts) <= limit
 
-            print(total([100, 250]))
-            # 350
-            print(is_over_budget([100, 250], 300))
+            print(fits(["red", "blue"], 8))
             # True
             ```
 
-            `is_over_budget` does not repeat the adding loop. It calls `total`, gets
-            the return value `350`, and compares it with `budget`. If you fix a bug in
-            `total`, every function that calls it uses the fixed code.
+            When `fits` reaches the call, Python runs `combined_size` and waits for its return value. That value then participates in the comparison. Building a larger operation from smaller ones is called **composition**; using an existing helper again is **reuse**.
 
-            Step through the program. On line 8, Python runs the body of `total` before it
-            finishes `is_over_budget`.
-
-            ```diagram
-            {"type": "trace", "title": "is_over_budget calls total", "code": ["def total(counts):", "    result = 0", "    for c in counts:", "        result += c", "    return result", "", "def is_over_budget(counts, budget):", "    return total(counts) > budget", "", "print(total([100, 250]))", "print(is_over_budget([100, 250], 300))"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 7, "vars": {}, "out": ""},
-              {"line": 10, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"counts": "[100, 250]"}, "out": ""},
-              {"line": 3, "vars": {"counts": "[100, 250]", "result": "0"}, "out": ""},
-              {"line": 4, "vars": {"counts": "[100, 250]", "result": "0", "c": "100"}, "out": ""},
-              {"line": 3, "vars": {"counts": "[100, 250]", "result": "100", "c": "100"}, "out": ""},
-              {"line": 4, "vars": {"counts": "[100, 250]", "result": "100", "c": "250"}, "out": ""},
-              {"line": 3, "vars": {"counts": "[100, 250]", "result": "350", "c": "250"}, "out": ""},
-              {"line": 5, "vars": {"counts": "[100, 250]", "result": "350", "c": "250"}, "out": ""},
-              {"line": 11, "vars": {}, "out": "350\n"},
-              {"line": 8, "vars": {"counts": "[100, 250]", "budget": "300"}, "out": "350\n"},
-              {"line": 2, "vars": {"counts": "[100, 250]"}, "out": "350\n"},
-              {"line": 3, "vars": {"counts": "[100, 250]", "result": "0"}, "out": "350\n"},
-              {"line": 4, "vars": {"counts": "[100, 250]", "result": "0", "c": "100"}, "out": "350\n"},
-              {"line": 3, "vars": {"counts": "[100, 250]", "result": "100", "c": "100"}, "out": "350\n"},
-              {"line": 4, "vars": {"counts": "[100, 250]", "result": "100", "c": "250"}, "out": "350\n"},
-              {"line": 3, "vars": {"counts": "[100, 250]", "result": "350", "c": "250"}, "out": "350\n"},
-              {"line": 5, "vars": {"counts": "[100, 250]", "result": "350", "c": "250"}, "out": "350\n"},
-              {"line": null, "vars": {}, "out": "350\nTrue\n"}
-            ]}
+            ```order
+            def plus_three(number):
+                return number + 3
+            answer = plus_three(4)
+            print(answer)
+            ---
+            The definition must run before the call. The call supplies the value that the final line prints.
             ```
 
-            Writing small functions that each do one job and calling them from larger
-            functions is called **reuse** or **composition**.
+            A helper can return a number that the caller uses several times. Save that answer once when it does not change during a loop. Recalculating the same answer for every item makes the work harder to follow and often repeats unnecessary effort.
 
-            Call the helper with parentheses and arguments: `total(counts)`. The name `total`
-            without parentheses is the function itself, not its return value.
+            ```quiz
+            Why call an existing helper instead of copying its calculation?
+            - [x] A correction to the helper benefits every caller. :: There is one implementation to maintain.
+            - [ ] Calling a helper always prints its result. :: Display and return remain separate; calling does not imply printing.
+            ```
+
+            **Watch out:** a function name without parentheses refers to the function itself. Add a call when you need its computed result, or a comparison may fail with `TypeError`.
+
+            Give each helper one clear job, then connect them through return values.
         ''',
         "prompt": r'''
             A chat app wants to know which messages are longer than average. Write two small
             functions, where the second one **reuses** the first.
 
-            **Write:** `average_length(texts)`
+            **Your job:** write `average_length(texts)`
 
+            **What goes in**
             - `texts`: a list of strings, never empty, e.g. `["hi", "hello"]`
-            - **Returns:** the average number of characters per string, as a float
+
+            **What comes out**
+            - the average number of characters per string, as a float
               (e.g. `3.5`)
 
-            **Write:** `longer_than_average(texts)`
+            **Your job:** write `longer_than_average(texts)`
 
+            **What goes in**
             - `texts`: a list of strings, never empty
-            - **Returns:** a new list with the strings whose length is **strictly greater**
+
+            **What comes out**
+            - a new list with the strings whose length is **strictly greater**
               than the average length, in their original order
 
             **Rules**
@@ -1133,9 +1162,9 @@ EXERCISES = [
                 return result
         ''',
         "hints": [
-            "Write average_length first and test it on its own. Then call it inside the second function.",
-            "average_length: add up len() of every string and divide by how many strings there are. longer_than_average: compute the average once, then keep the strings whose length is bigger.",
-            "In longer_than_average: store average_length(texts) in a variable; make an empty list; loop over texts and append each text whose len() is greater than the average; return the list.",
+            "Finish and check the average helper before the filtering helper.",
+            "Call the average helper once, then compare each original string's length with that result.",
+            "Calculate the average, create a new list, add only strings strictly above it in input order, and give the list back.",
         ],
     },
     {
@@ -1143,49 +1172,64 @@ EXERCISES = [
         "title": "Any number of counts",
         "difficulty": 1,
         "lesson": r'''
-            ## Any number of arguments
+            ## Accept a changing number of inputs
 
-            Some functions accept any number of arguments. `print` is one of them:
-            `print("a")` and `print("a", "b", "c")` both work. You write such a function by
-            putting a star before a parameter name.
+            One report contains two documents and another contains seven. You want one helper that accepts either set of names without requiring a different definition for every count. Python can gather separate incoming values for you.
 
             ```python
-            def show_all(*names):
-                print(names)
-                for n in names:
-                    print("-", n)
+            def collect(*titles):
+                return titles
 
-            show_all("gpt", "claude")
-            # ('gpt', 'claude')
-            # - gpt
-            # - claude
-            show_all()
+            print(collect("Guide", "Notes"))
+            # ('Guide', 'Notes')
+            print(collect())
             # ()
             ```
 
-            A **positional argument** is an argument passed without a name. `*names`
-            collects every positional argument of the call into one tuple and assigns it to
-            `names`. A call with no arguments gives the empty tuple `()`. You loop over a
-            tuple the same way you loop over a list.
+            The star in the definition gathers positional arguments into a tuple. Inside the body, `titles` is an ordinary tuple, so you can loop over it or count its items. With no arguments, it is empty. The conventional name `*args` means the same thing; the star supplies the behavior, not the spelling of the name.
 
-            This kind of parameter is usually called `*args`, short for "arguments". The
-            name after the star can be any variable name.
+            ```predict
+            def how_many(*items):
+                return len(items)
 
-            `**kwargs` does the same for keyword arguments. It collects them into a dict
-            with the argument names as keys. You use it in the next practice exercise.
+            print(how_many("a", "b", "c"))
+            print(how_many())
+            ---
+            Three separate arguments produce a tuple of length three. An omitted collection of arguments produces an empty tuple.
+            ```
 
-            The star belongs in the `def` line only. Inside the body, write the name without
-            it: `names`, not `*names`.
+            Keyword arguments can be gathered too. A parameter with two stars collects extra named arguments into a dictionary. You will meet this as `**kwargs` in documentation, short for keyword arguments. A function can therefore accept both an unknown number of unnamed values and additional named choices.
+
+            ```python
+            def options(**settings):
+                return settings
+
+            print(options(limit=3))
+            # {'limit': 3}
+            ```
+
+            ```match
+            `*items` in a definition :: collects positional arguments into a tuple
+            `**settings` in a definition :: collects keyword arguments into a dictionary
+            `items` inside the body :: the collected tuple itself
+            ```
+
+            **Watch out:** receiving one list is different from receiving several separate arguments. Match the definition to the required calling style.
+
+            Use a starred parameter when the number of incoming values can vary.
         ''',
         "prompt": r'''
             A conversation has several messages and you want the total token count, however
             many messages there are. Accept the counts as separate arguments.
 
-            **Write:** `total_tokens(*counts)`
+            **Your job:** write `total_tokens(*counts)`
 
+            **What goes in**
             - `*counts`: any number of ints passed by position (collected into a tuple),
               e.g. `total_tokens(10, 20, 5)`
-            - **Returns:** the sum of all the counts, as an int
+
+            **What comes out**
+            - the sum of all the counts, as an int
 
             **Rules**
             - Called with no arguments, return `0`.
@@ -1236,18 +1280,18 @@ EXERCISES = [
                 return total
         ''',
         "hints": [
-            "A parameter written with a star in front, like *counts, collects all the positional arguments into one tuple.",
-            "Change the def line to use *counts, then add up the items of the tuple (a loop or sum() both work).",
-            "def total_tokens(*counts): start a total at 0, loop over counts adding each one, return the total. With no arguments the tuple is empty, so the total stays 0.",
+            "Separate arguments can be collected by a starred parameter.",
+            "Add the values in the resulting tuple, allowing it to be empty.",
+            "Adjust the definition to accept any number of counts, begin the total at zero, include every count, and return the total.",
         ],
     },
     {
         "id": "functions-3",
         "title": "Request builder",
         "hints": [
-            "Look at *args (collects extra positional arguments into a tuple) and **kwargs (collects extra keyword arguments into a dict). Any parameter after *args is keyword-only.",
-            "The signature does most of the work: model, *messages, temperature=1.0, **extra. Then turn each message string into a dict, build the request dict and merge the extras in.",
-            "Start with an empty list and loop over messages, appending {\"role\": \"user\", \"content\": m} for each m. Create the dict with model, messages, temperature. Then loop over extra.items() and copy each key/value into the dict (or call .update(extra)). Return it.",
+            "The definition separates required input, extra positional input, and named options.",
+            "Collect message text and extra settings separately, then create the requested output shape.",
+            "Build fresh message dictionaries and a fresh list for each call, add model and temperature, copy extra named settings, and return the request.",
         ],
         "difficulty": 2,
         "placement": True,
@@ -1264,15 +1308,18 @@ EXERCISES = [
             LLM client libraries let you pass any number of messages and extra options.
             Build the request dict that would be sent to the API.
 
-            **Write:** `build_request(model, *messages, temperature=1.0, **extra)`
+            **Your job:** write `build_request(model, *messages, temperature=1.0, **extra)`
 
+            **What goes in**
             - `model`: a string, required, e.g. `"gpt-4o"`
             - `*messages`: any number of message **strings** passed by position after `model`
               (`*messages` collects them into a tuple), e.g. `"hi", "how are you?"`
             - `temperature`: a float, default `1.0`, **keyword-only** (it comes after
               `*messages`, so it can only be passed as `temperature=...`)
             - `**extra`: any other keyword arguments (collected into a dict), e.g. `max_tokens=50`
-            - **Returns:** a dict with the keys `"model"`, `"messages"`, `"temperature"`, plus
+
+            **What comes out**
+            - a dict with the keys `"model"`, `"messages"`, `"temperature"`, plus
               one key per extra keyword argument
 
             **Rules**
@@ -1350,9 +1397,9 @@ EXERCISES = [
         "id": "functions-4",
         "title": "Mutable default trap",
         "hints": [
-            "A default value is created once, when the def line runs, not on every call. A list default is shared by all calls.",
-            "Use None as the default, and create a new empty list inside the function when history is None.",
-            "Change the default to history=None. At the start of the body: if history is None, set history to []. Use `is None`, not `not history`, so an empty list passed in is still used. Then append and return.",
+            "Default objects are created when the definition runs, not anew for each call.",
+            "Represent an omitted history with a value that cannot be confused with an explicitly supplied empty list.",
+            "Use a missing-value marker as the default, create a list only for that marker, then append to and return the chosen history.",
         ],
         "difficulty": 2,
         "prompt": r'''
@@ -1361,12 +1408,15 @@ EXERCISES = [
             but right now conversations leak into each other (the *mutable default* trap).
             Fix it.
 
-            **Write:** `add_message(text, history=...)`
+            **Your job:** write `add_message(text, history=...)`
 
+            **What goes in**
             - `text`: a string, the message to add, e.g. `"hello"`
             - `history`: optional list of strings, the conversation so far, e.g. `["sys"]`;
               it must still have a default value so it can be left out
-            - **Returns:** the history list, with `text` appended at the end
+
+            **What comes out**
+            - the history list, with `text` appended at the end
 
             **Rules**
             - Without `history`, every call starts from a brand-new empty list: two calls
@@ -1428,9 +1478,9 @@ EXERCISES = [
         "id": "functions-5",
         "title": "Apply a pipeline",
         "hints": [
-            "Functions are values: you can define a function inside another function and return it. The inner function can still see the outer function's variables (a closure).",
-            "compose: the inner function loops over funcs, feeding each result into the next. count_calls: the inner wrapper forwards *args and **kwargs to func and records the call in a list (or dict) created in count_calls; a second inner function reports how many calls were recorded.",
-            "compose: def pipeline(value), loop over funcs doing value = f(value), return value; then return pipeline. count_calls: calls = []; def wrapper(*args, **kwargs): append something to calls, return func(*args, **kwargs); def count(): return len(calls); return wrapper, count.",
+            "A function can return another function that remembers values from the enclosing call.",
+            "For composition, pass each result onward. For counting, keep shared call records for the wrapper and the count reader.",
+            "Define the returned helpers inside their factories; forward both argument kinds, record each wrapper call, and keep each factory call's state separate.",
         ],
         "difficulty": 3,
         "prompt": r'''
@@ -1438,16 +1488,22 @@ EXERCISES = [
             count how many times a function (like an API call) was used. Write two helpers
             that take functions and return new functions.
 
-            **Write:** `compose(*funcs)`
+            **Your job:** write `compose(*funcs)`
 
+            **What goes in**
             - `*funcs`: any number of one-argument functions (possibly none)
-            - **Returns:** a **new function** that takes one value and passes it through each
+
+            **What comes out**
+            - a **new function** that takes one value and passes it through each
               function in `funcs`, **left to right** (the output of one is the input of the next)
 
-            **Write:** `count_calls(func)`
+            **Your job:** write `count_calls(func)`
 
+            **What goes in**
             - `func`: any function, e.g. the built-in `max`
-            - **Returns:** **two functions** as a tuple `(wrapper, count)`:
+
+            **What comes out**
+            - **two functions** as a tuple `(wrapper, count)`:
               - `wrapper` behaves exactly like `func`: it accepts the same positional AND
                 keyword arguments and returns the same value
               - `count()` takes no arguments and returns how many times `wrapper` has been called
@@ -1557,19 +1613,22 @@ EXERCISES = [
         "id": "functions-6",
         "title": "Rate limiter closure",
         "hints": [
-            "This is a closure: make_limiter creates a variable (e.g. a list of timestamps) that the inner allow function keeps using between calls.",
-            "Keep a list of the timestamps of allowed requests. On each call, first drop timestamps that are outside the 60-second window, then decide based on how many are left.",
-            "Create an empty list in make_limiter. In allow(now): remove items <= now - 60 from the front; if len(list) < max_requests, append now and return True; otherwise return False. Return allow from make_limiter.",
+            "The returned function needs to remember previously allowed timestamps.",
+            "Discard expired requests before comparing the remaining count with the limit.",
+            "Create private state for each limiter, remove timestamps at or before the boundary, record only accepted requests, and return the decision.",
         ],
         "difficulty": 3,
         "prompt": r'''
             LLM APIs limit how many requests you may send per minute. Build a client-side
             rate limiter that stores past requests (this is a *closure*).
 
-            **Write:** `make_limiter(max_requests)`
+            **Your job:** write `make_limiter(max_requests)`
 
+            **What goes in**
             - `max_requests`: an int, how many requests are allowed per 60 seconds, e.g. `2`
-            - **Returns:** a function `allow(now)`:
+
+            **What comes out**
+            - a function `allow(now)`:
               - `now`: a timestamp in seconds (int or float), never decreasing between calls
               - returns `True` (the request is allowed) or `False` (it is rejected)
 

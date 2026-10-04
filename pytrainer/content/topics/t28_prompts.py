@@ -283,7 +283,9 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Prompt templates
+            ## Reuse the wording and change the values
+
+            You send the same translation request for several pieces of text. Retyping the whole instruction makes accidental wording changes likely. Keep the stable words once, and leave named spaces for the values that change on each request.
 
             A **prompt** is the text you send to a model. An app sends the same wording many
             times. Only a few parts change per request.
@@ -304,13 +306,33 @@ EXERCISES = [
             # {question}
             ```
 
+            ```quiz
+            After formatting a template, what happens to the original string?
+            - [x] It stays unchanged :: Formatting returns a new string, so the template can be reused.
+            - [ ] Its placeholders are permanently removed :: Strings are not changed by this method.
+            ```
+
             `format` returns a new string. It does not change `template`, so you can call
             `template.format(...)` again for the next request.
 
             The `\n` in the template is one newline character. `print` starts a new line
             there, so the filled prompt takes two lines of output.
+
+            ```predict
+            pattern = "Hello {person}"
+            print(pattern.format(person="Mina"))
+            print("{" in pattern)
+            ---
+            The formatted result changes, while the stored template still contains braces.
+            ```
+
+            **Watch out:** A name inside braces must match a supplied name. If you forget one, KeyError identifies the missing placeholder instead of silently leaving it unfilled.
+
+            **In short:** A template keeps fixed wording separate from the values supplied for this request.
         ''',
-        "prompt": r'''Read the code and type exactly what it prints.''',
+        "prompt": r'''
+            Read the program, then enter exactly what its print calls display, one output line per line.
+        ''',
         "code": r'''
             template = "Translate to {language}:\n{text}"
             prompt = template.format(language="French", text="Good morning")
@@ -323,15 +345,15 @@ EXERCISES = [
             2
         ''',
         "explanation": r'''
-            `format` replaces `{language}` with `French` and `{text}` with `Good morning`, and the
+            Read the output from top to bottom. `format` replaces `{language}` with `French` and `{text}` with `Good morning`, and the
             `\n` becomes a line break, so the prompt prints on two lines. The template itself is
             unchanged, and it contains two `{` characters.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "format() fills each {name} with the value passed under that name.",
-            "The \\n in the string is a newline, so the first print produces two lines.",
-            "Line 1: 'Translate to French:'. Line 2: the text. Line 3: how many { are in the ORIGINAL template.",
+            "Distinguish the template from the new string made by formatting it.",
+            "Follow the newline inside the rendered text separately from the last print call.",
+            "Substitute the values mentally, write each output line, then inspect the unchanged template for the final count.",
         ],
     },
     {
@@ -339,7 +361,9 @@ EXERCISES = [
         "title": "Fill the summary template",
         "difficulty": 0,
         "lesson": r'''
-            ## A template in a module-level variable
+            ## Fill a shared template without changing its wording
+
+            Your summary button should give the model the same instruction each time, with a different document and limit. Store that wording outside the helper function. Then the helper's responsibility is to supply values, not to create a slightly different prompt.
 
             A **module-level variable** is a variable you assign at the top of a file, outside
             every function. Store a prompt template there. Every function reads the same
@@ -353,6 +377,12 @@ EXERCISES = [
 
             print(greeting("Ada", 3))
             # Hi Ada, you have 3 new messages.
+            ```
+
+            ```quiz
+            Which name must match a placeholder?
+            - [x] The keyword supplied to format :: It connects a value to the named space in the template.
+            - [ ] The name of the helper function :: That name has no effect on placeholder lookup.
             ```
 
             `name=name` is a **keyword argument**: a value passed with its name. The name
@@ -370,16 +400,31 @@ EXERCISES = [
                 print("KeyError:", error)
             # KeyError: 'name'
             ```
+
+            ```order
+            pattern = "Give {count} examples."
+            request = pattern.format(count=2)
+            print(request)
+            ---
+            The shared wording is defined before it is rendered into a request.
+            ```
+
+            **Watch out:** An integer value can be formatted into text. Do not add quotes around its variable name, or the prompt contains the name rather than the chosen number.
+
+            **In short:** Render the shared template using values whose names match its placeholders.
         ''',
         "prompt": r'''
             A summarizer feature fills the same template for every document. Complete the
             function by replacing the `___`.
 
-            **Write:** `summary_prompt(text, max_words)`
+            **Your job:** write `summary_prompt(text, max_words)`
 
+            **What goes in**
             - `text`: a string, the document, e.g. `"Python is a language."`
             - `max_words`: an int, e.g. `10`
-            - **Returns:** the string `TEMPLATE` with both placeholders filled in
+
+            **What comes out**
+            - Return the string `TEMPLATE` with both placeholders filled in
 
             **Rules**
             - Use the `TEMPLATE` variable given in the starter (don't change its wording).
@@ -422,9 +467,9 @@ EXERCISES = [
                 return TEMPLATE.format(max_words=max_words, text=text)
         ''',
         "hints": [
-            "format needs one value for each {placeholder} in TEMPLATE.",
-            "Pass the values as keyword arguments whose names match the placeholders.",
-            "Replace ___ with max_words=max_words, text=text.",
+            "Compare the named gaps in the shared template with the function arguments.",
+            "The formatter needs a named value for each placeholder.",
+            "Supply the matching argument for every required placeholder, preserve the template wording, and return the rendered string.",
         ],
     },
     {
@@ -432,7 +477,9 @@ EXERCISES = [
         "title": "Fix: swapped roles",
         "difficulty": 0,
         "lesson": r'''
-            ## System and user messages
+            ## Label instructions and questions correctly
+
+            Your request contains both the app's rules and the person's question. The text can be perfectly spelled while the roles are wrong. Read the labels as well as the content, because they tell the chat interface how the pieces are intended to be used.
 
             A chat request is a list of messages. Each message is a dict with two keys:
             `"role"` and `"content"`. The role says who wrote the content.
@@ -451,22 +498,41 @@ EXERCISES = [
             # user -> What is Python?
             ```
 
+            ```quiz
+            What should the user message contain in this helper?
+            - [x] The person's question :: The instructions belong in the separate system message.
+            - [ ] The app's rules :: That swaps the intended responsibilities of the messages.
+            ```
+
             The system message goes **first**, and there is only one. Models are usually
             trained to give the system message priority over user text. Put your rules in the `system`
             message and the user's words in the `user` message.
 
             Swapped roles do not raise an error. The request is still valid and the model
             still answers, but it follows your rules less reliably.
+
+            ```match
+            system message :: app instructions in this format
+            user message :: the request to answer
+            assistant message :: an earlier reply or demonstration answer
+            ```
+
+            **Watch out:** A role mix-up may produce valid Python and a valid request, with no traceback. The failure is in the meaning of the data, so inspect the returned dictionaries.
+
+            **In short:** The message role must match the purpose of its content.
         ''',
         "prompt": r'''
             This helper builds the two messages for a request, but the roles are mixed up.
             Fix the bug.
 
-            **Write:** `build_messages(system, user)`
+            **Your job:** write `build_messages(system, user)`
 
+            **What goes in**
             - `system`: a string, your instructions, e.g. `"Be brief."`
             - `user`: a string, the user's question, e.g. `"What is JSON?"`
-            - **Returns:** a list of two message dicts
+
+            **What comes out**
+            - Return a list of two message dicts
 
             **Rules**
             - The first message has role `"system"` and the `system` text as content.
@@ -508,9 +574,9 @@ EXERCISES = [
                 ]
         ''',
         "hints": [
-            "Look at which role goes with which text in each dict.",
-            "The system instructions should be labelled \"system\", and the question \"user\".",
-            "Swap the two role strings so the first dict says \"system\" and the second says \"user\".",
+            "Read each message's role beside its content.",
+            "The instruction text and question text need different labels.",
+            "Correct the mismatched role labels while keeping the instruction first and question second.",
         ],
     },
     {
@@ -518,7 +584,9 @@ EXERCISES = [
         "title": "Wrap user input in tags",
         "difficulty": 0,
         "lesson": r'''
-            ## Delimiting input with tags
+            ## Mark where pasted text begins and ends
+
+            You ask a model to summarize a document that itself contains instructions. The app needs to show which words are the task and which words belong to the document. Visible boundaries make that distinction clearer, though they cannot enforce the model's behavior.
 
             A prompt is one string. The model receives your instructions and the text you
             pasted in together. Nothing marks where one ends and the other starts. If the
@@ -543,20 +611,41 @@ EXERCISES = [
             # </article>
             ```
 
+            ```quiz
+            Do tags guarantee that embedded instructions will be ignored?
+            - [x] No :: They clarify the intended structure but are not a security boundary.
+            - [ ] Yes :: Text markers do not prevent a model from following malicious document text.
+            ```
+
             Models are trained on large amounts of XML and HTML (the format of web pages),
             where tags mark the parts of a document. That is why tags are a common choice.
 
             The closing tag has a slash: `</article>`. Without the slash the prompt has two
             opening tags, and nothing marks the end of the text.
+
+            ```predict
+            label = "note"
+            print("<" + label + ">")
+            print("</" + label + ">")
+            ---
+            Both tags use the same name; the closing one adds a slash.
+            ```
+
+            **Watch out:** The closing tag includes a slash. This helper wraps text literally; it does not sanitize it, validate XML, or prevent prompt injection.
+
+            **In short:** Tags describe the boundaries of supplied text without making that text trusted.
         ''',
         "prompt": r'''
-            Wrap any text in an opening and closing tag so it can be pasted into a prompt safely.
+            Wrap text in visible opening and closing tags for a prompt. These delimiters clarify structure; they do not make the text safe or trusted.
 
-            **Write:** `wrap_input(text, tag)`
+            **Your job:** write `wrap_input(text, tag)`
 
+            **What goes in**
             - `text`: a string, e.g. `"hello"`
             - `tag`: a string, the tag name without brackets, e.g. `"document"`
-            - **Returns:** a string: the opening tag, a newline, the text, a newline, the closing tag
+
+            **What comes out**
+            - Return a string: the opening tag, a newline, the text, a newline, the closing tag
 
             **Rules**
             - Opening tag: `<` + tag + `>`. Closing tag: `</` + tag + `>`.
@@ -592,9 +681,9 @@ EXERCISES = [
                 return f"<{tag}>\n{text}\n</{tag}>"
         ''',
         "hints": [
-            "An f-string can build the whole thing in one line.",
-            "You need three parts joined by newlines: opening tag, text, closing tag.",
-            "Return an f-string: < then {tag} then >, \\n, {text}, \\n, then </ {tag} > (no spaces).",
+            "Think of the result as three lines.",
+            "The outer lines use the supplied tag name; the middle line preserves the text.",
+            "Build the opening boundary, insert the text between newlines, and finish with the matching closing boundary.",
         ],
     },
     {
@@ -603,7 +692,9 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Few-shot examples
+            ## Show the model an example exchange
+
+            You want a short category label, but a prose instruction leaves room for different wording. Add a sample input followed by the exact style of answer you want. The actual input comes after these demonstrations, so it remains the next question to answer.
 
             An instruction describes the output you want. An example shows it.
             **Few-shot prompting** means adding example exchanges to the messages before the
@@ -630,6 +721,12 @@ EXERCISES = [
             # ['system', 'user', 'assistant', 'user']
             ```
 
+            ```quiz
+            What makes a complete demonstration pair?
+            - [x] An input followed by its desired answer :: The model sees both the task and the expected response style.
+            - [ ] Two inputs with no answer :: Those do not demonstrate the output you want.
+            ```
+
             Click a cell to see the role at each index of `messages`.
 
             ```diagram
@@ -639,8 +736,23 @@ EXERCISES = [
             A prompt with one example is called **one-shot**. A prompt with no examples is
             called **zero-shot**. The real question always goes last, as a `user` message.
             The next message in the conversation is then the model's answer to it.
+
+            ```predict
+            roles = ["system"]
+            roles.extend(["user", "assistant"])
+            roles.append("user")
+            print(len(roles))
+            ---
+            One instruction, one demonstration pair, and one real question make four messages.
+            ```
+
+            **Watch out:** The example assistant messages are supplied by your application. They are demonstrations, not proof that a model previously produced those answers.
+
+            **In short:** Examples show the input-output pattern, and the real question goes last.
         ''',
-        "prompt": r'''Read the code and type exactly what it prints.''',
+        "prompt": r'''
+            Read the program, then enter exactly what its print calls display, one output line per line.
+        ''',
         "code": r'''
             examples = [("great!", "positive"), ("awful", "negative")]
             messages = [{"role": "system", "content": "Label the sentiment."}]
@@ -658,15 +770,15 @@ EXERCISES = [
             user
         ''',
         "explanation": r'''
-            1 system message + 2 messages per example (2 examples) + the final question = 6.
+            Read the output from top to bottom. 1 system message + 2 messages per example (2 examples) + the final question = 6.
             Index 2 is the assistant answer of the first example, `positive`. The last message
             is the real question, from the `user`.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "Count the messages: one before the loop, some inside it, one after.",
-            "Each example adds two messages: a user one, then an assistant one.",
-            "Write out the list: 0 system, 1 user great!, 2 assistant positive, ... then read off index 2 and the last one.",
+            "Each demonstration expands into two messages.",
+            "Track the instruction, every example input and answer, and the final question.",
+            "Write out the roles and contents in order, then evaluate the requested length and positions.",
         ],
     },
     {
@@ -674,7 +786,9 @@ EXERCISES = [
         "title": "Say the output format",
         "difficulty": 0,
         "lesson": r'''
-            ## Output format instructions
+            ## State the reply shape you need
+
+            Your next function needs named fields, but a model may otherwise answer with a paragraph. Tell it the required form along with the task. Naming fields and punctuation explicitly also makes it possible to check the prompt builder without calling any model.
 
             A model replies in ordinary sentences unless the prompt says otherwise. Your code needs a
             reply it can parse, such as JSON. An **output format instruction** is a sentence
@@ -687,6 +801,12 @@ EXERCISES = [
             # Reply with only a JSON object with the keys: title, author, year.
             ```
 
+            ```quiz
+            What does asking for JSON only provide?
+            - [x] An instruction about the desired output :: You still need to parse and validate the reply.
+            - [ ] A guarantee of valid JSON :: Prompt wording alone does not enforce valid data.
+            ```
+
             `join` is a string method. `", ".join(fields)` returns one string: the items of
             `fields` in order, with `", "` between each pair of items. A list with one item
             gets no separator.
@@ -696,17 +816,30 @@ EXERCISES = [
             # title
             ```
 
-            The word "only" matters. Without it, a model often adds a sentence such as
-            "Sure! Here is your JSON:" before the object. Your code then has to remove that
-            sentence before it can parse the reply.
+            The word "only" states that surrounding explanation is unwanted. It is still an instruction, not a parser or a guarantee: the reply may contain extra prose and needs validation.
+
+            ```fill
+            fields = ["city", "country"]
+            print(___.join(fields))
+            ---
+            - [x] ", " :: A comma and space separate the two names.
+            - [ ] "" :: That merges the names with no separator.
+            ```
+
+            **Watch out:** The separator belongs between field names, not after the last name. The final full stop belongs to the instruction sentence, not to a field name.
+
+            **In short:** Tell the model the required shape, then check the actual response separately.
         ''',
         "prompt": r'''
             Build the sentence that tells a model which JSON keys to return.
 
-            **Write:** `format_instruction(keys)`
+            **Your job:** write `format_instruction(keys)`
 
+            **What goes in**
             - `keys`: a non-empty list of strings, e.g. `["name", "age"]`
-            - **Returns:** a string like `"Reply with only a JSON object with the keys: name, age."`
+
+            **What comes out**
+            - Return a string like `"Reply with only a JSON object with the keys: name, age."`
 
             **Rules**
             - Keys appear in the order given, separated by a comma and one space.
@@ -742,9 +875,9 @@ EXERCISES = [
                 return "Reply with only a JSON object with the keys: " + ", ".join(keys) + "."
         ''',
         "hints": [
-            "There is a string method that combines a list of strings into one string with a separator.",
-            "Join the keys with \", \" and put the fixed text around the result.",
-            "Return the fixed start text + \", \".join(keys) + \".\".",
+            "Look back at joining field names with a separator.",
+            "Only the names change; the surrounding instruction sentence stays fixed.",
+            "Join names in their given order, add the exact required opening words, and finish with the required punctuation.",
         ],
     },
     {
@@ -752,11 +885,12 @@ EXERCISES = [
         "title": "Estimate tokens",
         "difficulty": 0,
         "lesson": r'''
-            ## Estimating tokens
+            ## Estimate space without pretending it is exact
+
+            Before sending a prompt, you want a quick size estimate. Counting characters is available without a tokenizer, but it does not reproduce how a real model divides text. This exercise practices one explicitly chosen approximation and how to round it.
 
             A model measures text in **tokens**: pieces of words. The price of a request and
-            the maximum prompt size are both counted in tokens. To check whether a prompt
-            fits, an estimate is enough.
+            the maximum prompt size are both counted in tokens. An estimate can help plan a prompt, but it cannot establish an exact fit.
 
             A common estimate for English is **1 token for every 4 characters**. You round
             **up**, because 11 characters need more than 2 tokens.
@@ -773,6 +907,12 @@ EXERCISES = [
             # 3
             ```
 
+            ```quiz
+            Can this character rule give an exact bill?
+            - [x] No :: Real token counts depend on the tokenizer and input text.
+            - [ ] Yes :: Dividing characters into groups is not the same as tokenization.
+            ```
+
             `//` is **floor division**: it divides and rounds down to a whole number, so
             `11 // 4` is `2`. That is too low. Adding `3` before you divide makes the result
             round up. This is called **ceiling division**. A remainder of 1, 2 or 3 plus 3
@@ -780,14 +920,29 @@ EXERCISES = [
 
             Each model splits text into tokens differently, so the real count varies. Use
             this number to plan a prompt, not to calculate a price.
+
+            ```predict
+            lengths = [0, 4, 5]
+            for length in lengths:
+                print((length + 3) // 4)
+            ---
+            Only a remainder adds another estimated token; zero characters still gives zero.
+            ```
+
+            **Watch out:** Round a partial group up. A nonempty remainder still occupies another estimated group; empty text should not acquire an extra group.
+
+            **In short:** Use the stated character rule for planning and measured tokens for actual accounting.
         ''',
         "prompt": r'''
             Estimate how many tokens a text uses, with the "4 characters per token, rounded up" rule.
 
-            **Write:** `estimate_tokens(text)`
+            **Your job:** write `estimate_tokens(text)`
 
+            **What goes in**
             - `text`: a string, e.g. `"abcde"`
-            - **Returns:** an int: the number of characters divided by 4, **rounded up**
+
+            **What comes out**
+            - Return an int: the number of characters divided by 4, **rounded up**
 
             **Rules**
             - An empty string is `0` tokens.
@@ -829,9 +984,9 @@ EXERCISES = [
                 return (len(text) + 3) // 4
         ''',
         "hints": [
-            "This is ceiling division with //. Look at the lesson's last example.",
-            "Add one less than the divisor before dividing, so any remainder pushes it up.",
-            "Replace ___ with 3.",
+            "The estimate needs whole groups and one more group for any remainder.",
+            "Floor division can round up when its input is adjusted before dividing.",
+            "Choose an adjustment that preserves exact multiples but advances every nonzero remainder, then check empty text.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 1
@@ -840,7 +995,9 @@ EXERCISES = [
         "title": "Few-shot builder",
         "difficulty": 1,
         "lesson": r'''
-            ## Building few-shot messages from data
+            ## Turn example pairs into a conversation
+
+            You now keep demonstration inputs and answers in a list so editors can add examples without changing code. The builder has to expand every pair into two messages and put the actual request after all of them. Ordering is part of the output contract.
 
             Few-shot examples are usually stored as data: a list of `(input, output)` tuples.
             A function converts that list into messages. To add an example you add a tuple,
@@ -860,6 +1017,12 @@ EXERCISES = [
             # 4
             print(turns[1])
             # {'role': 'assistant', 'content': '4'}
+            ```
+
+            ```quiz
+            With no examples, what remains?
+            - [x] The instructions and actual question :: The examples section can be empty without removing those messages.
+            - [ ] An empty request :: Instructions and the real question are still required.
             ```
 
             Step through the loop to see each tuple become two messages.
@@ -887,16 +1050,31 @@ EXERCISES = [
 
             Every example needs **both** messages. If the `assistant` message is missing,
             the model gets an example input with no example output to copy.
+
+            ```order
+            pairs = [("up", "UP")]
+            flat = [value for pair in pairs for value in pair]
+            print(flat)
+            ---
+            The inner traversal keeps both values of each pair adjacent.
+            ```
+
+            **Watch out:** Do not add all example questions first and all answers afterwards. Each answer must directly follow the input it demonstrates.
+
+            **In short:** Expand each example pair together while preserving the surrounding instruction and question.
         ''',
         "prompt": r'''
             Build a complete few-shot message list from example data.
 
-            **Write:** `few_shot_messages(system, examples, question)`
+            **Your job:** write `few_shot_messages(system, examples, question)`
 
+            **What goes in**
             - `system`: a string, the instructions, e.g. `"Label the sentiment."`
             - `examples`: a list of `(input, output)` tuples of strings, e.g. `[("great!", "positive")]`; may be empty
             - `question`: a string, the real input, e.g. `"not bad"`
-            - **Returns:** a list of message dicts (`{"role": ..., "content": ...}`)
+
+            **What comes out**
+            - Return a list of message dicts (`{"role": ..., "content": ...}`)
 
             **Rules**
             - First message: role `"system"` with `system` as content.
@@ -953,9 +1131,9 @@ EXERCISES = [
                 return messages
         ''',
         "hints": [
-            "Start with a list holding the system message, add to it in a loop, then add the question.",
-            "Unpack each example tuple into input and output, and append two dicts per example.",
-            "messages = [system dict]; for inp, out in examples: append user dict with inp, append assistant dict with out; append user dict with question; return messages.",
+            "A demonstration is a pair, not a single message.",
+            "Keep each input next to its answer while expanding the example list.",
+            "Start with instructions, add the two messages from each example in order, then append the real question and return the list.",
         ],
     },
     {
@@ -963,7 +1141,9 @@ EXERCISES = [
         "title": "Render with a clear error",
         "difficulty": 1,
         "lesson": r'''
-            ## Missing placeholder values
+            ## Explain which template value is missing
+
+            A caller forgets one value needed by a prompt. A raw lookup problem names the missing key, but your app can report that the missing item is a template variable. Keep the useful name while translating the problem into the interface the caller expects.
 
             A prompt with an unfilled placeholder must never reach the model. `format`
             prevents that: it raises `KeyError` when a placeholder has no value. The first
@@ -973,15 +1153,21 @@ EXERCISES = [
             template = "Hi {name}, about {topic}"
             try:
                 template.format(name="Ada")
-            except KeyError as error:
-                print("missing:", error.args[0])
+            except KeyError as problem:
+                print("missing:", problem.args[0])
             # missing: topic
             print(template.format(name="Ada", topic="RAG", extra="ignored"))
             # Hi Ada, about RAG
             ```
 
+            ```quiz
+            Should an extra unused value make rendering fail?
+            - [x] No :: Formatting only needs values referenced by placeholders.
+            - [ ] Yes :: The contract permits extra values, so rejecting them would add a new restriction.
+            ```
+
             Every exception stores the values it was created with in a tuple named `args`.
-            For this `KeyError`, `error.args[0]` is the name of the missing placeholder, as
+            For this `KeyError`, `problem.args[0]` is the name of the missing placeholder, as
             a string. `format` ignores values that the template does not use, such as `extra`.
 
             `KeyError: 'topic'` does not tell the caller what went wrong. Inside the `except`
@@ -996,15 +1182,31 @@ EXERCISES = [
             print("Hi {name}, about {topic}".format(**values))
             # Hi Ada, about RAG
             ```
+
+            ```predict
+            try:
+                "{subject}".format(other="birds")
+            except KeyError as problem:
+                print(problem.args[0])
+            ---
+            The exception stores the missing placeholder name in its first argument.
+            ```
+
+            **Watch out:** Handle the missing-name case specifically. Catching every exception can turn an unrelated formatting bug into a misleading missing-variable message.
+
+            **In short:** Keep the missing name when translating a formatting failure into a helpful problem.
         ''',
         "prompt": r'''
             Fill a prompt template from a dict of values, with a helpful error when a value is missing.
 
-            **Write:** `render(template, values)`
+            **Your job:** write `render(template, values)`
 
+            **What goes in**
             - `template`: a string with `{placeholders}`, e.g. `"Summarize: {text}"`
             - `values`: a dict mapping placeholder names to values, e.g. `{"text": "hi"}`
-            - **Returns:** the filled-in string
+
+            **What comes out**
+            - Return the filled-in string
 
             **Rules**
             - Extra keys in `values` that the template doesn't use are ignored.
@@ -1059,9 +1261,9 @@ EXERCISES = [
                     raise ValueError(f"missing variable: {error.args[0]}")
         ''',
         "hints": [
-            "format already does the filling; you need to catch the error it raises for a missing name.",
-            "Wrap the format call in try/except KeyError, and raise a ValueError with the name from the caught error.",
-            "try: return template.format(**values). except KeyError as error: raise ValueError(f\"missing variable: {error.args[0]}\").",
+            "The formatter already detects a missing placeholder value.",
+            "Translate that specific error while retaining the missing name it stores.",
+            "Try rendering with the supplied values, catch the missing-key error, and raise the required error with that name.",
         ],
     },
     {
@@ -1079,7 +1281,9 @@ EXERCISES = [
             ],
         },
         "lesson": r'''
-            ## Several documents and escaping
+            ## Keep each document separate and identifiable
+
+            A retrieval step hands you several documents. If their text runs together, a reader cannot tell where one source stops and another starts. Give each document boundaries and a source label, and keep a stable number tied to its position.
 
             To put several documents in one prompt, wrap each one in its own `<document>`
             tags and wrap them all in one outer `<documents>` pair. A tag **attribute** is a
@@ -1087,8 +1291,7 @@ EXERCISES = [
             of a Python object. `index="1"` numbers a document, so the
             model can refer to "document 2". `source` says where the text came from.
 
-            A document can itself contain the text `</document>`. The model reads that as the
-            closing tag, and the text after it appears to be outside the document.
+            A document can itself contain the text `</document>`. That text can look like a closing tag, making the intended boundaries ambiguous.
             **Escaping** means replacing a character that has a special meaning with
             characters that do not. Replace each `<` with `&lt;`, which is how XML writes a
             `<` that is not part of a tag. Text without a `<` cannot contain a tag.
@@ -1107,19 +1310,40 @@ EXERCISES = [
             # </documents>
             ```
 
+            ```quiz
+            What does replacing a less-than sign accomplish here?
+            - [x] It prevents that literal character from starting a tag :: This is a narrow text-escaping rule.
+            - [ ] It makes all document instructions safe :: Escaping markup does not prevent prompt injection.
+            ```
+
             `"\n".join(parts)` returns one string with a newline between the parts, so each
             part prints on its own line. The attribute values use double quotes, so the
             Python string around the opening tag uses single quotes.
+
+            ```fill
+            text = "x<y"
+            print(text.replace("<", ___))
+            ---
+            - [x] "&lt;" :: This represents a literal less-than sign without an opening angle bracket.
+            - [ ] ">" :: That changes the represented comparison rather than escaping it.
+            ```
+
+            **Watch out:** This exercise escapes only the document text as specified. It is not a general XML serializer, and neither the wrapper nor this replacement establishes trust.
+
+            **In short:** Keep document boundaries, numbers, and source labels consistent while applying the exact escaping rule.
         ''',
         "prompt": r'''
             Retrieval gives you several documents to paste into one prompt. Wrap them in tags,
             numbered, with their source, and escaped.
 
-            **Write:** `wrap_documents(docs)`
+            **Your job:** write `wrap_documents(docs)`
 
+            **What goes in**
             - `docs`: a list of dicts with keys `"source"` and `"text"` (strings), e.g.
               `[{"source": "faq.md", "text": "Open 9-5."}]`; may be empty
-            - **Returns:** one string, lines joined with `"\n"`:
+
+            **What comes out**
+            - Return one string, lines joined with `"\n"`:
               - `<documents>`
               - for each document (numbered from 1): `<document index="N" source="SOURCE">`,
                 then the text, then `</document>`
@@ -1178,9 +1402,9 @@ EXERCISES = [
                 return "\n".join(lines)
         ''',
         "hints": [
-            "Build a list of lines and join them with \"\\n\" at the end. enumerate can count from 1.",
-            "Start with the outer opening tag, add three lines per document (opening tag with attributes, escaped text, closing tag), then the outer closing tag.",
-            "lines = [\"<documents>\"]; for number, doc in enumerate(docs, start=1): append the opening tag f-string, doc[\"text\"].replace(\"<\", \"&lt;\"), and \"</document>\"; append \"</documents>\"; return \"\\n\".join(lines).",
+            "Decide which output lines belong outside all documents and which repeat per document.",
+            "Each document adds its numbered opening line, escaped text, and closing line.",
+            "Start the outer wrapper, process the documents in order with the specified text replacement, close the wrapper, and join lines.",
         ],
     },
     {
@@ -1188,10 +1412,12 @@ EXERCISES = [
         "title": "Versioned prompt registry",
         "difficulty": 1,
         "lesson": r'''
-            ## Prompt registry and versions
+            ## Choose a prompt requested deliberately
+
+            You revise a prompt and want to compare the new wording with the old wording. Replacing the old string loses that comparison. Keep numbered versions under the prompt's name so the caller can choose one explicitly or ask for the highest number.
 
             A **prompt registry** is one dict that stores every prompt template. Each key is
-            a prompt name. Each value is another dict that maps a version number to a
+            a prompt name. Each value is another dict that maps a requested number to a
             template. **Versioning** means a changed prompt is stored under a new number.
             The old versions stay, so you can compare two versions or switch back.
 
@@ -1205,7 +1431,13 @@ EXERCISES = [
             # Summarize: {text}
             ```
 
-            `max` on a dict compares the **keys**, so `max(versions)` is the highest version
+            ```quiz
+            Which requested is latest when keys were inserted as 8, 2, 5?
+            - [x] 8 :: Latest means the highest requested number, not insertion order.
+            - [ ] 5 :: It was inserted last but has a lower requested number.
+            ```
+
+            `max` on a dict compares the **keys**, so `max(versions)` is the highest requested
             number. The order in which the keys were added does not matter.
 
             ```python
@@ -1217,27 +1449,41 @@ EXERCISES = [
             for it with `is None`.
 
             ```python
-            def describe(version=None):
-                if version is None:
+            def describe(requested=None):
+                if requested is None:
                     return "latest"
-                return f"v{version}"
+                return f"v{requested}"
 
             print(describe())
             # latest
             print(describe(1))
             # v1
             ```
+
+            ```predict
+            versions = {8: "new", 2: "old", 5: "middle"}
+            print(max(versions))
+            ---
+            Iterating or comparing dictionary keys uses the requested numbers here.
+            ```
+
+            **Watch out:** Check the name before checking the requested. Otherwise a missing prompt can surface as a low-level KeyError instead of the clear error the task requires.
+
+            **In short:** Look up the prompt name, select a requested, then return that requested's wording.
         ''',
         "prompt": r'''
             Look up a prompt template in a registry by name and (optional) version.
 
-            **Write:** `get_prompt(registry, name, version=None)`
+            **Your job:** write `get_prompt(registry, name, version=None)`
 
+            **What goes in**
             - `registry`: a dict of name -> dict of version (int) -> template (str), e.g.
               `{"summarize": {1: "S: {text}", 2: "Summarize: {text}"}}`
             - `name`: a string, e.g. `"summarize"`
             - `version`: an int, or `None` (the default) meaning "latest"
-            - **Returns:** the template string
+
+            **What comes out**
+            - Return the template string
 
             **Rules**
             - `version=None` returns the template with the **highest** version number.
@@ -1303,9 +1549,9 @@ EXERCISES = [
                 return versions[version]
         ''',
         "hints": [
-            "Check the name first, then pick the version (max of the keys when it is None), then check that version exists.",
-            "Use `in` to test whether a key exists in a dict, and max() on the inner dict to get the highest version number.",
-            "If name not in registry: raise ValueError(...). versions = registry[name]. If version is None: version = max(versions). If version not in versions: raise ValueError(...). Return versions[version].",
+            "The lookup has two levels: prompt name, then version number.",
+            "An omitted version requests the highest numeric key for that name.",
+            "Check the name, select the requested or highest version, check it exists, then return its template.",
         ],
     },
     {
@@ -1321,15 +1567,16 @@ EXERCISES = [
             ],
         },
         "lesson": r'''
-            ## Token cost of a message list
+            ## Count each message with its overhead
+
+            Two short messages can cost more than one message with the same combined text. The chat format needs space around each message too. This step uses a deliberately simplified accounting rule so you can plan message lists consistently.
 
             A model's **context window** is the maximum number of tokens it can process in
             one request. The system message, the examples, the history, the question and the
             model's reply must all fit inside it. You estimate the size before you send.
 
             Each message costs the tokens of its content plus some overhead, because the API
-            adds the role and separators around the content. A common estimate is the
-            content length divided by 4, rounded up, plus **4 tokens per message**.
+            adds the role and separators around the content. This exercise estimates the content length divided by 4, rounded up, plus **4 tokens per message**. Actual overhead depends on the model and message format.
 
             ```python
             messages = [
@@ -1343,6 +1590,12 @@ EXERCISES = [
             # 17
             ```
 
+            ```quiz
+            How do you handle a message with empty content?
+            - [x] Count its overhead :: The message still exists even when its text contributes zero.
+            - [ ] Count nothing :: That would omit the stated per-message overhead.
+            ```
+
             The first content has 28 characters: 7 tokens plus 4 is 11. The second has 5
             characters: 2 tokens plus 4 is 6. You round up for each message separately, not
             once for the total.
@@ -1350,14 +1603,29 @@ EXERCISES = [
             If the total is over your **token budget**, you must remove something before you
             send. Deciding what goes into the context window is called
             **context engineering**.
+
+            ```predict
+            costs = [4, 7, 5]
+            print(sum(costs))
+            print(sum([]))
+            ---
+            Add the already computed message costs; an empty conversation sums to zero.
+            ```
+
+            **Watch out:** Round each message separately before adding the overhead. Combining all character counts first can change the answer when several messages have partial groups.
+
+            **In short:** A conversation estimate adds each message's text estimate and its own overhead.
         ''',
         "prompt": r'''
             Estimate how many tokens a whole message list will use.
 
-            **Write:** `count_prompt_tokens(messages)`
+            **Your job:** write `count_prompt_tokens(messages)`
 
+            **What goes in**
             - `messages`: a list of message dicts with `"role"` and `"content"` (strings); may be empty
-            - **Returns:** an int, the estimated total
+
+            **What comes out**
+            - Return an int, the estimated total
 
             **Rules**
             - Each message costs: the characters of its `content` divided by 4, **rounded up**,
@@ -1409,9 +1677,9 @@ EXERCISES = [
                 return total
         ''',
         "hints": [
-            "Loop over the messages and keep a running total, like the lesson example.",
-            "For each message, add the rounded-up token estimate of its content, plus 4.",
-            "total = 0; for each message: total += (len(message[\"content\"]) + 3) // 4 + 4; return total.",
+            "Compute a cost for one message before thinking about the whole list.",
+            "Each message rounds its content estimate separately and includes its own overhead.",
+            "Visit the messages, calculate each stated cost, accumulate those costs, and return zero when there are no messages.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 2
@@ -1421,23 +1689,57 @@ EXERCISES = [
         "difficulty": 2,
         "placement": True,
         "lesson": r'''
-            ## Trimming history to a token budget
+            ## Remove old history while keeping required messages
 
-            A long chat history can cost more tokens than the context window allows. The
-            usual fix keeps two messages: the system message, which holds your rules, and
-            the newest message, which holds the user's latest request. You remove the
-            **oldest** of the other messages, one at a time, until the estimate fits.
-            `list(messages)` returns a new list with the same items. Remove messages from
-            that copy, so the caller's list stays unchanged.
+            A conversation has grown beyond the estimate you allow. You still need the newest question, and you want to preserve the initial instruction if present. Work out which messages are protected before removing any history, then keep the surviving messages in their original order.
+
+            Remember the per-message estimate from the previous step. Recompute it for the history you plan to send, rather than assuming that deleting one message saves a fixed amount. Messages have different lengths.
+
+            ```python
+            history = ["instructions", "earlier question", "latest question"]
+            shorter = history.copy()
+            shorter.pop(1)
+            print(shorter)
+            # ['instructions', 'latest question']
+            print(len(history))
+            # 3
+            ```
+
+            ```quiz
+            What if the protected messages alone exceed the limit?
+            - [x] Return them in this exercise :: The contract preserves them even when a fitting result is impossible.
+            - [ ] Remove the latest question :: That violates the preservation rule.
+            ```
+
+            This copy lets you try a shorter history without changing the caller's list. Removing its middle item moves later items left, so positions change after a removal. Keep asking which remaining item is the oldest one you are allowed to remove.
+
+            This is a **retention policy**: a rule for choosing which history survives. In this exercise the first system message, when present, and the final message are protected. Protection is stronger than the size target. If nothing removable remains, return the protected messages even if their estimate exceeds the budget.
+
+            ```predict
+            original = ["rules", "old", "latest"]
+            kept = list(original)
+            kept.pop(1)
+            print(kept)
+            print(len(original))
+            ---
+            Removing from a copy leaves the caller's original history unchanged.
+            ```
+
+            **Watch out:** Do not keep removing from an empty or fully protected list. This step permits an oversized protected result, so it is not a guarantee that a real API request will fit.
+
+            **In short:** Trim only removable history and stop when the estimate fits or no removable messages remain.
         ''',
         "prompt": r'''
             Trim a chat history so its estimated size fits a token budget.
 
-            **Write:** `fit_history(messages, max_tokens)`
+            **Your job:** write `fit_history(messages, max_tokens)`
 
+            **What goes in**
             - `messages`: a list of message dicts (`"role"`, `"content"`), oldest first; may be empty
             - `max_tokens`: an int, the budget
-            - **Returns:** a **new** list of messages that fits (when possible)
+
+            **What comes out**
+            - Return a **new** list of messages that fits (when possible)
 
             **Rules**
             - Message cost = characters of `content` divided by 4, rounded up, plus 4.
@@ -1515,9 +1817,9 @@ EXERCISES = [
                 return kept
         ''',
         "hints": [
-            "Work on a copy of the list. Figure out which index is the oldest message you're allowed to remove.",
-            "If the first message is a system message, the oldest removable one is at index 1, otherwise index 0. Keep removing at that index while the total is too big and that index is not the last message.",
-            "kept = list(messages); start = 1 if kept and kept[0][\"role\"] == \"system\" else 0; while the summed cost > max_tokens and start < len(kept) - 1: kept.pop(start); return kept.",
+            "Identify protected positions before removing anything.",
+            "Remove from a new list so the caller's history remains available.",
+            "Copy the history, repeatedly remove its oldest unprotected message while oversized, and stop when it fits or only protected messages remain.",
         ],
     },
     {
@@ -1525,19 +1827,50 @@ EXERCISES = [
         "title": "A PromptTemplate class",
         "difficulty": 2,
         "lesson": r'''
-            ## A class for one prompt
+            ## Keep a prompt and its rendering rules together
 
-            A class can store everything about one prompt as attributes: its name, its
-            version, its system template and its user template. `re.findall` with the regex
-            `\{(\w+)\}` returns the placeholder names in a string. With those names the class
-            can list the variables it needs, check that each one has a value before it calls
-            `format`, and return the messages list.
+            You need the same prompt's name, version, placeholders, and rendered messages in several places. A small class can keep that information together. Plan its methods around what a caller needs to ask, rather than mixing every operation into one long method.
+
+            A class stores the prompt's name and version beside its two template strings. One method can report the label, another can list required names, and another can render messages. Each operation then has a small purpose you can check independently.
+
+            ```python
+            import re
+            wording = "Tell {reader} about {subject} and {subject}."
+            names = re.findall(r"\{(\w+)\}", wording)
+            print(names)
+            # ['reader', 'subject', 'subject']
+            print(sorted(set(names)))
+            # ['reader', 'subject']
+            ```
+
+            ```quiz
+            Why remove duplicate placeholder names?
+            - [x] One supplied value can fill every occurrence :: The required names describe inputs, not the number of appearances.
+            - [ ] Duplicates make formatting invalid :: Repeating a named placeholder is valid.
+            ```
+
+            The pattern captures the name between braces. A set removes repeats, because repeating a placeholder does not create another required input. Sorting makes the result predictable for callers and error messages.
+
+            Before rendering, compare the required names with the values supplied. Report every missing name together so a caller can fix all of them at once. Only after that check do you format both templates. This arrangement separates **validation**, checking the inputs, from rendering, building the completed text.
+
+            ```predict
+            import re
+            pattern = "{item} then {item} for {person}"
+            print(sorted(set(re.findall(r"\{(\w+)\}", pattern))))
+            ---
+            Repeated names collapse in the set, and sorting gives a stable order.
+            ```
+
+            **Watch out:** The placeholder pattern in this task is deliberately narrow. It does not implement every formatting feature, such as nested fields or arbitrary format specifications.
+
+            **In short:** Let one object describe its required inputs and render its stored templates consistently.
         ''',
         "prompt": r'''
             Bundle a versioned prompt into a class that can list its variables and render messages.
 
-            **Write:** `class PromptTemplate` with:
+            **Your job:** write `class PromptTemplate` with:
 
+            **What goes in**
             - `__init__(self, name, version, system, user)`: store all four as attributes of
               the same names (`name` str, `version` int, `system` and `user` template strings)
             - `label(self)`: returns `"<name>@v<version>"`, e.g. `"summarize@v2"`
@@ -1635,9 +1968,9 @@ EXERCISES = [
                     ]
         ''',
         "hints": [
-            "re.findall with a capture group returns just the names inside the braces. A set removes duplicates.",
-            "variables(): findall over both templates, then sorted(set(...)). render(): compare variables() with the keys given, raise if any are missing, else format both.",
-            "In render: missing = [n for n in self.variables() if n not in values]; if missing: raise ValueError(\"missing variables: \" + \", \".join(missing)); return the two message dicts using .format(**values).",
+            "Each method answers a different question about the same stored prompt.",
+            "Collect unique names across both templates before checking which values are missing.",
+            "Store the inputs, build the label, derive sorted variable names, check missing inputs, and render the two messages when all are supplied.",
         ],
     },
     {
@@ -1649,13 +1982,16 @@ EXERCISES = [
             labels, few-shot examples, and the delimited input, dropping examples if the
             prompt is over budget.
 
-            **Write:** `build_classifier_prompt(labels, examples, text, max_tokens)`
+            **Your job:** write `build_classifier_prompt(labels, examples, text, max_tokens)`
 
+            **What goes in**
             - `labels`: a non-empty list of label strings, e.g. `["bug", "feature"]`
             - `examples`: a list of `(example_text, label)` tuples, oldest first; may be empty
             - `text`: the string to classify
             - `max_tokens`: an int budget
-            - **Returns:** a list of message dicts
+
+            **What comes out**
+            - Return a list of message dicts
 
             **Message list**
             - First: system message with content
@@ -1672,7 +2008,7 @@ EXERCISES = [
             - Message cost = characters of `content` divided by 4, rounded up, plus 4.
             - While the total is over `max_tokens` and examples remain, drop the **oldest**
               example (both of its messages).
-            - If it still doesn't fit with no examples, raise `ValueError("prompt too long")`.
+            - If it still doesn't fit with no examples, raise `ValueError` with the message `"prompt too long"`.
             - Don't modify `examples`.
 
             **Examples**
@@ -1772,9 +2108,9 @@ EXERCISES = [
                     kept.pop(0)
         ''',
         "hints": [
-            "Split it into small helpers: one that wraps and escapes a text, one that costs a message list, and one that builds the list from a given set of examples.",
-            "Validate labels first. Then loop: build the messages from the current examples; if they fit, return them; if there are no examples left, raise; otherwise drop the first example and try again.",
-            "Check each (text, label) in examples against labels. kept = list(examples). while True: build system + pairs + final user message; if the cost <= max_tokens return it; if not kept raise ValueError(\"prompt too long\"); kept.pop(0).",
+            "Separate label validation, message building, and size checking.",
+            "An example must be removed as a complete input-answer pair.",
+            "Check every example label, build from a copy, measure the result, remove the oldest pair when needed, and reject if the mandatory messages alone exceed the budget.",
         ],
     },
 ]

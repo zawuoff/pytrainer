@@ -252,15 +252,13 @@ EXERCISES = [
     {
         "id": "files-s1",
         "lesson": r'''
-            ## Opening and reading a file
+            ## Reading a file, one line at a time
 
-            A **file** is a named sequence of characters stored on disk. `open()` returns a
-            **file object**: a value with methods that read from or write to that file.
+            Every variable in a program is gone the moment the program stops. A chat app that kept its
+            conversation only in a list would forget everything each time you closed it. Whatever has to
+            last is stored on disk, in a file: some text with a name, such as `todo.txt`.
 
-            A `with` statement assigns the file object to the name after `as` and runs the
-            indented block. When the block ends, Python **closes** the file, which tells the
-            operating system that you are done with it. The file is closed even when the block
-            raises an exception.
+            This program makes a small file and then reads it back:
 
             ```python
             with open("todo.txt", "w", encoding="utf-8") as fh:
@@ -273,14 +271,64 @@ EXERCISES = [
             # item: call Ada
             ```
 
-            The first block creates `todo.txt` with two lines. The second block opens it for
-            reading. A `for` loop over a file object runs once per line of the file.
+            The first two lines only make a file to practise on: they put two lines of text into
+            `todo.txt`. Writing comes two steps from now, so look past them for the moment. The reading
+            happens in the second half:
 
-            Each line still ends with its newline character `"\n"`. Call `strip()` to remove it
-            before you print or compare the line.
+            - `open("todo.txt", encoding="utf-8")` asks for the file by its name and opens it.
+            - `with ... as fh:` gives the opened file the name `fh` for the indented lines under it.
+            - `for line in fh:` is the loop you know. An open file hands the loop one line of text on
+              each iteration.
 
-            Step through the loop. The list `lines` holds the same two strings that the loop
-            over `todo.txt` produces.
+            What `open` hands back is called a **file object**. It is not the text itself. It is your
+            connection to the file, and the text comes to you through it. When the indented block under
+            `with` is over, Python **closes** the file, which tells the operating system (Windows, macOS
+            or Linux) that your program is done with it. You do not have to remember that yourself.
+
+            A disk stores numbers, not letters. `encoding="utf-8"` names the rule that turns the stored
+            numbers back into characters. Pass it on every `open`, so that accented letters and emoji are
+            read the same way on every computer.
+
+            ### The newline that comes with every line
+
+            Why does the example print `line.strip()` and not `line`? Find out:
+
+            ```try
+            with open("todo.txt", "w", encoding="utf-8") as fh:
+                fh.write("buy milk\ncall Ada\n")
+
+            with open("todo.txt", encoding="utf-8") as fh:
+                for line in fh:
+                    print(line)
+            ---
+            Run it first. There is an empty line after each item. Then change the last line so that the two items are printed directly under each other, with no empty lines.
+            ---
+            with open("todo.txt", "w", encoding="utf-8") as fh:
+                fh.write("buy milk\ncall Ada\n")
+
+            with open("todo.txt", encoding="utf-8") as fh:
+                for line in fh:
+                    print(line.strip())
+            ---
+            Each line came out of the file as `"buy milk\n"`, with its newline still attached, and `print` added a second one. `strip()` takes the newline off before `print` adds its own.
+            ```
+
+            In a file, every line ends with the newline character `\n` that you met in the Data Types
+            chapter. The loop hands you each line with that character still on it.
+
+            ```predict
+            with open("pets.txt", "w", encoding="utf-8") as fh:
+                fh.write("cat\nhorse\n")
+
+            with open("pets.txt", encoding="utf-8") as fh:
+                for line in fh:
+                    print(len(line), len(line.strip()))
+            ---
+            The first line the loop gets is `"cat\n"`: three letters and a newline, so 4 characters, and 3 after `strip()`. The second is `"horse\n"`: 6 characters, and 5 after `strip()`.
+            ```
+
+            To a `for` loop, an open file behaves like a list of its lines. The trace below uses such a
+            list, so that you can see every value. Press Next and compare `line` with `item`:
 
             ```diagram
             {"type": "trace", "title": "Looping over the lines of todo.txt", "code": ["lines = [\"buy milk\\n\", \"call Ada\\n\"]", "for line in lines:", "    item = line.strip()", "    print(\"item:\", item)", "print(\"done\")"], "steps": [
@@ -297,19 +345,19 @@ EXERCISES = [
             ]}
             ```
 
-            `fh` is a common name for a file object. You will also see `f` or `file`. An object
-            that works in a `with` statement is called a **context manager**. A file object is one.
+            **Watch out:** the file is open only inside the `with` block. A loop that is not indented
+            under the `with` runs after the file was closed, and Python stops with
+            `ValueError: I/O operation on closed file.`
 
-            `encoding="utf-8"` tells Python how the characters are stored as bytes on disk.
-            Always pass it, so that accented letters and emoji are read the same way on every
-            computer.
+            **In short:** `with open(name, encoding="utf-8") as fh:` opens a file, and `for line in fh:`
+            hands you its lines one at a time, each still ending in `\n`.
         ''',
         "title": "What gets printed?",
         "difficulty": 0,
         "mode": "predict",
         "prompt": r'''
-            A file `notes.txt` contains two lines: `hello` and `world`.
-            Read the code and type exactly what it prints.
+            The file `notes.txt` holds two lines of text: `hello` and `world`. Read the program in the
+            editor and type exactly what it prints, one line for each `print` that runs.
         ''',
         "setup_files": {
             "notes.txt": r'''
@@ -331,25 +379,59 @@ EXERCISES = [
             lines: 2
         ''',
         "explanation": r'''
-            The `for` loop over the open file runs once per line, so it runs twice. Each pass
-            adds 1 to `count`. `strip()` removes the trailing newline and `upper()` returns the
-            line in uppercase letters. After the loop, `count` is 2.
+            The loop runs once for each line of the file, so twice. On the first iteration `count` goes
+            from 0 to 1, and `line` is `"hello\n"`. `strip()` takes off the newline and `upper()` makes
+            capital letters, so the program prints `1 HELLO`. The second iteration prints `2 WORLD` in the
+            same way. The last `print` is not indented under the `with`, so it runs once, after the loop
+            is over and the file is closed. `count` is an ordinary variable, and it still holds 2.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "A `for` loop over an open file runs once per line in the file.",
-            "Each pass adds 1 to `count` and prints the count next to the uppercased line.",
-            "Two lines means two passes: `1 HELLO`, then `2 WORLD`, then the final print after the loop shows the total.",
+            "A `for` loop over an open file runs its body once for each line of the file. How many lines does `notes.txt` have?",
+            "On every iteration `count` goes up by 1 first. Then one line is printed: the count, followed by the line of the file without its newline and in capital letters.",
+            "Your first two lines each have a number, a space and one word in capitals. Your third line comes from the `print` after the loop: the text `lines:`, a space, and the value that `count` has at the end.",
         ],
     },
     {
         "id": "files-s2",
         "lesson": r'''
-            ## Reading the whole file
+            ## The whole file as one string
 
-            A loop gives you one line per pass. When you want all of the text in one value, call
-            the file object's `read()` method. It returns the entire content of the file as one
-            string.
+            A chat app keeps its instructions for the model in a text file, so that someone can edit them
+            without touching the code. The app does not want those instructions line by line. It wants the
+            entire text in one string, ready to send.
+
+            ```python
+            with open("poem.txt", "w", encoding="utf-8") as fh:
+                fh.write("Roses are red\nViolets are blue\n")
+
+            with open("poem.txt", encoding="utf-8") as fh:
+                text = fh.read()
+            print(text)
+            # Roses are red
+            # Violets are blue
+            ```
+
+            `fh.read()` hands back everything in the file as one string. The loop from the last step gave
+            you one line per iteration. `read()` gives you all of it in one go.
+
+            Look at where the `print` is: it is not indented, so it runs after the `with` block. The file
+            is closed by then, and that is fine. `text` is an ordinary string and it is yours to keep. It
+            is only `fh` that stops working when the block ends.
+
+            ```quiz
+            The `with` block of the example has ended. Which of these lines still works after it?
+            - [x] `print(len(text))` :: Right. `text` is a normal string. It was filled while the file was open, and it stays after the file is closed.
+            - [ ] `print(fh.read())` :: The block is over, so the file is closed. Python stops with `ValueError: I/O operation on closed file.`
+            - [ ] `for line in fh:` with a `print` under it :: A loop reads from the file as well, and the file is closed. It stops with the same `ValueError` as any other read.
+            ```
+
+            ### Seeing every character
+
+            The string holds more than you can see. In the file, each line ends with a newline, and
+            `read()` changes nothing: you get exactly the characters that are stored. To make them
+            visible, print `repr(text)`. `repr` shows a string the way you would type it in code, with
+            its quotes and with `\n` for every newline.
 
             ```python
             with open("poem.txt", "w", encoding="utf-8") as fh:
@@ -359,38 +441,57 @@ EXERCISES = [
                 text = fh.read()
             print(repr(text))
             # 'Roses are red\nViolets are blue\n'
-            print(len(text), "characters")
-            # 31 characters
             ```
 
-            `repr()` returns the string the way you would type it in code, so each newline
-            character shows up as `\n`. The newlines are part of the text, including the one at
-            the very end. `len(text)` counts them too.
+            ```predict
+            with open("pair.txt", "w", encoding="utf-8") as fh:
+                fh.write("yes\nno\n")
 
-            `read()` changes nothing. You get exactly the characters that are stored in the file.
+            with open("pair.txt", encoding="utf-8") as fh:
+                text = fh.read()
+            print(len(text))
+            print(repr(text))
+            ---
+            `read()` hands back one string with both lines in it. `len` counts every character: the three letters of `yes`, a newline, the two letters of `no` and one more newline. That makes 7.
+            ```
 
-            Use `read()` to load a prompt template, or a document that you send to a model.
+            Inside a function you may `return` straight from inside the `with` block. Python still closes
+            the file on the way out.
+
+            **Watch out:** a text file normally ends with a newline, so the string from `read()` does
+            too. When a file holds the one line `hello`, the test `text == "hello"` is `False`, because
+            `text` is `"hello\n"`.
+
+            **In short:** `fh.read()` hands back the whole file as one string, exactly as it is stored,
+            newlines included.
         ''',
         "title": "Read the whole file",
         "difficulty": 0,
         "prompt": r'''
-            Load a whole text file (for example a prompt template) into one string.
+            A chat app keeps its system prompt in a text file. The system prompt is the set of
+            instructions that is sent to the model before every conversation. To use it, the app needs the
+            whole file as one string.
 
-            **Write:** `read_file(path)` by filling in the blank (`___`) in the starter.
+            **Your job:** finish `read_file(path)` so that it gives back everything that is in the file.
+            The function is already written except for one gap, marked `___`. Replace the gap.
 
-            - `path`: the file name, a string like `"prompt.txt"`
-            - **Returns:** the **entire** contents of the file as one string, exactly as stored
+            **What goes in**
+            - `path`: the name of a text file, for example `"prompt.txt"`
+
+            **What comes out**
+            - one string with the whole content of the file, for example `"You are helpful.\n"`
 
             **Rules**
-            - Return everything, newlines included. Do not strip anything (the final `\n` stays).
-            - It must work for files with several lines.
+            - The text comes back exactly as it is stored. Nothing is removed, so the newline at the end
+              stays.
+            - A file with several lines comes back as one string, with a `\n` at the end of each line.
 
             **Examples**
             ```python
-            # prompt.txt contains one line: You are helpful.
+            # prompt.txt holds one line: You are helpful.
             read_file("prompt.txt")   # returns "You are helpful.\n"
 
-            # two.txt contains the lines a and b
+            # two.txt holds two lines: a and b
             read_file("two.txt")      # returns "a\nb\n"
             ```
         ''',
@@ -423,81 +524,117 @@ EXERCISES = [
                     return fh.read()
         ''',
         "hints": [
-            "An open file object has a method that gives you everything in it at once.",
-            "You want one string with all the text, newlines included - no looping needed.",
-            "Replace `___` with `read` so the line becomes `return fh.read()`.",
+            "The chapter has shown two ways to get text out of an open file. One of them hands over everything at once.",
+            "No loop is needed here. One method of the file object gives back the whole content as a single string, newlines included.",
+            "The gap is the name of that method. It is the one that the lesson's example calls on `fh` to fill the variable `text`.",
         ],
     },
     {
         "id": "files-s3",
         "lesson": r'''
-            ## File modes
+            ## Saving text in a file
 
-            The second argument of `open()` is the **mode**: a string that says what you will do
-            with the file.
-
-            - `"r"` is **read** mode. You can only read. It is the default when you pass no mode.
-            - `"w"` is **write** mode. Python creates the file if it is missing. If the file
-              exists, Python **erases** its content first.
-            - `"a"` is **append** mode. It adds to the end of the file. The next step covers it.
+            Every example so far began with two lines that made a file. It is time to look at them.
+            Suppose your app has a note that should still be there tomorrow:
 
             ```python
             with open("status.txt", "w", encoding="utf-8") as fh:
                 fh.write("draft")
-            with open("status.txt", "w", encoding="utf-8") as fh:
-                fh.write("final")
+
             with open("status.txt", encoding="utf-8") as fh:
                 print(fh.read())
-            # final
+            # draft
             ```
 
-            The second `open()` in `"w"` mode erased `draft`. `write()` writes exactly the
-            characters you pass. It does **not** add a newline.
+            The first `open` has one more argument than the second: `"w"`, for "write". It tells Python
+            what you plan to do with the file. With `"w"`, Python makes the file when it does not exist
+            yet. `fh.write("draft")` then stores those five characters in it. `write` stores exactly what
+            you pass it. Unlike `print`, it does not add a newline.
 
-            ### Writing in read mode
+            This second argument of `open` is called the **mode**. When you leave it out you get `"r"`,
+            for "read". That is the mode of every `open` you have used for reading.
 
-            If you leave out the mode, the file is open in read mode. Calling `write()` on it
-            raises an error. This example raises on purpose:
+            ### "w" always starts from an empty file
 
-            ```python
-            with open("status.txt", "w", encoding="utf-8") as fh:
-                fh.write("draft")
+            What happens to a file that already has something in it? Make a guess, then find out:
 
+            ```predict
+            with open("plan.txt", "w", encoding="utf-8") as fh:
+                fh.write("first idea")
+            with open("plan.txt", "w", encoding="utf-8") as fh:
+                fh.write("better idea")
+            with open("plan.txt", encoding="utf-8") as fh:
+                print(fh.read())
+            ---
+            Opening a file in `"w"` mode empties it before anything is written. The second `open` threw `first idea` away, so the file holds only `better idea`.
+            ```
+
+            That is what you want when you save a new version of something. It is also how a file gets
+            wiped by accident, so use `"w"` only when the old content may go.
+
+            ```fill
+            with open("memo.txt", ___, encoding="utf-8") as fh:
+                fh.write("call back at 3")
+            with open("memo.txt", encoding="utf-8") as fh:
+                print(fh.read())
+            ---
+            - [x] "w" :: Right. Write mode makes `memo.txt`, and `write` can then store the text. The second block reads it back.
+            - [ ] "r" :: Read mode never makes a file. There is no `memo.txt` yet, so the `open` line stops with `FileNotFoundError`.
+            - [ ] "write" :: The mode is a short fixed code, not a word. Python stops with `ValueError: invalid mode: 'write'`.
+            ```
+
+            ### When the mode is left out
+
+            ```quiz
+            The file `status.txt` exists. What does this program do?
+
+            ~~~python
             with open("status.txt", encoding="utf-8") as fh:
-                print(fh.mode)   # `fh.mode` is the mode string the file was opened with
-                # r
                 fh.write("final")
-            # io.UnsupportedOperation: not writable
+            ~~~
+            - [x] It stops with an error on the `write` line :: Right. With no mode, the file is open for reading only. Python stops with `io.UnsupportedOperation: not writable`.
+            - [ ] It replaces the content of the file with `final` :: That needs `"w"` as the second argument. Without a mode, the file is open for reading only, and `write` fails.
+            - [ ] It adds `final` to the end of the file :: Nothing is written at all. Without a mode, the file is open for reading only, and `write` fails.
             ```
 
-            Read mode also cannot open a file that does not exist. That raises
-            `FileNotFoundError`.
+            **Watch out:** an `open` without a mode can only read. When the file is missing, the `open`
+            line stops with `FileNotFoundError: [Errno 2] No such file or directory: 'status.txt'`. When
+            the file exists, the `write` line stops with `io.UnsupportedOperation: not writable`. The two
+            messages have the same cause: the mode.
+
+            **In short:** `open(name, "w", encoding="utf-8")` makes the file or empties it, and
+            `fh.write(text)` stores exactly `text` in it.
         ''',
         "title": "Fix the save",
         "difficulty": 0,
         "prompt": r'''
-            Save a note to a file, replacing whatever was there before. The starter crashes: find
-            the bug and fix it.
+            A note-taking tool saves the current note under a file name. Saving again under the same name
+            replaces the old note. Someone wrote the function for this, and it stops with an error every
+            time it is called.
 
-            **Write:** `save_note(path, text)` (fix the starter)
+            **Your job:** find the bug in `save_note(path, text)` and fix it. The code is already in the
+            editor, and only one line needs to change.
 
-            - `path`: the file name, a string like `"note.txt"`
-            - `text`: the string to save, e.g. `"remember the RAG demo"`
-            - **Returns:** nothing (`None`). The result is the file on disk.
+            **What goes in**
+            - `path`: the name of the file, for example `"note.txt"`
+            - `text`: the text to save, for example `"remember the RAG demo"`
+
+            **What comes out**
+            - nothing is returned. The result is the file on disk: after the call it holds exactly `text`.
 
             **Rules**
-            - If the file does not exist yet, create it.
-            - If it already exists, its old content is **replaced** (not added to).
-            - Write `text` exactly as given. Do not add a newline.
+            - When the file does not exist yet, it is created.
+            - When the file already exists, its old content is replaced, not added to.
+            - The file holds `text` exactly as given. No newline is added.
 
             **Examples**
             ```python
             save_note("note.txt", "remember the RAG demo")
-            # note.txt now contains exactly: "remember the RAG demo"
+            # note.txt now holds exactly: remember the RAG demo
 
             save_note("n.txt", "old text")
             save_note("n.txt", "new")
-            # n.txt now contains exactly: "new"
+            # n.txt now holds exactly: new
             ```
         ''',
         "starter": r'''
@@ -529,57 +666,63 @@ EXERCISES = [
                     fh.write(text)
         ''',
         "hints": [
-            "Look at how the file is opened. What mode does `open()` use when you give it none?",
-            "With no mode, the file is opened for reading only, so writing fails (and a missing file cannot even be opened).",
-            "Add the write mode `\"w\"` as the second argument to `open()`, before `encoding`.",
+            "Run the code and read the last line of the error. Then look at the `open` line: which mode does `open` use when you give it none?",
+            "With no mode, the file is opened for reading only. A file that does not exist cannot be read, and a file that is open for reading cannot be written to.",
+            "Change only the `open` line. Between the path and `encoding`, add the mode from the lesson that makes a missing file and empties an existing one. The `write` line is already right.",
         ],
     },
     {
         "id": "files-s4",
         "lesson": r'''
-            ## Append mode
+            ## Add an entry without erasing earlier ones
 
-            Mode `"w"` erases the file before it writes. Mode `"a"` (**append**) keeps the
-            existing content and puts every write at the end of the file.
+            A run records when it starts, then records later events as they happen. Replacing the whole log for every event would lose the history. Open the file in a mode that keeps the existing contents and adds new text at the end.
 
             ```python
-            with open("run.log", "w", encoding="utf-8") as fh:
-                fh.write("started\n")
-
-            for event in ["indexed 3 docs", "done"]:
-                with open("run.log", "a", encoding="utf-8") as fh:
-                    fh.write(event + "\n")
-
-            with open("run.log", encoding="utf-8") as fh:
-                print(repr(fh.read()))
-            # 'started\nindexed 3 docs\ndone\n'
+            with open("append_demo.txt", "w", encoding="utf-8") as stream:
+                stream.write("opened\n")
+            with open("append_demo.txt", "a", encoding="utf-8") as stream:
+                stream.write("finished\n")
+            with open("append_demo.txt", encoding="utf-8") as stream:
+                print(repr(stream.read()))
+            # 'opened\nfinished\n'
             ```
 
-            The first block uses `"w"`, so `run.log` starts with one line. Each pass of the loop
-            opens the file in append mode and adds one line after the existing ones.
+            The initial write establishes a known starting file. The second block uses **append mode**, written `"a"`, so the earlier line survives. If there were no file yet, append mode would create it. Remember that the `with` block closes the file after the operation.
 
-            Click each stage to see the content of `run.log` after it.
-
-            ```diagram
-            {"type":"flow","title":"The content of run.log after each step","steps":[{"label":"open \"w\"","detail":"Write mode creates run.log if it is missing. If the file exists, its content is erased.","code":"run.log: ''"},{"label":"write","detail":"write() stores the 8 characters of the string, including the newline at the end.","code":"fh.write(\"started\\n\")\nrun.log: 'started\\n'"},{"label":"open \"a\"","detail":"Append mode keeps the existing content. Every write goes at the end of the file.","code":"run.log: 'started\\n'"},{"label":"write","detail":"The new line is added after the existing line.","code":"fh.write(\"indexed 3 docs\\n\")\nrun.log: 'started\\nindexed 3 docs\\n'"},{"label":"open \"a\", write","detail":"The second pass of the loop opens the file in append mode again and adds one more line.","code":"fh.write(\"done\\n\")\nrun.log: 'started\\nindexed 3 docs\\ndone\\n'"},{"label":"open \"r\", read","detail":"Read mode changes nothing. read() returns all three lines as one string.","code":"'started\\nindexed 3 docs\\ndone\\n'"}]}
+            ```quiz
+            Which mode keeps yesterday's entries when adding today's entry?
+            - [x] Append mode. :: Each write goes after the existing contents.
+            - [ ] Write mode. :: Opening with write mode first removes the existing contents.
             ```
 
-            If the file does not exist yet, `"a"` creates it, the same as `"w"` does.
+            A log is a record of events, often with one event per line. The newline is part of that format, not something `write` supplies automatically. Unlike `print`, writing a string stores exactly the characters you pass. If separate entries should be separate lines, each entry needs its line-ending character.
 
-            `write()` adds no newline, so you add the `"\n"` yourself. Without it, all entries
-            end up on one line. A **log** is a file that records what happened, one line per event. Programs use
-            append mode to write logs of conversations, API calls and results.
+            ```predict
+            parts = ["opened", "finished"]
+            print(repr("".join(parts)))
+            print(repr("\n".join(parts)))
+            ---
+            Without a separator the words touch. Inserting newline characters creates a boundary between the entries.
+            ```
+
+            **Watch out:** append mode does not repair an existing file that lacks a final newline. It begins writing immediately after the last existing character.
+
+            Choose append mode to preserve history and include the separators your file format requires.
         ''',
         "title": "Add a line",
         "difficulty": 0,
         "prompt": r'''
             Add one line to the end of a to-do or log file.
 
-            **Write:** `add_line(path, text)`
+            **Your job:** write `add_line(path, text)`
 
+            **What goes in**
             - `path`: the file name, a string like `"todo.txt"`
             - `text`: the line to add, without a newline, e.g. `"ship it"`
-            - **Returns:** nothing (`None`). The result is the file on disk.
+
+            **What comes out**
+            - nothing (`None`). The result is the file on disk.
 
             **Rules**
             - Write `text` followed by a newline (`"\n"`) at the **end** of the file.
@@ -631,60 +774,62 @@ EXERCISES = [
                     fh.write(text + "\n")
         ''',
         "hints": [
-            "There is a file mode that adds to the end instead of erasing.",
-            "Open the file in append mode inside a `with` block and write the text followed by a newline.",
-            "Use `open(path, \"a\", encoding=\"utf-8\")` in a `with` block, then call `fh.write()` with `text + \"\\n\"`.",
+            "Choose a mode that preserves what is already on disk.",
+            "Each added entry needs its own ending newline.",
+            "Open for appending in a with block, write the supplied text and line ending, and leave the function without returning a file value.",
         ],
     },
     {
         "id": "files-s5",
         "lesson": r'''
-            ## Missing files
+            ## Choose a fallback for a missing file
 
-            Opening a file in read mode raises `FileNotFoundError` when the file does not exist.
-            This example raises on purpose:
-
-            ```python
-            print("opening")
-            # opening
-            with open("no_such_file.txt", encoding="utf-8") as fh:
-                print(fh.read())
-            # FileNotFoundError: [Errno 2] No such file or directory: 'no_such_file.txt'
-            ```
-
-            Sometimes a missing file is a real error and the program should stop. Often it is
-            normal: a first run with no cache, no saved history yet, no custom prompt. In that
-            case, catch `FileNotFoundError` with `try` / `except` and continue with a
-            **default**: a value you use when the real one is not available.
+            A first run may have no saved notes yet. That can be an expected starting condition rather than a reason to stop the application. Decide which fallback to use when the requested file has not been created.
 
             ```python
-            with open("exists.txt", "w", encoding="utf-8") as fh:
-                fh.write("hi")
-
-            for name in ["exists.txt", "no_such_file.txt"]:
-                try:
-                    with open(name, encoding="utf-8") as fh:
-                        text = fh.read()
-                except FileNotFoundError:
-                    text = "(default)"
-                print(name, "->", text)
-            # exists.txt -> hi
-            # no_such_file.txt -> (default)
+            with open("reading_demo.txt", "w", encoding="utf-8") as stream:
+                stream.write("saved notes")
+            try:
+                with open("reading_demo.txt", encoding="utf-8") as stream:
+                    loaded = stream.read()
+            except FileNotFoundError as missing:
+                loaded = "no saved notes"
+            print(loaded)
+            # saved notes
             ```
 
-            Name `FileNotFoundError` in the `except` line. Do not catch every exception. Other
-            problems, such as a misspelled variable name, then still stop the program with their
-            own error message.
+            The try block includes opening and reading. Opening for reading does not create a missing file: it raises `FileNotFoundError`. The named handler supplies a **fallback**, a value chosen when the intended value is unavailable. On the successful path, the actual file contents are used instead.
+
+            ```quiz
+            A file exists but contains no text. Is that the same event as FileNotFoundError?
+            - [x] No; reading succeeded and returned an empty string. :: Missing content and a missing file are different conditions.
+            - [ ] Yes; every empty read raises the missing-file exception. :: Empty files can be opened and read normally.
+            ```
+
+            Catch the specific absence you intend to tolerate. Other failures, such as permission problems, can mean something different and should remain visible unless the contract explicitly handles them. A broad exception handler could even hide a bug in your own code.
+
+            ```match
+            successful read :: use the file's contents
+            missing file :: select the specified fallback
+            unrelated programming error :: leave the error visible
+            ```
+
+            **Watch out:** trimming the loaded text is an additional transformation. If the task promises exact contents, surrounding spaces and the final newline belong to the returned value too.
+
+            Handle the missing-file case without silently changing successful reads.
         ''',
         "title": "Missing file? No problem",
         "difficulty": 0,
         "prompt": r'''
             Read a file that may or may not exist, without crashing.
 
-            **Write:** `read_or_empty(path)`
+            **Your job:** write `read_or_empty(path)`
 
+            **What goes in**
             - `path`: the file name, a string like `"notes.txt"`
-            - **Returns:** a string: the file's full contents, or `""` (an empty string)
+
+            **What comes out**
+            - a string: the file's full contents, or `""` (an empty string)
 
             **Rules**
             - If the file exists, return its contents exactly as stored (do not strip).
@@ -727,59 +872,53 @@ EXERCISES = [
                     return ""
         ''',
         "hints": [
-            "Opening a file that does not exist raises an error. Which one? Catch it.",
-            "Try to open and read the file. If that raises `FileNotFoundError`, return an empty string instead.",
-            "Put the `with open(...)` block and `return fh.read()` inside `try:`, then add `except FileNotFoundError:` that returns `\"\"`.",
+            "Distinguish an absent file from an existing file with empty contents.",
+            "Catch the missing-file exception around the open and read operation.",
+            "Give back the full successful read unchanged, or the specified fallback only when the file cannot be found.",
         ],
     },
     {
         "id": "files-s6",
         "lesson": r'''
-            ## Paths with pathlib
+            ## Work with a file name's parts
 
-            A **path** is the text that names where a file is stored. `docs/guides/setup.md`
-            names the file `setup.md` inside the folder `guides`, which is inside the folder `docs`.
-
-            The `pathlib` module provides `Path`: an object that holds a path and gives you its
-            parts as attributes. `from pathlib import Path` loads only `Path` from the module, so you
-write `Path(...)` and not `pathlib.Path(...)`. The `/` operator **joins** a `Path` with the next part, so you
-            do not build the string with `"/"` yourself.
+            A pipeline reads a document in a nested folder and needs a related output name. Cutting the path by hand becomes awkward when folders or filenames contain extra dots. Use a path object to ask for the specific part you need.
 
             ```python
             from pathlib import Path
-
-            p = Path("reports") / "2024" / "summary.md"
-            print(p)
-            # reports/2024/summary.md
-            print(p.name)
-            # summary.md
-            print(p.stem, "+", p.suffix)
-            # summary + .md
-            print(p.parent)
-            # reports/2024
+            source = Path("archive/reports/draft.v2.md")
+            print(source.name)
+            # draft.v2.md
+            print(source.stem)
+            # draft.v2
+            print(source.suffix)
+            # .md
             ```
 
-            - `.name` is the last part of the path, the file name.
-            - `.stem` is the file name without its extension.
-            - `.suffix` is the extension, including its dot.
-            - `.parent` is the path of the folder that contains the file.
+            The `pathlib` module provides `Path`, which represents a filesystem location. The import makes that name available directly. The **stem** is the filename with its final extension removed; the **suffix** is that final extension, including the dot. The full filename is available as `name`.
 
-            `.name`, `.stem` and `.suffix` are strings. `.parent` is another `Path`.
+            ```match
+            `Path("a/b.txt").name` :: b.txt
+            `Path("a/b.txt").stem` :: b
+            `Path("a/b.txt").suffix` :: .txt
+            ```
 
-            ### Names with several dots
+            A Path can represent a location that does not exist. Reading these parts only examines the path; it does not open or create the file. That makes it useful for planning output names before doing any disk work.
 
-            When a name has several dots, the suffix is only the last part. The stem is
-            everything before it.
-
-            ```python
+            ```predict
             from pathlib import Path
-
-            archive = Path("backups/data.tar.gz")
-            print(archive.suffix)
-            # .gz
-            print(archive.stem)
-            # data.tar
+            location = Path("reports") / "new.txt"
+            print(str(location))
+            print(Path("bundle.tar.gz").stem)
+            ---
+            The slash joins a folder and name. Only the final .gz extension is removed from the second path's stem.
             ```
+
+            The slash operator joins a Path with another path component. Converting a Path with `str` gives its text representation when a function contract requires a string rather than a Path object.
+
+            **Watch out:** splitting at the first dot discards meaningful earlier parts such as `draft.v2`. Use the final-extension behavior when that is the requirement.
+
+            Ask a Path for its parts instead of guessing where to cut a filename.
         ''',
         "title": "Name the output file",
         "difficulty": 0,
@@ -787,10 +926,13 @@ write `Path(...)` and not `pathlib.Path(...)`. The `/` operator **joins** a `Pat
             A pipeline reads `docs/guide.md` and saves its results as `guide.json`. Build that
             output file name.
 
-            **Write:** `output_name(src)` using `pathlib.Path`
+            **Your job:** write `output_name(src)` using `pathlib.Path`
 
+            **What goes in**
             - `src`: a file path as a string, e.g. `"docs/guide.md"`
-            - **Returns:** a string: the source file name **without its folders and extension**,
+
+            **What comes out**
+            - a string: the source file name **without its folders and extension**,
               followed by `.json`
 
             **Rules**
@@ -839,68 +981,74 @@ write `Path(...)` and not `pathlib.Path(...)`. The `/` operator **joins** a `Pat
                 return Path(src).stem + ".json"
         ''',
         "hints": [
-            "Turn the string into a `Path`; it knows the parts of its own name.",
-            "You need the file name without folders and without the extension - one attribute gives exactly that. Then add the new extension.",
-            "Return `Path(src)` followed by `.stem`, plus the string `\".json\"`.",
+            "Path has an attribute for the final filename without its last extension.",
+            "Ignore folder components and preserve any earlier dots in the filename.",
+            "Create the path representation, read the appropriate filename part, and attach the new extension as text.",
         ],
     },
     {
         "id": "files-1",
         "lesson": r'''
-            ## Read, strip, default
+            ## Clean the outside of a loaded prompt
 
-            This exercise combines three things you already know:
-
-            1. Read a whole file with `read()`.
-            2. Remove the whitespace at **both ends** with `strip()`. **Whitespace** means
-               spaces, tabs and newlines.
-            3. Return a **default** value when the file is missing.
+            An instruction file often ends with a newline and may have blank lines around its contents. Those outer characters are usually editor layout, while spaces and line breaks inside the instruction can matter. Read the text first, then remove only the unwanted outer whitespace.
 
             ```python
-            with open("sys.txt", "w", encoding="utf-8") as fh:
-                fh.write("\n\n   Be concise.  \t\n")
-
-            with open("sys.txt", encoding="utf-8") as fh:
-                raw = fh.read()
-            print(repr(raw))
-            # '\n\n   Be concise.  \t\n'
-            print(repr(raw.strip()))
-            # 'Be concise.'
+            with open("prompt_demo.txt", "w", encoding="utf-8") as stream:
+                stream.write("\n  Keep answers short.\nUse examples.  \n")
+            with open("prompt_demo.txt", encoding="utf-8") as stream:
+                instruction = stream.read().strip()
+            print(repr(instruction))
+            # 'Keep answers short.\nUse examples.'
             ```
 
-            `strip()` removes whitespace only at the start and the end. The space between `Be`
-            and `concise.` stays.
+            The two sentences still have their internal newline. `strip` acts at the boundaries, not throughout the text. This is different from the whitespace normalisation you practiced in Strings, which rebuilt text from individual words.
 
-            For the missing file, use `try` / `except FileNotFoundError` from the earlier step.
-            A `return` inside a `with` block is fine. Python still closes the file before the
-            function returns.
+            ```predict
+            raw = "  Be brief.\nKeep CODE intact.  "
+            print(repr(raw.strip()))
+            ---
+            Only the leading and trailing spaces are removed. The internal newline and capital letters are preserved.
+            ```
 
-            Strip the text because a file often ends with a newline and people leave blank lines
-            at the top of a file. A system prompt with extra whitespace still works, but the
-            extra characters are sent to the model with every request, and they make printed
-            output harder to read.
+            Combine that successful-read behavior with the missing-file policy from the previous step. A missing file may need a standard instruction, while an existing whitespace-only file successfully cleans to an empty string. Do not silently treat those two events as identical unless the task says to.
+
+            Using an explicit UTF-8 encoding tells Python how stored bytes represent characters. It avoids relying on a machine's default encoding when the prompt includes accented letters or another writing system.
+
+            ```quiz
+            If you return from inside a with block, is the file still closed?
+            - [x] Yes; leaving the block performs its cleanup. :: A normal return still exits the context correctly.
+            - [ ] No; return always skips file cleanup. :: The with statement is specifically designed to handle exits from its body.
+            ```
+
+            **Watch out:** catching every exception as a missing prompt can hide a decoding or permission problem. Handle the specific missing-file error.
+
+            Preserve the instruction's interior while cleaning its outer boundary.
         ''',
         "hints": [
-            "Combine a `with open(...)` block for reading with a `try` / `except` for the missing-file case.",
-            "Read the whole file, strip the whitespace around it and return it. If opening fails because the file is not there, return the default text instead.",
-            "In a `try`, open with `encoding=\"utf-8\"` in a `with` block and return `fh.read().strip()`. Add `except FileNotFoundError:` that returns `\"You are a helpful assistant.\"`.",
+            "The successful-read cleanup and missing-file fallback are different cases.",
+            "Read with the required encoding and remove only outer whitespace.",
+            "Use a with block inside the protected read, return its trimmed text, and provide the standard prompt only for a missing file.",
         ],
         "title": "Load a system prompt",
         "difficulty": 1,
         "prompt": r'''
             Chat apps often keep the system prompt in a text file. Load it, with a safe default.
 
-            **Write:** `load_prompt(path)`
+            **Your job:** write `load_prompt(path)`
 
+            **What goes in**
             - `path`: the file name, a string like `"system.txt"`
-            - **Returns:** a string: the file's text with surrounding whitespace stripped
+
+            **What comes out**
+            - a string: the file's text with surrounding whitespace stripped
 
             **Rules**
             - Remove whitespace (spaces, tabs, blank lines, newlines) from the **start and end**
               of the text. Whitespace inside the text stays.
             - If the file does not exist, return `"You are a helpful assistant."` instead of crashing.
             - Open the file with a `with` statement and pass `encoding="utf-8"` (a check looks for
-              both), so text like `"Réponds en français."` is read correctly.
+              both), so accented letters and other writing systems are read correctly.
 
             **Examples**
             ```python
@@ -965,78 +1113,68 @@ write `Path(...)` and not `pathlib.Path(...)`. The `/` operator **joins** a `Pat
     {
         "id": "files-2",
         "lesson": r'''
-            ## One entry per line
+            ## Write a line format you can read back
 
-            A **log file** stores one entry per line. To add an entry, you append one formatted
-            line. To read the log, you loop over the lines and clean each one.
+            A log needs enough structure to tell which event produced each line. If every writer uses a different separator, the reader becomes unreliable. Choose an exact line format and preserve it in both directions.
 
             ```python
-            level, text = "warn", "slow"
-
-            with open("events.log", "w", encoding="utf-8") as fh:
-                fh.write("info: started\n\n")
-            with open("events.log", "a", encoding="utf-8") as fh:
-                fh.write(f"{level}: {text}\n")
-
-            with open("events.log", encoding="utf-8") as fh:
-                for line in fh:
+            with open("events_demo.txt", "w", encoding="utf-8") as stream:
+                stream.write("info: ready\n\nwarn: slow \n")
+            with open("events_demo.txt", encoding="utf-8") as stream:
+                for line in stream:
                     if line.strip():
                         print(repr(line.rstrip("\n")))
-            # 'info: started'
-            # 'warn: slow'
+            # 'info: ready'
+            # 'warn: slow '
             ```
 
-            The file holds three lines: `"info: started\n"`, the blank line `"\n"` and
-            `"warn: slow\n"`. The loop prints two of them.
+            Iterating over the open file gives one line at a time, normally including its newline. The condition uses a trimmed copy to decide whether there is content. The output removes only the newline, so meaningful surrounding spaces in a nonblank entry survive.
 
-            - `line.strip()` returns an empty string for a blank line. An empty string counts as
-              `False` in an `if`, so the blank line is skipped.
-            - `rstrip("\n")` removes only the newline at the end. The rest of the line stays.
-
-            Step through the loop and watch the second pass skip the `print`. The list `lines`
-            holds the same three strings that the loop over `events.log` produces.
-
-            ```diagram
-            {"type": "trace", "title": "Skipping the blank line in events.log", "code": ["lines = [\"info: started\\n\", \"\\n\", \"warn: slow\\n\"]", "for line in lines:", "    if line.strip():", "        print(repr(line.rstrip(\"\\n\")))", "print(\"done\")"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"lines": "['info: started\\n', '\\n', 'warn: slow\\n']"}, "out": ""},
-              {"line": 3, "vars": {"lines": "['info: started\\n', '\\n', 'warn: slow\\n']", "line": "'info: started\\n'"}, "out": ""},
-              {"line": 4, "vars": {"lines": "['info: started\\n', '\\n', 'warn: slow\\n']", "line": "'info: started\\n'"}, "out": ""},
-              {"line": 2, "vars": {"lines": "['info: started\\n', '\\n', 'warn: slow\\n']", "line": "'info: started\\n'"}, "out": "'info: started'\n"},
-              {"line": 3, "vars": {"lines": "['info: started\\n', '\\n', 'warn: slow\\n']", "line": "'\\n'"}, "out": "'info: started'\n"},
-              {"line": 2, "vars": {"lines": "['info: started\\n', '\\n', 'warn: slow\\n']", "line": "'\\n'"}, "out": "'info: started'\n"},
-              {"line": 3, "vars": {"lines": "['info: started\\n', '\\n', 'warn: slow\\n']", "line": "'warn: slow\\n'"}, "out": "'info: started'\n"},
-              {"line": 4, "vars": {"lines": "['info: started\\n', '\\n', 'warn: slow\\n']", "line": "'warn: slow\\n'"}, "out": "'info: started'\n"},
-              {"line": 2, "vars": {"lines": "['info: started\\n', '\\n', 'warn: slow\\n']", "line": "'warn: slow\\n'"}, "out": "'info: started'\n'warn: slow'\n"},
-              {"line": 5, "vars": {"lines": "['info: started\\n', '\\n', 'warn: slow\\n']", "line": "'warn: slow\\n'"}, "out": "'info: started'\n'warn: slow'\n"},
-              {"line": null, "vars": {"lines": "['info: started\\n', '\\n', 'warn: slow\\n']", "line": "'warn: slow\\n'"}, "out": "'info: started'\n'warn: slow'\ndone\n"}
-            ]}
+            ```predict
+            line = "warn: slow \n"
+            print(repr(line.strip()))
+            print(repr(line.rstrip("\n")))
+            ---
+            Strip removes both the trailing space and newline. Restricting rstrip to newline preserves the trailing space.
             ```
 
-            Write every entry in the same strict format, such as `level: text`. A fixed format is
-            what makes it possible to read the file back reliably.
+            A **line format** is the agreement about separators, field order, and line endings. Follow it exactly when writing: a missing space after a colon may still look readable but violate what another program expects. Append mode keeps previous entries, while a final newline makes the next entry begin on its own line.
+
+            ```quiz
+            Why test a trimmed copy but keep a less-trimmed result?
+            - [x] Detect blank lines without destroying spaces in useful entries. :: Selection and output cleaning have different responsibilities.
+            - [ ] File readers cannot return strings containing spaces. :: They can; preserving or removing spaces is your choice.
+            ```
+
+            **Watch out:** assigning or returning the number produced by `write` does not return the written text. Writing changes the file; the reader separately reconstructs the lines.
+
+            Keep writing rules exact and reading transformations no broader than required.
         ''',
         "hints": [
-            "Writing needs append mode; reading means looping over the file's lines.",
-            "`log_message` opens in `\"a\"` mode and writes one formatted line ending in a newline. `read_log` collects each line without its newline, skipping blank ones.",
-            "Write: open the file in append mode with a UTF-8 encoding, and write an f-string of role, colon, space, content and a newline. Read: start an empty list, loop over the open file, skip lines where `.strip()` gives an empty string, otherwise append the line with its trailing newline removed (`.rstrip`); return the list.",
+            "The writer adds formatted lines; the reader preserves their order.",
+            "Use append mode when writing and remove only line endings when reading useful lines.",
+            "Write the exact separator format plus newline, then have the reader skip blank lines and collect the remaining entries without their newline characters.",
         ],
         "title": "Conversation log",
         "difficulty": 1,
         "prompt": r'''
             Keep a simple conversation log on disk: one line per message.
 
-            **Write:** two functions.
+            **Your job:** write two functions.
 
             `log_message(path, role, content)`
             - `path`: the log file name, e.g. `"chat.log"`
             - `role`: a string like `"user"` or `"assistant"`
             - `content`: the message text, e.g. `"hi"`
-            - **Returns:** nothing (`None`). It adds one line to the file.
+
+            **What comes out**
+            - nothing (`None`). It adds one line to the file.
 
             `read_log(path)`
             - `path`: the log file name
-            - **Returns:** a list of strings, one per line of the file
+
+            **What comes out**
+            - a list of strings, one per line of the file
 
             **Rules**
             - `log_message` writes exactly `<role>: <content>` (colon, one space) followed by `"\n"`.
@@ -1105,42 +1243,43 @@ write `Path(...)` and not `pathlib.Path(...)`. The `/` operator **joins** a `Pat
     {
         "id": "files-7",
         "lesson": r'''
-            ## Path methods that read and write
+            ## Prepare a folder before writing into it
 
-            A `Path` has methods that open the file, read or write it, and close it in one call.
-
-            - `path.write_text(text, encoding="utf-8")` creates the file, or replaces its
-              content, with `text`.
-            - `path.read_text(encoding="utf-8")` returns the whole file as one string.
-            - `path.mkdir()` creates a folder.
+            A document job saves results into a new output folder. Creating the file does not automatically create every folder above it. Prepare the destination structure first so the same code works on both the first run and later runs.
 
             ```python
             from pathlib import Path
-
-            box = Path("outbox")
-            box.mkdir(exist_ok=True)
-            note = box / "hello.txt"
-            note.write_text("Bonjour !", encoding="utf-8")
-            print(note.read_text(encoding="utf-8"))
-            # Bonjour !
-            print(str(note), note.is_file())
-            # outbox/hello.txt True
+            folder = Path("chunk_demo")
+            folder.mkdir(exist_ok=True)
+            output = folder / "sample.txt"
+            output.write_text("stored text", encoding="utf-8")
+            print(output.read_text(encoding="utf-8"))
+            # stored text
+            print(output.is_file())
+            # True
             ```
 
-            `str(path)` converts a `Path` to a plain string. `is_file()` returns `True` when the
-            path names an existing file.
+            The `mkdir` method creates a directory, another word for a folder. `exist_ok=True` accepts a directory that is already there, so rerunning the example is harmless. The joined output path then identifies the file inside it.
 
-            ### mkdir
+            ```quiz
+            Does constructing `Path("new/folder/file.txt")` create those folders?
+            - [x] No; it only represents the location. :: Creation needs a filesystem operation such as mkdir.
+            - [ ] Yes; every Path constructor writes to disk. :: You can represent nonexistent locations without creating them.
+            ```
 
-            Writing a file into a folder that does not exist raises `FileNotFoundError`. Create
-            the folder with `mkdir` first.
+            `write_text` opens the file, writes the supplied string, and closes it. It replaces an existing file's contents and adds no newline of its own. `read_text` performs the corresponding whole-file read. Supplying UTF-8 in both directions makes the intended character encoding explicit.
 
-            `mkdir()` raises `FileExistsError` when the folder already exists, so a second run
-            of the program would stop there. Pass `exist_ok=True` and `mkdir` does nothing when
-            the folder is already there.
+            A destination can have several missing folder levels. The Path documentation lists an additional `mkdir` option for creating missing parents. Read that entry and distinguish it from the option that tolerates an existing destination: they solve different problems.
 
-            `mkdir` creates **one** folder level. Creating `a/b/c` when `a` does not exist needs
-            one more argument. Find it in the docs linked for this step.
+            ```match
+            `mkdir` :: create the destination directory
+            `write_text` :: replace file contents with text
+            `str(path)` :: obtain a path's string representation
+            ```
+
+            **Watch out:** without creating missing parent directories, writing the final file raises `FileNotFoundError` even though you intended to create that file.
+
+            Prepare the directory tree, then write the file at the joined destination.
         ''',
         "research": {"note": "Read the documentation of `Path.mkdir` to find how to create missing parent folders too, then come back.",
          "links": [{"title": "pathlib Path.mkdir - Python docs", "url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.mkdir"}]},
@@ -1150,19 +1289,22 @@ write `Path(...)` and not `pathlib.Path(...)`. The `/` operator **joins** a `Pat
             A document splitter saves each chunk as its own file inside an output folder that
             may not exist yet.
 
-            **Write:** `save_chunk(folder, name, text)` using `pathlib`
+            **Your job:** write `save_chunk(folder, name, text)` using `pathlib`
 
+            **What goes in**
             - `folder`: the output folder, a string like `"out/chunks"` (may be several levels deep)
             - `name`: the file name, a string like `"c1.txt"`
             - `text`: the chunk text, e.g. `"RAG = retrieval + generation"`
-            - **Returns:** a string: the path of the written file, `folder` and `name` joined with
+
+            **What comes out**
+            - a string: the path of the written file, `folder` and `name` joined with
               `/`, e.g. `"out/chunks/c1.txt"`
 
             **Rules**
             - Create `folder`, **including any missing parent folders**. If it already exists,
               that is fine (no error).
             - Write `text` exactly as given (no newline added), with UTF-8 encoding
-              (`"café"` must work). An existing file with that name is replaced.
+              (accented letters must work). An existing file with that name is replaced.
             - Import and use `pathlib` (a check looks for it).
 
             **Examples**
@@ -1217,61 +1359,62 @@ write `Path(...)` and not `pathlib.Path(...)`. The `/` operator **joins** a `Pat
                 return str(path)
         ''',
         "hints": [
-            "Three steps with `Path`: make the folder, write the file, return its path as a string.",
-            "`mkdir` needs two keyword arguments here: one for missing parent folders, one for 'already exists is OK'. Join folder and name with `/`.",
-            "`out = Path(folder)`; `out.mkdir(parents=True, exist_ok=True)`; `path = out / name`; `path.write_text(text, encoding=\"utf-8\")`; return `str(path)`.",
+            "Represent the destination directory and filename separately before joining them.",
+            "Directory creation must handle both missing parents and an already-existing destination.",
+            "Prepare the full directory tree, join the filename, write the exact text with UTF-8, and return the written path as a string.",
         ],
     },
     {
         "id": "files-8",
         "lesson": r'''
-            ## Finding files with glob
+            ## Find matching names in one folder
 
-            An app that answers questions from your own documents starts by finding those
-            documents. `Path.glob(pattern)` gives you every path inside a folder whose name
-            matches `pattern`. In a pattern, `*` matches any characters.
+            Your document importer should consider text documents but ignore images and unrelated files. Instead of opening everything, ask the folder for names matching a pattern. Then choose how those results should be presented.
 
             ```python
             from pathlib import Path
-
-            folder = Path("inbox")
+            folder = Path("glob_demo")
             folder.mkdir(exist_ok=True)
             for name in ["b.txt", "a.txt", "c.csv"]:
-                (folder / name).write_text("x", encoding="utf-8")
-
-            names = []
-            for path in folder.glob("*.txt"):
-                names.append(path.name)
-            print(sorted(names))
+                (folder / name).write_text("example", encoding="utf-8")
+            print(sorted(path.name for path in folder.glob("*.txt")))
             # ['a.txt', 'b.txt']
             ```
 
-            - `*.txt` matches every name that ends in `.txt`. `c.csv` does not match.
-            - `glob("*.txt")` looks directly inside the folder. It does not look in subfolders.
-            - Each result is a `Path` object. Use `.name` to get the file name as a string.
-            - The order of the results is **not guaranteed**, because it depends on the disk.
-              Wrap the results in `sorted()` when the order matters.
+            The star stands for any sequence of characters. A filename pattern such as this is a **glob pattern**. A simple pattern looks directly inside the selected directory; it does not descend into every subfolder. Each match is a Path, whose `name` gives only the final filename.
 
-            A folder that does not exist gives no results and no error.
-
-            ```python
-            from pathlib import Path
-
-            print(list(Path("no_such_folder").glob("*.txt")))
-            # []
+            ```match
+            `*.txt` :: names ending in .txt
+            `path.name` :: final name without its folder prefix
+            `sorted(names)` :: names in predictable increasing order
             ```
 
-            These patterns are called **glob patterns**.
+            Filesystem listing order is not a promise. If your importer or its tests need alphabetical output, explicitly sort the names. Sorting creates a new ordered list; the Sorting chapter will explore more ways to control that order later.
+
+            ```quiz
+            Why sort after gathering matching names?
+            - [x] The order returned by the filesystem may vary. :: Explicit ordering makes results repeatable.
+            - [ ] Glob always returns names backwards. :: There is no guaranteed default alphabetical direction to reverse.
+            ```
+
+            A missing folder yields no matches for this basic glob operation. Decide whether that means an empty result or an application error according to the task's contract. Also remember that a name match alone is not a universal proof that the path is a regular file; `is_file` can check that when required.
+
+            **Watch out:** returning the whole Path gives a folder prefix the caller may not want. Match the promised output shape.
+
+            Select the matching locations, extract the requested names, and order them explicitly.
         ''',
         "title": "List the markdown docs",
         "difficulty": 1,
         "prompt": r'''
             Find the markdown documents your RAG app should index.
 
-            **Write:** `list_docs(folder)` using `pathlib`
+            **Your job:** write `list_docs(folder)` using `pathlib`
 
+            **What goes in**
             - `folder`: a folder name, a string like `"kb"`
-            - **Returns:** a list of file **names** (strings like `"faq.md"`, no folder part) of
+
+            **What comes out**
+            - a list of file **names** (strings like `"faq.md"`, no folder part) of
               every `.md` file **directly** inside `folder`
 
             **Rules**
@@ -1334,17 +1477,17 @@ write `Path(...)` and not `pathlib.Path(...)`. The `/` operator **joins** a `Pat
                 return sorted(names)
         ''',
         "hints": [
-            "`Path(folder).glob(pattern)` finds matching files directly inside a folder.",
-            "Use a pattern that means 'anything ending in .md', keep only each match's file name, and sort the result.",
-            "Loop over `Path(folder).glob(\"*.md\")`, append `path.name` to a list, and return `sorted(...)` of that list.",
+            "A simple glob pattern searches directly inside one folder.",
+            "Keep only each matched name rather than its full path, then choose a predictable order.",
+            "Gather names matching the markdown suffix and sort the resulting strings; no matches should produce an empty list.",
         ],
     },
     {
         "id": "files-3",
         "hints": [
-            "Read the whole file into one string first; every statistic can be computed from that string.",
-            "Characters are the string's length, words come from splitting on whitespace, and lines from splitting into lines. For the longest line, track the best length and its 1-based number as you loop.",
-            "`text = fh.read()`; `lines = text.splitlines()`; `words = len(text.split())`; `chars = len(text)`. Loop with `enumerate(lines, start=1)` and only update the best when a line is strictly longer (so the first wins ties). Start the best line number at 0 for an empty file.",
+            "All four measurements can come from the same full-text read.",
+            "Count characters before removing line endings, but compare line lengths without them.",
+            "Read once, derive words and lines, track the earliest strictly longest line using one-based numbering, and assemble the four fields with the empty-file defaults.",
         ],
         "title": "Document stats",
         "difficulty": 2,
@@ -1352,10 +1495,13 @@ write `Path(...)` and not `pathlib.Path(...)`. The `/` operator **joins** a `Pat
         "prompt": r'''
             Before chunking a document for an AI app, it helps to know its size.
 
-            **Write:** `file_stats(path)`
+            **Your job:** write `file_stats(path)`
 
+            **What goes in**
             - `path`: the file name, a string like `"doc.txt"`
-            - **Returns:** a dict with exactly these four keys (all ints):
+
+            **What comes out**
+            - a dict with exactly these four keys (all ints):
               `{"lines": ..., "words": ..., "chars": ..., "longest_line": ...}`
 
             **Rules**
@@ -1453,21 +1599,24 @@ write `Path(...)` and not `pathlib.Path(...)`. The `/` operator **joins** a `Pat
     {
         "id": "files-4",
         "hints": [
-            "Use `Path` for everything: `read_text`, `mkdir`, `stem`, the `/` operator and `write_text`.",
-            "Get the words from the source, step through them `size` at a time, and write each group to a numbered file named after the source's stem. Collect the names as you go.",
-            "Convert `src` and `out_dir` to `Path`. Call `out.mkdir(parents=True, exist_ok=True)`. Split the text into words. Loop over `range(0, len(words), size)` with a counter from 1; build the name with an f-string using `src.stem`, write `\" \".join(words[start:start + size])` to `out / name`, append the name.",
+            "Separate naming and grouping from the actual file writes.",
+            "Advance through the word list by the chunk size, giving each slice the next number.",
+            "Prepare the destination, read and split the source, write each space-joined group under its numbered stem-based name, and return only those names in order.",
         ],
         "title": "Split into chunk files",
         "difficulty": 2,
         "prompt": r'''
             RAG pipelines split long documents into small chunks. Write each chunk to its own file.
 
-            **Write:** `write_chunks(src, out_dir, size)` using `pathlib`
+            **Your job:** write `write_chunks(src, out_dir, size)` using `pathlib`
 
+            **What goes in**
             - `src`: the source text file, a string like `"notes.md"` or a `Path`
             - `out_dir`: the output folder, a string like `"build/chunks"` or a `Path`
             - `size`: max words per chunk, an int like `2`
-            - **Returns:** a list of the written file **names** (just names like `"notes_1.txt"`,
+
+            **What comes out**
+            - a list of the written file **names** (just names like `"notes_1.txt"`,
               not full paths), in order
 
             **Rules**
@@ -1554,19 +1703,22 @@ write `Path(...)` and not `pathlib.Path(...)`. The `/` operator **joins** a `Pat
          "links": [{"title": "pathlib Path.rglob - Python docs", "url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.rglob"},
                    {"title": "pathlib PurePath.relative_to - Python docs", "url": "https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.relative_to"}]},
         "hints": [
-            "`Path.rglob(\"*\")` walks a folder recursively. Filter by `suffix`, lower-cased.",
-            "For each matching file compute the four fields: relative path, extension without the dot, word count, and title from the first non-blank line. Sort the list by path at the end. Check that the root folder exists first.",
-            "If `not root.is_dir()`, raise `FileNotFoundError`. Loop `root.rglob(\"*\")`, skip non-files and suffixes not in {`.txt`, `.md`} (after `.lower()`). Use `path.relative_to(root).as_posix()` for the path, `.lstrip(\"#\").strip()` on the first non-blank line for the title (fallback `path.stem`). To get the order right, first collect the relative path strings, `sorted()` that plain list, then build one dict per path in that order.",
+            "This search includes subfolders, unlike the previous direct-folder listing.",
+            "Determine eligible files first, then compute each file's path, type, word count, and title.",
+            "Check the root, gather matching paths recursively with case-insensitive extensions, sort the relative path strings, and build entries with the specified title fallback.",
         ],
         "title": "Index a document folder",
         "difficulty": 3,
         "prompt": r'''
             Before building a RAG index you need an inventory of the source documents.
 
-            **Write:** `index_folder(root)`
+            **Your job:** write `index_folder(root)`
 
+            **What goes in**
             - `root`: a folder name, a string like `"docs"` (or a `Path`)
-            - **Returns:** a list of dicts, one per document, like
+
+            **What comes out**
+            - a list of dicts, one per document, like
               `{"path": "guides/setup.md", "type": "md", "words": 6, "title": "Setup guide"}`
 
             **Rules**
@@ -1703,9 +1855,9 @@ write `Path(...)` and not `pathlib.Path(...)`. The `/` operator **joins** a `Pat
     {
         "id": "files-6",
         "hints": [
-            "Use `Path(folder).glob(\"*.txt\")` (not `rglob`) to get only the files directly inside the folder, and open the report in `\"w\"` mode.",
-            "Check the folder exists first and raise `FileNotFoundError` if not. Then, for each file in sorted order, count its non-blank lines and its words, keep running totals, and write the header, one row per file and the TOTAL row. Finally build and return the summary string.",
-            "1) `if not Path(folder).is_dir()`: raise `FileNotFoundError` with an f-string naming the folder. 2) Loop over `sorted(...glob(\"*.txt\"))`; for each, `read_text`, count lines where `.strip()` is not empty, and `len(text.split())` words; store `(path.name, lines, words)` and add to the totals. 3) Open the report with `\"w\"`, write the header, each row and the TOTAL row, each ending in `\\n`. 4) Return the f-string summary.",
+            "Validate the source folder before creating an output file.",
+            "Collect the per-file rows and totals in filename order, distinguishing nonblank lines from all lines.",
+            "Read the eligible direct children, calculate their counts, write the exact header, rows, and final total with newlines, then return the matching summary text.",
         ],
         "title": "Corpus report",
         "difficulty": 3,
@@ -1713,11 +1865,14 @@ write `Path(...)` and not `pathlib.Path(...)`. The `/` operator **joins** a `Pat
             Summarise a folder of text documents into a small CSV report (CSV means
             comma-separated values: a text file where each line is one table row).
 
-            **Write:** `write_report(folder, report_path)`
+            **Your job:** write `write_report(folder, report_path)`
 
+            **What goes in**
             - `folder`: a folder name, a string like `"corpus"`
             - `report_path`: the report file to write, a string like `"report.csv"`
-            - **Returns:** a summary string `"<n> files, <words> words -> <report_path>"`,
+
+            **What comes out**
+            - a summary string `"<n> files, <words> words -> <report_path>"`,
               e.g. `"2 files, 10 words -> report.csv"`
 
             **Rules**

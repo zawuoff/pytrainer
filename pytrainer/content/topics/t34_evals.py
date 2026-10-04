@@ -254,55 +254,44 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Evals
+            ## Check the same questions after every change
 
-            When you change a prompt, you can try two or three questions by hand and read the
-            answers. That only tests the questions you tried. A question you did not try can
-            break without you seeing it.
-
-            An **eval** is a program that runs your app on a fixed list of questions and
-            compares each answer with the expected answer. You write the questions and the
-            expected answers once. After every change you run the same eval and get a score.
+            You change the wording of a prompt and the answers look better. But did yesterday's working answers survive? You need a repeatable way to ask the same questions and compare what came back.
 
             ```python
-            answer_key = {"capital of France?": "Paris", "2 + 2?": "4"}
-            app_answers = {"capital of France?": "Paris", "2 + 2?": "5"}
-            score = 0
-            for question in answer_key:
-                if app_answers[question] == answer_key[question]:
-                    score += 1
-            print("score:", score, "/", len(answer_key))
-            # score: 1 / 2
-            print("pass rate:", score / len(answer_key))
-            # pass rate: 0.5
+            expected = ["red", "7"]
+            answers = ["red", "seven"]
+            checks = [answers[i] == expected[i] for i in range(2)]
+            print(checks)
+            # [True, False]
+            print(sum(checks), "passed")
+            # 1 passed
             ```
 
-            Step through the loop and watch `score` change only when the two strings are equal.
+            Each comparison produces a boolean. The first answer matches exactly; the second uses a word where the expected answer uses a digit. Nothing in this comparison decides whether those mean the same thing. You chose a rule that compares characters.
 
-            ```diagram
-            {"type": "trace", "title": "Scoring answers against expected answers", "code": ["answer_key = {\"capital of France?\": \"Paris\", \"2 + 2?\": \"4\"}", "app_answers = {\"capital of France?\": \"Paris\", \"2 + 2?\": \"5\"}", "score = 0", "for question in answer_key:", "    if app_answers[question] == answer_key[question]:", "        score += 1", "print(\"score:\", score, \"/\", len(answer_key))", "print(\"pass rate:\", score / len(answer_key))"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}"}, "out": ""},
-              {"line": 3, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}"}, "out": ""},
-              {"line": 4, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "0"}, "out": ""},
-              {"line": 5, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "0", "question": "'capital of France?'"}, "out": ""},
-              {"line": 6, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "0", "question": "'capital of France?'"}, "out": ""},
-              {"line": 4, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "1", "question": "'capital of France?'"}, "out": ""},
-              {"line": 5, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "1", "question": "'2 + 2?'"}, "out": ""},
-              {"line": 4, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "1", "question": "'2 + 2?'"}, "out": ""},
-              {"line": 7, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "1", "question": "'2 + 2?'"}, "out": ""},
-              {"line": 8, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "1", "question": "'2 + 2?'"}, "out": "score: 1 / 2\n"},
-              {"line": null, "vars": {"answer_key": "{'capital of France?': 'Paris', '2 + 2?': '4'}", "app_answers": "{'capital of France?': 'Paris', '2 + 2?': '5'}", "score": "1", "question": "'2 + 2?'"}, "out": "score: 1 / 2\npass rate: 0.5\n"}
-            ]}
+            A repeatable check of an app's answers is an **evaluation**, usually shortened to **eval**. One question and its expected answer form a **case**. The collection of cases is the **dataset**. The rule that marks an answer is the **grader**. These names describe different parts of the process; the dataset does not decide what counts as correct.
+
+            ```match
+            case :: one input with its expected answer
+            dataset :: the collection of cases
+            grader :: the rule that marks an answer
+            ---
+            Keeping these parts separate lets you improve the marking rule without changing the questions.
             ```
 
-            Each question with its expected answer is an **eval case**. The list of all cases
-            is a **dataset**. The code that decides whether one answer is correct is a
-            **grader**. The **pass rate** is the number of passed cases divided by the number
-            of cases.
 
-            `==` on two strings is `True` only when every character is the same, including
-            letter case. `"paris" == "Paris"` is `False`.
+            Try one more small check before moving to the task.
+
+            ```predict
+            print("seven" == "7")
+            ---
+            Character equality does not decide whether different text has the same numerical meaning.
+            ```
+
+            **Watch out:** A correct meaning can fail an exact text comparison. Seeing a failed case tells you to inspect both the answer and the grading rule.
+
+            **In short:** An eval repeats chosen questions and marks each answer with a chosen rule.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -327,12 +316,14 @@ EXERCISES = [
             `"blue"` because `==` compares letter case too. So 1 of 3 passes, and `1 / 3`
             formatted with `:.2f` is `0.33`. A grader this strict fails correct answers, so the
             next step converts both strings to the same form before comparing them.
+
+            Follow each printed line in execution order. Changes to a variable affect later lines; they do not change output that was already printed.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "Check each case: is output exactly equal to expected, character by character?",
-            "Capital letters matter to ==, and a word is never equal to a digit.",
-            "Count the True comparisons (only one), print 'N of 3', then format N / 3 with two decimals.",
+            "Look at the comparison used for each case, rather than deciding whether its meaning sounds right.",
+            "Track the boolean produced for each pair of strings, including differences in case.",
+            "Count the successful comparisons, then follow the two print calls and their number formatting.",
         ],
     },
     {
@@ -340,44 +331,61 @@ EXERCISES = [
         "title": "A forgiving exact match",
         "difficulty": 0,
         "lesson": r'''
-            ## Normalise before you compare
+            ## Ignore harmless differences in an answer
 
-            A model often returns the right answer with extra whitespace or different letter
-            case, such as `" Paris\n"` for `"Paris"`. `==` treats those two strings as
-            different, so a correct answer is graded as failed.
-
-            To **normalise** a string is to convert it to one standard form before you compare
-            it. Here that means two steps: `.strip()` removes whitespace from both ends, and
-            `.lower()` converts every letter to lowercase.
+            Your answer key says "London", but the model writes " LONDON ". You want that answer to pass while still rejecting another city. Decide which differences are harmless before comparing the strings.
 
             ```python
-            output = "  PARIS\n"
-            expected = "Paris"
-            print(output == expected)
-            # False
-            print(output.strip().lower() == expected.strip().lower())
+            reply = "  LONDON\n"
+            key = "London"
+            clean_reply = reply.strip().lower()
+            clean_key = key.strip().lower()
+            print(clean_reply)
+            # london
+            print(clean_reply == clean_key)
             # True
             ```
 
-            A grader that normalises both strings and then compares them with `==` is an
-            **exact-match grader**. Most eval tools start with it. The remaining characters
-            must still be identical: `"Paris."` with a full stop does not match `"Paris"`.
+            The first method removes whitespace from the ends. The second changes uppercase letters to lowercase. Neither removes spaces inside a sentence or punctuation. Both strings now have the same chosen form, so comparing them is meaningful.
 
-            Normalise both sides. If you only lowercase the output, you compare `"paris"` with
-            `"Paris"`, and that is `False`.
+            Converting values to a shared form is called **normalisation**. A grader that compares the complete normalised strings is a **normalised exact-match grader**. "London." would still differ from "London" because its full stop survives these two methods. You are deliberately allowing a narrow set of differences, rather than accepting anything that resembles the expected answer.
+
+            Apply the same rule to the answer and the answer key. The key may have its own uppercase letters or extra whitespace.
+
+            ```predict
+            print("  Green ".strip().lower() == "GREEN".strip().lower())
+            print("green.".strip().lower() == "green".strip().lower())
+            ---
+            The first pair becomes the same string. The full stop in the second pair is preserved, so that comparison is False.
+            ```
+
+
+            Try one more small check before moving to the task.
+
+            ```predict
+            print("Blue sky".lower() == "blue  sky".lower())
+            ---
+            Case normalisation preserves the extra internal space, so these strings remain different.
+            ```
+
+            **Watch out:** Cleaning only one side can reject a correct answer. The methods return new strings; the original strings stay unchanged.
+
+            **In short:** Choose harmless differences, remove them from both strings, then compare.
         ''',
         "prompt": r'''
-            The simplest grader: does the model's answer equal the expected answer, ignoring
-            letter case and whitespace at the start/end? Replace the `___`.
+            An answer can have the right text with harmless whitespace or case differences. Complete the gap in `exact_match` so those differences are accepted.
 
-            **Write:** `exact_match(output, expected)`
+            **Your job:** `exact_match(output, expected)`
 
+            **What goes in**
             - `output`: a string, the model's answer, e.g. `" Paris\n"`
             - `expected`: a string, the correct answer, e.g. `"Paris"`
-            - **Returns:** `True` if they match after normalising both, otherwise `False`
+
+            **What comes out**
+            - `True` if they match after normalising both, otherwise `False`
 
             **Rules**
-            - Normalise both strings: `.strip()` whitespace at the ends, then `.lower()`.
+            - Ignore whitespace at the start and end of both strings, and compare without regard to letter case.
             - Anything else must match exactly (punctuation counts).
 
             **Examples**
@@ -413,9 +421,9 @@ EXERCISES = [
                 return output.strip().lower() == expected.strip().lower()
         ''',
         "hints": [
-            "The right-hand side already shows how `expected` is cleaned. Do the same to `output`.",
-            "Chain two string methods: one removes the outer whitespace, the other lowercases.",
-            "Replace ___ with output followed by .strip() and then .lower().",
+            "Which two harmless differences does the lesson remove?",
+            "Compare two strings that have both been put into the same form.",
+            "Follow the already-completed side of the comparison: clean the ends, make the case consistent, and compare the resulting text.",
         ],
     },
     {
@@ -423,48 +431,59 @@ EXERCISES = [
         "title": "Fix: the contains grader",
         "difficulty": 0,
         "lesson": r'''
-            ## Checking for key points
+            ## Check every required point before passing
 
-            A long answer almost never equals the expected text character for character. For
-            long answers you check that the answer mentions each required fact.
-
-            A **contains grader** takes a list of required phrases. The answer passes only if
-            every phrase appears in it. Lowercase both strings first so letter case is ignored:
-            `"delivery" in "From Delivery".lower()` is `True`.
-
-            A function that checks "all items" returns `False` inside the loop at the first
-            item that fails the check. It returns `True` only after the loop has finished,
-            because by then every item has been checked.
+            A support answer must mention a receipt and a deadline. Finding one of those does not establish that both are there. You need to keep checking until a missing point is found or all the points are accounted for.
 
             ```python
-            def has_all_digits(text, digits):
-                for digit in digits:
-                    if digit not in text:
+            def has_labels(text, labels):
+                for label in labels:
+                    if label not in text:
                         return False
                 return True
-
-            print(has_all_digits("model v4.5", ["4", "5"]))
+            print(has_labels("red blue", ["red", "blue"]))
             # True
-            print(has_all_digits("model v4.5", ["4", "7"]))
+            print(has_labels("red blue", ["red", "yellow"]))
             # False
-            print(has_all_digits("model v4.5", []))
-            # True
             ```
 
-            With an empty list the loop body never runs, so the function returns `True`.
+            A missing label settles the result immediately: the text cannot contain every required label. A present label does not settle it, because another label may still be missing. That is why the successful return happens after the loop. Python reaches that line only if none of the checks has failed.
 
-            `return True` inside the loop ends the function at the first item that is present.
-            That checks "at least one item", not "all items".
+            Checking that required phrases occur somewhere in an answer is called a **contains grader**. When case should not matter, bring the answer and each phrase to the same case before checking membership. Remember that string membership checks a stretch of characters, not a word boundary. A phrase may occur inside a longer word.
+
+            An empty requirements list has no missing point. The loop runs zero times and reaches its successful result.
+
+            ```quiz
+            You have found the first required phrase. Can you pass the answer now?
+            - [x] No; another required phrase may be absent. :: Only checking every requirement establishes that all of them are present.
+            - [ ] Yes; finding one proves the list is covered. :: One successful check says nothing about requirements that have not been checked.
+            ```
+
+
+            Try one more small check before moving to the task.
+
+            ```predict
+            requirements = []
+            print(all(word in "hello" for word in requirements))
+            ---
+            With no requirements there is no failed requirement, so all returns True.
+            ```
+
+            **Watch out:** A return inside the loop ends the whole function, not only that pass through the loop. Check its indentation when later requirements are ignored.
+
+            **In short:** One missing requirement proves failure; success needs all requirements checked.
         ''',
         "prompt": r'''
-            This grader should pass an answer only if it mentions **every** required phrase.
-            Right now it passes answers that mention just one of them. Fix the bug.
+            An answer that misses a required point should not pass. Fix the supplied `contains_all` function, which currently accepts an answer too early.
 
-            **Write:** `contains_all(output, required)`
+            **Your job:** `contains_all(output, required)`
 
+            **What goes in**
             - `output`: a string, the model's answer
             - `required`: a list of strings that must all appear, e.g. `["30 days", "refund"]`
-            - **Returns:** `True` if every phrase appears in `output`, otherwise `False`
+
+            **What comes out**
+            - `True` if every phrase appears in `output`, otherwise `False`
 
             **Rules**
             - The check ignores letter case (`"Refund"` counts for `"refund"`).
@@ -510,9 +529,9 @@ EXERCISES = [
                 return True
         ''',
         "hints": [
-            "Read the loop: when does it return True? After how many phrases have been checked?",
-            "It should return False as soon as one phrase is missing, and return True only once all were checked.",
-            "Flip the test to `not in` and return False inside the loop; after the loop, return True.",
+            "Look at when the starter stops checking phrases.",
+            "A present phrase is a reason to continue; a missing phrase settles failure.",
+            "Use the same case for the text and phrases, test each requirement, and leave the successful return until all requirements have been considered.",
         ],
     },
     {
@@ -520,46 +539,55 @@ EXERCISES = [
         "title": "Pass rate",
         "difficulty": 0,
         "lesson": r'''
-            ## Pass rate
+            ## Turn case results into one score
 
-            After grading you have one boolean per case, for example
-            `[True, False, True, True]`. The **pass rate** is the number of `True` values
-            divided by the number of cases.
-
-            In arithmetic, Python treats `True` as `1` and `False` as `0`. So `sum()` of a list
-            of booleans returns the number of `True` values.
+            You have marked a batch of answers, but a long list of True and False values is difficult to compare with yesterday's run. You want one number that says what fraction passed, while keeping the detailed results for investigation.
 
             ```python
-            results = [True, False, True, True]
-            passed = sum(results)
-            print(passed)
+            marked = [False, True, True, False, True]
+            print(sum(marked))
             # 3
-            print(passed / len(results))
-            # 0.75
+            print(round(sum(marked) / len(marked), 2))
+            # 0.6
             ```
 
-            `round(value, 2)` rounds a float to 2 decimal places.
+            In arithmetic, Python counts True as one and False as zero. Adding the results therefore counts the passed cases. Dividing by the number of cases produces a fraction between zero and one. Here three out of five is 0.6, which is also 60 percent.
 
-            ```python
-            print(2 / 3)
-            # 0.6666666666666666
-            print(round(2 / 3, 2))
-            # 0.67
+            This fraction is the **pass rate**. A number summarising a run is called a **metric**. It helps you compare runs with different numbers of cases, although the dataset still matters: an easier dataset can inflate the score.
+
+            Rounding gives the report a consistent precision. `round(number, 2)` returns a number, so it may display one decimal when no second decimal is needed. An empty batch needs a separate convention because there is no denominator to divide by.
+
+            ```fill
+            marks = [True, False, True]
+            print(___(marks))
+            ---
+            - [x] sum :: Adding the booleans counts the two successful cases.
+            - [ ] len :: The length counts all three cases, including the failure.
             ```
 
-            A **metric** is one number that summarises the results of a run. The pass rate is
-            a metric.
 
-            An empty run has no cases. `sum([]) / len([])` is `0 / 0`, which raises
-            `ZeroDivisionError`. Check for the empty list before you divide.
+            Try one more small check before moving to the task.
+
+            ```predict
+            print(round(2 / 5, 2))
+            ---
+            Two passed cases out of five give a pass rate of 0.4.
+            ```
+
+            **Watch out:** Dividing by the length of an empty list raises ZeroDivisionError. Handle the empty-run rule before calculating a fraction.
+
+            **In short:** Pass rate is passed cases divided by all cases, with an explicit empty-run rule.
         ''',
         "prompt": r'''
-            Turn a list of grader results into a pass rate.
+            A report needs one score for a batch of marked cases. Write a function that returns the fraction that passed.
 
-            **Write:** `pass_rate(results)`
+            **Your job:** `pass_rate(results)`
 
+            **What goes in**
             - `results`: a list of booleans, e.g. `[True, False, True, True]`
-            - **Returns:** a float, the fraction of `True` values, rounded to 2 decimals
+
+            **What comes out**
+            - a float, the fraction of `True` values, rounded to 2 decimals
 
             **Rules**
             - An empty list returns `0.0` (no crash).
@@ -602,9 +630,9 @@ EXERCISES = [
                 return round(sum(results) / len(results), 2)
         ''',
         "hints": [
-            "sum() of a list of booleans counts how many are True.",
-            "Handle the empty list first, then divide the count by the length and round.",
-            "If the list is empty return 0.0; otherwise return round(sum(results) / len(results), 2).",
+            "Which part of the calculation counts successful cases, and which counts all cases?",
+            "Treat an empty run separately so there is no division by zero.",
+            "Count the True values, divide by the total when there are cases, and round the resulting fraction to the required precision.",
         ],
     },
     {
@@ -612,48 +640,61 @@ EXERCISES = [
         "title": "Close enough: numeric grader",
         "difficulty": 0,
         "lesson": r'''
-            ## Numeric tolerance
+            ## Accept a number within an agreed distance
 
-            The expected answer is `3.14` and the model returns `"3.1416"`. For most apps that
-            answer is correct, but an exact comparison fails it. A numeric grader uses a
-            **tolerance**: the largest difference between the two numbers that still passes.
-
-            The model's answer is a string, so convert it with `float()` first. `abs()` returns
-            a number without its sign, so `abs(value - expected)` is the difference whichever
-            number is larger.
+            A model reports a measurement as text. You would accept a small rounding difference, but a sentence such as "about ten" is not a usable number. Your grading rule needs to distinguish conversion failure from an acceptable numerical difference.
 
             ```python
-            expected = 3.14
-            output = "3.1416"
-            value = float(output)
-            print(value)
-            # 3.1416
-            print(abs(value - expected) <= 0.01)
+            target = 8.0
+            reading = float(" 8.04 ")
+            print(abs(reading - target) <= 0.05)
             # True
-            print(abs(3.0 - 3.14) <= 0.01)
+            print(abs(7.8 - target) <= 0.05)
             # False
             ```
 
-            `float()` ignores whitespace around the number: `float(" 105 ")` returns `105.0`.
+            `float` converts the string to a number and accepts whitespace at its ends. Subtracting the target measures the difference. `abs` removes the sign, so being above or below the target is treated the same way. The comparison includes the boundary: a difference equal to the allowed distance passes.
 
-            `float("about 3")` raises `ValueError` because the string is not a number. A grader
-            must not stop the eval run because of a bad answer. Catch the error with
-            `try`/`except ValueError` and treat that answer as failed.
+            That allowed distance is called a **tolerance**. You choose it to match the application's needs, not to rescue a particular answer after seeing it. A tolerance suitable for a rounded estimate may be unsuitable for a financial total.
+
+            Conversion can raise ValueError when the string does not represent a number. Catch that expected failure and mark the answer as wrong. Otherwise one unusable answer would interrupt the evaluation of all the remaining cases.
+
+            ```quiz
+            The allowed distance is 0.25. A number differs from its target by exactly 0.25. Does it pass?
+            - [x] Yes, the boundary is included. :: The rule accepts differences less than or equal to the tolerance.
+            - [ ] No, the difference must be strictly smaller. :: A strict comparison would reject a boundary that this rule explicitly accepts.
+            ```
+
+
+            Try one more small check before moving to the task.
+
+            ```predict
+            print(abs(9.75 - 10.0) <= 0.25)
+            ---
+            The unsigned distance is exactly the inclusive allowed boundary.
+            ```
+
+            **Watch out:** A text answer must be converted before numerical subtraction. An invalid conversion is a failed answer, not evidence that the whole dataset is broken.
+
+            **In short:** Convert the answer, measure its absolute difference, and compare with the tolerance.
         ''',
         "prompt": r'''
-            Grade numeric answers with a tolerance.
+            A numerical answer may differ by acceptable rounding. Grade it using the specified maximum difference.
 
-            **Write:** `numeric_match(output, expected, tolerance=0.01)`
+            **Your job:** `numeric_match(output, expected, tolerance=0.01)`
 
+            **What goes in**
             - `output`: a string, the model's answer, e.g. `" 3.1416 "`
             - `expected`: a number, e.g. `3.14`
             - `tolerance`: a number, the largest allowed difference (default `0.01`)
-            - **Returns:** `True` if `output` is a number within `tolerance` of `expected`
+
+            **What comes out**
+            - `True` if `output` is a number within `tolerance` of `expected`
               (difference `<=` tolerance), otherwise `False`
 
             **Rules**
             - Whitespace around the number is allowed.
-            - If `output` is not a number (`float()` raises `ValueError`), return `False`; don't crash.
+            - If `output` is not a number (`float()` raises `ValueError`), the result is `False`; the function must not crash.
 
             **Examples**
             ```python
@@ -693,9 +734,9 @@ EXERCISES = [
                 return abs(value - expected) <= tolerance
         ''',
         "hints": [
-            "Convert the text with float(), and use abs() for the distance between the two numbers.",
-            "Wrap the conversion in try/except ValueError and return False there. Then compare the distance to the tolerance.",
-            "try: value = float(output.strip()) / except ValueError: return False / return abs(value - expected) <= tolerance.",
+            "Look at the difference between comparing text and comparing quantities.",
+            "Separate the conversion failure from the successful conversion path.",
+            "Attempt the numeric conversion, mark invalid text as failed, then compare the unsigned difference with the inclusive tolerance.",
         ],
     },
     {
@@ -703,50 +744,56 @@ EXERCISES = [
         "title": "Load a JSONL dataset",
         "difficulty": 0,
         "lesson": r'''
-            ## JSONL datasets
+            ## Read a dataset one record at a time
 
-            Eval datasets are usually stored as **JSONL** (JSON Lines): a text format with one
-            complete JSON object per line. Each line is one eval case. You add a case by
-            appending one line to the file, and you read the cases back one line at a time.
-
-            `text.splitlines()` returns the lines of a string as a list. Pass each line to
-            `json.loads` separately.
+            You want to keep adding questions to an eval file without rebuilding one enormous JSON list. A text file can hold one complete record on each line. Each record then becomes a case you can parse and inspect independently.
 
             ```python
             import json
-
-            text = '{"id": "q1", "input": "2+2?"}\n{"id": "q2", "input": "3+3?"}\n'
-            for line in text.splitlines():
-                case = json.loads(line)
-                print(case["id"], "->", case["input"])
-            # q1 -> 2+2?
-            # q2 -> 3+3?
+            records = '{"name": "north"}\n\n{"name": "south"}'
+            for row in records.splitlines():
+                if row.strip():
+                    print(json.loads(row)["name"])
+            # north
+            # south
             ```
 
-            The whole text is not one valid JSON document. `json.loads(text)` on all of it
-            raises `json.JSONDecodeError`.
+            The string contains two JSON objects separated by line breaks, with a blank line between them. `splitlines` gives you the individual lines. The condition skips a line with no visible content. Each remaining line is passed to the JSON parser on its own.
 
-            Files often contain blank lines. `json.loads("")` also raises
-            `json.JSONDecodeError`, so skip every line that is empty after `.strip()`. An
-            empty string is falsy, so `if line.strip():` is true only for a line with content.
+            This format is called **JSON Lines**, often written **JSONL**. Each line is a whole JSON value; in this dataset each value is a dictionary. The line break separates records rather than becoming part of a surrounding JSON array.
 
-            ```python
-            lines = ["a", "", "   ", "b"]
-            kept = []
-            for line in lines:
-                if line.strip():
-                    kept.append(line)
-            print(kept)
-            # ['a', 'b']
+            The order of the records is useful. It lets you compare a report with the source file and reproduce an earlier run. Blank lines do not produce cases. A line containing spaces is also blank for this purpose. Parsing errors in a non-blank line are different from blank lines and should not be silently treated as missing cases.
+
+            ```predict
+            rows = [" ", '{"n": 6}', "", '{"n": 9}']
+            print(len([row for row in rows if row.strip()]))
+            ---
+            Only the two lines with JSON text survive. The empty string and the whitespace-only string are both skipped.
             ```
+
+
+            Try one more small check before moving to the task.
+
+            ```predict
+            print("   ".strip() == "")
+            ---
+            A whitespace-only row becomes empty after stripping, so it can be skipped.
+            ```
+
+            **Watch out:** Parsing the entire text as one JSON document raises JSONDecodeError because a second object follows the first. Parse non-blank records separately.
+
+            **In short:** JSONL stores one complete record per non-blank line, in a repeatable order.
         ''',
         "prompt": r'''
-            Read an eval dataset stored as JSONL text.
+            Keep an evaluation dataset as one JSON case per line. Read those cases from the supplied text.
 
-            **Write:** `load_cases(text)`
+            **Your job:** `load_cases(text)`
 
+            **What goes in**
             - `text`: a string holding JSONL: one JSON object per line
-            - **Returns:** a list of dicts, one per non-blank line, in file order
+
+            **What comes out**
+            - a list of dicts, one per non-blank line, in file order
 
             **Rules**
             - Skip lines that are empty or only whitespace.
@@ -789,9 +836,9 @@ EXERCISES = [
                 return cases
         ''',
         "hints": [
-            "Split the text into lines and parse each line separately with json.loads.",
-            "Loop over text.splitlines(); ignore lines that are empty after stripping; collect the parsed dicts.",
-            "Start with an empty list; for each line, if line.strip() is not empty, append json.loads(line); return the list.",
+            "Remember which part of a JSONL file is a complete JSON document.",
+            "Whitespace-only lines are separators, not cases to parse.",
+            "Walk through the lines in order, skip blank ones, parse each remaining record, and collect the parsed values.",
         ],
     },
     {
@@ -800,32 +847,47 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Compare case by case
+            ## Find what changed behind the overall score
 
-            Two eval runs can pass the same number of cases without passing the same cases. A
-            new prompt can make one case pass and make a different case fail. The pass rate
-            stays the same, but the app now behaves differently.
-
-            So you compare two runs case by case. Store each run as a dict that maps a case
-            `id` to its result, then read both dicts with the same `id`.
+            Two prompt versions pass the same number of questions. You might assume nothing changed, but one may have fixed a question while breaking another. Compare the individual cases before trusting the overall score.
 
             ```python
-            before = {"q1": True, "q2": False}
-            after = {"q1": False, "q2": True}
-            for case_id in before:
-                print(case_id, before[case_id], "->", after[case_id])
-            # q1 True -> False
-            # q2 False -> True
-            print(sum(before.values()), sum(after.values()))
+            old = {"oak": True, "pine": False}
+            new = {"pine": True, "oak": False}
+            print(sum(old.values()), sum(new.values()))
             # 1 1
+            for name in old:
+                print(name, old[name], new[name])
+            # oak True False
+            # pine False True
             ```
 
-            A case that passed before and fails now is a **regression**. A case that failed
-            before and passes now is **fixed**. Here `q1` is a regression and `q2` is fixed,
-            and both runs pass 1 case. Check for regressions before you release a change.
+            The totals are equal, but the case named oak changed from passing to failing. Pine changed in the opposite direction. The dictionary lookup uses the name, so the order of entries in the new run does not matter.
 
-            The run of the current version is called the **baseline**. The run of the changed
-            version is called the **candidate**.
+            A newly failing case is a **regression**. A newly passing case is a **fix**. The current version you compare against is the **baseline**, and the proposed version is the **candidate**. You need both views: the total tells you how much changed; the case comparison tells you what changed.
+
+            Keeping a stable case identifier makes this possible. Comparing the first result with the first result is unreliable when a dataset has been reordered. In a real review, open the regressed cases and read their answers. The boolean is a signal to investigate, not a complete explanation of the failure.
+
+            ```quiz
+            A run fixes one case and regresses another. What can happen to its pass rate?
+            - [x] It can stay the same. :: A newly passed case and a newly failed case can cancel in the total.
+            - [ ] It must improve. :: Counting only the fixed case ignores the regression.
+            ```
+
+
+            Try one more small check before moving to the task.
+
+            ```predict
+            before = {"x": True, "y": False}
+            after = {"y": True, "x": True}
+            print(before["x"] == after["x"])
+            ---
+            Lookup by identity finds the unchanged x result even though the dictionary order differs.
+            ```
+
+            **Watch out:** Equal pass rates do not establish equal behaviour. Match cases by identity before deciding what was fixed or regressed.
+
+            **In short:** Compare case identities as well as totals so regressions cannot hide inside a score.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -847,12 +909,14 @@ EXERCISES = [
             passed before and fails now: a *regression*. `sum()` counts the `True` values, and
             both runs have 2, so the pass rates are identical. Only the per-case comparison
             shows that the behaviour changed.
+
+            Follow each printed line in execution order. Changes to a variable affect later lines; they do not change output that was already printed.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "Go through q1, q2, q3 and write down the baseline and candidate value for each.",
-            "fixed wants False before and True after; broken wants True before and False after. sum() counts Trues.",
-            "q2 is the only fixed one, q3 the only broken one, and each run has two Trues.",
+            "Follow each named case from the baseline to the candidate.",
+            "A fix and a regression move in opposite directions even when the totals balance.",
+            "Work out the before-and-after pair for every case, identify both kinds of change, and then follow the printed totals.",
         ],
     },
     {
@@ -860,46 +924,59 @@ EXERCISES = [
         "title": "Regex grader",
         "difficulty": 1,
         "lesson": r'''
-            ## Grading by pattern
+            ## Mark an answer by the shape of its text
 
-            Some answers can be worded in many ways but must contain text of a fixed form. An
-            order number such as `ORD-1234` can appear anywhere in a sentence. A **regex
-            grader** passes the answer if a regular expression matches anywhere in it.
-
-            `re.search(pattern, text)` scans the whole text for the first match. The optional
-            third argument `re.IGNORECASE` makes the match ignore letter case.
+            An answer may include an identifier anywhere in a sentence. You care whether the identifier has the required shape, not whether the whole sentence matches an answer key. A text pattern can express that rule.
 
             ```python
             import re
-
-            answer = "Your order ord-1234 has shipped."
-            match = re.search(r"ORD-\d{4}", answer, re.IGNORECASE)
-            print(match)
-            # <re.Match object; span=(11, 19), match='ord-1234'>
-            print(bool(match))
+            text = "Ticket ref-82 is ready"
+            found = re.search(r"REF-[0-9]{2}", text, re.IGNORECASE)
+            print(bool(found))
             # True
-            print(re.search(r"ORD-\d{4}", "no order here"))
-            # None
-            print(bool(re.search(r"ORD-\d{4}", "no order here")))
+            print(bool(re.search(r"REF-[0-9]{2}", "nothing here")))
             # False
             ```
 
-            `re.search` returns a **Match object** when it finds the pattern and `None` when it
-            does not. It never returns `True` or `False`. A grader must return a boolean, so
-            pass the result to `bool()`. A Match object is truthy and `None` is falsy.
+            The search scans the string for a prefix followed by two digits. The flag permits a lowercase prefix to match the uppercase pattern. A successful search returns an object describing the match; an unsuccessful one returns None. Converting either result to a boolean gives the grader's required yes-or-no answer.
 
-            `re.match` only tries the pattern at the start of the text.
-            `re.match(r"ORD-\d{4}", "Your order ORD-1234")` returns `None`. Use `re.search` to
-            find the pattern anywhere.
+            This is a **regex grader**: the marking rule is a regular expression. You met regular expressions in the text-processing chapter. Here the new idea is choosing one as a grading rule and reporting its result consistently.
+
+            A pattern match confirms a shape, not the truth of the answer. A correctly shaped but invented ticket number can still pass this check. Choose a different grader if factual correctness is the requirement. Also distinguish searching anywhere from matching only at the beginning, because introductory text is allowed here.
+
+            ```fill
+            import re
+            print(bool(re.___(r"ID-[0-9]+", "Found ID-19")))
+            ---
+            - [x] search :: Searching inspects the whole string and finds the identifier after the introductory word.
+            - [ ] match :: Matching at the start fails because the text begins with Found.
+            ```
+
+
+            Try one more small check before moving to the task.
+
+            ```predict
+            import re
+            print(bool(re.search(r"[0-9]+", "no digits")))
+            ---
+            A search with no match returns None, which converts to False.
+            ```
+
+            **Watch out:** Returning a Match object is different from returning True, even though both are truthy. Convert the search result to the promised boolean.
+
+            **In short:** A regex grader searches for a required text shape and reports a real boolean.
         ''',
         "prompt": r'''
-            Grade an answer by checking that a regular expression matches somewhere in it.
+            Some answers must include text with a specified shape. Grade whether the supplied pattern occurs in the answer.
 
-            **Write:** `regex_grade(output, pattern)`
+            **Your job:** `regex_grade(output, pattern)`
 
+            **What goes in**
             - `output`: a string, the model's answer
             - `pattern`: a string, a regular expression, e.g. `r"ORD-\d{4}"`
-            - **Returns:** `True` if the pattern is found anywhere in `output`, otherwise `False`
+
+            **What comes out**
+            - `True` if the pattern is found anywhere in `output`, otherwise `False`
 
             **Rules**
             - Matching ignores letter case (use the `re.IGNORECASE` flag).
@@ -943,9 +1020,9 @@ EXERCISES = [
                 return bool(re.search(pattern, output, re.IGNORECASE))
         ''',
         "hints": [
-            "re.search looks for a pattern anywhere in the text and accepts a flags argument.",
-            "Search with the IGNORECASE flag, then convert the result (Match or None) into a boolean.",
-            "Return bool(re.search(pattern, output, re.IGNORECASE)).",
+            "Recall which regex function looks beyond the start of a string.",
+            "Make the comparison case-insensitive, then consider the type of its result.",
+            "Search the answer with the supplied pattern and case flag, and turn the presence or absence of a match into a boolean.",
         ],
     },
     {
@@ -953,60 +1030,54 @@ EXERCISES = [
         "title": "The eval harness",
         "difficulty": 1,
         "lesson": r'''
-            ## The eval harness
+            ## Keep running when one model call fails
 
-            A **harness** is the loop that runs an eval. For each case it calls the model with
-            the case input, passes the output to the grader, and stores the result.
-
-            The harness receives the model as an argument: a function `model(text)` that
-            returns the answer string. In the real app that function makes a real API call. In
-            tests it is a fake function, so the eval runs without a network.
-
-            Real model calls sometimes raise an exception, for example on a timeout. One
-            exception must not stop a run of 500 cases. Put the model call in
-            `try`/`except Exception` and record that case as failed.
+            An evaluation has hundreds of questions. One model timeout should become one failed case, so you can still see what happened on the other questions. Keep the model call and the marking step distinct.
 
             ```python
-            def fake_model(question):
-                if question == "9+9?":
-                    raise TimeoutError("model timed out")
-                return {"2+2?": "4"}.get(question, "no idea")
-
-            def grader(output, expected):
-                return output == expected
-
-            cases = [
-                {"id": "a", "input": "2+2?", "expected": "4"},
-                {"id": "b", "input": "9+9?", "expected": "18"},
-                {"id": "c", "input": "3+3?", "expected": "6"},
-            ]
-            for case in cases:
+            def fake_reply(text):
+                if text == "slow":
+                    raise TimeoutError("late")
+                return text.upper()
+            for question in ["hello", "slow", "bye"]:
                 try:
-                    output = fake_model(case["input"])
-                except Exception:
-                    print(case["id"], None, False)
-                    continue
-                print(case["id"], output, grader(output, case["expected"]))
-            # a 4 True
-            # b None False
-            # c no idea False
+                    print(fake_reply(question))
+                except TimeoutError:
+                    print("call failed")
+            # HELLO
+            # call failed
+            # BYE
             ```
 
-            Case `b` raises `TimeoutError`. The `except` branch runs, and `continue` moves the
-            loop to case `c`.
+            The fake function makes the failure repeatable and uses no network. On the middle input it raises an exception. The except branch records the failure, and the loop proceeds to the final input. That is the behaviour you want when the real provider has a temporary problem.
 
-            Keep the results in the same order as the cases, and keep each case `id` so you
-            can compare two runs later.
+            The code coordinating the calls, marking rules and result records is called the **eval harness**. Its job is orchestration: keeping the pieces in the right order, rather than knowing every grading rule itself. Receiving the model and grader as function arguments makes both pieces replaceable.
+
+            Only an answer that was actually returned can be passed to the grader. A call failure has no answer to grade. Preserve the case identifier and order in the report so a failure can be traced back to the dataset. Keep the original returned answer too; a pass flag alone is often insufficient for debugging.
+
+            ```quiz
+            A model call raises before producing an answer. What should happen to that case?
+            - [x] Record failure and continue without grading an answer. :: There is no returned output to give to the grader, but later cases can still run.
+            - [ ] Skip the case entirely. :: Dropping failures changes the denominator and makes the run look better than it was.
+            ```
+
+
+            **Watch out:** Catch the model's failure at the model-call boundary. A bug in the grading rule should not be disguised as a provider timeout.
+
+            **In short:** The harness runs every case and preserves a result even when the model call fails.
         ''',
         "prompt": r'''
-            Run a model over a list of eval cases and grade each answer.
+            Run a repeatable batch of questions and preserve a result for each, including model-call failures.
 
-            **Write:** `run_eval(cases, model, grader)`
+            **Your job:** `run_eval(cases, model, grader)`
 
+            **What goes in**
             - `cases`: a list of dicts with keys `"id"`, `"input"`, `"expected"`
             - `model`: a function taking the input string and returning the answer string
             - `grader`: a function `grader(output, expected)` returning `True`/`False`
-            - **Returns:** a list of dicts, one per case, in the same order:
+
+            **What comes out**
+            - a list of dicts, one per case, in the same order:
               `{"id": <case id>, "output": <model answer>, "passed": <grader result>}`
 
             **Rules**
@@ -1076,9 +1147,9 @@ EXERCISES = [
                 return results
         ''',
         "hints": [
-            "Loop over the cases, call the model, call the grader, and build one result dict per case.",
-            "Put only the model call inside try/except Exception; in the except branch append a failed result and continue.",
-            "For each case: try output = model(case['input']); on Exception append {id, None, False} and continue; else append {id, output, grader(output, case['expected'])}. Return the list.",
+            "Separate the responsibilities of the model, the grader and the result record.",
+            "A failed call needs a record, but cannot supply an answer to the grader.",
+            "Visit each case in order, attempt its model call once, record failures immediately, and otherwise grade and store the returned answer.",
         ],
     },
     {
@@ -1086,51 +1157,45 @@ EXERCISES = [
         "title": "Pass rate per tag",
         "difficulty": 1,
         "lesson": r'''
-            ## Pass rate per tag
+            ## See which kind of question needs work
 
-            One overall pass rate does not show which kind of question fails. A run can pass
-            90% of all cases and still pass only 20% of the cases about one subject.
-
-            A **tag** is a short string that names the kind of case, such as `"refunds"`,
-            `"math"` or `"french"`. Each case has a list of tags. You compute one pass rate
-            **per tag**: passed cases with that tag divided by all cases with that tag.
-
-            Use two dicts keyed by tag: one counts the cases, the other counts the passed
-            cases. `int(True)` is `1` and `int(False)` is `0`.
+            Your overall score looks good, yet users asking questions in another language report failures. A single average can hide that problem. Group the cases by what they test and look at a score for each group.
 
             ```python
-            results = [
-                {"passed": True, "tags": ["math"]},
-                {"passed": False, "tags": ["math", "french"]},
-                {"passed": True},
-            ]
-            totals = {}
-            passes = {}
-            for r in results:
-                for tag in r.get("tags", []):
-                    totals[tag] = totals.get(tag, 0) + 1
-                    passes[tag] = passes.get(tag, 0) + int(r["passed"])
-            print(totals)
-            # {'math': 2, 'french': 1}
-            print(passes)
-            # {'math': 1, 'french': 0}
-            print(passes["math"] / totals["math"])
-            # 0.5
+            groups = {"dates": [True, False, False], "names": [True, True]}
+            for label, marks in groups.items():
+                print(label, round(sum(marks) / len(marks), 2))
+            # dates 0.33
+            # names 1.0
             ```
 
-            A case with several tags counts toward each of its tags.
+            The dates group passes one of its three cases. The names group passes both. Each calculation uses its own group's size; dividing both counts by the whole dataset would answer a different question.
 
-            The third case has no `"tags"` key, so `r["tags"]` would raise `KeyError`.
-            `r.get("tags", [])` returns an empty list instead, and the inner loop runs zero
-            times for that case.
+            A label attached to a case is called a **tag**. One case can have several tags, such as dates and French. It contributes to each corresponding group because those labels describe overlapping properties, not exclusive buckets. You can keep a total and a passed count for each tag while walking through the results.
+
+            A missing tags field means there are no groups to update for that case. It still exists in the overall dataset, but this particular report leaves it out. An empty tags list has the same effect. Start a tag's counts only when you encounter it, so the report does not invent groups that the dataset never contained.
+
+            ```quiz
+            A case has tags dates and French. Which group counts it?
+            - [x] Both groups. :: Each tag describes a property of the case, so the case belongs to both groups.
+            - [ ] Only whichever tag comes first. :: Tag order does not make one property more real than another.
+            ```
+
+
+            **Watch out:** Use the group's own denominator. A small weak group can disappear inside a large strong overall score.
+
+            **In short:** Tag scores reveal weaknesses that an overall pass rate can hide.
         ''',
         "prompt": r'''
-            Break an eval run down by tag.
+            Find which kinds of questions are struggling. Return a pass rate for every tag represented in the results.
 
-            **Write:** `per_tag_pass_rate(results)`
+            **Your job:** `per_tag_pass_rate(results)`
 
+            **What goes in**
             - `results`: a list of dicts like `{"id": "q1", "passed": True, "tags": ["math"]}`
-            - **Returns:** a dict mapping each tag to its pass rate (passed / total for cases
+
+            **What comes out**
+            - a dict mapping each tag to its pass rate (passed / total for cases
               with that tag), rounded to 2 decimals
 
             **Rules**
@@ -1192,9 +1257,9 @@ EXERCISES = [
                 return {tag: round(passes[tag] / totals[tag], 2) for tag in totals}
         ''',
         "hints": [
-            "Keep two dicts keyed by tag: how many cases had the tag, and how many of those passed.",
-            "Loop over results, then over each result's tags (using .get with a default of []), updating both counters.",
-            "1) totals[tag] += 1 and passes[tag] += 1 if passed (use .get(tag, 0)). 2) Build the answer with a dict comprehension: round(passes[tag] / totals[tag], 2).",
+            "For each tag, ask how many cases belong to it and how many passed.",
+            "One case may contribute to several tag totals; untagged cases contribute to none.",
+            "Accumulate total and successful cases for each encountered tag, then divide each tag's successes by its own total and round.",
         ],
     },
     {
@@ -1202,58 +1267,53 @@ EXERCISES = [
         "title": "Precision@k and recall@k",
         "difficulty": 1,
         "lesson": r'''
-            ## Grading the retriever
+            ## Measure whether retrieval finds useful documents
 
-            In RAG, a wrong answer often comes from retrieving the wrong documents, so you
-            grade the retriever separately. For each question you list the ids of the
-            **relevant** documents: the ones that contain the answer. The retriever returns a
-            ranked list of ids, best match first.
-
-            Both metrics look only at the top `k` results, `retrieved[:k]`. A **hit** is an id
-            in the top `k` that is also relevant.
-
-            - **precision@k** is hits divided by `k`. It is the fraction of the top `k` that is
-              relevant. Read `@k` as "in the top k".
-            - **recall@k** is hits divided by the number of relevant ids. It is the fraction of
-              the relevant documents that the top `k` contains.
+            A RAG answer can fail because the model never received the useful document. Evaluate the retrieved list before changing the answering prompt. You need to ask both how clean that list is and how much of the known useful material it covers.
 
             ```python
-            retrieved = ["d3", "d1", "d7", "d2"]
-            relevant = {"d1", "d2"}
-            top = retrieved[:3]
-            print(top)
-            # ['d3', 'd1', 'd7']
-            hits = len([d for d in top if d in relevant])
-            print(hits)
-            # 1
-            print("precision@3:", hits / 3)
-            # precision@3: 0.3333333333333333
-            print("recall@3:", hits / len(relevant))
-            # recall@3: 0.5
+            ranked = ["map", "guide", "ad"]
+            useful = {"guide", "map", "hours", "tickets"}
+            first_two = ranked[:2]
+            hits = sum(doc in useful for doc in first_two)
+            print(hits / 2)
+            # 1.0
+            print(hits / len(useful))
+            # 0.5
             ```
 
-            The hits are the ids that are in both collections. Click `&` to see the overlap of
-            `top` and `relevant`.
+            Both of the first two results are useful, so that selected list has no irrelevant result. But it contains only half of the four useful documents. Those are two different measurements of the same retrieval.
 
-            ```diagram
-            {"type":"set-ops","title":"Top 3 retrieved ids and relevant ids","a":{"name":"top","items":["d3","d1","d7"]},"b":{"name":"relevant","items":["d1","d2"]}}
+            **Precision at k** measures the useful hits among the requested top k results, divided by k. **Recall at k** measures those hits divided by the number of known useful documents. The phrase at k means you consider only the beginning of the ranked list. Later results cannot rescue a weak top section.
+
+            The dataset supplies which document identifiers are useful, called the **relevant** identifiers. That judgement is independent of the retriever's score. For this exercise, precision uses the requested k even when fewer results were returned. Recall needs a stated rule when there are no relevant identifiers, because otherwise its denominator would be zero.
+
+            ```match
+            precision at k :: hits divided by requested result count
+            recall at k :: hits divided by relevant document count
+            top k :: the first k items in ranked order
+            ---
+            The same hits appear in both metrics; their denominators answer different questions.
             ```
 
-            The overlap has 1 id, so `hits` is 1. `top` has 3 ids, so precision@3 is `1 / 3`.
-            `relevant` has 2 ids, so recall@3 is `1 / 2`. Both metrics are between 0 and 1.
 
-            If no document is relevant, `len(relevant)` is `0` and the recall division raises
-            `ZeroDivisionError`. Return `0.0` in that case.
+            **Watch out:** Do not count useful documents below the cutoff. Validate a positive k before using it as a denominator.
+
+            **In short:** Precision measures result quality; recall measures coverage of known relevant documents.
         ''',
         "prompt": r'''
-            Score one retrieval result.
+            Assess the retrieved documents before judging the generated answer. Implement both requested retrieval metrics.
 
-            **Write:** two functions, `precision_at_k(retrieved, relevant, k)` and
+            **Your job:** two functions, `precision_at_k(retrieved, relevant, k)` and
             `recall_at_k(retrieved, relevant, k)`
 
+            **What goes in**
             - `retrieved`: a list of document ids in ranked order, e.g. `["d3", "d1", "d7"]`
             - `relevant`: a list or set of the ids that are actually relevant, e.g. `{"d1", "d2"}`
             - `k`: an int, how many top results to look at
+
+
+            **What comes out**
             - `precision_at_k` **returns:** (relevant ids among `retrieved[:k]`) / `k`, a float
             - `recall_at_k` **returns:** (relevant ids among `retrieved[:k]`) / `len(relevant)`, a float
 
@@ -1326,9 +1386,9 @@ EXERCISES = [
                 return hits / len(relevant)
         ''',
         "hints": [
-            "Both metrics need the same count: how many of the first k retrieved ids are relevant.",
-            "Slice retrieved[:k], count ids that are in relevant, then divide by k (precision) or by len(relevant) (recall). Check k first.",
-            "Write a helper that raises ValueError if k < 1 and returns the hit count. precision = hits / k. recall = 0.0 if relevant is empty, else hits / len(relevant).",
+            "Identify the cutoff and the relevant identifiers before counting hits.",
+            "Both metrics use the same selected hits but different denominators.",
+            "Reject a non-positive cutoff, count relevant identifiers in the selected prefix, then apply each metric's denominator and the stated empty-relevance rule.",
         ],
     },
     {
@@ -1336,39 +1396,35 @@ EXERCISES = [
         "title": "LLM-as-judge",
         "difficulty": 1,
         "lesson": r'''
-            ## LLM-as-judge
+            ## Read a judge response without guessing
 
-            Some answers cannot be graded with string rules. Whether a summary agrees with its
-            article is one example. For these cases teams use **LLM-as-judge**: a second model
-            receives the question and the answer in a prompt and replies with a verdict.
-
-            Your prompt must state the exact reply format. Ask for the reasoning first and a
-            fixed **verdict line** last, either `VERDICT: PASS` or `VERDICT: FAIL`. Then your
-            code only has to read the last non-blank line of the reply.
+            A summary can be accurate without sharing the source's wording. A text comparison cannot judge that well. You can ask another model to assess it, but your code still needs an unambiguous way to read that model's decision.
 
             ```python
-            def fake_judge(prompt):
-                return "The answer cites the source.\nVERDICT: PASS\n\n"
-
-            reply = fake_judge("Question: ...\nAnswer: ...")
-            lines = [line for line in reply.splitlines() if line.strip()]
-            print(lines)
-            # ['The answer cites the source.', 'VERDICT: PASS']
-            print(lines[-1])
-            # VERDICT: PASS
-            print(lines[-1].strip().upper() == "VERDICT: PASS")
+            reply = "The explanation covers the facts.\nRESULT: ACCEPT\n\n"
+            nonblank = [row.strip() for row in reply.splitlines() if row.strip()]
+            print(nonblank[-1])
+            # RESULT: ACCEPT
+            print(nonblank[-1] == "RESULT: ACCEPT")
             # True
             ```
 
-            The list comprehension keeps only the lines that are not blank. `lines[-1]` is the
-            last of them. If the reply is empty, `lines` is `[]` and `lines[-1]` raises
-            `IndexError`, so check for an empty list first.
+            The explanation is free text, while the last non-blank line follows a fixed agreement. Splitting into lines and discarding blanks gives you a place to inspect. Comparing the whole line keeps an incidental word in the explanation from becoming the decision.
 
-            The judge is a model, so it sometimes ignores the format. When the last line is
-            neither verdict, raise an error. Do not guess a verdict.
+            Using another model as a marking rule is called **LLM-as-judge**. The judge receives the question, the answer and instructions describing the accepted verdicts. In our exercises the judge is a fake function, so its reply is repeatable and costs nothing.
 
-            Do not test `"PASS" in reply`. That expression is also `True` for the reply
-            `"I would not PASS this"`. Compare the whole verdict line with `==`.
+            A parseable verdict is not proof that the judgement is right. Judges can make errors, favour particular wording, or be influenced by the answer being graded. Review representative cases and compare the judge with human assessments. Separately, if the judge breaks the agreed output format, report that problem instead of inventing a verdict. An empty reply has no final line to inspect.
+
+            ```quiz
+            The explanation says "I would not PASS this", with no agreed verdict line. Is searching for PASS enough?
+            - [x] No; the required whole verdict line must be checked. :: A word can occur in a negative sentence without expressing the agreed decision.
+            - [ ] Yes; the word PASS proves acceptance. :: The word alone loses both the sentence meaning and the output-format agreement.
+            ```
+
+
+            **Watch out:** Indexing the last item of an empty list raises IndexError. Check whether a non-blank line exists before trying to read it.
+
+            **In short:** Give the judge a fixed verdict format and reject replies that cannot be parsed.
         ''',
         "research": {
             "note": "Read the section on grading methods (code-based, human, LLM-based) and the "
@@ -1381,14 +1437,17 @@ EXERCISES = [
             ],
         },
         "prompt": r'''
-            Ask a judge model whether an answer is correct, and parse its verdict strictly.
+            Ask a judge function to assess an answer and read only its agreed verdict format.
 
-            **Write:** `judge_verdict(question, answer, judge)`
+            **Your job:** `judge_verdict(question, answer, judge)`
 
+            **What goes in**
             - `question`: a string
             - `answer`: a string, the answer being graded
             - `judge`: a function taking one prompt string and returning the judge's reply string
-            - **Returns:** `True` for a PASS verdict, `False` for a FAIL verdict
+
+            **What comes out**
+            - `True` for a PASS verdict, `False` for a FAIL verdict
 
             **Rules**
             - Call `judge` exactly once. The prompt you send must contain the `question` text,
@@ -1458,9 +1517,9 @@ EXERCISES = [
                 raise ValueError(f"unparseable verdict: {lines[-1]!r}")
         ''',
         "hints": [
-            "Two parts: build a prompt string with an f-string, then parse the judge's reply by lines.",
-            "Keep only the lines that are not blank, take the last one, normalise it with strip() and upper(), and compare to the two allowed verdicts.",
-            "1) prompt includes question, answer and the two verdict phrases. 2) reply = judge(prompt). 3) lines = non-blank lines; if none raise ValueError. 4) Compare lines[-1].strip().upper() to 'VERDICT: PASS' / 'VERDICT: FAIL', else raise ValueError.",
+            "Distinguish the explanatory text from the one line that carries the verdict.",
+            "Use the last non-blank line and only accept the two agreed verdicts.",
+            "Send one prompt containing the question, answer and accepted formats, normalise the final non-blank line, and return or raise according to that whole line.",
         ],
     },
     {
@@ -1469,14 +1528,15 @@ EXERCISES = [
         "difficulty": 2,
         "placement": True,
         "prompt": r'''
-            *Mean reciprocal rank* (MRR) scores how high the **first** relevant document
-            appears, averaged over many queries. Rank 1 scores 1, rank 2 scores 1/2, rank 3
-            scores 1/3, and a query with no relevant result scores 0.
+            A relevant document near the start of the retrieved list is more useful than one far down. Summarise the first relevant position across queries.
 
-            **Write:** `mean_reciprocal_rank(queries)`
+            **Your job:** `mean_reciprocal_rank(queries)`
 
+            **What goes in**
             - `queries`: a list of dicts, each `{"retrieved": [ids in ranked order], "relevant": [ids]}`
-            - **Returns:** a float, the average of the reciprocal ranks, rounded to 3 decimals
+
+            **What comes out**
+            - a float, the average of the reciprocal ranks, rounded to 3 decimals
 
             **Rules**
             - Ranks count from 1 (the first item in `retrieved` is rank 1).
@@ -1536,9 +1596,9 @@ EXERCISES = [
                 return round(total / len(queries), 3)
         ''',
         "hints": [
-            "For each query find the position of the first relevant id; enumerate(..., start=1) gives ranks from 1.",
-            "Add 1/rank for the first hit and stop looking (break); queries without a hit add nothing. Divide by the number of queries.",
-            "Return 0.0 for no queries. total = 0; for each query loop with enumerate(start=1), on the first doc in relevant add 1 / rank and break. Return round(total / len(queries), 3).",
+            "Recall how a ranked list differs from an unordered set of relevant identifiers.",
+            "Only the earliest relevant result earns a reciprocal-rank score; a miss contributes zero.",
+            "Handle no queries separately, find the first relevant position in each ranked list, accumulate its reciprocal, and average over all queries before rounding.",
         ],
     },
     {
@@ -1546,13 +1606,15 @@ EXERCISES = [
         "title": "Compare two runs",
         "difficulty": 2,
         "prompt": r'''
-            Before merging a prompt change, compare the new eval run (candidate) with the
-            current one (baseline), case by case.
+            A new version can fix some questions and break others. Compare runs by case identifier and report both changes.
 
-            **Write:** `compare_runs(baseline, candidate)`
+            **Your job:** `compare_runs(baseline, candidate)`
 
+            **What goes in**
             - `baseline`, `candidate`: lists of results like `{"id": "q1", "passed": True}`
-            - **Returns:** a dict with three keys:
+
+            **What comes out**
+            - a dict with three keys:
               - `"fixed"`: sorted list of ids that failed in baseline and pass in candidate
               - `"regressed"`: sorted list of ids that passed in baseline and fail in candidate
               - `"delta"`: candidate pass rate minus baseline pass rate, rounded to 3 decimals
@@ -1621,9 +1683,9 @@ EXERCISES = [
                 return {"fixed": fixed, "regressed": regressed, "delta": delta}
         ''',
         "hints": [
-            "Turn each run into a dict of id -> passed so you can look cases up by id.",
-            "Only ids in both dicts can be fixed or regressed. Compute each run's pass rate separately (guard the empty run) and subtract.",
-            "1) before/after dicts via comprehensions. 2) fixed = sorted ids in both with not before and after; regressed the opposite. 3) delta = round(rate(candidate) - rate(baseline), 3).",
+            "Match cases by their identifiers rather than their positions.",
+            "Only shared identifiers can be fixed or regressed, but each run has its own pass-rate denominator.",
+            "Build an identity lookup for each run, classify shared cases by their before-and-after result, sort the two change lists, and subtract the separately calculated rates.",
         ],
     },
     {
@@ -1631,22 +1693,51 @@ EXERCISES = [
         "title": "Release gate",
         "difficulty": 3,
         "lesson": r'''
-            ## Putting it together: a release gate
+            ## Make the release decision from explicit rules
 
-            A **release gate** is a function that checks an eval run against fixed rules, such
-            as a minimum pass rate and a maximum number of regressions. The change is released
-            only if every rule holds. Teams run the gate automatically on every proposed
-            change, so the decision comes from the eval numbers and not from an opinion.
+            A candidate improves the average but drops a critical case. Another candidate has no regressions but too many failures. Before shipping, turn your acceptance rules into a repeatable decision and collect the reasons that block it.
+
+            ```python
+            score = 0.7
+            new_failures = 2
+            blocks = []
+            if score < 0.75:
+                blocks.append("score below target")
+            if new_failures > 1:
+                blocks.append("too many newly failing cases")
+            print(bool(blocks), len(blocks))
+            # True 2
+            ```
+
+            This small example keeps checking after the first failure. A reviewer receives both reasons and can address them together. An empty reasons list would mean that every rule was satisfied.
+
+            A decision function of this kind is a **release gate**. Putting it together means combining the pass-rate calculation, case-identity comparison and completeness check. Plan the three checks independently so a missing case is not mistaken for a successful case or silently removed from the denominator.
+
+            Use the specified order when reporting reasons. Stable ordering makes reports easier to compare and is part of this task's interface. Sorting the identifiers inside a reason also gives a predictable message. Boundary conditions matter: a score exactly at the minimum is acceptable, and a regression count exactly at its allowed maximum is acceptable. An empty candidate still needs its agreed rate and missing-case checks.
+
+            ```quiz
+            The minimum score is 0.75 and the candidate scores exactly 0.75. Does this rule block it?
+            - [x] No; it meets the minimum. :: A minimum includes the boundary itself. Other rules still need to be checked.
+            - [ ] Yes; it must exceed the minimum. :: That would impose a stricter rule than the stated minimum.
+            ```
+
+
+            **Watch out:** Returning after the first failure hides other reasons. Collect all required reasons before deciding whether the change passes.
+
+            **In short:** A release gate checks every agreed rule and returns every blocking reason.
         ''',
         "prompt": r'''
-            Decide whether a candidate may ship, and explain why not when it can't.
+            A release needs enough successful cases without hiding missing cases or regressions. Return a decision with all blocking reasons.
 
-            **Write:** `release_gate(baseline, candidate, min_pass_rate=0.8, max_regressions=0)`
+            **Your job:** `release_gate(baseline, candidate, min_pass_rate=0.8, max_regressions=0)`
 
+            **What goes in**
             - `baseline`, `candidate`: lists of results like `{"id": "q1", "passed": True}`
             - `min_pass_rate`: a float, the lowest acceptable candidate pass rate
             - `max_regressions`: an int, the most regressions allowed
-            - **Returns:** a tuple `(ok, reasons)`: `reasons` is a list of strings, `ok` is
+
+            **What comes out**
+            - a tuple `(ok, reasons)`: `reasons` is a list of strings, `ok` is
               `True` exactly when `reasons` is empty
 
             **Rules**: check in this order and add one reason per failed rule:
@@ -1719,9 +1810,9 @@ EXERCISES = [
                 return not reasons, reasons
         ''',
         "hints": [
-            "Build id -> passed dicts for both runs, then check the three rules one after another, appending a reason string for each failure.",
-            "Missing = baseline ids not in candidate. Rate = candidate passes / len(candidate), guarding empty. Regressions = ids True before and False after. Format with :.2f and ', '.join(sorted(...)).",
-            "1) reasons = []. 2) if missing: append 'missing cases: ' + joined ids. 3) if rate < min_pass_rate: append the f-string. 4) if len(regressed) > max_regressions: append the f-string. 5) return (not reasons, reasons).",
+            "List the three independent ways this candidate can be unacceptable.",
+            "Compute completeness, candidate score and shared-case regressions separately.",
+            "Collect failed-rule messages in the required order with sorted identifiers, then decide success from whether any reasons were collected.",
         ],
     },
     {
@@ -1729,28 +1820,56 @@ EXERCISES = [
         "title": "A full eval suite",
         "difficulty": 3,
         "lesson": r'''
-            ## Putting it together: a real eval run
+            ## Combine a dataset, graders and a useful report
 
-            Real datasets mix grader types. Some cases need an exact answer, some need required
-            phrases, and some need a pattern or a number. Each case stores the name of its
-            grader, and the harness looks up the grader function by that name. One report dict
-            summarises the whole run. Eval frameworks do the same thing at a larger scale.
+            Your eval file now mixes short factual answers, required phrases and numeric answers. One grading rule will not suit every case. You need a runner that uses each case's chosen rule while producing a consistent report.
+
+            ```python
+            checks = {"short": lambda text: len(text) < 6,
+                      "has_digit": lambda text: any(ch.isdigit() for ch in text)}
+            for kind, answer in [("short", "hello"), ("has_digit", "abc")]:
+                print(kind, checks[kind](answer))
+            # short True
+            # has_digit False
+            ```
+
+            The dictionary holds functions as values. The selected key determines which function runs; the report format does not change. This is the same lookup idea you used for tools, now applied to grading rules.
+
+            Putting it together means planning the run in stages. Read the JSONL cases first. Establish which grader a case requests. Attempt the model call, and record that case's success or failure. Then update overall totals, failure identifiers and the tag groups. Keep the dataset order for the failure list so a reader can find the corresponding rows.
+
+            There are two distinct failure categories. An exception from the model is a failed case and the run continues. An unknown grading-rule name is an invalid dataset configuration and must raise the specified error. Do not put both categories under one broad catch. Otherwise a typo in the eval file could look like a genuine weakness in the model.
+
+            ```predict
+            rules = {"ends": lambda s: s.endswith("!"), "upper": lambda s: s.isupper()}
+            print(rules["ends"]("Ready!"))
+            print(rules["upper"]("Ready!"))
+            ---
+            The same answer passes the punctuation rule but fails the uppercase rule. Rule selection determines what is being tested.
+            ```
+
+
+            **Watch out:** A reporting loop can accidentally count a failed call twice or omit it entirely. Every parsed case must contribute exactly once to the overall total.
+
+            **In short:** Choose the grader per case, isolate model failures, and build one consistent report.
         ''',
         "prompt": r'''
-            Run a JSONL eval dataset where every case names its own grader, and summarise it.
+            A realistic dataset chooses different grading rules for different questions. Run it and return one overall report.
 
-            **Write:** `run_suite(jsonl_text, model)`
+            **Your job:** `run_suite(jsonl_text, model)`
 
+            **What goes in**
             - `jsonl_text`: a string, one JSON case per line (skip blank lines). Each case has
               `"id"`, `"input"`, `"grader"`, `"expected"` and optionally `"tags"` (list of strings)
             - `model`: a function taking the input string and returning an answer string
-            - **Returns:** a dict:
+
+            **What comes out**
+            - a dict:
               `{"total": int, "passed": int, "pass_rate": float, "by_tag": dict, "failed_ids": list}`
 
             **Graders** (by the case's `"grader"` value):
-            - `"exact"`: `output.strip().lower() == expected.strip().lower()`
+            - `"exact"`: the complete strings must match after ignoring outer whitespace and letter case
             - `"contains"`: `expected` is a list; every item appears in the output, ignoring case
-            - `"regex"`: `expected` is a pattern; `re.search` finds it, ignoring case
+            - `"regex"`: `expected` is a pattern; the pattern occurs anywhere in the answer, ignoring case
             - `"numeric"`: output converts with `float()` and is within `0.01` of `expected`;
               a non-number fails
 
@@ -1886,9 +2005,9 @@ EXERCISES = [
                 }
         ''',
         "hints": [
-            "Reuse the graders from earlier steps and keep them in a dict that maps a grader name to a function.",
-            "Parse the JSONL, look up each case's grader (raise ValueError if missing), run the model inside try/except, and update the counters and per-tag tallies.",
-            "1) cases from non-blank lines via json.loads. 2) GRADERS = {'exact': ..., ...}. 3) For each case: grader lookup, try ok = grader(model(input), expected) except Exception: ok = False; count passes, collect failed ids, tally tags. 4) Build the report dict with the rounded rates.",
+            "Think about case reading, rule selection, model execution and reporting as separate stages.",
+            "An unknown rule is a configuration error; a model exception is an ordinary failed case.",
+            "Parse non-blank records, resolve each grader before the model failure handler, run and grade each case once, and aggregate overall and per-tag results.",
         ],
     },
 ]

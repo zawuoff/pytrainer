@@ -253,59 +253,96 @@ EXERCISES = [
     {
         "id": "dicts-s1",
         "lesson": r'''
-            ## Dictionaries
+            ## Giving every value a label
 
-            A **dictionary**, or **dict**, is a value that stores **key-value pairs**. Each
-            **key** is paired with one **value**. You read a value by giving its key, not a
-            position as in a list. Write a dict with curly braces, a colon between each key
-            and its value, and commas between the pairs.
+            Your app keeps a few facts about each document that a model may search: its title, and how many
+            pages it has. A list can hold them, as `["Refund policy", 4]`. But a list only knows positions.
+            You have to remember that index 0 is the title and index 1 is the page count, and so does
+            everyone who reads your code. It is easier to stick a label on each value, and to ask for the
+            value by its label.
 
             ```python
-            settings = {"model": "claude", "stream": True}
-            print(settings["model"])
-            # claude
-            print(len(settings))
+            doc = {"title": "Refund policy", "pages": 4}
+            print(doc["title"])
+            # Refund policy
+            print(len(doc))
             # 2
             ```
 
-            `settings["model"]` returns the value stored under the key `"model"`. `len`
-            returns the number of pairs.
+            The curly braces hold two pairs, with a comma between them. In each pair, the label stands
+            before the colon and the value after it. `doc["title"]` reads the value that carries the label
+            `"title"`. The square brackets are the ones you know from lists, with a label in the place of
+            the index.
 
-            Assigning to a key that is not in the dict adds a new pair.
+            This is called a **dictionary**, or **dict** for short. A label is called a **key**. A key
+            together with its value is a **key-value pair**, and `len` counts the pairs.
 
-            ```python
-            settings = {"model": "claude", "stream": True}
-            settings["top_p"] = 0.9
-            print(settings)
-            # {'model': 'claude', 'stream': True, 'top_p': 0.9}
+            ```quiz
+            What does `doc["pages"]` give?
+            - [x] `4` :: Right. Python finds the pair whose key is `"pages"` and hands back the value of that pair.
+            - [ ] `"pages"` :: That is the key, the label you asked with. The lookup hands back the value that is stored under it.
+            - [ ] `1` :: A dict does not answer with a position. It answers with the value that is stored under the key, and that is 4.
             ```
 
-            `settings.get(key)` also reads a value. When the key is missing it returns `None`.
-            If you pass a second value, `.get` returns that value for a missing key.
+            ### Adding a pair
+
+            An assignment to a key that is not in the dict yet adds a new pair:
 
             ```python
-            settings = {"model": "claude", "stream": True}
-            print(settings.get("seed"))
-            # None
-            print(settings.get("seed", 42))
-            # 42
+            doc = {"title": "Refund policy", "pages": 4}
+            doc["language"] = "en"
+            print(doc)
+            # {'title': 'Refund policy', 'pages': 4, 'language': 'en'}
             ```
 
-            Click a key to read its value, then add a new key with `d[key] = value`.
+            Python prints the strings of a dict in single quotes. They are still the same strings.
+
+            Click a row to read the value under that key. Then type a new key and a value, and press the
+            `doc[key] = value` button to add a pair:
 
             ```diagram
-            {"type":"dict","title":"Keys and values of settings","name":"settings","entries":[["model","claude"],["stream",true]]}
+            {"type":"dict","title":"Keys and values of doc","name":"doc","entries":[["title","Refund policy"],["pages",4]]}
             ```
 
-            A dict is also called a **mapping**. An **API** is a service that your program
-            sends a request to and that sends data back. The messages, settings and
-            responses of AI APIs are dicts.
+            ### A key that may not be there
+
+            There is a second way to read a value: `doc.get("author")`. When the key is in the dict, `.get`
+            hands back its value. When the key is missing, it hands back `None`. With a second argument, it
+            hands back that argument in place of `None`:
+
+            ```python
+            doc = {"title": "Refund policy", "pages": 4}
+            print(doc.get("pages"))
+            # 4
+            print(doc.get("author"))
+            # None
+            print(doc.get("author", "unknown"))
+            # unknown
+            ```
+
+            ```predict
+            tool = {"name": "search"}
+            tool["calls"] = 2
+            tool["limit"] = 10
+            print(len(tool))
+            print(tool.get("owner", "nobody"))
+            ---
+            Two assignments to new keys added two pairs, so the dict now has 3 of them. It has no key
+            `"owner"`, so `.get` hands back its second argument, `nobody`.
+            ```
+
+            Later steps in this chapter come back to each of these, so a first look is enough here.
+
+            **Watch out:** a dict has no positions. `doc[0]` does not read the first pair. Python looks for
+            a key that is equal to `0`, finds none, and stops with `KeyError: 0`.
+
+            **In short:** a dict holds key-value pairs, and you read a value by its key, not by a position.
         ''',
         "title": "What gets printed?",
         "difficulty": 0,
         "mode": "predict",
         "prompt": r'''
-            Read the code and type exactly what it prints.
+            Read the program in the editor. Type exactly what it prints, one line for each `print`.
         ''',
         "code": r'''
             config = {"model": "gpt-4o", "temperature": 0.7}
@@ -322,71 +359,109 @@ EXERCISES = [
             False
         ''',
         "explanation": r'''
-            `config["model"]` looks up the value for the key `"model"`. Assigning to a new
-            key adds it, so the dict now has 3 pairs. `"stream"` is not a key: `.get()`
-            returns `None`, or the default you pass (`False`).
+            `config["model"]` reads the value that is stored under the key `"model"`, and `print` shows that
+            string without its quotes: `gpt-4o`. The key `"max_tokens"` was not in the dict, so the
+            assignment adds a third pair, and `len` counts 3. The dict has no key `"stream"`. For a missing
+            key, `.get` with one argument hands back `None`. With a second argument it hands back that
+            argument, which is `False` here.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "Square brackets with a key give that key's value; len counts key-value pairs.",
-            "Track the dict: one key is added before len is called. .get on a missing key never crashes.",
-            "Line 1 is the model value. Line 2 counts 3 keys. Line 3: .get with no default gives None. Line 4: it gives the default you passed.",
+            "Go through the program one line at a time, and keep track of the pairs that are in the dict after each line.",
+            "An assignment to a key that the dict does not have yet adds a pair, and that happens before `len` counts. `.get` never stops the program when a key is missing.",
+            "Your first line is the value stored under the key that the first `print` asks for, without quotes. Your second line is the number of pairs after one pair was added. Your third and fourth lines are what `.get` hands back for a key that is not in the dict: first with no second argument, then with one.",
         ],
     },
     {
         "id": "dicts-s2",
         "lesson": r'''
-            ## Looking up by key
+            ## Asking a dict for one value
 
-            To read a value from a dict, write the dict name followed by the key in square
-            brackets. Python finds the pair with that key and returns its value.
+            After every call, a model service reports how many tokens the call used: how many went in with
+            your prompt, and how many came out in the answer. Your app needs one of those two numbers for
+            the bill. Which number it gets depends on the key that it asks with.
 
             ```python
-            usage = {"prompt_tokens": 12, "completion_tokens": 3}
-            print(usage["completion_tokens"])
+            usage = {"input_tokens": 12, "output_tokens": 3}
+            print(usage["output_tokens"])
             # 3
             ```
 
-            The position of the pair in the dict does not affect the lookup.
-            `"completion_tokens"` is the second pair here and Python still finds it by its key.
+            Write the name of the dict, and then the key in square brackets. Python goes to the pair that
+            has this key and hands back its value. Where the pair stands in the dict makes no difference.
+            `"output_tokens"` is the second pair here, and Python would find it just the same if it were the
+            first pair or the tenth.
 
-            The key inside the brackets can be a string you write directly, or a variable
-            that holds the key.
+            Reading a value by its key is called a **lookup**.
+
+            ### The quotes belong to the key
+
+            The keys of this dict are strings, so the key in the brackets is a string too, with its quotes.
+            It has to be exactly equal to a key of the dict, down to the capital letters. Pick the key that
+            makes this program print `3`:
+
+            ```fill
+            usage = {"input_tokens": 12, "output_tokens": 3}
+            print(usage[___])
+            ---
+            - [x] "output_tokens" :: Right. This string is exactly equal to the key of the second pair, so Python hands back the value of that pair.
+            - [ ] output_tokens :: Without quotes this is the name of a variable, and no variable of that name exists. Python stops with `NameError: name 'output_tokens' is not defined`.
+            - [ ] "Output_tokens" :: The capital `O` makes this a different string. No key is equal to it, so Python stops with `KeyError: 'Output_tokens'`.
+            - [ ] 1 :: A dict has no positions. Python looks for a key that is equal to `1`, finds none, and stops with `KeyError: 1`.
+            ```
+
+            ### A key that comes from a variable
+
+            Without quotes, Python reads a word as the name of a variable. That is an error when no such
+            variable exists. It is useful when one does, because the lookup then uses the value of the
+            variable as the key:
 
             ```python
-            usage = {"prompt_tokens": 12, "completion_tokens": 3}
-            key = "prompt_tokens"
-            print(usage[key])
+            usage = {"input_tokens": 12, "output_tokens": 3}
+            wanted = "input_tokens"
+            print(usage[wanted])
             # 12
             ```
 
-            Reading with square brackets is called **subscripting**. It is the same syntax
-            as a list index, with a key in place of the position.
-
-            A string key needs its quotes. Without quotes, `usage[prompt_tokens]` tells
-            Python to use the value of a variable named `prompt_tokens` as the key. This
-            example raises an error on purpose, because no such variable exists.
-
-            ```python
-            usage = {"prompt_tokens": 12, "completion_tokens": 3}
-            print(usage[prompt_tokens])
-            # NameError: name 'prompt_tokens' is not defined
+            ```try
+            prices = {"mini": 0.15, "standard": 2.5, "large": 10.0}
+            model = "mini"
+            print(prices[model])
+            ---
+            This prints the price of the model `mini`. Change one value so that the program prints `10.0`.
+            ---
+            prices = {"mini": 0.15, "standard": 2.5, "large": 10.0}
+            model = "large"
+            print(prices[model])
+            ---
+            The line with the lookup stayed as it was. It uses the value of `model` as the key, so another value in that variable reads another pair.
             ```
+
+            **Watch out:** when a lookup stops with `NameError: name 'output_tokens' is not defined`, the
+            quotes around the key are missing. Python took the key for a variable.
+
+            **In short:** `d["key"]` hands back the value that is stored under that key, and a string key
+            needs its quotes.
         ''',
         "title": "Read the model name",
         "difficulty": 0,
         "prompt": r'''
-            Read one setting out of a model config. The function is almost done: replace
-            the `___`.
+            The settings for a call to a model are kept in a dict: which model to use, and a few options.
+            Your app wants to show the name of the chosen model on the screen.
 
-            **Write:** `get_model(config)`
+            **Your job:** finish `get_model(config)` so that it gives back the name of the model. The
+            function is already written except for one gap, marked `___`. Replace the gap.
 
-            - `config`: a dict that always has a `"model"` key, e.g.
+            **What goes in**
+            - `config`: a dict of settings that always has the key `"model"`, for example
               `{"model": "gpt-4o", "temperature": 0.7}`
-            - **Returns:** the value stored under the key `"model"` (a string)
+
+            **What comes out**
+            - the value that is stored under the key `"model"`, a string: `"gpt-4o"` for the example value
 
             **Rules**
-            - The `"model"` key can be anywhere in the dict, not only first.
+            - The pair with the key `"model"` may stand anywhere in the dict. It is not always the first
+              pair.
 
             **Examples**
             ```python
@@ -414,70 +489,104 @@ EXERCISES = [
                 return config["model"]
         ''',
         "hints": [
-            "A dict value is read with square brackets and its key.",
-            "The key is a string, so it needs quotes.",
-            "Replace ___ with \"model\" (including the quotes).",
+            "The lesson reads a value out of a dict with square brackets. What stands between the brackets?",
+            "The gap needs the key of the pair that you want. The task names that key, and the key is a string.",
+            "Write the key into the gap as a string, spelled the way the task spells it and with its quotes. Without the quotes, Python would look for a variable of that name.",
         ],
     },
     {
         "id": "dicts-s4",
         "lesson": r'''
-            ## Building a dict
+            ## Building a dict from values you have
 
-            A **dict literal** is a dict written directly in code with curly braces. The key
-            goes on the left of each colon and the value goes on the right.
+            A search tool in your app finds a passage in a file and works out a score for it. Now it has two
+            values in two variables. It wants to hand them on as one result, in a form that says which value
+            is which. So it packs them into a dict.
 
             ```python
-            usage = {"prompt_tokens": 12, "completion_tokens": 3}
-            print(usage)
-            # {'prompt_tokens': 12, 'completion_tokens': 3}
+            source = "faq.md"
+            score = 0.82
+            hit = {"source": source, "score": score}
+            print(hit)
+            # {'source': 'faq.md', 'score': 0.82}
             ```
 
-            Python prints the string keys with single quotes. They are the same strings.
+            Look at the two sides of each colon. On the left stands the key, a string that you choose and
+            write in quotes. On the right stands the value, and here it is a variable, written without
+            quotes. Python reads what the variable holds at that moment and stores it in the dict.
 
-            The value on the right of a colon can be a variable. Python reads the variable
-            when it builds the dict and stores what the variable holds.
+            The next program should print `en`. Put its lines in an order that works:
 
-            ```python
+            ```order
+            language = "en"
+            length = 120
+            note = {"language": language, "length": length}
+            print(note["language"])
+            ---
+            The two variables have to exist before the line that builds the dict, because Python reads their values on that line. The `print` comes last, because it needs the dict.
+            ```
+
+            ### Quotes decide: text or variable
+
+            The same word can stand on both sides of a colon, as in `"score": score`. With quotes it is a
+            piece of text. Without quotes it is the variable. See what happens when the value gets quotes by
+            mistake:
+
+            ```predict
             name = "claude"
-            limit = 256
-            request = {"model": name, "max_tokens": limit}
-            print(request)
-            # {'model': 'claude', 'max_tokens': 256}
-            print(request["model"])
-            # claude
+            right = {"model": name}
+            wrong = {"model": "name"}
+            print(right["model"])
+            print(wrong["model"])
+            ---
+            `name` without quotes is the variable, so the first dict stores its value, `claude`. `"name"`
+            with quotes is a string of four letters, so the second dict stores the text `name`.
             ```
 
-            The keys `"model"` and `"max_tokens"` are fixed strings, so they have quotes. The
-            values `name` and `limit` are variables, so they have no quotes.
+            A dict that you write in braces is a value like any other. You can store it under a name, as in
+            the examples above, or hand it back from a function with `return`.
 
-            The APIs of OpenAI, Anthropic and most other AI providers take each
-            **chat message** as a dict with the two keys `"role"` and `"content"`.
-
-            Quotes around a variable name turn it into a string. `{"model": "name"}` stores
-            the text `name`, not the value of the variable.
+            Two dicts are equal when they hold the same pairs. That is how a check compares the dict that
+            your function hands back with the one it expects:
 
             ```python
-            name = "claude"
-            request = {"model": "name"}
-            print(request["model"])
-            # name
+            hit = {"source": "faq.md", "score": 0.82}
+            print(hit == {"source": "faq.md", "score": 0.82})
+            # True
+            print(hit == {"Source": "faq.md", "score": 0.82})
+            # False
             ```
+
+            **Watch out:** a key without quotes is not always an error. When a variable `source` exists,
+            `{source: source}` uses the value of the variable as the key and gives `{'faq.md': 'faq.md'}`.
+            No message warns you, and a later lookup with `"source"` fails.
+
+            **In short:** `{"key": value}` builds a dict, with the key in quotes on the left of each colon
+            and the value on the right.
         ''',
         "title": "Make a chat message",
         "difficulty": 0,
         "prompt": r'''
-            Chat APIs take each message as a dict with a role and some content.
+            A conversation with a model is sent as a list of messages, and every message is a small dict
+            with two pairs. One pair says who is speaking, which is called the role. The other pair holds
+            what was said, which is called the content. The role `"user"` stands for the person who types.
+            The role `"system"` stands for the instructions that an app gives the model before the
+            conversation starts.
 
-            **Write:** `make_message(role, content)`
+            **Your job:** write `make_message(role, content)` so that it gives back one such message dict.
 
-            - `role`: a string, e.g. `"user"` or `"system"`
-            - `content`: a string, the message text, e.g. `"hi"`
-            - **Returns:** a dict with exactly two keys, `"role"` and `"content"`, holding
-              the two arguments
+            **What goes in**
+            - `role`: a string that says who is speaking, for example `"user"`
+            - `content`: a string, the text of the message, for example `"hi"`
+
+            **What comes out**
+            - a dict with two pairs: the key `"role"` with the value of `role`, and the key `"content"` with
+              the value of `content`. For the example values that is `{"role": "user", "content": "hi"}`.
 
             **Rules**
-            - The keys are the strings `"role"` and `"content"` (no other keys).
+            - The keys are exactly the strings `"role"` and `"content"`, in small letters.
+            - The dict has no other keys.
+            - The two values are stored as they come in. Nothing is added to them or changed.
 
             **Examples**
             ```python
@@ -505,72 +614,122 @@ EXERCISES = [
                 return {"role": role, "content": content}
         ''',
         "hints": [
-            "A dict literal is written with curly braces and key: value pairs.",
-            "The keys are the fixed strings role and content; the values are the parameters.",
-            "Return {\"role\": role, \"content\": content} - quoted keys, unquoted parameter names as values.",
+            "The lesson builds a dict from two variables. In your function, the two parameters play the part of those variables.",
+            "Write a dict in curly braces with two pairs. The keys are fixed text, and the task tells you how they are spelled. The values are whatever was passed in.",
+            "The body is one `return` line with a dict in curly braces. In each pair, the key stands on the left of the colon as a string in quotes, and the parameter stands on the right of the colon without quotes.",
         ],
     },
     {
         "id": "dicts-s6",
         "lesson": r'''
-            ## Adding and changing a key
+            ## Storing a value under a key
 
-            `d[key] = value` stores `value` under `key` in the dict `d`. If the key is not
-            in the dict, Python adds a new pair. If the key is already there, Python replaces
-            its value.
+            A user opens the settings of your chat app and switches the reply language to French. The dict
+            of settings already exists, and one value in it has to change. A minute later the user picks a
+            voice for the first time, and the dict has to take a pair that it never had.
 
-            ```python
-            request = {"model": "claude"}
-            request["temperature"] = 0.7
-            print(request)
-            # {'model': 'claude', 'temperature': 0.7}
-            request["temperature"] = 0.2
-            print(request)
-            # {'model': 'claude', 'temperature': 0.2}
-            print(len(request))
-            # 2
-            ```
-
-            The first assignment adds the key `"temperature"`. The second one replaces its
-            value. Keys in a dict are **unique**: a dict never holds the same key twice, so
-            the length stays 2.
-
-            A dict is **mutable**, which means you can change it after you create it.
-            Assignment to a key changes the dict **in place**: no new dict is created. Every
-            name that refers to that dict object shows the change, as with `list.append`.
+            Both jobs are done by the same kind of line:
 
             ```python
-            request = {"model": "claude"}
-            same = request
-            same["stream"] = True
-            print(request)
-            # {'model': 'claude', 'stream': True}
-            print(same is request)
-            # True
+            prefs = {"language": "en"}
+            prefs["language"] = "fr"
+            prefs["voice"] = "calm"
+            print(prefs)
+            # {'language': 'fr', 'voice': 'calm'}
             ```
 
-            `same is request` is `True` when both names refer to the same object.
+            Read `prefs["voice"] = "calm"` as "prefs, store `calm` under the key `voice`". Python looks for
+            the key. When the key is already there, its value is replaced. When it is not, a new pair is
+            added at the end. You do not have to know which of the two cases you are in.
 
-            You do not call anything to add a key. The assignment `d[key] = value` is the
-            whole operation.
+            A dict never holds the same key twice. That is why the first assignment could only replace:
+            there is one place for `"language"`, and it now holds `"fr"`.
+
+            ```predict
+            profile = {"name": "Ada"}
+            profile["plan"] = "free"
+            profile["plan"] = "pro"
+            print(len(profile))
+            print(profile["plan"])
+            ---
+            The first assignment adds the key `"plan"`, so the dict has 2 pairs. The second one finds that
+            key and replaces its value. The length stays 2, and the value is now `pro`.
+            ```
+
+            ### A typo makes a new pair
+
+            The key has to be spelled exactly as it is in the dict. Fix this program:
+
+            ```try
+            prefs = {"language": "en", "voice": "calm"}
+            prefs["Voice"] = "loud"
+            print(prefs)
+            ---
+            This should change the voice to `loud`. Because of a capital letter in the key, it adds a third pair instead. Fix the key so that the program prints `{'language': 'en', 'voice': 'loud'}`.
+            ---
+            prefs = {"language": "en", "voice": "calm"}
+            prefs["voice"] = "loud"
+            print(prefs)
+            ---
+            With the key spelled exactly as in the dict, the assignment found the pair and replaced its value.
+            ```
+
+            ### The dict itself changes
+
+            Like `append` on a list, this assignment changes the dict that is already there, in place. No
+            second dict is made. In the Lists chapter you saw that a parameter is a second name for the
+            caller's list, not a copy. The same is true of a dict:
+
+            ```quiz
+            What does this program print?
+
+            ~~~python
+            def turn_on(options):
+                options["stream"] = True
+
+            mine = {"stream": False}
+            turn_on(mine)
+            print(mine)
+            ~~~
+            - [x] `{'stream': True}` :: Right. Inside the function, `options` is a second name for the dict that `mine` names. The assignment changed that one dict.
+            - [ ] `{'stream': False}` :: That would be the output if the function had received a copy. It receives the dict itself.
+            - [ ] `None` :: `turn_on` hands back `None`, but the program prints `mine`, not the result of the call.
+            ```
+
+            A function that changes a dict in this way can also hand that same dict back with `return`, so
+            that the caller can go on working with it.
+
+            **Watch out:** a wrong key in an assignment is never an error. Python adds a pair under the
+            wrong key, and the value that you meant to change stays as it was.
+
+            **In short:** `d[key] = value` replaces the value when the key exists, and adds a new pair when
+            it does not.
         ''',
         "title": "Set the token limit",
         "difficulty": 0,
         "prompt": r'''
-            Before sending a request, an app sets the maximum number of tokens the model may
-            generate.
+            A model writes its answer piece by piece, in tokens, and a request can set the most tokens that
+            the answer may have. That setting is stored in the request's dict of settings, under the key
+            `"max_tokens"`.
 
-            **Write:** `set_max_tokens(config, limit)`
+            **Your job:** write `set_max_tokens(config, limit)`. It stores the limit in the dict that it is
+            given, and it gives that same dict back.
 
-            - `config`: a request config dict, e.g. `{"model": "gpt-4o"}`
-            - `limit`: an int, e.g. `256`
-            - **Returns:** the **same** `config` dict, after storing `limit` under the key
-              `"max_tokens"`
+            **What goes in**
+            - `config`: a dict of settings, for example `{"model": "gpt-4o"}`. The key `"max_tokens"` may
+              be in it already, or not.
+            - `limit`: a whole number, for example `256`
+
+            **What comes out**
+            - the dict that was passed in, which now has `limit` stored under the key `"max_tokens"`. For
+              the example values that is `{"model": "gpt-4o", "max_tokens": 256}`.
 
             **Rules**
-            - If `"max_tokens"` is missing, it is added; if it exists, its value is replaced.
-            - All other keys stay as they are.
-            - Change the dict you were given (in place) and return that same dict.
+            - When the dict has no key `"max_tokens"`, the pair is added.
+            - When the key is already there, its old value is replaced.
+            - All the other pairs stay as they are.
+            - What comes back is the very dict that was passed in, with the change made to it. It is not a
+              copy. A check tests this.
 
             **Examples**
             ```python
@@ -607,9 +766,9 @@ EXERCISES = [
                 return config
         ''',
         "hints": [
-            "Assigning to d[key] adds the key, or replaces its value if it already exists.",
-            "One line stores limit under the key max_tokens in config; a second line returns config.",
-            "Write config[\"max_tokens\"] = limit, then return config.",
+            "The lesson stores a value under a key with one assignment. Does that line need to know whether the key is already in the dict?",
+            "One assignment covers both cases: it adds the pair, or it replaces the value. Make it on the dict that was passed in, not on a copy, and then hand that dict back.",
+            "The body has two lines. The first is an assignment. On its left stands the dict, with the key from the task in square brackets, and on its right stands the limit. The second line hands the dict back with `return`.",
         ],
     },
     {
@@ -617,60 +776,112 @@ EXERCISES = [
         "lesson": r'''
             ## When a key might be missing
 
-            Reading a key that is not in the dict with square brackets raises `KeyError`, and
-            the program stops. This example raises the error on purpose.
+            Most users of your chat app never open the settings. For them, the dict of settings has no pair
+            for the reply language at all. Your code asks for it anyway, and this happens:
 
             ```python
-            request = {"model": "gpt-4o", "max_tokens": 0}
-            print(request["top_p"])
-            # KeyError: 'top_p'
+            settings = {"theme": "dark"}
+            print(settings["language"])
+            # KeyError: 'language'
             ```
 
-            API data often has optional keys. `d.get(key, default)` reads a key without
-            raising an error. It returns the stored value when the key exists. It returns
-            `default` when the key is missing. The second value is called the
-            **default value**.
+            Square brackets insist that the key exists. When it does not, Python stops the program, and the
+            message `KeyError: 'language'` names the key that it could not find. (This example stops with
+            the error on purpose.)
+
+            ### Ask first
+
+            You know `in` from lists. On a dict, it asks whether a key exists:
 
             ```python
-            request = {"model": "gpt-4o", "max_tokens": 0}
-            print(request.get("max_tokens", 256))
-            # 0
-            print(request.get("top_p", 0.9))
-            # 0.9
-            print(request.get("top_p"))
-            # None
-            print("top_p" in request)
+            settings = {"theme": "dark"}
+            print("theme" in settings)
+            # True
+            print("language" in settings)
+            # False
+            print("dark" in settings)
             # False
             ```
 
-            The first line prints `0`. The key `"max_tokens"` exists, so `.get` returns its
-            value and ignores the default. With no default, `.get` returns `None` for a
-            missing key. `key in d` is `True` when the key exists and `False` when it does not.
+            The last line is `False` because, on a dict, `in` looks at the keys and never at the values.
 
-            `d.get(key) or default` is not the same. `or` returns its right side whenever
-            the left side is falsy, such as `0`, `""`, `False` or `None`, so a stored `0`
-            is lost.
+            With `in` and an `if` you could choose a fallback for a missing key. That takes four lines for
+            one value, so dicts offer a shorter way.
+
+            ### Read with a fallback
+
+            You met `.get` in the first step of this chapter. Its second argument is the value to hand back
+            when the key is missing:
 
             ```python
-            request = {"model": "gpt-4o", "max_tokens": 0}
-            print(request.get("max_tokens") or 256)
-            # 256
+            settings = {"theme": "dark", "volume": 0}
+            print(settings.get("language", "en"))
+            # en
+            print(settings.get("volume", 5))
+            # 0
             ```
+
+            `"language"` is missing, so `.get` hands back `"en"`. `"volume"` is there, so `.get` hands back
+            the stored value and ignores the 5. That the stored value is 0 makes no difference, because
+            `.get` only asks whether the key exists. The second argument is called the **default value**,
+            or the **default** for short.
+
+            Pick the line that makes this program print `free`:
+
+            ```fill
+            user = {"name": "Ada"}
+            print(___)
+            ---
+            - [x] user.get("plan", "free") :: Right. The dict has no key `"plan"`, so `.get` hands back the default.
+            - [ ] user["plan"] :: Square brackets need the key to exist. Python stops with `KeyError: 'plan'`.
+            - [ ] user.get("plan") :: With no second argument, `.get` hands back `None` for a missing key, so the program prints `None`.
+            ```
+
+            ### Not the same as `or`
+
+            In the Conditionals chapter you wrote a fallback as `value or fallback`. Here it does not do the
+            same job:
+
+            ```predict
+            limits = {"retries": 0}
+            print(limits.get("retries", 3))
+            print(limits.get("retries") or 3)
+            print(limits.get("timeout", 30))
+            ---
+            The key `"retries"` exists, so the first line prints the stored 0. In the second line `.get`
+            finds that 0 as well, but 0 is falsy, so `or` drops it and hands back 3. The key `"timeout"` is
+            missing, so the third line prints the default, 30.
+            ```
+
+            **Watch out:** `d.get(key) or default` replaces every falsy value, such as `0`, `""` and
+            `False`, even when it was stored on purpose. `d.get(key, default)` uses the default only when
+            the key is missing.
+
+            **In short:** `d[key]` stops with a `KeyError` when the key is missing, and
+            `d.get(key, default)` hands back the default.
         ''',
         "title": "Fix the missing key crash",
         "difficulty": 0,
         "prompt": r'''
-            Read the temperature from a model config, with a fallback. The starter crashes
-            with `KeyError` when the key is missing. Fix the bug.
+            A setting called the temperature steers how much a model varies its answers. A request may set
+            it. When a request does not, the model works with a temperature of `1.0`. The function below
+            should read the temperature from a dict of settings. It works when the key is there. When the
+            key is missing, it stops with a `KeyError`.
 
-            **Write:** `get_temperature(config)`
+            **Your job:** fix `get_temperature(config)` so that a dict without a temperature gives `1.0`.
+            The code is already in the editor.
 
-            - `config`: a dict, e.g. `{"temperature": 0.2}` or `{"model": "gpt-4o"}`
-            - **Returns:** the value under `"temperature"`, or `1.0` if that key is missing
+            **What goes in**
+            - `config`: a dict of settings, for example `{"temperature": 0.2}` or `{"model": "gpt-4o"}`.
+              The key `"temperature"` may be in it, or not.
+
+            **What comes out**
+            - the value that is stored under `"temperature"`, or `1.0` when the dict has no such key
 
             **Rules**
-            - If the key is present, return its value as is - even when it is `0`.
-            - If the key is missing, return `1.0` (don't crash).
+            - When the key is there, its value comes back as it is. That holds for `0` as well. A
+              temperature of 0 is a real setting, and it must not turn into `1.0`.
+            - When the key is missing, the result is `1.0`, and there is no error.
 
             **Examples**
             ```python
@@ -703,94 +914,123 @@ EXERCISES = [
                 return config.get("temperature", 1.0)
         ''',
         "hints": [
-            "Square brackets crash on a missing key. Dicts have a method that does not.",
-            "Use the method that takes a key and a default value to return when the key is missing.",
-            "Return config.get(\"temperature\", 1.0) instead of the square-bracket lookup.",
+            "Square brackets stop the program when the key is missing. Which way of reading in the lesson does not?",
+            "Read the key with the method that takes a second argument: the value to hand back when the key is not in the dict. Do not build the fallback with `or`, because that would replace a stored 0 as well.",
+            "Keep the `return`. After it, replace the lookup in square brackets with a call of that method on the dict. The first argument is the key, and the second argument is the fallback that the task names.",
         ],
     },
     {
         "id": "dicts-s5",
         "lesson": r'''
-            ## Looping over a dict
+            ## Going through every pair
 
-            `d.items()` gives each key together with its value. A `for` loop with two names
-            assigns the key to the first name and the value to the second, as `enumerate` did
-            with an index and an item.
+            At the end of the month your app prints a bill: one line for each model, with the number of
+            tokens that it used. The numbers are in a dict, with the names of the models as keys. A `for`
+            loop visits every item of a list, and it can go through a dict as well.
 
             ```python
-            usage = {"prompt_tokens": 12, "completion_tokens": 3}
-            total = 0
-            for key, value in usage.items():
-                print(f"{key}: {value}")
-                total = total + value
-            print(total)
-            # prompt_tokens: 12
-            # completion_tokens: 3
-            # 15
+            tokens = {"mini": 1200, "large": 300}
+            for name in tokens:
+                print(name)
+            # mini
+            # large
             ```
 
-            The pairs come in the order they were added to the dict. Step through the loop
-            and watch `key` and `value` change on each pass.
+            A loop over a dict gives you the keys, one per iteration, in the order in which the pairs were
+            added. With the key you could look up the value in the body, as `tokens[name]`.
+
+            ### The key and the value together
+
+            Most of the time you want both. `tokens.items()` hands the loop one pair per iteration: a key
+            and its value. Two loop variables unpack that pair, the way they did with `enumerate` in the
+            Loops chapter. The first one gets the key and the second one gets the value.
+
+            ```python
+            tokens = {"mini": 1200, "large": 300}
+            total = 0
+            for name, count in tokens.items():
+                print(f"{name}: {count}")
+                total += count
+            print(total)
+            # mini: 1200
+            # large: 300
+            # 1500
+            ```
+
+            Press Next and watch `name` and `count` change on each iteration:
 
             ```diagram
-            {"type": "trace", "title": "Looping over usage.items()", "code": ["usage = {\"prompt_tokens\": 12, \"completion_tokens\": 3}", "total = 0", "for key, value in usage.items():", "    print(f\"{key}: {value}\")", "    total = total + value", "print(total)"], "steps": [
+            {"type": "trace", "title": "Looping over tokens.items()", "code": ["tokens = {\"mini\": 1200, \"large\": 300}", "total = 0", "for name, count in tokens.items():", "    print(f\"{name}: {count}\")", "    total += count", "print(total)"], "steps": [
               {"line": 1, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"usage": "{'prompt_tokens': 12, 'completion_tokens': 3}"}, "out": ""},
-              {"line": 3, "vars": {"usage": "{'prompt_tokens': 12, 'completion_tokens': 3}", "total": "0"}, "out": ""},
-              {"line": 4, "vars": {"usage": "{'prompt_tokens': 12, 'completion_tokens': 3}", "total": "0", "key": "'prompt_tokens'", "value": "12"}, "out": ""},
-              {"line": 5, "vars": {"usage": "{'prompt_tokens': 12, 'completion_tokens': 3}", "total": "0", "key": "'prompt_tokens'", "value": "12"}, "out": "prompt_tokens: 12\n"},
-              {"line": 3, "vars": {"usage": "{'prompt_tokens': 12, 'completion_tokens': 3}", "total": "12", "key": "'prompt_tokens'", "value": "12"}, "out": "prompt_tokens: 12\n"},
-              {"line": 4, "vars": {"usage": "{'prompt_tokens': 12, 'completion_tokens': 3}", "total": "12", "key": "'completion_tokens'", "value": "3"}, "out": "prompt_tokens: 12\n"},
-              {"line": 5, "vars": {"usage": "{'prompt_tokens': 12, 'completion_tokens': 3}", "total": "12", "key": "'completion_tokens'", "value": "3"}, "out": "prompt_tokens: 12\ncompletion_tokens: 3\n"},
-              {"line": 3, "vars": {"usage": "{'prompt_tokens': 12, 'completion_tokens': 3}", "total": "15", "key": "'completion_tokens'", "value": "3"}, "out": "prompt_tokens: 12\ncompletion_tokens: 3\n"},
-              {"line": 6, "vars": {"usage": "{'prompt_tokens': 12, 'completion_tokens': 3}", "total": "15", "key": "'completion_tokens'", "value": "3"}, "out": "prompt_tokens: 12\ncompletion_tokens: 3\n"},
-              {"line": null, "vars": {"usage": "{'prompt_tokens': 12, 'completion_tokens': 3}", "total": "15", "key": "'completion_tokens'", "value": "3"}, "out": "prompt_tokens: 12\ncompletion_tokens: 3\n15\n"}
+              {"line": 2, "vars": {"tokens": "{'mini': 1200, 'large': 300}"}, "out": ""},
+              {"line": 3, "vars": {"tokens": "{'mini': 1200, 'large': 300}", "total": "0"}, "out": ""},
+              {"line": 4, "vars": {"tokens": "{'mini': 1200, 'large': 300}", "total": "0", "name": "'mini'", "count": "1200"}, "out": ""},
+              {"line": 5, "vars": {"tokens": "{'mini': 1200, 'large': 300}", "total": "0", "name": "'mini'", "count": "1200"}, "out": "mini: 1200\n"},
+              {"line": 3, "vars": {"tokens": "{'mini': 1200, 'large': 300}", "total": "1200", "name": "'mini'", "count": "1200"}, "out": "mini: 1200\n"},
+              {"line": 4, "vars": {"tokens": "{'mini': 1200, 'large': 300}", "total": "1200", "name": "'large'", "count": "300"}, "out": "mini: 1200\n"},
+              {"line": 5, "vars": {"tokens": "{'mini': 1200, 'large': 300}", "total": "1200", "name": "'large'", "count": "300"}, "out": "mini: 1200\nlarge: 300\n"},
+              {"line": 3, "vars": {"tokens": "{'mini': 1200, 'large': 300}", "total": "1500", "name": "'large'", "count": "300"}, "out": "mini: 1200\nlarge: 300\n"},
+              {"line": 6, "vars": {"tokens": "{'mini': 1200, 'large': 300}", "total": "1500", "name": "'large'", "count": "300"}, "out": "mini: 1200\nlarge: 300\n"},
+              {"line": null, "vars": {"tokens": "{'mini': 1200, 'large': 300}", "total": "1500", "name": "'large'", "count": "300"}, "out": "mini: 1200\nlarge: 300\n1500\n"}
             ]}
             ```
 
-            Looping over the dict itself gives only the keys. `d.values()` gives only the
-            values.
+            The body is an ordinary loop body, so the accumulators from the Loops chapter work in it. The
+            next program should print `['pads']`, the list of the things that have run out. Put its lines in
+            order:
 
-            ```python
-            usage = {"prompt_tokens": 12, "completion_tokens": 3}
-            for key in usage:
-                print(key)
-            # prompt_tokens
-            # completion_tokens
-            print(list(usage.values()))
-            # [12, 3]
+            ```order
+            stock = {"pens": 4, "pads": 0}
+            empty = []
+            for item, count in stock.items():
+                if count == 0:
+                    empty.append(item)
+            print(empty)
+            ---
+            The dict and the empty list have to exist before the loop. The `if` stands in the body, so it is checked for every pair, and the `append` under it runs only for a count of 0. The `print` comes after the loop.
             ```
 
-            `.items()`, `.keys()` and `.values()` each return a **view**: an object that
-            shows the current contents of the dict and that you can loop over.
+            There is a third way to loop. `tokens.values()` gives the values alone, without the keys.
 
-            `for key, value in usage:` without `.items()` raises an error. Each item is then
-            one key string, and Python tries to unpack the characters of that string into
-            the two names. The key has more than two characters, so the unpacking fails.
-            This example raises the error on purpose.
-
-            ```python
-            usage = {"prompt_tokens": 12, "completion_tokens": 3}
-            for key, value in usage:
-                print(key, value)
-            # ValueError: too many values to unpack (expected 2)
+            ```predict
+            ages = {"Ada": 36, "Bo": 41}
+            for x in ages:
+                print(x)
+            for x in ages.values():
+                print(x)
+            ---
+            A loop over the dict itself gives the keys, so the first loop prints `Ada` and `Bo`. `.values()`
+            gives only the values, so the second loop prints 36 and 41.
             ```
+
+            **Watch out:** without `.items()`, the loop gets only a key. `for name, count in tokens:` stops
+            with `ValueError: too many values to unpack (expected 2)`, because Python tries to split the
+            characters of the key `"mini"` between the two variables.
+
+            **In short:** `for key, value in d.items():` runs its body once for each pair, with the key and
+            the value in two loop variables.
         ''',
         "title": "Config as lines",
         "difficulty": 0,
         "prompt": r'''
-            Turn a model config into printable lines, e.g. for a log file.
+            When a call to a model goes wrong, it helps to see the settings that were sent with it. Programs
+            write such notes into a log, a plain text file in which they record what they did. For the log,
+            each setting becomes one short piece of text of the form `key=value`.
 
-            **Write:** `config_lines(config)`
+            **Your job:** write `config_lines(config)` so that it gives back those pieces of text as a list.
 
-            - `config`: a dict, e.g. `{"model": "gpt-4o", "temperature": 0.7}`
-            - **Returns:** a list of strings, one `"key=value"` string per key-value pair
+            **What goes in**
+            - `config`: a dict of settings, for example `{"model": "gpt-4o", "temperature": 0.7}`. It may
+              be empty.
+
+            **What comes out**
+            - a list of strings, one for each pair of the dict: `["model=gpt-4o", "temperature=0.7"]` for
+              the example value
 
             **Rules**
-            - Each string is the key, then `=`, then the value - no spaces.
-            - The strings are in the same order as the keys in the dict.
-            - An empty dict gives an empty list `[]`.
-            - Tip: loop over `config.items()` to get each key and value together.
+            - Each string is the key, then the sign `=`, then the value. There are no spaces around the `=`.
+            - The strings stand in the same order as the pairs in the dict.
+            - An empty dict gives the empty list `[]`.
 
             **Examples**
             ```python
@@ -826,57 +1066,49 @@ EXERCISES = [
                 return lines
         ''',
         "hints": [
-            ".items() gives you each key and its value together in a for loop.",
-            "Start an empty list, and for every pair add one f-string made of the key, an equals sign and the value.",
-            "Set lines = []. Loop for key, value in config.items(): append f\"{key}={value}\". Return lines after the loop.",
+            "The lesson shows a loop that gives you the key and the value of each pair together. How does a list grow inside a loop?",
+            "Start with an empty list. For every pair of the dict, build one string from the key, the `=` sign and the value, and add that string to the list.",
+            "Create the empty list before the loop. Loop over the pairs of the dict with two loop variables. In the body, append an f-string that holds the key, then `=`, then the value, with each of the two in curly braces. After the loop, hand the list back.",
         ],
     },
     {
         "id": "dicts-7",
         "lesson": r'''
-            ## Nested data
+            ## Follow a path to the value you need
 
-            A dict value can be a list, and a list item can be another dict. Data with dicts
-            and lists inside each other is called **nested data**. API responses have this
-            shape.
+            A tool returns more than one piece of information: its name, a result, and perhaps a list of sources. You want one source title, but the outer dictionary does not have a title key. You need to open the containers in order.
 
             ```python
-            result = {
-                "model": "claude",
-                "usage": {"input_tokens": 12, "output_tokens": 3},
-                "tool_calls": [{"name": "search"}, {"name": "weather"}],
-            }
-            usage = result["usage"]
-            print(usage)
-            # {'input_tokens': 12, 'output_tokens': 3}
-            print(usage["output_tokens"])
-            # 3
+            result = {"sources": [{"title": "Guide"}, {"title": "FAQ"}]}
+            sources = result["sources"]
+            first = sources[0]
+            print(first["title"])
+            # Guide
             ```
 
-            `result["usage"]` returns the inner dict. A second lookup on that dict returns
-            the number. You can write both lookups in one expression. Python evaluates the
-            brackets from left to right, and each bracket reads from the value the previous
-            one returned.
+            The first lookup gives you a list. Position zero gives you a dictionary inside that list. Only then can you read its title. Dictionaries and lists inside other containers are called **nested data**. At each step, ask what kind of value you have now: a list needs a number; a dictionary needs a key.
 
-            ```python
-            result = {
-                "model": "claude",
-                "usage": {"input_tokens": 12, "output_tokens": 3},
-                "tool_calls": [{"name": "search"}, {"name": "weather"}],
-            }
-            print(result["usage"]["output_tokens"])
-            # 3
-            print(result["tool_calls"][1]["name"])
-            # weather
+            ```fill
+            result = {"sources": [{"title": "Guide"}, {"title": "FAQ"}]}
+            print(result["sources"][___]["title"])
+            ---
+            - [x] 1 :: Position one selects the second source, whose title is FAQ.
+            - [ ] 0 :: Position zero selects Guide instead.
+            - [ ] "title" :: This part is still a list, so a text key cannot select an item.
             ```
 
-            In the last line, `result["tool_calls"]` returns a list, `[1]` returns its second
-            item, which is a dict, and `["name"]` returns the value under that dict's key
-            `"name"`.
+            You can put the brackets next to each other, because each lookup uses the value returned by the preceding one. This saves names but does not change the order of the work. When a longer path is confusing, split it into separate assignments again and print the intermediate values.
 
-            Use a whole number in the brackets for a list and a key for a dict. When a
-            chained lookup raises an error, split it into separate lines and `print` each
-            intermediate value to find the level that fails.
+            ```predict
+            record = {"stats": {"pages": 6}}
+            print(record["stats"]["pages"])
+            ---
+            The outer lookup selects a dictionary. The inner lookup selects its page count.
+            ```
+
+            **Watch out:** `TypeError: list indices must be integers or slices, not str` means you tried a dictionary-style key while still looking at a list.
+
+            The useful habit is to follow the data one container at a time.
         ''',
         "title": "Reply text from a response",
         "difficulty": 1,
@@ -892,11 +1124,14 @@ EXERCISES = [
             }
             ```
 
-            **Write:** `reply_text(response)`
+            **Your job:** write `reply_text(response)`
 
+            **What goes in**
             - `response`: a dict shaped like the one above. It always has a `"choices"` list
               with at least one item, and each item has a `"message"` dict with a `"content"`.
-            - **Returns:** the `"content"` string of the message in the **first** choice
+
+            **What comes out**
+            - the `"content"` string of the message in the **first** choice
 
             **Rules**
             - If there are several choices, use only the first one.
@@ -908,6 +1143,8 @@ EXERCISES = [
             reply_text({"choices": [{"message": {"content": "A"}}, {"message": {"content": "B"}}]})
             # returns "A"
             ```
+
+            An empty content string is returned as an empty string; do not replace it with a default.
         ''',
         "starter": r'''
             def reply_text(response):
@@ -942,55 +1179,55 @@ EXERCISES = [
                 return response["choices"][0]["message"]["content"]
         ''',
         "hints": [
-            "Chain lookups from the outside in: a key, then a list position, then keys again.",
-            "Get the choices list, take its first item, then that item's message, then the message's content.",
-            "Return response[\"choices\"][0][\"message\"][\"content\"].",
+            "Look at the type of container at each level of the response.",
+            "Find the list of choices, then the message belonging to its first item.",
+            "Read the content from that message and give it back unchanged, including an empty string.",
         ],
     },
     {
         "id": "dicts-1",
         "lesson": r'''
-            ## Merging two dicts
+            ## Combine defaults with one request's choices
 
-            The `|` operator between two dicts is the **merge operator**. `a | b` builds a
-            new dict that contains the pairs of `a` and the pairs of `b`.
-
-            ```python
-            base = {"model": "claude", "top_p": 0.9}
-            extra = {"top_p": 0.5, "seed": 42}
-            merged = base | extra
-            print(merged)
-            # {'model': 'claude', 'top_p': 0.5, 'seed': 42}
-            print(base)
-            # {'model': 'claude', 'top_p': 0.9}
-            print(extra)
-            # {'top_p': 0.5, 'seed': 42}
-            ```
-
-            Python copies the pairs of the left dict into the new dict, then stores the
-            pairs of the right dict in it. That gives three rules:
-
-            - A key that is in only one of the dicts is kept.
-            - A key that is in both dicts gets the value from the right-hand dict.
-            - Neither `base` nor `extra` is changed.
-
-            `d.update(other)` does the same merge **in place**: it stores the pairs of
-            `other` in `d` itself and builds no new dict.
+            Most requests use the same settings, but one caller wants a different limit. You need a combined dictionary for that request while keeping the defaults ready for the next caller. Changing the defaults themselves would let one request affect another.
 
             ```python
-            base = {"model": "claude", "top_p": 0.9}
-            base.update({"top_p": 0.5})
-            print(base)
-            # {'model': 'claude', 'top_p': 0.5}
+            usual = {"limit": 20, "language": "en"}
+            chosen = {"limit": 5, "trace": True}
+            request = usual | chosen
+            print(request)
+            # {'limit': 5, 'language': 'en', 'trace': True}
+            print(usual)
+            # {'limit': 20, 'language': 'en'}
             ```
 
-            After `base.update(...)`, the original values of `base` are gone for all code
-            that uses `base` later. Use `|` when the original dict must stay as it is.
+            The vertical bar combines pairs into a new dictionary. This is the dictionary **merge operator**. Both dictionaries contribute their keys. When they share a key, the value on the right wins. A zero or `False` is still a real replacement value; merging does not skip it.
+
+            ```predict
+            left = {"enabled": True, "limit": 8}
+            right = {"enabled": False}
+            print((left | right)["enabled"])
+            print(left["enabled"])
+            ---
+            The combined dictionary takes False from the right. The original left dictionary still contains True.
+            ```
+
+            Earlier you changed individual values using assignment. The method `update` changes an existing dictionary with several pairs at once. That is a change **in place**, meaning the original object changes. Use it only when later code should see the edited dictionary.
+
+            ```quiz
+            Which operation protects the original defaults?
+            - [x] Build a new dictionary with the request's choices on the right. :: The new dictionary receives the replacements while the defaults stay available.
+            - [ ] Update the defaults themselves for each request. :: The changed settings would remain for later callers.
+            ```
+
+            **Watch out:** reversing the dictionaries makes the defaults win. The program may run without an error but quietly ignore the caller's choices.
+
+            Keep the shared defaults unchanged and give each request its own combined settings.
         ''',
         "hints": [
-            'There is an operator that merges two dicts into a brand-new one.',
-            'Merge the defaults with the overrides so that the overrides win on shared keys, without changing either dict.',
-            'Return DEFAULTS | overrides - the right-hand dict wins and a new dict is created. (A copy of DEFAULTS followed by .update(overrides) also works.)',
+            "Remember which side wins when dictionaries are merged.",
+            "Combine the shared settings and request choices into a separate dictionary.",
+            "Keep every default unless the caller supplies the same key; add new keys and return the combined result without editing either input.",
         ],
         "title": "Request defaults",
         "difficulty": 1,
@@ -1002,10 +1239,13 @@ EXERCISES = [
             DEFAULTS = {"model": "gpt-4o-mini", "temperature": 0.7, "max_tokens": 256}
             ```
 
-            **Write:** `build_request(overrides)`
+            **Your job:** write `build_request(overrides)`
 
+            **What goes in**
             - `overrides`: a dict of settings to change or add, e.g. `{"temperature": 0}`
-            - **Returns:** a **new** dict: all of `DEFAULTS`, with the `overrides` applied
+
+            **What comes out**
+            - a **new** dict: all of `DEFAULTS`, with the `overrides` applied
 
             **Rules**
             - A key in `overrides` replaces the default value, even when the new value is
@@ -1070,44 +1310,39 @@ EXERCISES = [
     {
         "id": "dicts-8",
         "lesson": r'''
-            ## Removing a key (and reading the docs)
+            ## Remove a value without damaging the original
 
-            `del d[key]` removes the pair with that key from the dict `d`. It changes the dict
-            in place.
-
-            To keep the original dict unchanged, remove the key from a copy. As with lists,
-            `b = a` does not copy: both names refer to the same dict object. `a.copy()`
-            returns a new dict with the same pairs.
+            You want to display a request's settings in a log, but one field contains a secret. The request still needs that field. You therefore need two dictionaries: the original for the request and a cleaned version for the log.
 
             ```python
-            headers = {"user": "ana", "token": "abc123"}
-            safe = headers.copy()
-            del safe["token"]
-            print(safe)
-            # {'user': 'ana'}
-            print(headers)
-            # {'user': 'ana', 'token': 'abc123'}
+            account = {"name": "Mina", "password": "private"}
+            public = account.copy()
+            del public["password"]
+            print(public)
+            # {'name': 'Mina'}
+            print("password" in account)
+            # True
             ```
 
-            `safe` lost the key and `headers` still has it, because they are two dict
-            objects.
+            Remember that assigning another name to a dictionary does not copy it. The `copy` method creates a new outer dictionary. Deleting a pair from that copy leaves the original pair alone. This is a **shallow copy**: values inside the dictionary are still shared objects, so this technique alone does not isolate changes inside nested lists or dictionaries.
 
-            `.copy()` makes a **shallow copy**: a new outer dict whose values are the same
-            objects as in the original. A list or dict stored as a value is not copied. For
-            a flat dict of strings and numbers, such as this one, that makes no difference.
-
-            Like `d[key]`, `del d[key]` raises `KeyError` when the key is missing. This
-            example raises the error on purpose.
-
-            ```python
-            headers = {"user": "ana"}
-            del headers["token"]
-            # KeyError: 'token'
+            ```quiz
+            Why would assigning `public = account` be a problem here?
+            - [x] Both names would refer to the same dictionary. :: Deleting through either name would remove the original pair too.
+            - [ ] Assignment would turn the dictionary into text. :: Assignment gives an object another name; it does not convert it.
             ```
 
-            Dicts have a method that removes a key and lets you choose what it returns when
-            the key is missing, so no error is raised. Open the dict methods in the Python
-            docs (linked above), find it, and read what its second argument does.
+            There is another detail to plan for: some requests may not contain the secret field at all. A plain deletion expects the key to exist. The dictionary documentation lists a removal method with an optional default for a missing key. Read that entry and check what the method returns as well as what it changes.
+
+            ```match
+            `copy()` :: makes a separate outer dictionary
+            `del d[key]` :: removes an existing pair
+            `key in d` :: checks whether a key exists
+            ```
+
+            **Watch out:** deleting an absent key raises `KeyError`. Decide how missing keys should behave before you choose the removal operation.
+
+            Make a copy first when the original must keep its values.
         ''',
         "title": "Strip a secret before logging",
         "difficulty": 1,
@@ -1122,11 +1357,14 @@ EXERCISES = [
             Request configs are logged for debugging, but secrets such as API keys must never
             end up in the logs.
 
-            **Write:** `without_key(config, key)`
+            **Your job:** write `without_key(config, key)`
 
+            **What goes in**
             - `config`: a flat dict, e.g. `{"model": "gpt-4o", "api_key": "sk-123"}`
             - `key`: the key to leave out, a string, e.g. `"api_key"`
-            - **Returns:** a **new** dict with every pair of `config` except `key`
+
+            **What comes out**
+            - a **new** dict with every pair of `config` except `key`
 
             **Rules**
             - If `key` is not in `config`, return a copy equal to `config` (no error).
@@ -1175,79 +1413,71 @@ EXERCISES = [
                 return clean
         ''',
         "hints": [
-            "Work on a copy of the dict, and look for a removing method that accepts a default.",
-            "Copy config first. Then remove key from the copy in a way that does nothing when the key is missing. Return the copy.",
-            "clean = config.copy(); call clean.pop(key, None) - the None default avoids the KeyError; return clean.",
+            "The real request must keep its secret; think about dictionary copies.",
+            "Remove the requested key from a separate dictionary, allowing the key to be absent.",
+            "Copy the input, use a removal operation with a missing-key fallback, and return the copy.",
         ],
     },
     {
         "id": "dicts-2",
         "lesson": r'''
-            ## Counting with a dict
+            ## Keep a separate count for each name
 
-            To count how often each value appears in a list, use a dict. Each key is one of
-            the values, and the value stored under it is the count so far. This is the
-            **counting pattern**.
+            A log lists which tools were used, including repeated names. A single total tells you how many calls happened, but you also want a count for each tool. You do not know every possible tool name in advance.
 
             ```python
-            tools_called = ["search", "weather", "search"]
-            counts = {}
-            for tool in tools_called:
-                counts[tool] = counts.get(tool, 0) + 1
-            print(counts)
-            # {'search': 2, 'weather': 1}
+            names = ["lookup", "save", "lookup"]
+            seen = {}
+            for name in names:
+                previous = seen.get(name, 0)
+                seen[name] = previous + 1
+            print(seen)
+            # {'lookup': 2, 'save': 1}
             ```
 
-            On each pass, Python evaluates the right side first. `counts.get(tool, 0)` returns
-            the current count, or `0` when `tool` is not a key yet. Python adds 1 and stores
-            the result under `tool`. The first `"search"` adds the key with the value 1. The
-            second `"search"` replaces that value with 2.
+            The dictionary stores one running total per name. Each pass reads that name's previous total, adds one, and saves it under the same key. The default zero handles the first appearance, when there is no pair yet. This is a **counting pattern**, combining the accumulator from the loops chapter with dictionary lookups.
 
-            Step through the loop and watch `counts` change.
-
-            ```diagram
-            {"type": "trace", "title": "Counting tool calls with a dict", "code": ["tools_called = [\"search\", \"weather\", \"search\"]", "counts = {}", "for tool in tools_called:", "    counts[tool] = counts.get(tool, 0) + 1", "print(counts)"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"tools_called": "['search', 'weather', 'search']"}, "out": ""},
-              {"line": 3, "vars": {"tools_called": "['search', 'weather', 'search']", "counts": "{}"}, "out": ""},
-              {"line": 4, "vars": {"tools_called": "['search', 'weather', 'search']", "counts": "{}", "tool": "'search'"}, "out": ""},
-              {"line": 3, "vars": {"tools_called": "['search', 'weather', 'search']", "counts": "{'search': 1}", "tool": "'search'"}, "out": ""},
-              {"line": 4, "vars": {"tools_called": "['search', 'weather', 'search']", "counts": "{'search': 1}", "tool": "'weather'"}, "out": ""},
-              {"line": 3, "vars": {"tools_called": "['search', 'weather', 'search']", "counts": "{'search': 1, 'weather': 1}", "tool": "'weather'"}, "out": ""},
-              {"line": 4, "vars": {"tools_called": "['search', 'weather', 'search']", "counts": "{'search': 1, 'weather': 1}", "tool": "'search'"}, "out": ""},
-              {"line": 3, "vars": {"tools_called": "['search', 'weather', 'search']", "counts": "{'search': 2, 'weather': 1}", "tool": "'search'"}, "out": ""},
-              {"line": 5, "vars": {"tools_called": "['search', 'weather', 'search']", "counts": "{'search': 2, 'weather': 1}", "tool": "'search'"}, "out": ""},
-              {"line": null, "vars": {"tools_called": "['search', 'weather', 'search']", "counts": "{'search': 2, 'weather': 1}", "tool": "'search'"}, "out": "{'search': 2, 'weather': 1}\n"}
-            ]}
+            ```fill
+            seen = {"lookup": 2}
+            print(seen.get("save", ___) + 1)
+            ---
+            - [x] 0 :: A name never seen before starts at zero, so its first appearance makes one.
+            - [ ] 1 :: Starting at one would count an appearance that never happened.
+            - [ ] None :: None cannot be added to a number.
             ```
 
-            In the loops chapter, `total = 0` was one accumulator. Here the dict holds one
-            accumulator per key.
+            Notice that the dictionary starts empty. Only names actually encountered become keys. With an empty input, the loop does no work and the dictionary stays empty. You do not need to invent zero entries for names that were never used.
 
-            `counts[tool] += 1` without `.get` raises `KeyError` the first time a tool
-            appears, because Python must read `counts[tool]` before the key exists. This
-            example raises the error on purpose.
-
-            ```python
-            counts = {}
-            counts["search"] += 1
-            # KeyError: 'search'
+            ```predict
+            seen = {"lookup": 2}
+            seen["lookup"] = seen.get("lookup", 0) + 1
+            print(len(seen))
+            print(seen["lookup"])
+            ---
+            Updating an existing key keeps one pair. Its stored count becomes three.
             ```
+
+            **Watch out:** increasing a missing key directly raises `KeyError`, because Python must read the old count before it can add to it.
+
+            Each appearance increases exactly one name's stored count.
         ''',
         "hints": [
-            'This is the counting pattern from the lesson: an empty dict plus .get(key, 0) + 1.',
-            "Go through the messages; for each one, read its role and add 1 to that role's count.",
-            'Set counts = {}. For each message: role = message["role"]; counts[role] = counts.get(role, 0) + 1. Return counts after the loop.',
+            "You need one running count for each role name.",
+            "For each message, increase the count stored under its role, starting unseen roles at zero.",
+            "Begin with an empty dictionary, visit every message, update the appropriate count, and return the dictionary after all messages.",
         ],
         "title": "Count roles",
         "difficulty": 1,
         "prompt": r'''
             Count who said what in a chat history.
 
-            **Write:** `count_roles(messages)`
+            **Your job:** write `count_roles(messages)`
 
+            **What goes in**
             - `messages`: a list of message dicts like `{"role": "user", "content": "hi"}`
-            - **Returns:** a dict mapping each role (string) to how many messages have that
+
+            **What comes out**
+            - a dict mapping each role (string) to how many messages have that
               role (int), e.g. `{"system": 1, "user": 2}`
 
             **Rules**
@@ -1306,9 +1536,9 @@ EXERCISES = [
     {
         "id": "dicts-3",
         "hints": [
-            'Use .get() with a default for every part that might be missing, and chain lookups for nested data.',
-            'Get the choices list (empty if missing); if it has items, read text and finish_reason from the first. Get the usage dict (empty if missing) and add both counts with a default of 0.',
-            'choices = response.get("choices") or []. Start text and finish_reason as None; if choices, read choices[0]["message"]["content"] and choices[0]["finish_reason"]. usage = response.get("usage", {}); total = usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0). Return the three-key dict.',
+            "Separate the reply fields from the usage fields; they have different missing-data rules.",
+            "Only read the first choice when one exists, and treat each absent usage count as zero.",
+            "Prepare the two empty reply values, replace them when a first choice is available, total the usage counts, and return the three named fields.",
         ],
         "title": "Read an API response",
         "difficulty": 2,
@@ -1327,10 +1557,13 @@ EXERCISES = [
             }
             ```
 
-            **Write:** `summarize(response)`
+            **Your job:** write `summarize(response)`
 
+            **What goes in**
             - `response`: a dict shaped like the one above (parts may be missing, see Rules)
-            - **Returns:** a new dict with exactly three keys:
+
+            **What comes out**
+            - a new dict with exactly three keys:
               `{"text": ..., "finish_reason": ..., "total_tokens": ...}`
 
             **Rules**
@@ -1410,9 +1643,9 @@ EXERCISES = [
     {
         "id": "dicts-4",
         "hints": [
-            'Build a dict of lists: one list per source, created the first time the source is seen.',
-            "For each chunk, make sure its source has a list in the result, then append the chunk's text to that list.",
-            'groups = {}. For each chunk: if the source is not in groups, set groups[source] = []. Then append chunk["text"] to groups[source]. (.setdefault(source, []) does both in one call.) Return groups.',
+            "Each source needs its own growing list of text.",
+            "Create a new list when a source first appears, then keep adding its text in input order.",
+            "Start with an empty dictionary, visit the chunks in order, create only missing groups, append every text including duplicates, and return the groups.",
         ],
         "title": "Group chunks by source",
         "difficulty": 2,
@@ -1420,10 +1653,13 @@ EXERCISES = [
             In a RAG app, retrieved chunks arrive as one flat list. Group them by the
             document they came from.
 
-            **Write:** `group_by_source(chunks)`
+            **Your job:** write `group_by_source(chunks)`
 
+            **What goes in**
             - `chunks`: a list of dicts like `{"source": "a.pdf", "text": "intro"}`
-            - **Returns:** a dict mapping each source (string) to a **list of its texts**
+
+            **What comes out**
+            - a dict mapping each source (string) to a **list of its texts**
 
             **Rules**
             - Inside each list, texts keep the order they had in `chunks`.
@@ -1490,9 +1726,9 @@ EXERCISES = [
     {
         "id": "dicts-5",
         "hints": [
-            "Loop over override.items(). isinstance(value, dict) tells you when a value is a nested section. Copy nested dicts with .copy() so the inputs are never shared.",
-            "Start from a copy of base where every nested dict is copied too. Then for each override key: None removes; a dict merged into an existing dict updates that section key by key (None inside removes there too); anything else replaces.",
-            "result = {}; copy each base value into it (use value.copy() for dicts). For key, value in override.items(): if value is None, result.pop(key, None). Elif value is a dict and result.get(key) is a dict: loop over value.items() and set or pop (for None) inside result[key]. Elif value is a dict: store a copy without its None values. Else result[key] = value. Return result.",
+            "Distinguish a replacement, a section merge, and a deletion request.",
+            "Copy the base sections before processing overrides so later changes cannot reach either input.",
+            "For each override, remove the key for None, combine section pairs when appropriate, or replace the value; handle None inside sections as deletion too.",
         ],
         "title": "Merge configs",
         "difficulty": 3,
@@ -1501,11 +1737,14 @@ EXERCISES = [
             levels**: each top-level value is either a plain value or a dict of plain values
             (called a "section", e.g. `"params"`).
 
-            **Write:** `merge_config(base, override)`
+            **Your job:** write `merge_config(base, override)`
 
+            **What goes in**
             - `base`: a config dict, e.g. `{"model": "gpt-4o", "params": {"temperature": 0.7}}`
             - `override`: a config dict with changes, e.g. `{"params": {"temperature": 0.2}}`
-            - **Returns:** a **new** merged config dict
+
+            **What comes out**
+            - a **new** merged config dict
 
             **Rules**
             - Keys that are only in `base` or only in `override` are kept.
@@ -1515,7 +1754,7 @@ EXERCISES = [
               plain value replacing a section, and a section replacing a plain value.
             - An `override` value of `None` **removes** that key from the result, at the top
               level or inside a section. A `None` key that isn't in `base` is simply left out.
-              `None` never appears in the result.
+              `None` override values act as deletion markers and are not stored in the result.
             - A section that exists only in `override` is copied without its `None` values.
             - Don't modify `base` or `override`.
             - The result must not share section dicts with the inputs: changing a section in
@@ -1620,19 +1859,22 @@ EXERCISES = [
     {
         "id": "dicts-6",
         "hints": [
-            'Nested dicts: one entry per user, each with a total and its own by_model dict. Pick top_model in a second pass.',
-            'First loop over the records and accumulate tokens per user and per model (missing tokens = 0). Then, for each user, find the model with the most tokens, breaking ties by name.',
-            'report = {}. For each record: tokens = record.get("tokens", 0); create the user\'s entry {"total": 0, "by_model": {}} if needed; add tokens to total and to by_model[model] with .get(model, 0). Then for each entry, loop over by_model.items() keeping the best model (higher tokens, or equal tokens and smaller name). Store it as top_model.',
+            "Keep each user's totals and model counts separate.",
+            "Collect usage first, then choose a winning model from each user's completed counts.",
+            "Create a fresh entry per user, add every record with missing tokens treated as zero, then compare models by token count and use alphabetical order for ties.",
         ],
         "title": "Per-user usage report",
         "difficulty": 3,
         "prompt": r'''
             Build a per-user token usage report from API usage records.
 
-            **Write:** `usage_report(records)`
+            **Your job:** write `usage_report(records)`
 
+            **What goes in**
             - `records`: a list of dicts like `{"user": "ana", "model": "gpt-4o", "tokens": 120}`
-            - **Returns:** a dict keyed by user name; each value is a dict with exactly three
+
+            **What comes out**
+            - a dict keyed by user name; each value is a dict with exactly three
               keys:
 
             ```python

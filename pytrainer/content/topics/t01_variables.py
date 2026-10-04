@@ -226,11 +226,11 @@ EXERCISES = [
         "title": "Fill in the total",
         "difficulty": 0,
         "lesson": r'''
-            ## Variables and assignment
+            ## Give a value a name
 
-            A **variable** is a name that refers to a value. You create a variable with an
-            **assignment** statement: the name, a single `=`, then the value. After that line,
-            you can write the name anywhere you need the value.
+            In the last chapter every value was used on the spot, as in `print(2 + 3)`. Real programs
+            need to keep a value and use it again a few lines later: the name of the model, the number
+            of tokens used so far. To keep a value, you give it a name.
 
             ```python
             model = "gpt-4o-mini"
@@ -239,8 +239,26 @@ EXERCISES = [
             # gpt-4o-mini 256
             ```
 
-            Python evaluates the right side of `=` first: it works out its value. Then it makes
-            the name on the left refer to the result. So the right side can be a calculation that uses other variables.
+            Read `model = "gpt-4o-mini"` as "let `model` be the name for this text". From that line on,
+            wherever you write `model`, Python uses the text. The name works like a label stuck on the
+            value.
+
+            A name with a value attached is called a **variable**, and the line that creates it is an
+            **assignment**. The `=` in an assignment does not mean "is equal to", as it does in maths. It
+            means "store the value on the right under the name on the left".
+
+            ```quiz
+            Which line stores the number 150 under the name `total`?
+            - [x] `total = 150` :: Right. The name goes on the left and the value on the right.
+            - [ ] `150 = total` :: The name must be on the left. Python stops with a `SyntaxError`, because 150 is a value and a value cannot be given a value.
+            - [ ] `"total" = 150` :: With quotes, `"total"` is a string, which is a value. Only a bare name can receive a value.
+            ```
+
+            ### The right side is worked out first
+
+            Python handles an assignment in two steps. First it works out the right side. Then it attaches
+            the name on the left to the result. So the right side can be a whole calculation, and it can
+            use other variables:
 
             ```python
             context = 1000
@@ -250,26 +268,43 @@ EXERCISES = [
             # 600
             ```
 
-            Here `free` is assigned the value `600`.
+            ```predict
+            width = 4
+            height = 5
+            area = width * height
+            print(area)
+            print(width)
+            ---
+            `area` gets the result of `4 * 5`, which is 20. Using `width` on the right side only reads its value, so `width` is still 4.
+            ```
 
-            Parameters are variables too. Each call makes the parameter names refer to the
-            arguments of that call.
+            The parameters of a function are variables too. Each call attaches the parameter names to the
+            arguments of that call, and inside the function you can create more variables with `=`.
 
-            The name always goes on the left of `=`. `150 = total` is a `SyntaxError`, because
-            `150` is a value and not a name.
+            **Watch out:** a name has to be assigned before it is used. A line that uses `free` before any
+            line has created it stops with `NameError: name 'free' is not defined`.
+
+            **In short:** `name = value` works out the right side, then stores the result under the name
+            on the left.
         ''',
         "prompt": r'''
-            A request uses some prompt tokens (what you send) and some completion tokens
-            (what the model writes back). You want the total.
+            Every request to an AI model uses tokens twice: once for the prompt that you send, and once
+            for the completion, which is the text the model writes back. Your app wants the total for the
+            request.
 
-            **Fill in the blank:** replace `___` in `total_tokens(prompt, completion)`.
+            **Your job:** finish `total_tokens(prompt, completion)`. The function is already written
+            except for one gap, marked `___`. Replace the gap so that `total` holds the two counts added
+            together.
 
-            - `prompt`: the number of prompt tokens, an `int`, e.g. `120`
-            - `completion`: the number of completion tokens, an `int`, e.g. `30`
-            - **Returns:** an `int`: the two counts added together
+            **What goes in**
+            - `prompt`: the number of prompt tokens, a whole number, for example `120`
+            - `completion`: the number of completion tokens, a whole number, for example `30`
+
+            **What comes out**
+            - the two counts added together, a whole number: `150` for the example values
 
             **Rules**
-            - If `completion` is `0`, the result is just `prompt`.
+            - When `completion` is `0`, the result is the same as `prompt`.
 
             **Examples**
             ```python
@@ -299,9 +334,9 @@ EXERCISES = [
                 return total
         ''',
         "hints": [
-            "The blank is the value that the name total should point at.",
-            "You want the two parameters added together.",
-            "Replace ___ with the first parameter, a plus sign, and the second parameter.",
+            "The gap is the right side of an assignment: the value that the name `total` should get.",
+            "The function receives two numbers through its parameters. The total is what you get when you put them together with the sign for adding.",
+            "Replace the three underscores with a small calculation that uses both parameter names. Do not type fixed numbers, because the function must work for every call.",
         ],
     },
     {
@@ -310,10 +345,11 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Reassignment
+            ## A name can move to a new value
 
-            **Reassignment** is an assignment to a name that already exists. After it, the name
-            refers to the new value and no longer refers to the old one.
+            A request starts as "waiting" and ends as "done". A retry counter goes from 2 to 3. Values
+            change while a program runs, so a variable must be able to change with them. To change what a
+            name stands for, assign to it again:
 
             ```python
             status = "waiting"
@@ -324,9 +360,13 @@ EXERCISES = [
             # done
             ```
 
-            The right side can use the name's current value. Python evaluates the right side
-            first, with the value the name has at that point. Then it makes the name refer to
-            the result.
+            The second assignment does not create a second `status`. The same name now stands for the new
+            value, and the old value is forgotten. Assigning to a name that already exists is called
+            **reassignment**.
+
+            ### Using the old value to make the new one
+
+            The right side of a reassignment may use the name itself:
 
             ```python
             retries = 2
@@ -335,10 +375,11 @@ EXERCISES = [
             # 3
             ```
 
-            In `retries = retries + 1`, Python reads the current value `2`, calculates `3`, and
-            assigns `3` to `retries`.
+            In maths, `retries = retries + 1` would be nonsense. In Python it is two steps, in the order
+            you already know. First the right side is worked out with the value the name has now: `2 + 1`
+            is 3. Then the name gets that 3.
 
-            Press Step to run one line at a time and see each name's value change.
+            Press Next and watch the Variables box change after each line:
 
             ```diagram
             {"type": "trace", "title": "Reassigning status and retries", "code": ["status = \"waiting\"", "print(status)", "status = \"done\"", "print(status)", "retries = 2", "retries = retries + 1", "print(retries)"], "steps": [
@@ -353,11 +394,43 @@ EXERCISES = [
             ]}
             ```
 
-            Lines run from top to bottom. Each `print` shows the value the name refers to when
-            that line runs, not a value assigned on a later line.
+            ```quiz
+            What does this program print?
+
+            ~~~python
+            credits = 5
+            credits = credits - 2
+            credits = credits - 2
+            print(credits)
+            ~~~
+            - [x] `1` :: Right. 5 becomes 3, and then 3 becomes 1. Each line starts from the value the name has at that moment.
+            - [ ] `3` :: That is the value after the first subtraction. The third line takes 2 off once more.
+            - [ ] `5` :: `print` shows the value the name has when the `print` line runs. By then the name has been reassigned twice.
+            ```
+
+            Now change a program yourself:
+
+            ```try
+            status = "waiting"
+            print(status)
+            ---
+            Add one line between the two lines so that the program prints `sent`. Leave the first line as it is.
+            ---
+            status = "waiting"
+            status = "sent"
+            print(status)
+            ---
+            The reassignment replaced the value before `print` looked at it.
+            ```
+
+            **Watch out:** a `print` shows the value a name has at the moment that line runs. A
+            reassignment further down the file does not reach back and change earlier output.
+
+            **In short:** assigning to a name again replaces its value, and the right side is worked out
+            first, with the value the name had before.
         ''',
         "prompt": r'''
-            Read the code and type exactly what it prints.
+            Read the program in the editor. Type exactly what it prints, one line of output per line.
         ''',
         "code": r'''
             model = "gpt-4o"
@@ -374,16 +447,17 @@ EXERCISES = [
             150
         ''',
         "explanation": r'''
-            Each `print` shows the value the name has at that line. `model` is reassigned
-            between the two prints. `tokens + 50` uses the old value 100, and the result 150
-            is stored back into `tokens`.
+            The first `print` runs while `model` stands for `gpt-4o`. Then `model` is reassigned, so the
+            second `print` shows `claude`. `tokens` starts at 100. In `tokens = tokens + 50` the right side
+            is worked out first with the old value, `100 + 50`, and the result 150 is stored back under
+            `tokens`.
         ''',
         "starter": "",
         "tests": "",
         "hints": [
-            "Go line by line and keep track of what each name holds right now.",
-            "Reassignment replaces the old value. The right side of = is worked out with the current value first.",
-            "Line 1: the first model name. Line 2: the second model name. Line 3: 100 plus 50.",
+            "Go down the program line by line, and keep a note of what each name stands for at that moment.",
+            "An assignment to a name that already exists replaces its value. The right side is worked out first, with the value the name has before the line runs.",
+            "The first `print` shows the first model name. The second shows the name that replaced it. For the last line of output, work out what `tokens` is after 50 has been added to its starting value.",
         ],
     },
     {
@@ -391,35 +465,49 @@ EXERCISES = [
         "title": "Fix: the lost update",
         "difficulty": 0,
         "lesson": r'''
-            ## Augmented assignment
+            ## A shorter way to update a variable
 
-            Programs often update a variable from its own current value. **Augmented
-            assignment** is a shorter way to write that update. An **operator** is a sign that
-            does something with the values next to it, such as `+` or `-`. Augmented assignment
-            combines a calculation and an assignment in one operator, such as `+=`.
+            Programs count things all the time: one more retry, 20 more tokens used. You know the long way
+            to write that: `used = used + 20`. The pattern is so common that Python has a shorter spelling
+            for it.
 
             ```python
             used = 100
-            used = used + 20   # the long form
-            used += 5          # augmented assignment
+            used += 20
             print(used)
-            # 125
+            # 120
             ```
 
-            For `used += 5`, Python reads the current value of `used`, adds `5`, and assigns the
-            result to `used`. Other operators work the same way: `-=` subtracts, `*=` multiplies
-            and `/=` divides.
+            `used += 20` means exactly the same as `used = used + 20`: take the current value, add 20, and
+            store the result back under the same name.
+
+            Signs such as `+` and `-` are called **operators**. `+=` joins an operator to the `=`, and the
+            combination is called **augmented assignment**. There is one for every arithmetic operator,
+            including `/`, which divides:
 
             ```python
             budget = 1000
             budget -= 300
             print(budget)
             # 700
+            budget *= 2
+            print(budget)
+            # 1400
             ```
 
-            A calculation on a line by itself does not change any variable. Python calculates
-            the result and discards it. A variable only changes when the line has `=` or an
-            augmented operator such as `+=`.
+            ```predict
+            count = 10
+            count += 5
+            count -= 3
+            count *= 2
+            print(count)
+            ---
+            `10 + 5` is 15, `15 - 3` is 12, and `12 * 2` is 24. Each line starts from the value that the line before left behind.
+            ```
+
+            ### A calculation alone changes nothing
+
+            Here is a line that looks as if it should work:
 
             ```python
             count = 10
@@ -427,19 +515,41 @@ EXERCISES = [
             print(count)
             # 10
             ```
+
+            Python did work out `10 + 1`. Then it threw the 11 away, because the line does not say where
+            to store it. A variable changes only when a line assigns to it, with `=` or with an augmented
+            assignment such as `+=`.
+
+            ```quiz
+            `points` is 7. Which line makes it 8?
+            - [x] `points += 1` :: Right. It adds 1 to the current value and stores the result back under `points`.
+            - [ ] `points + 1` :: Python works out 8 and throws it away. Nothing is stored, so `points` stays 7.
+            - [ ] `points =+ 1` :: With the signs in this order, Python reads `points = +1`, an ordinary assignment of the number 1. `points` becomes 1.
+            ```
+
+            **Watch out:** the operator comes first and the `=` second: `+=`, not `=+`. The wrong order is
+            not an error, so Python gives no warning. It quietly assigns the wrong value.
+
+            **In short:** `x += n` is short for `x = x + n`, and a calculation without an assignment
+            changes no variable.
         ''',
         "prompt": r'''
-            A usage counter adds the tokens of a new request to what was already used.
+            A usage counter keeps track of how many tokens your app has used. After each request, it adds
+            the tokens of that request to the count. The function below is meant to do that, but it always
+            gives back the old count, as if nothing had been added.
 
-            **Fix the bug** in `add_tokens(used, extra)`: it always returns the original
-            `used`. Only one line is wrong.
+            **Your job:** find the bug in `add_tokens(used, extra)` and fix it. The code is already in the
+            editor, and only one line is wrong.
 
-            - `used`: tokens used so far, an `int`, e.g. `10`
-            - `extra`: tokens to add, an `int`, e.g. `5`
-            - **Returns:** an `int`: `used` increased by `extra`
+            **What goes in**
+            - `used`: the tokens used so far, a whole number, for example `10`
+            - `extra`: the tokens to add, a whole number, for example `5`
+
+            **What comes out**
+            - `used` increased by `extra`, a whole number: `15` for the example values
 
             **Rules**
-            - If `extra` is `0`, return `used` unchanged.
+            - When `extra` is `0`, the result is `used` unchanged.
 
             **Examples**
             ```python
@@ -469,9 +579,9 @@ EXERCISES = [
                 return used
         ''',
         "hints": [
-            "Calculating used + extra on its own line does not store the result anywhere.",
-            "The new value has to be assigned back to the name used.",
-            "Change the middle line to use augmented assignment: used, then +=, then extra.",
+            "Look at the middle line. It works something out. Where does the result go?",
+            "A calculation on a line of its own changes no variable. The new value has to be stored back under the name `used`.",
+            "Turn the middle line into an update of `used`. You can use the long form with `=`, or the short form from the lesson that joins the plus sign and the equals sign.",
         ],
     },
     {
@@ -480,11 +590,9 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Multiple assignment and swapping
+            ## Several names in one line, and trading places
 
-            **Multiple assignment** assigns several names in one statement. Write the names on
-            the left and the values on the right, separated by commas. The first name gets the
-            first value, the second name gets the second value.
+            Sometimes two values belong together and you want to set them in one go:
 
             ```python
             provider, model = "openai", "gpt-4o"
@@ -494,18 +602,12 @@ EXERCISES = [
             # gpt-4o
             ```
 
-            A **swap** exchanges the values of two names. Python evaluates the whole right side
-            first, with the current values. Only then does it assign to the names on the left.
+            Names on the left, values on the right, commas in between. The first name gets the first
+            value and the second name gets the second value. This is called **multiple assignment**.
 
-            ```python
-            first, second = 1, 2
-            first, second = second, first
-            print(first, second)
-            # 2 1
-            ```
-
-            A swap written as two separate statements loses a value. After `a = b`, both names
-            refer to `2`, so `b = a` assigns `2` again.
+            It looks like a small convenience, but it solves a real puzzle. Suppose two names should trade
+            their values, for example when the backup model becomes the primary one. The obvious attempt
+            fails:
 
             ```python
             a = 1
@@ -516,7 +618,22 @@ EXERCISES = [
             # 2 2
             ```
 
-            Press Step to compare the two-statement swap with the one-statement swap.
+            After `a = b`, both names stand for 2. The 1 is gone, so nothing is left to give to `b`.
+
+            Multiple assignment does the trade in one line:
+
+            ```python
+            first, second = 1, 2
+            first, second = second, first
+            print(first, second)
+            # 2 1
+            ```
+
+            It works because of the rule you already know: Python works out the whole right side first.
+            `second, first` is worked out as 2 and 1 while both names still have their old values. Only
+            then are the two names assigned. Trading the values of two names is called a **swap**.
+
+            Press Next to compare the attempt that fails with the one that works:
 
             ```diagram
             {"type": "trace", "title": "Swapping in two statements and in one", "code": ["a = 1", "b = 2", "a = b", "b = a", "print(a, b)", "first, second = 1, 2", "first, second = second, first", "print(first, second)"], "steps": [
@@ -531,9 +648,25 @@ EXERCISES = [
               {"line": null, "vars": {"a": "2", "b": "2", "first": "2", "second": "1"}, "out": "2 2\n2 1\n"}
             ]}
             ```
+
+            ```fill
+            low, high = 9, 2
+            ___
+            print(low, high)
+            ---
+            - [x] low, high = high, low :: Right. The right side is worked out first, as 2 and 9, and then both names are assigned. The program prints `2 9`.
+            - [ ] low = high :: Now both names stand for 2 and the 9 is lost. The program prints `2 2`.
+            - [ ] high, low = high, low :: This gives each name the value it already has, so nothing changes. The program prints `9 2`.
+            ```
+
+            **Watch out:** the number of names must match the number of values. `a, b = 1, 2, 3` stops
+            with `ValueError: too many values to unpack (expected 2, got 3)`.
+
+            **In short:** `a, b = b, a` swaps two values, because the right side is worked out before
+            either name changes.
         ''',
         "prompt": r'''
-            Read the code and type exactly what it prints.
+            Read the program in the editor. Type exactly what it prints, one line of output per line.
         ''',
         "code": r'''
             tokens = 10
@@ -549,17 +682,17 @@ EXERCISES = [
             y x
         ''',
         "explanation": r'''
-            `tokens` starts at 10. `tokens = tokens + 5` assigns 15, and `tokens += 1` assigns
-            16, so the first `print` shows `16`. For `a, b = b, a`, Python first evaluates the
-            right side with the current values, which gives `"y", "x"`. Then it assigns `"y"`
-            to `a` and `"x"` to `b`. `print(a, b)` puts one space between the two values.
+            `tokens` starts at 10. `tokens = tokens + 5` makes it 15, and `tokens += 1` makes it 16, so the
+            first `print` shows `16`. In `a, b = b, a`, Python works out the right side first, with the
+            current values, which gives `"y"` and `"x"`. Then `a` gets `"y"` and `b` gets `"x"`. A `print`
+            with a comma puts one space between the two values.
         ''',
         "starter": "",
         "tests": "",
         "hints": [
-            "Track the value of each name on paper as you go down the lines.",
-            "tokens changes three times. For the swap, the right side is worked out before anything is assigned.",
-            "Line 1: 10. Line 2: 10 + 5. Line 3: add 1 more. Then a gets b's old value and b gets a's old value; print shows them with a space.",
+            "Keep a note of each name's value as you go down the lines.",
+            "`tokens` changes three times before it is printed. In the line that has names on both sides of the `=`, the right side is worked out completely before either name changes.",
+            "For the first line of output, start from 10, add 5 and then add 1. For the second, `a` and `b` have traded their values, and `print` puts one space between them.",
         ],
     },
     {
@@ -567,10 +700,11 @@ EXERCISES = [
         "title": "Return two values",
         "difficulty": 0,
         "lesson": r'''
-            ## Returning two values
+            ## Handing back two values at once
 
-            A function can return more than one value. Write the values after `return` and
-            separate them with a comma.
+            A function often has two things to report. A model has a name and a size. A request has a
+            status and a duration. You could write two functions, but it is simpler to let one function
+            hand back both values. Put a comma between them after `return`:
 
             ```python
             def limits():
@@ -580,37 +714,72 @@ EXERCISES = [
             # (128000, 16000)
             ```
 
-            The function still returns one value. That value is a **tuple**: a value that groups
-            other values in a fixed order. Python prints a tuple with parentheses around its
-            items.
+            Look at the output: Python shows both numbers inside one pair of parentheses. The function
+            still hands back one thing. That thing is a small package that holds both numbers, in order.
+            Such a package is called a **tuple**, and each value in it is an **item**.
 
-            You can also write a tuple yourself with parentheses, for example
-            `("gpt-4o", 128000)`. The order is part of the tuple: the first item stays first.
+            You can also write a tuple yourself, with parentheses: `("gpt-4o", 128000)`. A tuple may mix
+            kinds of values, and the order is part of it: the first item stays first.
 
-            Quotes create text. `return "128000, 16000"` returns one piece of text that contains
-            a comma, not a tuple of two numbers.
+            ```predict
+            def newest():
+                return "claude", 3
+
+            print(newest())
+            print(len(newest()))
+            ---
+            The call hands back one tuple with two items. Python shows text inside a tuple with single quotes, so the first line is `('claude', 3)`. `len` works on tuples too: it counts the items, which gives 2.
+            ```
+
+            ### Quotes change everything
+
+            Compare these two functions. Only the quotes differ.
 
             ```python
-            def limits_text():
+            def as_tuple():
+                return 128000, 16000
+
+            def as_text():
                 return "128000, 16000"
 
-            print(limits_text())
+            print(as_tuple())
+            # (128000, 16000)
+            print(as_text())
             # 128000, 16000
             ```
+
+            The second function hands back one string that happens to contain a comma. No code can do
+            arithmetic with it.
+
+            ```quiz
+            Which line hands back two separate values, a name and a number?
+            - [x] `return "small", 512` :: Right. The comma stands between two values, so they go back together as a tuple of two items.
+            - [ ] `return "small, 512"` :: The quotes go around everything, so this is one string with a comma inside it.
+            - [ ] `return "small" 512` :: Without a comma Python cannot tell where one value ends and the next begins. It stops with a `SyntaxError`.
+            ```
+
+            **Watch out:** a number inside quotes is text. `"128000"` is a string, and `128000` is a
+            number. A check that expects a number does not accept the string.
+
+            **In short:** `return a, b` hands back one tuple that holds both values, in that order.
         ''',
         "prompt": r'''
-            Your app needs a default model and the size of its context window (how many
-            tokens it can read).
+            Your app has a default AI model. Other parts of the app need two facts about it: its name, and
+            the size of its context window, which is the number of tokens the model can read at once.
 
-            **Write:** `default_model()` (it takes no parameters)
+            **Your job:** write `default_model()` so that it gives back both facts together.
 
-            - **Returns:** **two values** together (a *tuple* of 2 items): the text
-              `"gpt-4o-mini"` first, then the whole number `128000`
+            **What goes in**
+            - nothing: the function takes no parameters
+
+            **What comes out**
+            - two values together, as a tuple of 2 items: first the string `"gpt-4o-mini"`, then the whole
+              number `128000`
 
             **Rules**
-            - The name comes first, the number second.
-            - The number is a number (`128000`), not text (`"128000"`).
-            - Return exactly two values, separated by a comma after `return`.
+            - The name comes first and the number second.
+            - The number is a number, `128000`, and not the text `"128000"`.
+            - Exactly two values come back.
 
             **Examples**
             ```python
@@ -638,9 +807,9 @@ EXERCISES = [
                 return "gpt-4o-mini", 128000
         ''',
         "hints": [
-            "One return statement can hand back several values if you separate them with commas.",
-            "Return the text first (in quotes), then the number (no quotes).",
-            "Write return, then the model name in double quotes, a comma, then 128000.",
+            "One `return` can hand back more than one value. What goes between the values?",
+            "The first value is text and the second is a number. Only one of them is written with quotes.",
+            "Write a single `return` line: the model name as a string, then a comma, then the number without quotes.",
         ],
     },
     {
@@ -648,11 +817,10 @@ EXERCISES = [
         "title": "Unpack the pair",
         "difficulty": 0,
         "lesson": r'''
-            ## Unpacking a tuple
+            ## Taking a tuple apart
 
-            **Unpacking** assigns each item of a tuple to its own name in one statement. It is
-            also called **tuple unpacking**. Write one name per item on the left of `=` and the
-            tuple on the right.
+            A function has handed you a tuple with two values in it. Most of the time you do not want the
+            package. You want the things inside it, each under its own name.
 
             ```python
             limits = (128000, 16000)
@@ -663,10 +831,12 @@ EXERCISES = [
             # 16000
             ```
 
-            Python assigns the items in order. The first name gets the first item and the second
-            name gets the second item. The tuple itself does not change.
+            Look at the middle line: names on the left, a tuple on the right. Python gives the first item
+            to the first name and the second item to the second name. It is the multiple assignment from
+            two steps ago. The only new part is that the values arrive packed in a tuple. Taking a tuple
+            apart like this is called **unpacking**. The tuple itself does not change.
 
-            The right side can be a function call that returns a tuple.
+            Very often the right side is a call to a function that returns a tuple:
 
             ```python
             def newest_model():
@@ -677,21 +847,46 @@ EXERCISES = [
             # claude from anthropic
             ```
 
-            The number of names must equal the number of items. With 2 items and 3 names,
-            Python stops with `ValueError: not enough values to unpack (expected 3, got 2)`.
+            Put this program in an order that works:
+
+            ```order
+            def size():
+                return 1920, 1080
+            width, height = size()
+            print(height)
+            ---
+            The function has to exist before it can be called, and `height` only exists after the unpacking line has run.
+            ```
+
+            ```quiz
+            `pair = ("eu", "gpt-4o")`. After the line `region, model = pair`, what is `model`?
+            - [x] `"gpt-4o"` :: Right. The second name gets the second item.
+            - [ ] `"eu"` :: That is the first item. It went to the first name, `region`.
+            - [ ] `("eu", "gpt-4o")` :: With two names on the left, the tuple is taken apart. Neither name gets the whole tuple.
+            ```
+
+            **Watch out:** the number of names must equal the number of items. Three names for a tuple of
+            two stops with `ValueError: not enough values to unpack (expected 3, got 2)`.
+
+            **In short:** `a, b = some_tuple` gives each item of the tuple its own name, in order.
         ''',
         "prompt": r'''
-            A model is often stored as a pair: who provides it, and its name.
+            Apps often keep a model as a pair of two strings: the company that provides it, and the name
+            of the model, for example `("openai", "gpt-4o")`. This function receives such a pair and should
+            give back only the model name.
 
-            **Fill in the blank:** replace `___` in `model_of(record)` so the line splits
-            the pair into `provider` and `model` (this is called *unpacking*).
+            **Your job:** finish `model_of(record)`. It is written except for one gap, marked `___`.
+            Replace the gap so that the line takes the pair apart into `provider` and `model`.
 
-            - `record`: a pair (tuple of 2 strings) `(provider, model)`, e.g.
+            **What goes in**
+            - `record`: a tuple of 2 strings, the provider first and the model name second, for example
               `("openai", "gpt-4o")`
-            - **Returns:** a string: the second item, the model name
+
+            **What comes out**
+            - the second item, the model name, as a string: `"gpt-4o"` for the example value
 
             **Rules**
-            - Works for any provider/model pair, not just the examples.
+            - It must work for every pair, not only for the ones in the examples.
 
             **Examples**
             ```python
@@ -721,9 +916,9 @@ EXERCISES = [
                 return model
         ''',
         "hints": [
-            "Unpacking puts a group on the right side of = and several names on the left.",
-            "The group you want to take apart is the parameter.",
-            "Replace ___ with the parameter name record.",
+            "The line with the gap is an unpacking: two names on the left, and on the right the tuple that is taken apart.",
+            "Which name in the function stands for the pair that was handed in?",
+            "The pair arrives through the function's parameter. Put the name of that parameter in the gap, with no quotes and no parentheses.",
         ],
     },
     {
@@ -731,11 +926,12 @@ EXERCISES = [
         "title": "Swap without a temp",
         "difficulty": 1,
         "lesson": r'''
-            ## Returning values in a new order
+            ## Hand the values back in a new order
 
-            `a, b = b, a` swaps two values because Python builds the right side `b, a` as a tuple
-            first. A function can return such a tuple directly. It does not need to reassign its
-            parameters. It lists them after `return` in any order.
+            Two steps ago you swapped two names with `a, b = b, a`. It worked because Python builds the
+            right side, `b, a`, as a tuple before it assigns anything. A function can use the same idea
+            more directly. It does not have to move any values around. It can list them after `return` in
+            whatever order it wants.
 
             ```python
             def rotate(first, second, third):
@@ -745,37 +941,59 @@ EXERCISES = [
             # ('backup', 'spare', 'primary')
             ```
 
-            A tuple can contain values of any kind: numbers, text, or both together. `rotate`
-            never inspects its arguments, so it works for all of them.
+            `rotate` never looks at what its arguments are. It only passes them back in a different order.
+            So it works for every kind of value, and for a mix of kinds as well:
 
-            ```python
+            ```predict
             def rotate(first, second, third):
                 return second, third, first
 
             print(rotate("gpt-4o", 0.5, 3))
-            # (0.5, 3, 'gpt-4o')
+            ---
+            The first argument moves to the end, so the result is `(0.5, 3, 'gpt-4o')`. Python shows text inside a tuple with single quotes.
             ```
 
-            A **temporary variable** is a name that exists only to keep a value for a few lines,
-            as in `temp = a`. Returning a tuple makes one unnecessary here.
+            People who know other programming languages often reach for an extra name to park a value for
+            a moment, as in `temp = a`. A name that exists only to hold a value for a few lines is called
+            a **temporary variable**. With tuples you rarely need one.
 
-            Use commas only. `return [second, first]` with square brackets returns a different
-            kind of value. A later topic covers that kind.
+            ```quiz
+            A function should hand back its two parameters together, as a tuple. Which line belongs in its body?
+
+            ~~~python
+            def pair(x, y):
+                ...
+            ~~~
+            - [x] `return x, y` :: Right. Commas between the values make a tuple.
+            - [ ] `return [x, y]` :: Square brackets make a different kind of value, a list, which a later chapter covers. A check that asks for a tuple fails.
+            - [ ] `return "x, y"` :: The quotes make one string with the letters x and y in it. The parameters are not used at all.
+            ```
+
+            **Watch out:** parameter names are written without quotes. With quotes you hand back the
+            letters of the name, not the value that the name stands for.
+
+            **In short:** a function can return its values in any order, by listing them after `return`
+            with commas between them.
         ''',
         "prompt": r'''
-            Sometimes two settings need to trade places, e.g. a primary and a backup model.
+            Sometimes two settings need to trade places: the backup model becomes the primary one, and the
+            primary becomes the backup. A function that takes two values and gives them back the other way
+            round does that job.
 
-            **Write:** `swap(a, b)`
+            **Your job:** write `swap(a, b)` so that it gives back the two values in the opposite order.
 
-            - `a`: any value, e.g. `1` or `"x"`
-            - `b`: any value, e.g. `2` or `0.5`
-            - **Returns:** a tuple of two values: `b` first, then `a`
+            **What goes in**
+            - `a`: any value, for example `1` or `"x"`
+            - `b`: any value, for example `2` or `0.5`
+
+            **What comes out**
+            - a tuple of two values: `b` first, then `a`. For `1` and `2` that is `(2, 1)`.
 
             **Rules**
-            - Works for values of any type (numbers, text, a mix).
-            - Return two values together (a tuple), not a list and not a single value.
-            - Don't create any extra variable inside the function (no line like
-              `temp = a`). It can be done in one line.
+            - It works for values of any kind: numbers, text, or one of each.
+            - The result is a tuple, not a list and not a single value.
+            - The function creates no extra variable. A line such as `temp = a` fails a check. One line is
+              enough.
 
             **Examples**
             ```python
@@ -812,9 +1030,9 @@ EXERCISES = [
                 return b, a
         ''',
         "hints": [
-            "Remember how a function returns two values at once (see 'Returning two values' in the lesson).",
-            "You do not need to change a or b at all. Just return them in the opposite order.",
-            "Write a single return line: the second parameter, a comma, then the first parameter. No quotes.",
+            "Look at `rotate` in the lesson. It gives its values back in a new order without changing any of them.",
+            "Nothing has to be stored or moved. The function only decides the order in which its two parameters go back.",
+            "Write a single `return` line that lists both parameters with a comma between them, the second parameter first. Use no quotes and no square brackets.",
         ],
     },
     {
@@ -822,10 +1040,11 @@ EXERCISES = [
         "title": "Remaining budget",
         "difficulty": 1,
         "lesson": r'''
-            ## Local variables
+            ## A name that lives inside the function
 
-            A function can create its own variables to store a result while it works. You assign
-            a starting value, update it line by line, and return it.
+            Bigger functions do their work in stages. For that, a function can create a variable of its
+            own to hold a result while it is being built: give it a starting value, update it line by
+            line, and hand it back at the end.
 
             ```python
             def tokens_used(start, first, second):
@@ -838,41 +1057,92 @@ EXERCISES = [
             # 550
             ```
 
-            `used` starts with the same value as `start`. Each `+=` line assigns a larger value
-            to `used`. The last line returns the final value. `-=` works the same way and
-            subtracts.
+            Press Next and watch `used` grow in the Variables box. Notice the last step too: once the
+            function has returned, its variables are gone.
 
-            A **local variable** is a variable created inside a function. It exists only while
-            the function runs. Code outside the function cannot use `used`: that gives
-            `NameError: name 'used' is not defined`.
-
-            Subtraction can go below zero. Python does not stop at `0`.
-
-            ```python
-            balance = 100
-            balance -= 130
-            print(balance)
-            # -30
+            ```diagram
+            {"type": "trace", "title": "A local variable is built up and then returned", "code": ["def tokens_used(start, first, second):", "    used = start", "    used += first", "    used += second", "    return used", "", "print(tokens_used(50, 200, 300))"], "steps": [
+              {"line": 1, "vars": {}, "out": ""},
+              {"line": 7, "vars": {}, "out": ""},
+              {"line": 2, "vars": {"start": "50", "first": "200", "second": "300"}, "out": "", "note": "The call set the three parameters. used does not exist yet."},
+              {"line": 3, "vars": {"start": "50", "first": "200", "second": "300", "used": "50"}, "out": ""},
+              {"line": 4, "vars": {"start": "50", "first": "200", "second": "300", "used": "250"}, "out": ""},
+              {"line": 5, "vars": {"start": "50", "first": "200", "second": "300", "used": "550"}, "out": ""},
+              {"line": null, "vars": {}, "out": "550\n", "note": "The function has returned 550. Its parameters and used no longer exist."}
+            ]}
             ```
 
-            Return the name you updated (`used`), not the original parameter (`start`).
+            A variable that is created inside a function is called a **local variable**. It exists only
+            while the function runs, and code outside the function cannot see it.
+
+            ```quiz
+            What happens on the last line of this program?
+
+            ~~~python
+            def doubled(n):
+                result = n * 2
+                return result
+
+            print(doubled(4))
+            print(result)
+            ~~~
+            - [x] Python stops with `NameError: name 'result' is not defined` :: Right. `result` is a local variable of `doubled`. It disappeared when the function returned, so outside the function the name does not exist.
+            - [ ] It prints `8` a second time :: The value 8 went back to the caller, but the name `result` stayed inside the function and is gone.
+            - [ ] It prints `None` :: `None` is what a call hands back when there is no `return`. Here the trouble is a name that does not exist.
+            ```
+
+            The same pattern works with any augmented assignment. This function forgets one of its
+            stages:
+
+            ```try
+            def total_cost(price, shipping):
+                cost = price
+                return cost
+
+            print(total_cost(40, 5))
+            ---
+            The function ignores the shipping. Add one line with `+=` so that the program prints `45`.
+            ---
+            def total_cost(price, shipping):
+                cost = price
+                cost += shipping
+                return cost
+
+            print(total_cost(40, 5))
+            ---
+            The local variable `cost` starts at the price, grows by the shipping, and is handed back.
+            ```
+
+            One more fact you will need: subtraction does not stop at zero. After `balance = 100`, the
+            line `balance -= 130` leaves `balance` at `-30`.
+
+            **Watch out:** return the name that you updated, not the parameter you started from. In the
+            example, `return start` would hand back 50.
+
+            **In short:** a local variable holds a result while the function builds it, and it is gone
+            when the function returns.
         ''',
         "prompt": r'''
-            A token budget tracker: how many tokens are left after one request?
+            A token budget tracker answers one question: after a request, how many tokens are left? A
+            request uses tokens twice, once for the prompt and once for the answer, and both amounts come
+            off the budget.
 
-            **Write:** `remaining_budget(budget, prompt_tokens, output_tokens)`
+            **Your job:** write `remaining_budget(budget, prompt_tokens, output_tokens)` so that it gives
+            back what is left of the budget after both amounts are taken off.
 
-            - `budget`: tokens available at the start, an `int`, e.g. `1000`
-            - `prompt_tokens`: tokens the prompt used, an `int`, e.g. `100`
-            - `output_tokens`: tokens the answer used, an `int`, e.g. `250`
-            - **Returns:** an `int`: the budget minus both amounts
+            **What goes in**
+            - `budget`: the tokens available at the start, a whole number, for example `1000`
+            - `prompt_tokens`: the tokens the prompt used, a whole number, for example `100`
+            - `output_tokens`: the tokens the answer used, a whole number, for example `250`
+
+            **What comes out**
+            - the budget minus both amounts, a whole number: `650` for the example values
 
             **Rules**
-            - Subtract each amount with **augmented assignment** `-=` (two `-=` lines:
-              one for the prompt tokens, one for the output tokens). A check looks for them.
-            - If the request used more than the budget, return the negative number (don't
-              stop at 0).
-            - If nothing was used, return the budget unchanged.
+            - Take each amount off with the augmented assignment `-=`, on a line of its own: one `-=` line
+              for the prompt tokens and one for the output tokens. A check counts them.
+            - When the request used more than the budget, give back the negative number. Do not stop at `0`.
+            - When nothing was used, give back the budget unchanged.
 
             **Examples**
             ```python
@@ -911,9 +1181,9 @@ EXERCISES = [
                 return left
         ''',
         "hints": [
-            "Augmented assignment (-=) changes a name's value in place: x -= 5 means x = x - 5.",
-            "Keep a name for what is left, reduce it twice (once per token count), then return it.",
-            "1) Make a name like left point at budget. 2) left -= the prompt tokens. 3) left -= the output tokens. 4) return left.",
+            "`x -= 5` is short for `x = x - 5`. The `tokens_used` function in the lesson does the same kind of job with `+=`.",
+            "Keep one local variable for what is left. Start it at the budget, make it smaller twice, and hand it back.",
+            "The body has four lines: give a new name the value of `budget`, take the prompt tokens off it with `-=`, take the output tokens off it with `-=`, and return that name.",
         ],
     },
     {
@@ -922,11 +1192,12 @@ EXERCISES = [
         "difficulty": 1,
         "mode": "script",
         "lesson": r'''
-            ## Constants and scripts
+            ## Settings that never change
 
-            Some values are settings that you choose once and never change, such as a provider
-            name or a retry limit. A **constant** is a name that you assign once at the top of a
-            file and never reassign.
+            Some values are decided once and then used all over a program: which model to call, how many
+            times to retry. If the number 3 is typed in five places, changing it later means finding all
+            five. It is safer to give the value one name at the top of the file and use the name
+            everywhere else.
 
             ```python
             PROVIDER = "openai"
@@ -935,12 +1206,25 @@ EXERCISES = [
             # openai 3
             ```
 
-            By convention, constants use `UPPER_SNAKE_CASE`: capital letters, with `_` between
-            words. Normal names use `lower_snake_case`, such as `user_name`.
+            A name that is assigned once at the top of a file and never reassigned is called a
+            **constant**. Constants are written in capital letters, with `_` between the words. Ordinary
+            names, such as `user_name`, are written in small letters.
 
-            A **script** is a file of Python code that does its work when you press Run. Here its
-            lines start at the left edge, with no `def`. Python runs them from top to bottom. Assign the constants at the
-            top, then use them by name below.
+            Python itself does not protect a constant. You could reassign `MAX_RETRIES` and no error would
+            appear. The capital letters are a message to people: this value is a setting, leave it alone.
+
+            ```quiz
+            By convention, which of these names is a constant?
+            - [x] `MAX_TOKENS` :: Right. All capitals, with an underscore between the words.
+            - [ ] `max_tokens` :: Small letters mark an ordinary variable, one that may change while the program runs.
+            - [ ] `MaxTokens` :: A capital at the start of each word is the style for a different kind of name, which a later chapter covers.
+            ```
+
+            ### A script that uses its constants
+
+            This step asks for a script again, as in the Basics chapter: statements that start at the left
+            edge, with no `def`, run from top to bottom. The constants come first, and the lines below use
+            them by name.
 
             ```python
             TIMEOUT_SECONDS = 1.5
@@ -948,32 +1232,55 @@ EXERCISES = [
             # timeout is 1.5
             ```
 
-            Python does not prevent you from reassigning a constant. The capital letters are a
-            convention that tells other programmers not to change the value.
+            The whole point of a constant is that the value is typed once. The script below breaks that
+            rule:
 
-            Numbers do not take quotes. `1.5` is a number and `"1.5"` is text.
+            ```try
+            MODEL = "gpt-4o"
+            RETRIES = 3
+            print("gpt-4o", 3)
+            ---
+            The `print` line types both values out a second time. Change `RETRIES` to `5`, and change the `print` line so that it uses the two names. The program should print `gpt-4o 5`.
+            ---
+            MODEL = "gpt-4o"
+            RETRIES = 5
+            print(MODEL, RETRIES)
+            ---
+            Each value now lives in one place. Changing a setting means changing one line.
+            ```
+
+            **Watch out:** numbers take no quotes. `0.2` is a number, and `"0.2"` is a string that only
+            looks like one.
+
+            **In short:** a constant is a name in capital letters that is set once at the top of the file
+            and used by name below.
         ''',
         "prompt": r'''
-            Model settings are usually kept as *constants*: names in UPPER_SNAKE_CASE that
-            are set once at the top of a file.
+            The settings of an AI model are usually kept as constants at the top of a file: which model to
+            use, how much variety its answers may have (called the temperature), and how many tokens it
+            may write.
 
-            **Write a script** (top-level code at the left edge, no function) that defines
-            three constants and prints them.
+            **Your job:** write a script that defines three constants and prints them on one line. A
+            script has no function: the statements start at the left edge.
+
+            **What the script defines**
+            - `MODEL`: the string `"gpt-4o-mini"`
+            - `TEMPERATURE`: the number `0.2`
+            - `MAX_TOKENS`: the whole number `512`
+
+            **What comes out**
+            - one line of output with the three values, separated by single spaces
 
             **Rules**
-            - Define exactly these names and values:
-              - `MODEL` = the text `"gpt-4o-mini"`
-              - `TEMPERATURE` = the number `0.2`
-              - `MAX_TOKENS` = the whole number `512`
-            - Then print all three on **one** line, separated by single spaces.
-            - The `print` must use the three names (`MODEL`, `TEMPERATURE`, `MAX_TOKENS`),
-              not text you typed out again. A check looks for this.
+            - The names and the values are exactly the ones above.
+            - The `print` uses the three names. A check fails when the values are typed out a second time
+              inside the `print`.
             - The script prints nothing else.
 
             **Examples**
 
-            Running `python3 solution.py` prints:
-            ```
+            Running the script prints:
+            ```text
             gpt-4o-mini 0.2 512
             ```
         ''',
@@ -1007,9 +1314,9 @@ EXERCISES = [
             print(MODEL, TEMPERATURE, MAX_TOKENS)
         ''',
         "hints": [
-            "Script mode: write lines at the left edge of the file, no def. print() with commas puts spaces between values.",
-            "Create three names with =, text in quotes and numbers without. Then one print that uses the three names.",
-            "1) MODEL = the text in quotes. 2) TEMPERATURE = 0.2. 3) MAX_TOKENS = 512. 4) print(MODEL, TEMPERATURE, MAX_TOKENS). Press Run to compare.",
+            "A script is written at the left edge of the file, without `def`. Remember what `print` does with several values that are separated by commas.",
+            "Three assignments come first: the text value in quotes, the two numbers without quotes. Then comes one `print` that uses the names.",
+            "Write one assignment for each of the three names from the task, in capital letters. Under them, write a single `print` with the three names separated by commas. Press Run and compare your output with the example.",
         ],
     },
     {
@@ -1024,19 +1331,15 @@ EXERCISES = [
             ],
         },
         "lesson": r'''
-            ## Names and keywords
+            ## Names Python will not let you use
 
-            An **identifier** is a valid name for a variable, a parameter or a function. A
-            **keyword** is a word that has a fixed meaning in Python, such as `def`,
-            `return`, `if`, `class` and `global`. Python has 35 keywords, and none of them can
-            be used as a name.
+            You may call a variable almost anything. Almost. A few rules decide what counts as a name:
 
-            The rules for an identifier:
+            - A name is made of letters, digits and `_`. Spaces and hyphens are not allowed.
+            - It does not start with a digit. `model_2` is fine, and `2nd_model` is not.
+            - Capital letters matter: `Zone` and `zone` are two different names.
 
-            - It contains only letters, digits and `_`. Spaces and hyphens are not allowed.
-            - It does not start with a digit. `model_2` is valid and `2nd_model` is not.
-            - Capital letters matter. `Zone` and `zone` are two different names.
-            - It is not a keyword.
+            A word that follows these rules is called an **identifier**.
 
             ```python
             zone = "west"
@@ -1045,28 +1348,68 @@ EXERCISES = [
             # claude/west
             ```
 
-            A keyword used as a name is a `SyntaxError`. Python finds the error before it runs
-            any line, so nothing in the file runs. The message is often only `invalid syntax`,
-            with a marker under the keyword. For the line `class = "large"`, Python reports:
+            ```quiz
+            Which of these can be the name of a variable?
+            - [x] `model_2` :: Right. Letters, a digit and an underscore, and it does not start with the digit.
+            - [ ] `2nd_model` :: A name may not start with a digit. Python stops with a `SyntaxError`.
+            - [ ] `model-name` :: The hyphen is the minus sign, so Python reads this as `model` minus `name`.
+            ```
+
+            ### Words that are already taken
+
+            There is one more rule, and it is the one that catches people. Some words already mean
+            something to Python. `def` starts a function and `return` hands a value back. Python keeps
+            such words for itself, and they are called **keywords**. There are 35 of them, among them
+            `if`, `class`, `global` and `import`. A keyword cannot be used as a name.
+
+            Python's message for this mistake is not very helpful. For the line `class = "large"` it only
+            says:
 
             ```text
             SyntaxError: invalid syntax
             ```
+
+            It does not say "that word is a keyword". You have to recognise it yourself. The editor helps:
+            it shows keywords in a different colour from ordinary names.
+
+            ```try
+            class = "large"
+            print(class)
+            ---
+            `class` is a keyword, so this program does not run. Rename the variable to `size` in both places, so that the program prints `large`.
+            ---
+            size = "large"
+            print(size)
+            ---
+            A name is yours to choose, as long as Python has not already taken the word.
+            ```
+
+            **Watch out:** when you rename something, rename it in every place it is used. A name that is
+            changed in one place and not in the other gives a `NameError`.
+
+            **In short:** a name uses letters, digits and `_`, does not start with a digit, and is not one
+            of Python's keywords.
         ''',
         "prompt": r'''
-            `endpoint(model, global)` builds the id of a model deployed in one region, but
-            the file doesn't even run: Check shows a `SyntaxError`. The second parameter uses
-            a reserved word as its name.
+            Models are often deployed in several regions of the world, and each deployment has an id such
+            as `gpt-4o@eu`: the model, an `@`, then the region. The function `endpoint` builds that id. But
+            the file does not run at all. Check shows a `SyntaxError`, because the second parameter was
+            given a name that Python keeps for itself.
 
-            **Fix:** rename the second parameter to `region` (in the `def` line **and** where
-            it is used).
+            **Your job:** repair `endpoint` so the file runs and the function returns the deployment id
+            for the supplied model and region.
 
-            - `model`: a model name, a string, e.g. `"gpt-4o"`
-            - `region`: a region code, a string, e.g. `"eu"`
-            - **Returns:** a string: the model, `@`, then the region, e.g. `"gpt-4o@eu"` (no spaces)
+            **What goes in**
+            - `model`: a model name, a string, for example `"gpt-4o"`
+            - `region`: a region code, a string, for example `"eu"`
+
+            **What comes out**
+            - one string: the model, then `@`, then the region, with no spaces: `"gpt-4o@eu"` for the
+              example values
 
             **Rules**
-            - The parameters must be named exactly `model` and `region`, in that order (a check looks at the names).
+            - The parameters are named exactly `model` and `region`, in that order. A check looks at the
+              names.
 
             **Examples**
             ```python
@@ -1097,9 +1440,9 @@ EXERCISES = [
                 return model + "@" + region
         ''',
         "hints": [
-            "The error points at the word global: it is one of Python's keywords.",
-            "Choose the name the task asks for and use it in both places the old name appears.",
-            "Replace global with region in the def line, and again in the return line.",
+            "Look at the colours in the editor. One word in the `def` line is shown like `def` and `return`, not like an ordinary name.",
+            "That word is one of Python's keywords, so it cannot be the name of a parameter. The task tells you which name to use instead.",
+            "Choose the valid parameter name required by the task, then check that references inside the function consistently use the corresponding parameter. Keep the deployment-id format unchanged.",
         ],
     },
     {
@@ -1107,10 +1450,10 @@ EXERCISES = [
         "title": "Fix: one name per item",
         "difficulty": 1,
         "lesson": r'''
-            ## Unpacking needs one name per item
+            ## One name for every item
 
-            Unpacking works only when the left side has exactly one name for each item of the
-            tuple. A tuple with three items needs three names.
+            Unpacking has one strict rule: the left side needs exactly as many names as the tuple has
+            items. Three items, three names.
 
             ```python
             window = (200000, 8000, 192000)
@@ -1119,21 +1462,28 @@ EXERCISES = [
             # 192000
             ```
 
-            With the wrong number of names, Python stops with a `ValueError`. A `ValueError`
-            means a value is the right kind of value but its contents are not acceptable. Here
-            the value is a tuple, but it has the wrong number of items. Unpacking three items
-            into two names gives this message:
+            With the wrong number of names, Python stops and tells you both numbers:
 
             ```text
             ValueError: too many values to unpack (expected 2, got 3)
             ```
 
-            Python versions before 3.14 end that message at `(expected 2)`. `too many values`
-            means the tuple has more items than you wrote names. `not enough values` means it
-            has fewer. Count the items, then count the names.
+            Read it word for word. "Expected 2" is the number of names you wrote. "Got 3" is the number of
+            items in the tuple. "Too many values" means the tuple has more items than you have names, and
+            "not enough values" means it has fewer. A `ValueError` in general means that a value is the
+            right kind of thing, here a tuple, but something about its contents does not fit.
 
-            An item you do not need still requires a name. Many programmers use the name `_`
-            for an item they will not use.
+            ```quiz
+            `point = (4, 7)`. Which line stops with `ValueError: not enough values to unpack (expected 3, got 2)`?
+            - [x] `x, y, z = point` :: Right. Three names are waiting, and the tuple has only two items to give.
+            - [ ] `x, y = point` :: Two names and two items match, so this line runs.
+            - [ ] `x = point` :: One name without a comma is an ordinary assignment. `x` becomes the whole tuple, and there is no error.
+            ```
+
+            ### When you do not need every item
+
+            Every item still needs a name, even one you will never use. Many programmers call such an item
+            `_`, a name that says "not needed":
 
             ```python
             window = (200000, 8000, 192000)
@@ -1141,21 +1491,42 @@ EXERCISES = [
             print(context)
             # 200000
             ```
+
+            ```fill
+            reply = ("ok", 200, "done")
+            ___ = reply
+            print(code)
+            ---
+            - [x] status, code, text :: Right. Three names for three items, and `code` is the second, so the program prints 200.
+            - [ ] status, code :: Two names for three items. Python stops with `ValueError: too many values to unpack`.
+            - [ ] code, status, text :: The count is right, but the names are in the wrong positions. `code` gets the first item, so the program prints `ok`.
+            ```
+
+            **Watch out:** the position of a name decides which item it gets. Names in the wrong order
+            give no error. They give the wrong value.
+
+            **In short:** count the items of the tuple, then write exactly that many names, in the same
+            order.
         ''',
         "prompt": r'''
-            A usage record is a tuple of three counts: `(prompt_tokens, completion_tokens,
-            total_tokens)`. `total_of` should return the last one, but it crashes with
-            `ValueError: too many values to unpack (expected 2)`. Fix the unpacking line.
+            An AI API reports the token usage of a request as a tuple of three counts: the prompt tokens,
+            the completion tokens (the model's answer) and the total, for example `(120, 30, 150)`. The
+            function `total_of` should give back the last of the three. Instead it stops with
+            `ValueError: too many values to unpack (expected 2, got 3)`.
 
-            **Fix:** `total_of(usage)`
+            **Your job:** fix the unpacking line in `total_of(usage)`. The code is already in the editor.
 
-            - `usage`: a tuple of three ints `(prompt, completion, total)`, e.g. `(120, 30, 150)`
-            - **Returns:** an int: the **third** item, the total, e.g. `150`
+            **What goes in**
+            - `usage`: a tuple of three whole numbers, `(prompt, completion, total)`, for example
+              `(120, 30, 150)`
+
+            **What comes out**
+            - the third item, the total, as a whole number: `150` for the example value
 
             **Rules**
-            - Keep using unpacking: take the tuple apart in **one** assignment line (a check
-              looks for it).
-            - Don't use square brackets / indexing like `usage[2]` (a check enforces this).
+            - Keep the unpacking: the tuple is taken apart in one assignment line. A check looks for it.
+            - Do not use square brackets, as in `usage[2]`. They are another way to read an item, which a
+              later chapter covers, and a check fails when they appear.
 
             **Examples**
             ```python
@@ -1196,9 +1567,9 @@ EXERCISES = [
                 return total
         ''',
         "hints": [
-            "The error message says how many names Python expected and that there were more values than names.",
-            "The tuple has three items, so the left side of the unpacking needs three names.",
-            "Add a name for the middle item (e.g. completion) between prompt and total on the unpacking line.",
+            "Read the error message: it says how many names Python expected and how many values it got.",
+            "The tuple has three items, but the unpacking line has only two names. Every item needs a name, even an item you do not use.",
+            "Add one more name to the left side of the unpacking line, in the middle, so that the three names line up with the three counts. The `return` line can stay as it is.",
         ],
     },
     {
@@ -1207,22 +1578,28 @@ EXERCISES = [
         "difficulty": 2,
         "placement": True,
         "prompt": r'''
-            An API returns model info as a tuple of four items. You want a short id for
-            logs and the number of tokens left for the input.
+            An API describes each model as a tuple of four items, for example
+            `("openai", "gpt-4o", 128000, 16000)`: the provider, the model name, the context window (how
+            many tokens the model can handle in total) and the maximum output (how many of those it may
+            write). Your logs need two things made from that record: a short id such as `openai/gpt-4o`,
+            and the number of tokens that are left for the input.
 
-            **Write:** `describe(record)`
+            **Your job:** write `describe(record)` so that it gives back both.
 
-            - `record`: a tuple `(provider, model_name, context_window, max_output)`:
-              two strings then two ints, e.g. `("openai", "gpt-4o", 128000, 16000)`
-            - **Returns:** **two values** (a tuple of 2):
-              1. the full model id, a string: provider, a `/`, then the model name,
-                 e.g. `"openai/gpt-4o"` (no spaces)
-              2. the input budget, an int: `context_window` minus `max_output`
+            **What goes in**
+            - `record`: a tuple `(provider, model_name, context_window, max_output)`: two strings, then two
+              whole numbers
+
+            **What comes out**
+            - two values together, as a tuple of 2:
+              1. the model id, a string: the provider, a `/`, then the model name, with no spaces, for
+                 example `"openai/gpt-4o"`
+              2. the input budget, a whole number: `context_window` minus `max_output`, for example `112000`
 
             **Rules**
-            - Take the record apart into four names in **one** assignment line (this is
-              called *unpacking*). A check looks for it.
-            - Return exactly two values.
+            - Take the record apart into four names in one assignment line, by unpacking. A check looks
+              for it.
+            - Exactly two values come back.
 
             **Examples**
             ```python
@@ -1264,9 +1641,9 @@ EXERCISES = [
                 return provider + "/" + model, context_window - max_output
         ''',
         "hints": [
-            "Unpacking splits a tuple into several names in one line; returning with a comma gives back two values.",
-            "First unpack the record into four names. Then build the id by joining text with +, and compute the budget with -.",
-            "1) Four names, comma separated, = record. 2) return: provider + the slash text + model, then a comma, then context_window - max_output.",
+            "Two ideas from this chapter meet here: unpacking a tuple into names, and returning two values with a comma between them.",
+            "First take the record apart into four names. Then build the id by joining strings with `+`, and work out the budget with `-`.",
+            "Line one of the body: four names, separated by commas, then `=` and the parameter. Line two: `return`, then the provider joined to a slash and to the model name, then a comma, then the context window minus the maximum output.",
         ],
     },
     {
@@ -1274,11 +1651,18 @@ EXERCISES = [
         "title": "Nested unpacking",
         "difficulty": 2,
         "lesson": r'''
-            ## Nested unpacking
+            ## Putting it together: a tuple inside a tuple
 
-            An item of a tuple can itself be a tuple. **Nested unpacking** takes both tuples
-            apart in one assignment. Write the left side with the same structure as the value,
-            and put parentheses around the names for the inner tuple.
+            An item of a tuple can itself be a tuple. This one has two items: a pair, and a string.
+
+            ```python
+            call = (("search", 2), "ok")
+            print(len(call))
+            # 2
+            ```
+
+            You can take both layers apart in one assignment. Write the left side in the same shape as
+            the value, with parentheses around the names for the inner tuple:
 
             ```python
             call = (("search", 2), "ok")
@@ -1287,26 +1671,56 @@ EXERCISES = [
             # search 2 ok
             ```
 
-            Python assigns the inner tuple's items to `tool` and `attempts`, and `"ok"` to
-            `status`. If you write `inner, status = call` instead, the left side has two names, and
-            `inner` gets the whole inner tuple `("search", 2)`.
+            Unpacking two layers at once is called **nested unpacking**. The parentheses on the left are
+            what tell Python to open the inner tuple as well. Leave them out and see what the first name
+            gets:
+
+            ```predict
+            call = (("search", 2), "ok")
+            inner, status = call
+            print(inner)
+            print(status)
+            ---
+            `call` has two items, and the left side has two names. So `inner` gets the whole first item, which is the pair `('search', 2)`, and `status` gets `ok`.
+            ```
+
+            ```quiz
+            `entry = ("europe", ("fast", 0.2), "on")`. Which left side matches its shape?
+            - [x] `region, (speed, price), state = entry` :: Right. A name, then a pair of names in parentheses, then a name: the same shape as the value.
+            - [ ] `(region, speed), price, state = entry` :: The parentheses are around the wrong part. The first item is a single string, not a pair, so Python stops with a `ValueError`.
+            - [ ] `region, speed, price, state = entry` :: Four names, but `entry` has only three items. The pair in the middle counts as one item.
+            ```
+
+            To plan a function like the one in this step, look at the shape of the value first. Count its
+            items, find the one that is itself a tuple, and copy that shape onto the left side of the
+            assignment.
+
+            **Watch out:** count the items of the outer tuple, not every value you can see. A pair inside
+            a tuple is one item.
+
+            **In short:** the left side of an unpacking can mirror the shape of the value, with
+            parentheses around the names for an inner tuple.
         ''',
         "prompt": r'''
-            A router returns a pair whose second item is itself a pair. You want all
-            three pieces side by side.
+            A router decides which model handles a request. It reports its choice as a pair whose second
+            item is itself a pair, for example `("openai", ("gpt-4o", 128000))`: the provider, and then
+            the model name together with its context window. For a log line you want the three pieces
+            side by side.
 
-            **Write:** `flatten(route)`
+            **Your job:** write `flatten(route)` so that it gives back the three pieces as one flat tuple.
 
-            - `route`: a tuple `(provider, (model_name, context_window))`, e.g.
+            **What goes in**
+            - `route`: a tuple `(provider, (model_name, context_window))`, for example
               `("openai", ("gpt-4o", 128000))`
-            - **Returns:** a flat tuple of **three** values:
-              `(provider, model_name, context_window)`
+
+            **What comes out**
+            - a tuple of three values with no tuple inside it: `(provider, model_name, context_window)`
 
             **Rules**
-            - Take `route` apart with **one** assignment whose left side has a pair inside
-              a pair (this is called *nested unpacking*). A check looks for it.
-            - Don't use indexing anywhere (no square brackets like `route[1]`).
-            - Return exactly three values, in the order shown.
+            - Take `route` apart in one assignment whose left side has a pair inside it (nested
+              unpacking). A check looks for it.
+            - Do not use square brackets anywhere, as in `route[1]`. A check fails when they appear.
+            - Exactly three values come back, in the order shown.
 
             **Examples**
             ```python
@@ -1353,9 +1767,9 @@ EXERCISES = [
                 return provider, model, context_window
         ''',
         "hints": [
-            "The left side of an unpacking assignment can have the same shape as the value, including parentheses for an inner pair.",
-            "Mirror the shape of route on the left of =: one name, then a parenthesised pair of two names. Then return the three names.",
-            "1) Write: name, (name, name) = route. 2) Return the three names separated by commas, in the order provider, model, context window.",
+            "The left side of an unpacking can have the same shape as the value, with parentheses around the names for an inner tuple.",
+            "Copy the shape of `route` onto the left side: one name, then a pair of names in parentheses. After that line you have three names to hand back.",
+            "Line one of the body: a name, a comma, two names in parentheses, then `=` and the parameter. Line two: `return` and the three names with commas between them, in the order provider, model name, context window.",
         ],
     },
     {
@@ -1363,29 +1777,36 @@ EXERCISES = [
         "title": "Rolling stats",
         "difficulty": 3,
         "prompt": r'''
-            You track response latencies (in ms) of a model API as a **stats tuple**
-            `(count, total, lowest, highest)`. Tuples cannot be changed, so each update
-            builds a new one.
+            Your app measures how long each call to a model API takes. Such a waiting time is called a
+            latency, and it is measured in milliseconds (ms). Instead of keeping every measurement, the
+            app keeps a running summary in one tuple of four numbers, the **stats tuple**:
+            `(count, total, lowest, highest)`. A tuple cannot be changed once it exists, so every new
+            measurement builds a new stats tuple from the old one.
 
-            **Write three functions:**
+            **Your job:** write three functions that create, update and read a stats tuple.
 
-            1. `start_stats(value)`
-               - `value`: the first latency, an int, e.g. `120`
-               - **Returns:** the stats tuple after that one measurement:
-                 count `1`, and `value` as the total, the lowest and the highest
-            2. `add_value(stats, value)`
-               - `stats`: a stats tuple, e.g. `(1, 120, 120, 120)`
-               - `value`: one more latency, an int, e.g. `80`
-               - **Returns:** a **new** stats tuple: count + 1, total + value, the smaller
-                 of (lowest, value), the bigger of (highest, value)
-            3. `average(stats)`
-               - `stats`: a stats tuple (count is at least 1)
-               - **Returns:** a float: `total / count` rounded to **2** decimals
+            **1. `start_stats(value)`**
+            - goes in: `value`, the first latency, a whole number, for example `120`
+            - comes out: the stats tuple after that one measurement. The count is `1`, and `value` is the
+              total, the lowest and the highest all at once: `(1, 120, 120, 120)` for the example value
+
+            **2. `add_value(stats, value)`**
+            - goes in: `stats`, a stats tuple, for example `(1, 120, 120, 120)`, and `value`, one more
+              latency, for example `80`
+            - comes out: a new stats tuple: the count plus 1, the total plus `value`, the smaller of the
+              old lowest and `value`, and the bigger of the old highest and `value`: `(2, 200, 80, 120)`
+              for the example values
+
+            **3. `average(stats)`**
+            - goes in: `stats`, a stats tuple whose count is at least 1
+            - comes out: the total divided by the count (the operator `/` divides), rounded to 2 decimal
+              places
 
             **Rules**
-            - `add_value` must not change the tuple it was given (build and return a new one).
-            - `add_value` can be called many times in a row, each time on the previous result.
-            - `min()` works like `max()`. No `if` is needed.
+            - `add_value` gives back a new tuple. The tuple it was given stays as it was.
+            - `add_value` can be called many times in a row, each time on the result of the call before.
+            - The built-ins `min` and `max` pick the smaller and the bigger of two values. Nothing more is
+              needed for that part.
 
             **Examples**
             ```python
@@ -1455,9 +1876,9 @@ EXERCISES = [
                 return round(total / count, 2)
         ''',
         "hints": [
-            "Unpack the stats tuple into four names, compute the new values, return them as a new tuple.",
-            "After one measurement the count is 1 and the value is the total, the lowest and the highest. Each update: one more in the count, add to the total, keep the smaller lowest and the bigger highest.",
-            "1) start_stats: return 1 followed by the value three times. 2) add_value: unpack stats into four names, then return a new tuple of: count plus one, total plus value, the smaller of lowest and value (min), the bigger of highest and value (max). 3) average: unpack, divide total by count, round to 2 places.",
+            "`add_value` and `average` start the same way: take the stats tuple apart into four names. Then work out the new values and hand them back.",
+            "After one measurement the count is 1, and the same value is the total, the lowest and the highest. Every update adds one to the count, adds the value to the total, keeps the smaller lowest and keeps the bigger highest.",
+            "`start_stats` returns four values: 1, and then the value three times. `add_value` unpacks `stats` into four names and returns four new values, with `min` for the lowest and `max` for the highest. `average` unpacks, divides the total by the count, and rounds the result with the second argument of `round`.",
         ],
     },
 ]

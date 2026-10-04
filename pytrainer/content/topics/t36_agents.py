@@ -129,6 +129,7 @@ for step in range(1, max_steps + 1):
     print(step, name, args, "->", result)
     # 1 add {'a': 2, 'b': 3} -> 5
 print(stop_reason, answer, step)
+# 1 add {'a': 2, 'b': 3} -> 5
 # final 2 + 3 is 5 2
 print(len(messages))
 # 3
@@ -286,52 +287,51 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## The agent loop
+            ## Let the reply choose the next action
 
-            An **agent** is a loop in your code that calls a model and runs tools. The model
-            does not run anything itself. It returns data, and your code acts on that data.
-
-            In this chapter every model reply is a dict with a `"type"` key. A **tool request**
-            has the type `"tool"` and names a tool and its arguments. A **final answer** has
-            the type `"final"` and holds the answer text.
-
-            The program below uses two pre-written replies in place of real model calls. The
-            loop reads one reply per pass. For a tool request it prints the tool name. For a
-            final answer it prints the text, and `break` ends the loop.
+            A user asks a question that needs information from a tool. You cannot plan the exact answer in advance, but you can write code that reads a model's request, runs the requested tool, and gives the result back.
 
             ```python
-            tool_reply = {"type": "tool", "tool": "search", "args": {"q": "France"}}
-            final_reply = {"type": "final", "text": "Paris"}
-            for reply in [tool_reply, final_reply]:
-                if reply["type"] == "final":
-                    print("answer:", reply["text"])
+            script = [{"kind": "action", "name": "lookup"},
+                      {"kind": "answer", "text": "Ready"}]
+            for item in script:
+                if item["kind"] == "answer":
+                    print(item["text"])
                     break
-                print("calling", reply["tool"])
-            # calling search
-            # answer: Paris
+                print("requested:", item["name"])
+            # requested: lookup
+            # Ready
             ```
 
-            Step through the program to see which lines run for each reply.
+            The first item describes an action. The second describes a completed answer and ends the loop. These items are prewritten data, so no model or network is needed to follow the control flow. The loop makes the decision; the data describes what decision to make.
 
-            ```diagram
-            {"type": "trace", "title": "Two replies through the loop", "code": ["tool_reply = {\"type\": \"tool\", \"tool\": \"search\", \"args\": {\"q\": \"France\"}}", "final_reply = {\"type\": \"final\", \"text\": \"Paris\"}", "for reply in [tool_reply, final_reply]:", "    if reply[\"type\"] == \"final\":", "        print(\"answer:\", reply[\"text\"])", "        break", "    print(\"calling\", reply[\"tool\"])"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}"}, "out": ""},
-              {"line": 3, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}"}, "out": ""},
-              {"line": 4, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}", "reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}"}, "out": ""},
-              {"line": 7, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}", "reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}"}, "out": ""},
-              {"line": 3, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}", "reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}"}, "out": "calling search\n"},
-              {"line": 4, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}", "reply": "{'type': 'final', 'text': 'Paris'}"}, "out": "calling search\n"},
-              {"line": 5, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}", "reply": "{'type': 'final', 'text': 'Paris'}"}, "out": "calling search\n"},
-              {"line": 6, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}", "reply": "{'type': 'final', 'text': 'Paris'}"}, "out": "calling search\nanswer: Paris\n"},
-              {"line": null, "vars": {"tool_reply": "{'type': 'tool', 'tool': 'search', 'args': {'q': 'France'}}", "final_reply": "{'type': 'final', 'text': 'Paris'}", "reply": "{'type': 'final', 'text': 'Paris'}"}, "out": "calling search\nanswer: Paris\n"}
-            ]}
+            A program that repeatedly asks a model what to do, executes permitted actions and reports their results is an **agent**. You will see this described as **think, act, observe**: call the model, run a tool, and return its result to the conversation. A model reply does not itself execute Python or gain permission to act.
+
+            This chapter uses a deliberately small reply format. It has tool requests and final answers. It is a teaching interface, rather than a universal provider response shape. Stop as soon as a final answer arrives; continuing could run actions after the task is complete.
+
+            ```match
+            think :: ask the model for the next reply
+            act :: execute a permitted tool request
+            observe :: include the result in later model context
+            ---
+            Your program coordinates all three phases and decides which actions are allowed.
             ```
 
-            This is the **agent loop**. Its three parts have standard names: *think* (call the
-            model), *act* (run the tool) and *observe* (read the result). Then the loop repeats.
 
-            `break` ends the loop at once. Any reply after the final answer is never read.
+            Try one more small check before moving to the task.
+
+            ```predict
+            for item in ["action", "done", "unused"]:
+                print(item)
+                if item == "done":
+                    break
+            ---
+            The stop condition prevents the later unused item from being read or printed.
+            ```
+
+            **Watch out:** Reading a tool name does not execute that tool. Your code must explicitly dispatch it, and must stop dispatching after a final reply.
+
+            **In short:** An agent loop reads requests, runs allowed actions, and feeds results into the next call.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -357,12 +357,14 @@ EXERCISES = [
             `tools["add"](a=2, b=3)` returns `5`, and the line `1 tool add -> 5` is printed.
             Reply 2 has the type `"final"`, so its text is printed and `break` ends the loop.
             The third reply is never read.
+
+            Follow each printed line in execution order. Changes to a variable affect later lines; they do not change output that was already printed.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "Walk the list one reply at a time and track the step number enumerate gives you.",
-            "A tool reply runs the tool and prints a line; a final reply prints and then stops the loop.",
-            "Step 1: run add with a=2 and b=3 and print the line. Step 2: print the final text, then break - nothing else runs.",
+            "Identify which reply branch runs on each pass through the loop.",
+            "A final reply ends the loop, so later replies cannot produce output.",
+            "Follow the step numbering, evaluate a tool call when requested, and trace each print until the branch that stops the loop.",
         ],
     },
     {
@@ -370,44 +372,59 @@ EXERCISES = [
         "title": "Is the agent done?",
         "difficulty": 0,
         "lesson": r'''
-            ## Stop conditions
+            ## Recognise a completed answer
 
-            A **stop condition** is a test that tells the agent loop when to end. A loop with
-            no stop condition calls the model forever.
-
-            The first stop condition is the reply type. Each reply is a dict with a `"type"`
-            key. The value `"tool"` means the loop must run a tool and continue. The value
-            `"final"` means the model has returned its answer and the loop must end.
+            Your loop needs a clear signal that the model has finished. Looking at the wording of its answer would be fragile. Give the reply a field that states whether it is asking for an action or delivering an answer.
 
             ```python
-            reply = {"type": "final", "text": "42"}
-            print(reply["type"])
-            # final
-            print(reply["type"] == "final")
+            event = {"kind": "complete", "message": ""}
+            print(event["kind"] == "complete")
             # True
-            print(reply["type"] == "tool")
+            print(event["kind"] == "action")
             # False
             ```
 
-            `==` compares two values and produces `True` or `False`. A function can return
-            that result directly. No `if` statement is needed.
+            The comparison reads the signal field and returns a boolean. The message is empty, but that does not alter the signal. A completed reply and a nonempty reply are different properties.
 
-            ```python
-            def is_tool(reply):
-                return reply["type"] == "tool"
+            A rule deciding when a loop should end is a **stop condition**. Here the rule inspects the reply's type. Your task uses the chapter's tool and final type names. Checking that field is more reliable than searching for a phrase such as done in free text.
 
-            print(is_tool({"type": "tool", "tool": "search", "args": {"q": "x"}}))
-            # True
+            The starter already contains the lookup and comparison. Complete its missing value so it recognises the agreed final type. A comparison expression is itself a boolean, so the function can return it directly. You do not need to convert the entire dictionary to a boolean: a tool request is usually nonempty too. Keep the contract focused on the specific field rather than incidental contents such as answer length or tool name.
+
+            ```fill
+            state = {"kind": "working"}
+            print(state["kind"] ___ "complete")
+            ---
+            - [x] == :: Equality asks whether the field has the agreed completion value.
+            - [ ] != :: Inequality would report the opposite and treat working as complete.
             ```
+
+
+            Try one more small check before moving to the task.
+
+            ```predict
+            print(bool({"kind": "working"}))
+            ---
+            A working reply can be truthy. Truthiness of the whole dictionary is not a completion signal.
+            ```
+
+            **Watch out:** A truthy dictionary does not establish that a task is finished. Both tool requests and final answers can contain data.
+
+            **In short:** Use the agreed reply type as the completion signal, even when its text is empty.
         ''',
         "prompt": r'''
-            The loop needs to know when the model has finished. Replace the `___`.
+            The loop needs a completion signal. Fill the gap in the supplied comparison so it recognises final replies.
 
-            **Write:** `is_final(reply)`
+            **Your job:** `is_final(reply)`
 
+            **What goes in**
             - `reply`: a dict like `{"type": "final", "text": "Paris"}` or
               `{"type": "tool", "tool": "search", "args": {"q": "x"}}`
-            - **Returns:** `True` if the reply's `"type"` is `"final"`, otherwise `False`
+
+            **What comes out**
+            - `True` if the reply's `"type"` is `"final"`, otherwise `False`
+
+            **Rules**
+            - An empty answer string still counts as final when its type is final.
 
             **Examples**
             ```python
@@ -437,9 +454,9 @@ EXERCISES = [
                 return reply["type"] == "final"
         ''',
         "hints": [
-            "Look at the value stored under the \"type\" key of the reply.",
-            "Compare that value with the text that means 'the model is done'.",
-            "Replace ___ with the string \"final\" (in quotes) so the comparison is True only for final replies.",
+            "Which field carries the completion signal?",
+            "The function must test the reply type rather than the answer contents.",
+            "Read the expected type names in the task and complete the comparison so only a final reply makes it true.",
         ],
     },
     {
@@ -447,49 +464,57 @@ EXERCISES = [
         "title": "Fix: one step too many",
         "difficulty": 0,
         "lesson": r'''
-            ## Max steps
+            ## Stop exactly when a limit is reached
 
-            A model can return tool requests on every call and never return a final answer.
-            Every model call costs money, so the loop needs a second stop condition.
-            **Max steps** is a limit on the number of steps the loop may run.
-
-            `step` counts the steps that have already run. The agent must stop when `step`
-            equals the limit, not one step later.
+            A model can keep requesting actions without ever answering. You need a second way to end the loop: a limit on the calls already made. The boundary itself matters, because one extra call can trigger another action or cost money.
 
             ```python
-            max_steps = 3
-            for step in [2, 3, 4]:
-                print(step, step >= max_steps, step > max_steps)
-            # 2 False False
-            # 3 True False
-            # 4 True True
+            limit = 4
+            for used in [3, 4, 5]:
+                print(used, used >= limit, used > limit)
+            # 3 False False
+            # 4 True False
+            # 5 True True
             ```
 
-            `step >= max_steps` is `True` when `step` has reached the limit or passed it.
-            `step > max_steps` is `True` only after `step` has passed it. The two differ when
-            `step` is `3`. Using the wrong one is an **off-by-one** bug: the loop runs one
-            time too many or one time too few.
+            The comparisons differ when the count is exactly four. At that point all four allowed calls have already happened. Waiting until the count is greater would allow another call.
 
-            The agent stops when it is done or when it is out of steps. `or` produces a true
-            result when at least one side is true.
+            A one-step mistake at a counting boundary is called an **off-by-one error**. You have met similar mistakes with indexes and ranges. Here the count represents completed calls, not the index of a future call, so reason from what has already happened.
 
-            ```python
-            done = False
-            out_of_steps = True
-            print(done or out_of_steps)
-            # True
+            The loop also stops when a final reply arrives. These two reasons are independent: finishing early is allowed, and reaching the limit must stop a still-working model. The boolean operator or combines them because either reason is sufficient. Check a count below, equal to and above the limit. Those three examples reveal a boundary error much more reliably than testing only a typical count.
+
+            ```quiz
+            Four calls are allowed and four have happened. May the loop make a fifth?
+            - [x] No, the allowance is used up. :: The maximum includes the calls already made, so reaching it is sufficient to stop.
+            - [ ] Yes, because the count is not greater yet. :: That interpretation allows one call beyond the stated maximum.
             ```
+
+
+            Try one more small check before moving to the task.
+
+            ```predict
+            print(4 >= 4)
+            print(4 > 4)
+            ---
+            Equality reaches an inclusive maximum even though a strict greater-than comparison remains False.
+            ```
+
+            **Watch out:** Do not let the step limit replace the final-answer check. The loop must stop for either reason, including an early final reply.
+
+            **In short:** A completed-call count reaches its limit at equality, and a final answer can stop earlier.
         ''',
         "prompt": r'''
-            The loop asks `should_stop` after every step. The agent is running one step too
-            many. Find and fix the bug.
+            The supplied stop checker allows one call beyond the limit. Fix that boundary while retaining early completion.
 
-            **Write:** `should_stop(step, max_steps, reply)`
+            **Your job:** `should_stop(step, max_steps, reply)`
 
+            **What goes in**
             - `step`: int, how many steps have already run (starts at 1), e.g. `3`
             - `max_steps`: int, the limit, e.g. `3`
             - `reply`: the latest model reply dict, e.g. `{"type": "tool", ...}`
-            - **Returns:** `True` if the reply's `"type"` is `"final"` **or** `step` has reached
+
+            **What comes out**
+            - `True` if the reply's `"type"` is `"final"` **or** `step` has reached
               `max_steps`; otherwise `False`
 
             **Examples**
@@ -523,9 +548,9 @@ EXERCISES = [
                 return reply["type"] == "final" or step >= max_steps
         ''',
         "hints": [
-            "The final-reply part is fine. Look at how step is compared with max_steps.",
-            "When step equals max_steps the agent has used all its steps, so it must stop.",
-            "Change the > comparison to >= so reaching the limit counts as a reason to stop.",
+            "Examine the comparison at the exact limit, not only above it.",
+            "The final-reply test is a separate valid reason to stop.",
+            "Keep both stop reasons, make the budget boundary inclusive, and check below, equal and above the maximum.",
         ],
     },
     {
@@ -533,49 +558,62 @@ EXERCISES = [
         "title": "Call a tool by name",
         "difficulty": 0,
         "lesson": r'''
-            ## Tool registry
+            ## Connect a tool name to a callable function
 
-            A **tool registry** is a dict that maps each tool name to a function. The model
-            sends the tool name as a string. Your code uses that string as the key to get
-            the function.
+            The model supplies a tool name as text and arguments as named values. Your program needs to connect that text to real code. A dictionary can hold functions, so looking up the name gives you the function to call.
 
             ```python
-            def weather(city, unit="C"):
-                return f"18{unit} in {city}"
-
-            tools = {"weather": weather}
-            fn = tools["weather"]
-            print(fn("Paris"))
-            # 18C in Paris
+            def label(word, suffix="!"):
+                return word + suffix
+            registry = {"label": label}
+            chosen = registry["label"]
+            values = {"word": "Ready", "suffix": "?"}
+            print(chosen(**values))
+            # Ready?
             ```
 
-            The model sends the arguments as a dict too. In a call, `**` unpacks a dict into
-            keyword arguments. Each key becomes a parameter name.
+            The dictionary value is the function itself, without parentheses. Parentheses would run it while constructing the registry. The later lookup selects the function, and the call actually runs it.
 
-            ```python
-            def weather(city, unit="C"):
-                return f"18{unit} in {city}"
+            This name-to-function mapping is a **tool registry**. The double star in a call turns a dictionary's entries into **keyword arguments**: each key names a parameter. It is the reverse of collecting extra keyword arguments in a function definition.
 
-            args = {"city": "Paris", "unit": "F"}
-            print(weather(**args))
-            # 18F in Paris
-            print(weather(city="Paris", unit="F"))
-            # 18F in Paris
+            The spelling of an argument key must agree with the callable's parameter name. A missing required parameter or an unexpected key can raise TypeError. An empty dictionary contributes no arguments, which is useful for a tool whose signature takes none. This step assumes the requested tool exists; later steps will handle unknown names and tool failures. Return the function's result as it is, because tools may return numbers, lists or other values.
+
+            ```predict
+            def greet(name):
+                return "Hello " + name
+            arguments = {"name": "Mira"}
+            print(greet(**arguments))
+            ---
+            The name key becomes the name parameter, so the unpacked call behaves like passing name="Mira".
             ```
 
-            In the functions chapter, `**kwargs` in a `def` collected keyword arguments into
-            a dict. `**args` in a call does the reverse. An empty dict unpacks to no
-            arguments. A key that is not a parameter name raises `TypeError`.
+
+            Try one more small check before moving to the task.
+
+            ```predict
+            def ready():
+                return "ready"
+            print(ready(**{}))
+            ---
+            An empty argument dictionary contributes no keyword arguments, so the no-argument function runs.
+            ```
+
+            **Watch out:** Putting a function call in the registry stores its result rather than the callable. Store the function, then call it only after a request arrives.
+
+            **In short:** Look up the callable by name and unpack the request's named arguments into its call.
         ''',
         "prompt": r'''
-            The model asked for a tool by name, with its arguments as a dict. Run it.
+            A model request names a registered tool and supplies named arguments. Dispatch that one request.
 
-            **Write:** `call_tool(tools, name, args)`
+            **Your job:** `call_tool(tools, name, args)`
 
+            **What goes in**
             - `tools`: a dict mapping tool names to functions, e.g. `{"add": add}`
             - `name`: str, the tool to run, e.g. `"add"`
             - `args`: dict of keyword arguments, e.g. `{"a": 2, "b": 3}`
-            - **Returns:** whatever the tool function returns
+
+            **What comes out**
+            - whatever the tool function returns
 
             **Rules**
             - Pass the arguments by name (the dict keys are the parameter names).
@@ -620,9 +658,9 @@ EXERCISES = [
                 return tools[name](**args)
         ''',
         "hints": [
-            "First look the function up in the dict, then call it.",
-            "The args dict must become keyword arguments - unpack it with ** when you call.",
-            "Get tools[name], call it with **args, and return what it gives back.",
+            "Remember that a dictionary can hold a function rather than only ordinary data.",
+            "Selecting the callable and running it are two separate operations.",
+            "Retrieve the requested function, pass the argument dictionary as named parameters, and return whatever that call produced.",
         ],
     },
     {
@@ -630,51 +668,60 @@ EXERCISES = [
         "title": "Write it in the log",
         "difficulty": 0,
         "lesson": r'''
-            ## Audit log
+            ## Keep an ordered record of actions
 
-            An **audit log** is a record of every action the agent took, in order. An audit is
-            an official check of records. When an agent gives a wrong answer, you read the log
-            to see which tools it ran and what each one returned.
-
-            In code, the log is a list of dicts. Each dict is one entry. `append` adds an
-            entry to the end of the list.
+            An agent gives an unexpected answer. You need to see which tools actually ran, with which inputs and results. Add a record after each action so you can inspect the run in the order it happened.
 
             ```python
-            log = []
-            log.append({"step": 1, "tool": "search", "args": {"q": "tea"}, "result": "3 hits"})
-            log.append({"step": 2, "tool": "read", "args": {"id": 7}, "result": "Tea is..."})
-            for entry in log:
-                print(entry["step"], entry["tool"], entry["result"])
-            # 1 search 3 hits
-            # 2 read Tea is...
-            print(len(log), "actions")
-            # 2 actions
-            ```
-
-            `append` changes the list in place and returns `None`.
-
-            ```python
-            log = []
-            returned = log.append({"step": 1})
+            trail = [{"number": 1, "name": "find"}]
+            returned = trail.append({"number": 2, "name": "read"})
             print(returned)
             # None
-            print(log)
-            # [{'step': 1}]
+            print([entry["name"] for entry in trail])
+            # ['find', 'read']
             ```
 
-            A function that must return the log returns the list, not the result of `append`.
+            Appending adds the new dictionary to the end of the existing list. Earlier entries stay in their original order. The append method returns None; it does not return the updated list.
+
+            A record used to inspect past actions is an **audit log**. It should identify the step, action, arguments and result. Those fields help you distinguish a faulty tool result from a wrong request or a later reasoning mistake. The task gives the exact field names so other code can read the record consistently.
+
+            This function deliberately changes the list supplied by the caller. That is different from a function required to return a new copy. The caller may already have a reference to the list and expects to see the new entry there. Return that same list after appending. Do not mistake the returned value of the method for the list whose contents it changed.
+
+            ```quiz
+            After entries.append(new_entry), what value does append return?
+            - [x] None :: The method changes the existing list and has no updated-list return value.
+            - [ ] The updated list :: The list itself changed, but the method result is a different value.
+            ```
+
+
+            Try one more small check before moving to the task.
+
+            ```predict
+            entries = ["old"]
+            entries.append("new")
+            print(entries)
+            ---
+            Appending preserves the old entry and places the new entry at the end.
+            ```
+
+            **Watch out:** Returning the result of append gives the caller None. Return the log object when the contract promises the updated log.
+
+            **In short:** Append one action record and return the same log list, preserving its earlier entries.
         ''',
         "prompt": r'''
-            Record one agent action in the audit log.
+            Keep an ordered record of what the agent did. Add exactly one action record to the supplied log.
 
-            **Write:** `record(log, step, tool, args, result)`
+            **Your job:** `record(log, step, tool, args, result)`
 
+            **What goes in**
             - `log`: a list of earlier entries (may be empty)
             - `step`: int, e.g. `1`
             - `tool`: str, the tool name, e.g. `"search"`
             - `args`: dict, the tool arguments, e.g. `{"q": "tea"}`
             - `result`: whatever the tool returned, e.g. `"3 hits"`
-            - **Returns:** the same `log` list, with one new entry added at the end
+
+            **What comes out**
+            - the same `log` list, with one new entry added at the end
 
             **Rules**
             - The new entry is a dict with exactly the keys `"step"`, `"tool"`, `"args"`, `"result"`.
@@ -717,9 +764,9 @@ EXERCISES = [
                 return log
         ''',
         "hints": [
-            "Build one dict for the new entry, then add it to the end of the list.",
-            "Use the list method that adds an item at the end - it changes the list in place.",
-            "Create a dict with keys step, tool, args, result; append it to log; then return log (not the result of append).",
+            "Distinguish the list being changed from the value returned by its method.",
+            "The task needs one new dictionary at the end of the original list.",
+            "Build the specified record, append it without replacing the log, and then return the same list object.",
         ],
     },
     {
@@ -728,62 +775,53 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Tool errors
+            ## Keep a tool failure visible without ending the loop
 
-            Tools fail often: wrong arguments, missing data, a timeout. An exception that no
-            code catches ends the program, and the agent loop ends with it. To keep the loop
-            running, put the tool call inside `try` / `except`.
+            A requested tool can fail because data is missing or an argument is invalid. If the exception escapes the loop, the agent cannot choose a recovery action. Catch the failure at the tool boundary and turn it into information the next call can use.
 
             ```python
-            def divide(a, b):
-                return a / b
-
-            for b in [2, 0]:
+            def read_item(items, index):
+                return items[index]
+            for position in [0, 3]:
                 try:
-                    print("ok:", divide(10, b))
-                except ZeroDivisionError as e:
-                    print("tool failed:", e)
-            print("still running")
-            # ok: 5.0
-            # tool failed: division by zero
-            # still running
+                    print(read_item(["first"], position))
+                except IndexError as problem:
+                    print(type(problem).__name__)
+            print("continue")
+            # first
+            # IndexError
+            # continue
             ```
 
-            `divide(10, 0)` raises `ZeroDivisionError`. Python skips the rest of the `try`
-            block and runs the `except` block. The loop and the last `print` still run.
-            Step through the program to see the jump from line 2 to line 7.
+            The first call returns normally. The second raises while reading the list, so Python jumps to the except branch. After that branch finishes, the program continues. Catching the error changes control flow; it does not make the failed lookup succeed.
 
-            ```diagram
-            {"type": "trace", "title": "A tool error caught inside the loop", "code": ["def divide(a, b):", "    return a / b", "", "for b in [2, 0]:", "    try:", "        print(\"ok:\", divide(10, b))", "    except ZeroDivisionError as e:", "        print(\"tool failed:\", e)", "print(\"still running\")"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 4, "vars": {}, "out": ""},
-              {"line": 5, "vars": {"b": "2"}, "out": ""},
-              {"line": 6, "vars": {"b": "2"}, "out": ""},
-              {"line": 2, "vars": {"a": "10", "b": "2"}, "out": ""},
-              {"line": 4, "vars": {"b": "2"}, "out": "ok: 5.0\n"},
-              {"line": 5, "vars": {"b": "0"}, "out": "ok: 5.0\n"},
-              {"line": 6, "vars": {"b": "0"}, "out": "ok: 5.0\n"},
-              {"line": 2, "vars": {"a": "10", "b": "0"}, "out": "ok: 5.0\n"},
-              {"line": 7, "vars": {"b": "0"}, "out": "ok: 5.0\n"},
-              {"line": 8, "vars": {"b": "0", "e": "ZeroDivisionError('division by zero')"}, "out": "ok: 5.0\n"},
-              {"line": 4, "vars": {"b": "0"}, "out": "ok: 5.0\ntool failed: division by zero\n"},
-              {"line": 9, "vars": {"b": "0"}, "out": "ok: 5.0\ntool failed: division by zero\n"},
-              {"line": null, "vars": {"b": "0"}, "out": "ok: 5.0\ntool failed: division by zero\nstill running\n"}
-            ]}
+            An error object has a class, and `type(problem).__name__` exposes that class name as text. `str(problem)` gives its explanatory message. Those are distinct pieces: a name identifies the kind of error, while a message provides details about this occurrence.
+
+            The next lesson uses this information as a tool **observation**, a result sent back to the model. Reporting errors makes recovery possible, but it does not guarantee that the next model request will recover correctly. Keep an independent step limit. In real applications, error messages may contain sensitive values, so decide what may be exposed rather than forwarding arbitrary details without review.
+
+            ```match
+            try :: attempt an operation that may fail
+            except :: handle a matching raised error
+            exception class name :: the kind of failure, such as IndexError
+            ---
+            A caught error remains a failed operation even though execution can continue.
             ```
 
-            `type(e).__name__` is the name of the exception's class as a string. You use it
-            when you report an error back to the model.
 
-            ```python
+            Try one more small check before moving to the task.
+
+            ```predict
             try:
-                int("abc")
-            except ValueError as e:
-                print(type(e).__name__)
-                # ValueError
-                print(e)
-                # invalid literal for int() with base 10: 'abc'
+                int("not a number")
+            except ValueError as fault:
+                print(type(fault).__name__)
+            ---
+            The conversion error is caught and its class name becomes visible without ending the program.
             ```
+
+            **Watch out:** Python skips the remaining try-body lines after an exception. Include that jump when predicting the print order.
+
+            **In short:** Catch tool failures at their boundary and preserve useful information for recovery.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -807,12 +845,14 @@ EXERCISES = [
             `"Paris"` is in the dict, so it prints `Paris 18`. `"Mars"` is not, so `temps[city]`
             raises `KeyError`; the `except` catches it and prints the class name. Because the
             error was caught, the loop and the last `print` still run.
+
+            Follow each printed line in execution order. Changes to a variable affect later lines; they do not change output that was already printed.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "Check each city against the dict inside lookup.",
-            "A missing key raises KeyError, which the except block catches - the program does not crash.",
-            "Paris prints its temperature. Mars goes to the except line and prints the error class name. Then the final print runs.",
+            "Locate the operation that raises and the handler that matches it.",
+            "A caught exception skips the rest of the try body, then execution continues afterward.",
+            "Follow each call in order, distinguish successful output from the handler's class name and message, and include the final print.",
         ],
     },
     {
@@ -820,55 +860,61 @@ EXERCISES = [
         "title": "A scripted fake model",
         "difficulty": 1,
         "lesson": r'''
-            ## Scripted fake model
+            ## Make repeatable replies for an agent test
 
-            A real model is slow, costs money and can return a different reply on each call.
-            A test needs the same replies on every run. A **scripted fake model** is a function
-            that returns pre-written replies in order, one per call.
-
-            The function must keep count of the replies it has already returned. A closure
-            does this. A closure is a function defined inside another function that keeps
-            access to the outer function's variables after the outer function has returned.
+            A real model can choose a different reply on each call. That makes it hard to test your loop's exact behaviour. A test can supply a function that remembers its place in a prewritten sequence instead.
 
             ```python
-            def make_counter():
-                calls = [0]
-                def count():
-                    calls[0] += 1
-                    return calls[0]
-                return count
-
-            c = make_counter()
-            print(c(), c(), c())
-            # 1 2 3
-            d = make_counter()
-            print(d(), c())
-            # 1 4
+            def make_reader(values):
+                iterator = iter(values)
+                def read():
+                    return next(iterator)
+                return read
+            reader = make_reader(["north", "south"])
+            print(reader())
+            # north
+            print(reader())
+            # south
             ```
 
-            `calls` is a list with one item, and `count` changes that item on every call.
-            Each call to `make_counter` creates a new `calls` list, so `d` starts at 1 while
-            `c` continues from 3.
+            The outer function creates the iterator once. The returned inner function keeps access to it and advances it on every call. Calling the outer function again creates a separate iterator, so separate readers do not share progress.
 
-            An iterator also works. `iter(items)` creates an iterator over a list. `next(it)`
-            returns the next item, and raises `StopIteration` when no items are left.
+            An inner function retaining access to values from its enclosing function is a **closure**. A repeatable model made from a sequence of chosen replies is a **scripted fake**. You can use either an iterator or a stored position to track progress; the important part is that the state belongs to that particular fake.
 
-            ```python
-            it = iter(["a", "b"])
-            print(next(it))
-            # a
-            print(next(it))
-            # b
+            Your test interface still accepts the conversation argument, even though the scripted fake ignores its contents. That lets it stand in for the real model function without changing the loop. When the sequence ends, the task requires a specific error. Reaching that point should reveal an unexpected extra call rather than returning an invented reply. Reading must also leave the original list unchanged.
+
+            ```quiz
+            Two fake models are created from the same reply list. Should calling one advance the other?
+            - [x] No; each model has its own position. :: Independent progress lets separate tests use the same script without interference.
+            - [ ] Yes; the list must track their shared position. :: Changing shared progress would make the second model depend on calls to the first.
             ```
+
+
+            Try one more small check before moving to the task.
+
+            ```predict
+            a = iter(["one", "two"])
+            b = iter(["one", "two"])
+            print(next(a), next(a), next(b))
+            ---
+            The two iterators have independent positions; advancing a does not advance b.
+            ```
+
+            **Watch out:** A counter stored outside the factory can be shared accidentally. Keep each fake's progress inside its own creation call.
+
+            **In short:** A scripted fake returns chosen replies in order using state private to that instance.
         ''',
         "prompt": r'''
-            Build the fake model every test in this chapter relies on.
+            Repeatable model replies let you test the loop without network calls. Build an independent scripted fake for each creation call.
 
-            **Write:** `make_scripted_model(replies)`
+            **Your job:** `make_scripted_model(replies)`
 
+            **What goes in**
             - `replies`: a list of reply dicts, e.g.
               `[{"type": "tool", "tool": "add", "args": {"a": 1, "b": 2}}, {"type": "final", "text": "3"}]`
-            - **Returns:** a function `model(messages)` that returns the next reply from the list
+
+            **What comes out**
+            - a function `model(messages)` that returns the next reply from the list
               each time it is called (first call -> first reply, and so on)
 
             **Rules**
@@ -939,9 +985,9 @@ EXERCISES = [
                 return model
         ''',
         "hints": [
-            "The inner function must remember how many replies it has already given - a closure over a variable in the outer function.",
-            "Keep a position counter (for example in a one-item list) or an iterator, created inside make_scripted_model so each model has its own.",
-            "In make_scripted_model create position = [0]. In model: if position[0] >= len(replies) raise RuntimeError(\"script exhausted\"); otherwise take replies[position[0]], add 1 to the counter, and return the reply.",
+            "Where can the returned function keep progress between calls?",
+            "Progress belongs to the created model, while the original replies stay intact.",
+            "Create private progress, return a callable accepting messages, advance one reply per call, and raise the required exhaustion error when none remain.",
         ],
     },
     {
@@ -949,49 +995,53 @@ EXERCISES = [
         "title": "Tool errors become observations",
         "difficulty": 1,
         "lesson": r'''
-            ## Observations
+            ## Turn failed requests into usable observations
 
-            An **observation** is the text your code sends back to the model after a tool
-            call. The model receives it in the next call. When a tool fails, the observation
-            is an error message, and the model can then return a different request.
-
-            Two things can go wrong. The model can ask for a name that is not in the registry.
-            The tool can also raise an exception while it runs.
+            A model asks for an unavailable tool, or a registered tool raises while running. Neither case should look like a successful result. Report a clear failure while keeping the loop able to ask for a different action.
 
             ```python
-            def half(n):
-                return n / 2
-
-            tools = {"half": half}
-            for name, args in [("half", {"n": 8}), ("double", {"n": 2}), ("half", {"x": 1})]:
-                if name not in tools:
-                    print(f"error: unknown tool {name}")
-                    continue
-                try:
-                    print(tools[name](**args))
-                except Exception as e:
-                    print(f"error: {type(e).__name__}: {e}")
-            # 4.0
-            # error: unknown tool double
-            # error: TypeError: half() got an unexpected keyword argument 'x'
+            def lookup():
+                raise LookupError("record unavailable")
+            try:
+                lookup()
+            except LookupError as failure:
+                print(type(failure).__name__, str(failure))
+            # LookupError record unavailable
             ```
 
-            The `not in` test runs first, so an unknown name is never looked up or called.
-            The third request passes `x`, which is not a parameter of `half`, so the call
-            raises `TypeError`.
+            The class name identifies the error category; the message explains this occurrence. They can be combined into the error format promised by the task. A successful tool result, on the other hand, should remain in its original type.
 
-            `except Exception` catches almost every exception a tool can raise. That is
-            acceptable here because the error is not hidden. It is reported to the model.
+            A tool result supplied to a later model call is an **observation**. An observation can report success or failure. For an unknown name, check the registry before looking up or executing anything. For a known name, attempt the call and catch ordinary exceptions at that boundary.
+
+            This small helper is safe in the specific sense that it converts the stated tool errors into return values. It is not a security sandbox and cannot undo side effects a failing tool already performed. Real applications should also decide which error details may be sent to a model or user. Catching Exception does not catch every possible process-level interruption, so avoid claiming the function can never fail under any circumstances.
+
+            ```predict
+            try:
+                raise ValueError("bad choice")
+            except Exception as issue:
+                print(type(issue).__name__)
+                print(str(issue))
+            ---
+            The error class name and explanatory text are two separate values. Both can be used to construct a failure observation.
+            ```
+
+
+            **Watch out:** An unknown tool should not be invoked. Keep its failure path separate from exceptions raised by an existing tool.
+
+            **In short:** Return successful values unchanged and convert the specified failures to observations.
         ''',
         "prompt": r'''
-            Run a tool safely: never crash, always give the model something to read.
+            Give the next turn a useful observation even when a tool is unknown or raises an ordinary exception.
 
-            **Write:** `safe_call_tool(tools, name, args)`
+            **Your job:** `safe_call_tool(tools, name, args)`
 
+            **What goes in**
             - `tools`: dict of name -> function
             - `name`: str, the requested tool
             - `args`: dict of keyword arguments
-            - **Returns:** the tool's return value, or an error string
+
+            **What comes out**
+            - the tool's return value, or an error string
 
             **Rules**
             - If `name` is not in `tools`, return `"error: unknown tool <name>"`
@@ -1044,9 +1094,9 @@ EXERCISES = [
                     return f"error: {type(e).__name__}: {e}"
         ''',
         "hints": [
-            "Two separate problems: a name that is not in the dict, and a tool that raises while running.",
-            "Check membership with `in` before calling; wrap the call itself in try/except Exception and build the message from the caught error.",
-            "If name not in tools, return the unknown-tool f-string. Otherwise try: return tools[name](**args). except Exception as e: return f\"error: {type(e).__name__}: {e}\".",
+            "Consider an unknown name separately from a registered tool that raises.",
+            "The registry check happens before the attempted call.",
+            "Reject unknown names without execution; otherwise attempt the unpacked call, preserve its successful value, or report the caught class name and message.",
         ],
     },
     {
@@ -1054,45 +1104,50 @@ EXERCISES = [
         "title": "One turn: think, act, observe",
         "difficulty": 1,
         "lesson": r'''
-            ## One turn of the loop
+            ## Give the next model call the tool result
 
-            The **message list** is a list of dicts that holds the task and everything that
-            has happened since. The whole list is passed to the model on every call.
-
-            One turn of the loop has three parts:
-
-            1. Think: call `model(messages)`.
-            2. Act: if the reply is a tool request, run the tool.
-            3. Observe: append the request and the result to `messages`.
+            The agent has looked something up, but the next model call will not know that unless you include the result. Keep the request and its observation in the conversation so the next reply can use what happened.
 
             ```python
-            messages = [{"role": "user", "content": "What is 2 + 3?"}]
-            reply = {"type": "tool", "tool": "add", "args": {"a": 2, "b": 3}}
-            result = 5
-            messages.append({"role": "assistant", "tool": reply["tool"], "args": reply["args"]})
-            messages.append({"role": "tool", "name": reply["tool"], "content": str(result)})
-            for m in messages:
-                print(m)
-            # {'role': 'user', 'content': 'What is 2 + 3?'}
-            # {'role': 'assistant', 'tool': 'add', 'args': {'a': 2, 'b': 3}}
-            # {'role': 'tool', 'name': 'add', 'content': '5'}
+            history = [{"role": "user", "content": "Find the opening time"}]
+            history.append({"role": "assistant", "action": "lookup"})
+            history.append({"role": "tool", "content": str(9)})
+            for message in history:
+                print(message["role"])
+            # user
+            # assistant
+            # tool
             ```
 
-            Message `content` is text. `str(result)` converts the result to a string, so the
-            int `5` is stored as `'5'`.
+            The original user request remains first. The action request comes next, followed by the returned observation. Turning the numerical result into text makes it suitable for a content field that expects a string.
 
-            If you skip the two appends, the next call gets the same messages as before. The
-            model has no information about the tool result and can return the same request again.
+            The conversation is the agent's **message history**. Our teaching format records an assistant request and a tool result as two dictionary entries. Real provider formats may require additional identifiers, but the principle is the same: connect a returned result to the request that produced it.
+
+            One step of the loop makes one model call. If that call returns a final answer, this helper returns the text without adding tool entries. If it requests a tool, the helper runs the tool, appends both entries in the agreed order, and signals that there is no final answer yet. The next step reuses the updated list. Passing the unchanged original history again would discard the new information.
+
+            ```quiz
+            The tool result was computed but never added to the conversation. What does the next call know?
+            - [x] It receives no new observation from that tool. :: The model only receives the context your code supplies to that call.
+            - [ ] It automatically remembers the Python result. :: A local Python value is not automatically part of a later model request.
+            ```
+
+
+            **Watch out:** A final answer and a tool observation are different kinds of result. Only the tool branch adds the request-and-result pair in this exercise.
+
+            **In short:** One turn either returns a final answer or records a tool request and its observation.
         ''',
         "prompt": r'''
-            Run exactly one turn of the agent loop.
+            Run one model turn. A tool turn must make its request and result available to the next call.
 
-            **Write:** `agent_step(model, tools, messages)`
+            **Your job:** `agent_step(model, tools, messages)`
 
+            **What goes in**
             - `model`: a function; `model(messages)` returns a reply dict (`"type"` is `"tool"` or `"final"`)
             - `tools`: dict of name -> function
             - `messages`: the conversation so far (a list of dicts); you will add to it
-            - **Returns:** the final answer text (str) if the model finished, otherwise `None`
+
+            **What comes out**
+            - the final answer text (str) if the model finished, otherwise `None`
 
             **Rules**
             - Call `model(messages)` exactly once, passing the `messages` list.
@@ -1169,9 +1224,9 @@ EXERCISES = [
                 return None
         ''',
         "hints": [
-            "Start by calling the model once with messages and looking at the reply's type.",
-            "A final reply means return its text. A tool reply means run the tool, then record two messages: what was asked and what came back.",
-            "reply = model(messages). If final, return reply[\"text\"]. Else read the name and args, compute result = tools[name](**args), append the assistant dict and the tool dict (content=str(result)), then return None.",
+            "Separate the final-answer branch from the tool-request branch.",
+            "A tool turn adds two messages; a final turn leaves the conversation unchanged.",
+            "Call the model once with the current list, return final text when present, otherwise execute and append the request then the stringified result.",
         ],
     },
     {
@@ -1179,48 +1234,59 @@ EXERCISES = [
         "title": "Check the budget",
         "difficulty": 1,
         "lesson": r'''
-            ## Budgets
+            ## Check the budgets in their agreed order
 
-            A **budget** is a limit on something the agent uses: steps, tokens or cost. The
-            loop compares what it has used with each limit and stops when a limit is reached.
-            A run that never produces a final answer then still has a maximum cost.
-
-            Store the amounts used and the limits in two dicts with the same keys. Then loop
-            over the limits and compare.
+            An agent has used a few calls and many tokens. One allowance may still have room while another is exhausted. Check each configured limit before starting another turn, and give the caller a clear reason to stop.
 
             ```python
-            used = {"steps": 4, "tokens": 900}
-            limits = {"steps": 5, "tokens": 800}
-            for key in limits:
-                spent = used.get(key, 0)
-                print(key, spent, "/", limits[key], "reached" if spent >= limits[key] else "ok")
-            # steps 4 / 5 ok
-            # tokens 900 / 800 reached
+            consumed = {"calls": 2, "words": 600}
+            allowance = {"calls": 3, "words": 500}
+            for label, maximum in allowance.items():
+                print(label, consumed.get(label, 0) >= maximum)
+            # calls False
+            # words True
             ```
 
-            A limit is **reached** when the amount used is greater than or equal to it. A
-            `for` loop over a dict visits the keys in the order they were added.
+            Each comparison asks about one resource. The second is already above its maximum, so more room in the first resource cannot justify continuing. Equality also means the allowance has been used up.
 
-            `used.get(key, 0)` returns `0` when the key is missing, so an amount that was
-            never counted is treated as zero.
+            An agreed maximum resource use is a **budget**. A checker can work with any named resources instead of hard-coding steps, tokens and dollars. The limits dictionary determines what needs checking. Entries present only in the usage dictionary are irrelevant to this particular decision.
 
-            ```python
-            used = {"steps": 4}
-            print(used.get("cost", 0))
-            # 0
+            The task returns the first reached limit in the limits dictionary's order. That makes the result deterministic when several limits are reached together. A missing usage entry counts as zero under this contract. In a production system, missing measurements can also mean incomplete accounting, so the choice to treat them as zero needs to be deliberate. Here follow the supplied policy and keep the inclusive boundary consistent across all keys.
+
+            ```quiz
+            Both configured limits are reached. Which one should this checker return?
+            - [x] The first in the limits dictionary. :: The contract uses limit order to make simultaneous failures deterministic.
+            - [ ] Whichever has the largest numerical value. :: Different resources have different units, so comparing their raw maxima is not meaningful.
             ```
+
+
+            Try one more small check before moving to the task.
+
+            ```predict
+            counts = {"calls": 2}
+            print(counts.get("cost", 0))
+            ---
+            The stated missing-usage policy supplies zero for an absent resource key.
+            ```
+
+            **Watch out:** A token count and a dollar amount use different units. Compare each with its own limit rather than comparing resources with each other.
+
+            **In short:** Check configured budgets inclusively and return the first exhausted one in limit order.
         ''',
         "prompt": r'''
-            Before every turn, the agent checks whether any budget is used up.
+            Check the configured resource allowances before another turn and report the first one already reached.
 
-            **Write:** `check_budget(used, limits)`
+            **Your job:** `check_budget(used, limits)`
 
+            **What goes in**
             - `used`: dict of what was spent so far, e.g. `{"steps": 3, "tokens": 1200, "cost": 0.02}`
             - `limits`: dict of maximums, e.g. `{"steps": 5, "tokens": 1000}`
-            - **Returns:** the name (str) of the first limit that has been reached, or `None` if none has
+
+            **What comes out**
+            - the name (str) of the first limit that has been reached, or `None` if none has
 
             **Rules**
-            - A limit is reached when `used[key] >= limits[key]`.
+            - A limit is reached when the recorded amount is greater than or equal to its configured limit.
             - Check keys in the order they appear in `limits`; return the first one reached.
             - A key missing from `used` counts as `0`.
             - Keys in `used` that have no limit are ignored.
@@ -1268,9 +1334,9 @@ EXERCISES = [
                 return None
         ''',
         "hints": [
-            "Loop over the limits dict - its order decides which limit is reported first.",
-            "For each limit, look up how much was used (default 0) and compare with >=.",
-            "for key, limit in limits.items(): if used.get(key, 0) >= limit: return key. After the loop, return None.",
+            "Let the limits dictionary define both the resource names and their checking order.",
+            "Use the same inclusive reached-boundary for every resource.",
+            "Visit configured limits in order, obtain each used amount with the stated default, and return immediately for the first reached allowance.",
         ],
     },
     {
@@ -1287,53 +1353,52 @@ EXERCISES = [
             ],
         },
         "lesson": r'''
-            ## Workflows and prompt chaining
+            ## Stop a fixed sequence when a gate fails
 
-            A **workflow** is a fixed sequence of steps that you wrote in code. Your code
-            decides which step runs next. In an agent, the model's reply decides that.
-
-            **Prompt chaining** is a workflow where each step is one LLM call and each step
-            receives the previous step's output: outline, then draft, then polish. A **gate**
-            is a plain Python check that runs between steps and returns `True` or `False`.
-            When it returns `False`, the chain stops.
+            Your app always drafts an outline, writes text, then checks style. Those stages are known in advance, so you can connect them in a fixed sequence. A failed check should prevent later stages from using unsuitable input.
 
             ```python
-            steps = [str.strip, str.upper]
-            gate = lambda text: len(text) > 0
-            text = "  hello  "
-            for i, step in enumerate(steps):
-                text = step(text)
-                print(i, repr(text), "pass" if gate(text) else "stop")
-            # 0 'hello' pass
-            # 1 'HELLO' pass
+            operations = [str.strip, str.upper]
+            value = "  draft  "
+            for number, operation in enumerate(operations):
+                value = operation(value)
+                print(number, repr(value))
+            # 0 'draft'
+            # 1 'DRAFT'
             ```
 
-            `str.strip` and `str.upper` are used as functions here. `str.strip(text)` does the
-            same as `text.strip()`. Click each stage to follow one step of the chain.
+            Each operation receives the value returned by the preceding one. The first removes outer whitespace; the second changes case. The order is part of the program, rather than a choice supplied by a model on each turn.
 
-            ```diagram
-            {"type":"flow","title":"A prompt chain with a gate","steps":[
-              {"label":"Start with the input","detail":"The chain starts with the input text. The first step receives it.","code":"text = \"  hello  \""},
-              {"label":"Run one step","detail":"The step is called with the current text. Its return value replaces the text.","code":"text = step(text)"},
-              {"label":"Call the gate","detail":"The gate is called with the step's output. It returns True or False.","code":"gate(text)"},
-              {"label":"Stop or continue","detail":"If the gate returned False, the chain stops and later steps do not run. If it returned True, the next step receives the output."},
-              {"label":"Return the output","detail":"When every step has passed the gate, the last output is the result of the chain.","code":"'HELLO'"}
-            ],"loop":{"from":3,"to":1,"label":"while the gate returns True and steps remain"}}
+            A predefined sequence is a **workflow**. When each stage is a model call using the previous output, it is often called **prompt chaining**. A yes-or-no check between stages is a **gate**. In this task, the steps are fake functions and the gate runs after every completed step.
+
+            A gate failure returns both the failed stage's index and its output. That information helps the caller understand where the workflow stopped. Later operations must not run, because they would consume a rejected intermediate value. With no steps there is no intermediate output to check; the contract keeps the original input as a successful result. This differs from checking the starting input before the first step.
+
+            ```fill
+            text = "  "
+            clean = text.strip()
+            print(___(clean))
+            ---
+            - [x] bool :: An empty cleaned string is false, which can reject a blank intermediate output.
+            - [ ] str :: Converting to text does not produce the promised yes-or-no gate result.
             ```
 
-            Anthropic's advice is to start with the simplest workflow that works. Use an agent
-            only when the sequence of steps cannot be planned in advance.
+
+            **Watch out:** Run the gate on the step's returned value, not its input. The step may fix a problem or introduce one.
+
+            **In short:** A workflow passes each output to the next stage and stops when its post-step gate fails.
         ''',
         "prompt": r'''
-            Build a prompt chain with a gate after every step. In tests, each step is a small
-            fake "LLM call" function that takes a string and returns a string.
+            Run a fixed sequence of fake model-call steps, rejecting unsuitable intermediate outputs before later steps run.
 
-            **Write:** `run_chain(steps, text, gate)`
+            **Your job:** `run_chain(steps, text, gate)`
 
+            **What goes in**
             - `steps`: a list of functions, each `step(text) -> str`
             - `text`: the starting string
             - `gate`: a function `gate(output) -> bool` (True = good, keep going)
-            - **Returns:** a dict
+
+            **What comes out**
+            - a dict
 
             **Rules**
             - Run the steps in order; each step gets the previous step's output.
@@ -1398,9 +1463,9 @@ EXERCISES = [
                 return {"ok": True, "output": text}
         ''',
         "hints": [
-            "The starter already runs the steps. What's missing is the check after each one.",
-            "Use enumerate to know each step's index, and return early as soon as the gate says no.",
-            "for i, step in enumerate(steps): text = step(text); if not gate(text): return the failure dict with i and text. After the loop, return the ok dict.",
+            "Distinguish the fixed step order from an agent choosing its next action.",
+            "Each check belongs after its corresponding step and sees that step's output.",
+            "Carry the latest output through the functions, check it after every step, return failure details immediately on rejection, and preserve the input for an empty chain.",
         ],
     },
     {
@@ -1409,45 +1474,53 @@ EXERCISES = [
         "difficulty": 2,
         "placement": True,
         "lesson": r'''
-            ## The full agent loop
+            ## Combine the loop with a strict call allowance
 
-            This exercise combines the earlier parts into one function. The loop repeats
-            think, act and observe. It ends on a final answer or when the step limit is
-            reached, and it adds one audit log entry for every tool call.
-
-            `range(1, max_steps + 1)` produces the step numbers from 1 to `max_steps`. A `for`
-            loop over it runs its body at most `max_steps` times.
+            You can now recognise final replies, dispatch tools and save observations. The complete runner must coordinate them while making no more than the allowed number of model calls. Plan the finish path and the still-working path separately.
 
             ```python
-            max_steps = 3
-            calls = 0
-            for step in range(1, max_steps + 1):
-                calls += 1
-                print("model call", step)
-            # model call 1
-            # model call 2
-            # model call 3
-            print("calls made:", calls)
-            # calls made: 3
+            allowed = 3
+            for turn in range(allowed):
+                print("attempt", turn + 1)
+            # attempt 1
+            # attempt 2
+            # attempt 3
             ```
 
-            A `while True` loop has no such limit. The returned dict states why the loop
-            ended, in the key `stop_reason`.
+            The range contains three values, so the body has three opportunities to run. The displayed step numbers begin at one, even though the range begins at zero. A final-answer branch can stop before all opportunities are used.
+
+            Putting it together means counting model calls as steps, including a call that immediately returns a final answer. Tool calls produce both conversation entries and audit records. The conversation lets the model use observations; the audit log lets a person inspect actions afterward. They have distinct interfaces even though they describe the same action.
+
+            A final reply on the last allowed call still counts as completion. Only a run that uses its entire allowance without a final reply stops for the maximum-step reason. Never make an extra model call to see whether it would have finished. The reason, answer and step count in the returned report should agree with the branch that actually ended the run.
+
+            ```quiz
+            A final answer arrives on the last allowed model call. Which stop reason applies?
+            - [x] Final answer. :: The permitted call produced completion, so the run finished within its allowance.
+            - [ ] Maximum steps. :: The maximum-step reason applies when the allowance ends without a final reply.
+            ```
+
+
+            **Watch out:** Counting only tool requests undercounts model calls. A final response consumes a step too, and must appear in the reported count.
+
+            **In short:** The complete loop counts every model call, records tools, and reports the reason it ended.
         ''',
         "prompt": r'''
-            Write a complete agent loop with a step limit and an audit log.
+            Coordinate model replies, tools, observations and an audit log within a strict model-call limit.
 
-            **Write:** `run_agent(model, tools, task, max_steps=5)`
+            **Your job:** `run_agent(model, tools, task, max_steps=5)`
 
+            **What goes in**
             - `model`: function, `model(messages)` returns `{"type": "tool", "tool": name, "args": {...}}`
               or `{"type": "final", "text": "..."}`
             - `tools`: dict of name -> function
             - `task`: str, the user's request, e.g. `"What is 2 + 3?"`
             - `max_steps`: int, the most model calls allowed
-            - **Returns:** a dict `{"answer": ..., "stop_reason": ..., "steps": ..., "log": [...]}`
+
+            **What comes out**
+            - a dict `{"answer": ..., "stop_reason": ..., "steps": ..., "log": [...]}`
 
             **Rules**
-            - Start with `messages = [{"role": "user", "content": task}]` and pass this list to every model call.
+            - Start with a one-item conversation containing a user message whose content is `task` and pass this list to every model call.
             - Each model call is one step (`steps` = number of model calls made).
             - Final reply: return `answer` = its text, `stop_reason` = `"final"`.
             - Tool reply: run `tools[name](**args)`, append
@@ -1540,9 +1613,9 @@ EXERCISES = [
                 return {"answer": None, "stop_reason": "max_steps", "steps": max_steps, "log": log}
         ''',
         "hints": [
-            "Replace the endless while loop with a loop that runs at most max_steps times, counting steps from 1.",
-            "Inside the loop: ask the model; on final, return the result dict; on a tool, run it, append the two messages and a log entry. After the loop, return the max_steps dict.",
-            "Create messages and log = []. for step in range(1, max_steps + 1): reply = model(messages); if final return {answer, \"final\", step, log}. Else result = tools[name](**args); append assistant msg, tool msg with str(result), and the log dict. After the loop return {None, \"max_steps\", max_steps, log}.",
+            "Combine the earlier completion, dispatch, observation and logging ideas around one bounded loop.",
+            "The model-call count is different from the number of tool actions.",
+            "Begin with the task message, make at most the allowed calls, return final text when encountered, and otherwise execute and record each tool before reporting exhaustion.",
         ],
     },
     {
@@ -1550,60 +1623,75 @@ EXERCISES = [
         "title": "A registry with human approval",
         "difficulty": 2,
         "lesson": r'''
-            ## Human approval
+            ## Require approval before running a risky tool
 
-            Some tools are risky because their effects are hard to undo: sending an email,
-            deleting files, paying. **Human approval** means a person must agree before such
-            a tool runs. In code, the person is a function `approve(name, args)` that returns
-            `True` or `False`. Risky tools stay in the registry, and every call is recorded.
+            A search is usually reversible; sending a message or deleting a file may not be. The registry should know which tools need approval and refuse them when no approving person is available. A request alone is not permission.
 
             ```python
-            risky = {"send_email"}
-
-            def approve(name, args):
-                print("asking about", name)
-                return False
-
-            for name in ["add", "send_email"]:
-                if name in risky and not approve(name, {}):
-                    print("denied:", name)
-                else:
-                    print("run:", name)
-            # run: add
-            # asking about send_email
-            # denied: send_email
+            marked_risky = {"publish"}
+            requests = [("lookup", True), ("publish", False)]
+            for label, approved in requests:
+                may_run = label not in marked_risky or approved
+                print(label, may_run)
+            # lookup True
+            # publish False
             ```
 
-            `and` evaluates its right side only when the left side is true. `approve` is
-            therefore called for `send_email` and not for `add`.
+            The ordinary lookup needs no approval in this example. The risky publish request has a false approval result, so it cannot run. The real registry calls an approval function only when a known risky tool is requested.
+
+            **Human approval** is a decision tied to a proposed action and its arguments. The approver must be able to see what would run; approval for one request does not authorise a different request. Tests supply a fake approval function so both permission paths can be checked without carrying out irreversible actions.
+
+            Putting it together means recording three outcomes: an unknown name, a denied request or a successfully run tool. Unknown tools are rejected before asking anyone to approve them. A missing approval function counts as refusal for a risky tool. Safe tools bypass that function entirely. The history records requests in order, allowing a reviewer to see that a refused action was actually blocked.
+
+            ```match
+            unknown request :: reject before seeking approval
+            ordinary tool :: run without an approval callback
+            risky tool without approval :: deny without executing
+            ---
+            Lookup and approval both precede risky execution.
+            ```
+
+
+            **Watch out:** Calling the tool before requesting approval defeats the gate. The approval decision must precede every risky execution.
+
+            **In short:** A registry runs risky tools only after approval and records unknown, denied and successful requests.
         ''',
         "prompt": r'''
-            Build a tool registry class where risky tools need human approval.
+            A registry must distinguish ordinary tools from tools requiring human approval. Keep an ordered history of outcomes.
 
-            **Write:** class `ToolRegistry`
+            **Your job:** class `ToolRegistry`
 
+            **What goes in**
             - `ToolRegistry()` starts empty; attribute `history` is a list (starts `[]`).
             - `register(name, fn, risky=False)`: add a tool.
             - `names()`: returns a sorted list of registered tool names.
             - `call(name, args, approve=None)`: run a tool and return a result or a status string.
               `approve` is a function `approve(name, args) -> bool` (a human saying yes/no), or `None`.
 
+            **What comes out**
+            - `names()` returns registered names in sorted order. `call()` returns the raw successful tool value or the specified unknown/denied text. `history` records the corresponding outcomes in request order.
+
             **Rules for `call`**
             - Unknown tool: return `"error: unknown tool <name>"` and add `(name, "unknown")` to `history`.
-            - Risky tool: call `approve(name, args)`. If `approve` is `None` or returns a false value, do **not**
+            - For a risky tool, call `approve(name, args)` once when an approver is supplied. If `approve` is `None` or returns a false value, do **not**
               run the tool; return `"denied: <name>"` and add `(name, "denied")` to `history`.
             - Otherwise (safe tool, or risky and approved): return `fn(**args)` and add `(name, "ok")` to `history`.
             - `approve` is only called for risky tools.
 
+
+
             **Examples**
             ```python
+            def send_email(to):
+                return "sent to " + to
+
             reg = ToolRegistry()
             reg.register("add", lambda a, b: a + b)
             reg.register("send_email", send_email, risky=True)
             reg.names()                                            # ["add", "send_email"]
             reg.call("add", {"a": 1, "b": 2})                      # returns 3
             reg.call("send_email", {"to": "x@y.z"})                # returns "denied: send_email"
-            reg.call("send_email", {"to": "x@y.z"}, lambda n, a: True)   # runs send_email
+            reg.call("send_email", {"to": "x@y.z"}, lambda n, a: True)   # returns "sent to x@y.z"
             reg.call("fly", {})                                    # returns "error: unknown tool fly"
             reg.history   # [("add", "ok"), ("send_email", "denied"), ("send_email", "ok"), ("fly", "unknown")]
             ```
@@ -1696,9 +1784,9 @@ EXERCISES = [
                     return result
         ''',
         "hints": [
-            "Besides the tools dict, the registry must remember which names are risky and keep a history list.",
-            "In call, handle the three cases in order: unknown name, risky-and-not-approved, then run it. Record a tuple in history in each case.",
-            "In __init__ add self.risky = set() and self.history = []. register adds the name to risky when risky=True. names returns sorted(self.tools). call: unknown -> append (name, \"unknown\") and return the error; if name in risky and (approve is None or not approve(name, args)) -> append (name, \"denied\") and return the denied string; else run fn(**args), append (name, \"ok\"), return the result.",
+            "Store the callable and its risk flag as separate registry information.",
+            "An unknown name and a known denied tool have different history outcomes.",
+            "Resolve the tool, request approval only if it is risky, record refusals without execution, and otherwise run and record the successful call.",
         ],
     },
     {
@@ -1706,54 +1794,51 @@ EXERCISES = [
         "title": "Agent memory",
         "difficulty": 2,
         "lesson": r'''
-            ## Agent memory
+            ## Keep recent messages and lasting facts separately
 
-            An agent's **memory** is the data your code sends to the model on every call.
-            The model itself keeps nothing between calls.
-
-            The context window (the most text a model accepts in one call) is limited, so an
-            agent keeps only the most recent messages. A slice with a negative start keeps
-            the last items of a list.
+            A long conversation no longer fits into the next model request. You can drop old chat messages, but the user's preferred language may still matter. Keep a rolling message window and explicit facts as separate pieces of state.
 
             ```python
-            messages = ["m1", "m2", "m3", "m4"]
-            print(messages[-2:])
-            # ['m3', 'm4']
+            conversation = ["old question", "old answer", "new question"]
+            print(conversation[-2:])
+            # ['old answer', 'new question']
+            known = {"language": "Spanish", "city": "Madrid"}
+            known["language"] = "English"
+            print(list(known))
+            # ['language', 'city']
             ```
 
-            Anything in a dropped message is no longer sent to the model. Values that must
-            stay available are stored separately as **facts**, in a dict, and sent in a
-            system message on every turn. Assigning to an existing key replaces the value
-            and keeps the key's position.
+            The slice retains the latest two items in their original order. The fact update replaces a value without moving its existing key to the end. These behaviours support a predictable context builder.
 
-            ```python
-            facts = {"name": "Ada", "lang": "fr"}
-            facts["lang"] = "en"
-            print(", ".join(f"{k} is {v}" for k, v in facts.items()))
-            # name is Ada, lang is en
+            The data your application retains and supplies to later model calls is its **memory**. A **rolling window** keeps only a bounded set of recent messages. Explicit facts survive independently of that window. This simplified exercise assumes each model call receives only the context your code constructs; it does not rely on a provider-managed conversation store.
+
+            Building context is a read operation. Return a fresh list and fresh dictionaries for the stored messages so a caller changing that result cannot corrupt the memory. Copying only the outer list would still share its dictionary entries. The task's message values are strings, so a shallow copy of each message dictionary is sufficient for the specified isolation.
+
+            ```quiz
+            You return a new list containing the original message dictionaries. Can changing a returned dictionary affect memory?
+            - [x] Yes, the inner dictionaries are still shared. :: Copying the outer container alone does not copy its contained dictionaries.
+            - [ ] No, a new list isolates every level. :: Nested objects keep their identity unless they are copied too.
             ```
 
-            `dict(m)` creates a new dict with the same keys and values as `m`. Changing the
-            new dict does not change `m`.
 
-            ```python
-            m = {"role": "user", "content": "hi"}
-            c = dict(m)
-            c["content"] = "changed"
-            print(m["content"])
-            # hi
-            ```
+            **Watch out:** Recent-message trimming and fact retention are different policies. Dropping an old message must not silently erase an explicitly remembered fact.
+
+            **In short:** Keep bounded recent messages and lasting facts, then build an isolated context view.
         ''',
         "prompt": r'''
-            Build a small memory for an agent: a rolling window of recent messages plus facts.
+            Retain recent chat messages without losing explicit facts. Return context that callers can modify without changing stored memory.
 
-            **Write:** class `AgentMemory`
+            **Your job:** class `AgentMemory`
 
+            **What goes in**
             - `AgentMemory(max_messages)`: `max_messages` is an int, the most messages to keep.
             - `add(role, content)`: store `{"role": role, "content": content}`. If there are now more than
               `max_messages` messages, drop the **oldest** ones so exactly `max_messages` remain.
             - `remember(key, value)`: store a fact (a later call with the same key replaces the value).
             - `context()`: returns a new list of message dicts to send to the model.
+
+            **What comes out**
+            - `context()` returns a new list: an optional facts system message followed by retained messages oldest first. Both the returned list and its message dictionaries are independent of stored memory.
 
             **Rules for `context()`**
             - If there are facts, the first item is
@@ -1762,6 +1847,8 @@ EXERCISES = [
             - Then the stored messages, oldest first.
             - With no facts, there's no system message.
             - Changing the returned list (or its dicts) must not change the memory.
+
+
 
             **Examples**
             ```python
@@ -1847,9 +1934,9 @@ EXERCISES = [
                     return out
         ''',
         "hints": [
-            "Three jobs: trim the message list in add, store facts in a dict, and build a fresh list in context.",
-            "Slicing with a negative start keeps the last N items. Dicts keep insertion order, and assigning an existing key keeps its position. Copy each message dict when building the context.",
-            "add: append, then if too long keep self.messages[-self.max_messages:]. remember: self.facts[key] = value. context: start an empty list; if facts, add the system dict built by joining \"k=v\" strings with \"; \"; then append dict(m) for each stored message; return the list.",
+            "Separate message-window state from the facts that should survive it.",
+            "The context result must isolate both its list and its message dictionaries.",
+            "Trim oldest messages after additions, update facts by key, construct the required facts message when needed, then append copies of recent messages.",
         ],
     },
     {
@@ -1857,14 +1944,17 @@ EXERCISES = [
         "title": "Budgets and error recovery",
         "difficulty": 3,
         "prompt": r'''
-            A production agent must stop for many reasons and must keep running when tools fail.
+            Combine call and token limits with recovery from tool failures. Report exactly why the run ended.
 
-            **Write:** `run_budgeted_agent(model, tools, task, max_steps, max_tokens, max_errors=2)`
+            **Your job:** `run_budgeted_agent(model, tools, task, max_steps, max_tokens, max_errors=2)`
 
+            **What goes in**
             - `model(messages)` returns a reply dict that always has a `"tokens"` key (int, tokens used by that call):
               `{"type": "tool", "tool": name, "args": {...}, "tokens": 120}` or `{"type": "final", "text": "...", "tokens": 40}`
             - `tools`: dict name -> function; `task`: str; limits are ints
-            - **Returns:** `{"answer": str or None, "stop_reason": str, "steps": int, "tokens": int}`
+
+            **What comes out**
+            - `{"answer": str or None, "stop_reason": str, "steps": int, "tokens": int}`
 
             **Rules** (each step, in this order)
             1. Call `model(messages)` (messages start as `[{"role": "user", "content": task}]`). Add the reply's
@@ -1986,9 +2076,9 @@ EXERCISES = [
                 return {"answer": None, "stop_reason": "max_steps", "steps": max_steps, "tokens": tokens}
         ''',
         "hints": [
-            "Start from your run_agent loop and add two counters: total tokens and errors in a row.",
-            "Follow the numbered rules as a checklist inside the loop: add tokens, check final, check the token budget, run the tool safely, update the error counter and check it. Track 'did this call fail' with a boolean rather than by looking at the result text.",
-            "for step in range(1, max_steps + 1): reply = model(messages); tokens += reply[\"tokens\"]; final -> return; tokens >= max_tokens -> return \"tokens\"; compute result and a failed flag (unknown name, or except Exception as e); append the two messages; errors = errors + 1 if failed else 0; if errors >= max_errors return \"errors\". After the loop return \"max_steps\".",
+            "The stop reasons have a specified priority within each turn.",
+            "Token usage is counted for every model call, while consecutive errors reset after a successful tool.",
+            "Follow the ordered turn rules: count usage, honour final replies, check tokens before tool execution, observe tool outcomes, update the consecutive-error count, and report the applicable stopping reason.",
         ],
     },
     {
@@ -1996,16 +2086,18 @@ EXERCISES = [
         "title": "A supervised agent",
         "difficulty": 3,
         "prompt": r'''
-            Combine the loop, risky-tool approval and a detailed audit log. Denials and errors don't
-            stop the agent: they are reported back to the model so it can choose something else.
+            Run a supervised agent whose denied and failed tools are observed and audited while its call allowance remains bounded.
 
-            **Write:** `run_supervised_agent(model, tools, task, risky, approve, max_steps=5)`
+            **Your job:** `run_supervised_agent(model, tools, task, risky, approve, max_steps=5)`
 
+            **What goes in**
             - `model(messages)` returns `{"type": "tool", "tool": name, "args": {...}}` or `{"type": "final", "text": "..."}`
             - `tools`: dict name -> function; `task`: str
             - `risky`: a set of tool names that need approval, e.g. `{"delete_file"}`
             - `approve`: function `approve(name, args) -> bool`
-            - **Returns:** `{"answer": str or None, "stop_reason": "final" or "max_steps", "audit": [...]}`
+
+            **What comes out**
+            - `{"answer": str or None, "stop_reason": "final" or "max_steps", "audit": [...]}`
 
             **Rules** (messages start as `[{"role": "user", "content": task}]`; steps count model calls from 1)
             - Final reply: return its text with `"final"`. After `max_steps` calls without one: `None`, `"max_steps"`.
@@ -2134,9 +2226,9 @@ EXERCISES = [
                 return {"answer": None, "stop_reason": "max_steps", "audit": audit}
         ''',
         "hints": [
-            "This is your run_agent loop with a decision block in the middle that picks a status and a result for each tool request.",
-            "Check the cases in order: unknown name, risky-and-not-approved, then try to run it (catching exceptions). Only after deciding, write the audit entry and the two messages.",
-            "for step in range(1, max_steps + 1): reply = model(messages); final -> return. Then if/elif/else: unknown -> error; elif name in risky and not approve(name, args) -> denied; else try running -> ok, except Exception as e -> error. Append the audit dict, the assistant message and the tool message (str(result)). After the loop return the max_steps dict.",
+            "Separate permission, tool execution and reporting for each request.",
+            "A denial or tool error becomes an observation and audit entry, rather than automatically ending the loop.",
+            "Resolve each requested name, seek approval only for known risky tools, run permitted calls safely, record every tool-request outcome, and keep looping until final completion or the call limit.",
         ],
     },
 ]

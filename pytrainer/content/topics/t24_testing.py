@@ -246,56 +246,46 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## The assert statement
+            ## Make a wrong result stop the program
 
-            An `assert` statement checks that a condition is true. You write `assert`
-            followed by the condition. If the condition is true, nothing happens and the
-            program continues with the next line. If it is false, Python raises an
-            `AssertionError`.
+            You change a helper and want to know whether it still gives the promised answer. Printing the result makes you inspect it yourself every time. You can instead write a condition that must remain true and let Python report when it is false.
 
             ```python
-            total = 2 + 2
-            assert total == 4
-            print("check 1 passed")
-            # check 1 passed
-            ```
-
-            You can add a comma and a string after the condition. That string is the
-            **assertion message**: it becomes the message of the `AssertionError`.
-
-            A **test** is code that calls your function and asserts that the result is
-            correct. A failed `assert` raises an ordinary exception, so you can catch it
-            with `try` / `except AssertionError`. A program that runs tests does this to
-            continue after one test fails.
-
-            ```python
-            total = 2 + 2
+            total = 3 * 4
+            assert total == 12
+            print("first check passed")
+            # first check passed
             try:
-                assert total == 5, "total should be 5"
-                print("check 2 passed")
-            except AssertionError as err:
-                print("check 2 failed:", err)
-            # check 2 failed: total should be 5
+                assert total == 10, "unexpected total"
+            except AssertionError as error:
+                print("failed:", error)
+            # failed: unexpected total
             ```
 
-            Step through both checks to see which lines run.
+            An **assertion** expresses an expectation. When its condition is true, the `assert` statement continues silently. When false, it raises `AssertionError`. The optional text after the comma becomes the error's message.
 
-            ```diagram
-            {"type": "trace", "title": "A passing assert and a failing assert", "code": ["total = 2 + 2", "assert total == 4", "print(\"check 1 passed\")", "try:", "    assert total == 5, \"total should be 5\"", "    print(\"check 2 passed\")", "except AssertionError as err:", "    print(\"check 2 failed:\", err)"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"total": "4"}, "out": ""},
-              {"line": 3, "vars": {"total": "4"}, "out": "", "note": "4 == 4 is True, so the assert did nothing."},
-              {"line": 4, "vars": {"total": "4"}, "out": "check 1 passed\n"},
-              {"line": 5, "vars": {"total": "4"}, "out": "check 1 passed\n"},
-              {"line": 7, "vars": {"total": "4"}, "out": "check 1 passed\n", "note": "4 == 5 is False, so the assert raised AssertionError. Line 6 is skipped."},
-              {"line": 8, "vars": {"total": "4", "err": "AssertionError('total should be 5')"}, "out": "check 1 passed\n"},
-              {"line": null, "vars": {"total": "4"}, "out": "check 1 passed\ncheck 2 failed: total should be 5\n"}
-            ]}
+            ```predict
+            try:
+                assert 4 > 7, "wrong order"
+                print("after assertion")
+            except AssertionError:
+                print("caught failure")
+            print("finished")
+            ---
+            The assertion is false, so control jumps to the handler and skips the next print inside try. After the handler, execution continues with finished.
             ```
 
-            `assert` is a statement, not a function. Write `assert x == 1, "msg"`. With
-            parentheses, `assert(x == 1, "msg")` checks a tuple of two items. A tuple that
-            has items counts as true, so that assert never fails.
+            A **test** runs code and checks expectations about its behavior. A test runner can catch an assertion failure, report it, and continue with other tests. The failure is useful evidence, not something to hide by weakening the expectation.
+
+            ```quiz
+            A true assertion produces no output. Does that mean it was skipped?
+            - [x] No :: Success is silent; the next line runs normally.
+            - [ ] Yes :: An assertion does not print a success message automatically.
+            ```
+
+            **Watch out:** `assert(condition, message)` checks a nonempty tuple, which is truthy even when condition is false. Use the statement's comma form. Assertions are for tests and internal checks, not security checks that must survive Python's optimization mode.
+
+            **In short:** assert stays silent when an expectation holds and raises when it does not.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -315,16 +305,13 @@ EXERCISES = [
             check 2 failed: empty text should have 1 word?
         ''',
         "explanation": r'''
-            `word_count("hi there")` is `2`, so the first `assert` is silent and
-            `check 1 passed` prints. `"".split()` is an empty list, so `word_count("")` is
-            `0`, not `1`: the second `assert` raises `AssertionError` with the message, the
-            `print("check 2 passed")` line is skipped, and the `except` block prints it.
+            The first word count is two, matching its expectation, so execution continues to the success print. Empty text splits into no words, giving zero rather than the second assertion's expected one. That failed assertion raises with the supplied message, skips the following success print, and reaches the AssertionError handler. The handler prints its prefix and the error message separated by the space that print inserts.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "An assert whose condition is true does nothing. A false one raises AssertionError.",
-            "Work out word_count(\"hi there\") and word_count(\"\") first. What does \"\".split() give?",
-            "Line 1 comes from the first print. For line 2: the second assert is false, so jump straight to the except block and print its text followed by the message.",
+            "A true assertion is silent; a false assertion changes control flow by raising.",
+            "Calculate both word counts before tracing which print statements can be reached.",
+            "Follow the first assertion to its next line, then trace the second assertion through either normal continuation or its matching handler. Include the assertion message only where it is actually printed.",
         ],
     },
     {
@@ -333,50 +320,61 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "tests",
         "lesson": r'''
-            ## Test functions
+            ## Put an expectation in a discoverable test function
 
-            A **test function** is a function that calls other code and asserts that the
-            result is correct. It follows three rules:
-
-            - Its name starts with `test_`.
-            - It takes no arguments.
-            - It calls the code and uses `assert` on the result.
-
-            A **test runner** is a program that finds every function whose name starts
-            with `test_` and calls it. If the call raises, the runner reports that test as
-            failed.
+            You have a useful assertion, but you do not want to remember which checks to run by hand. Put it in a named function so a runner can discover and call it consistently.
 
             ```python
-            def shout(text):
-                return text.upper() + "!"
+            def double(number):
+                return number * 2
 
-            def test_shout_adds_exclamation():
-                assert shout("hi") == "HI!"
+            def test_double_keeps_zero():
+                assert double(0) == 0
 
-            test_shout_adds_exclamation()   # a runner makes this call for you
+            test_double_keeps_zero()
             print("test passed")
             # test passed
             ```
 
-            The **code under test** is the code that your tests check. In the
-            **test-writing** exercises, it is in a file named `target.py`. You import it
-            with `from target import ...`. The **spec** (short for specification) is the
-            written description of what that code must do: the exercise text. The app grades your
-            tests in two ways. They must **pass** on the correct code. They must **fail**
-            when the app replaces the correct code with a version that contains a bug. A
-            test that cannot fail does not detect bugs.
+            A **test function** calls the code being checked and asserts its expected behavior. For this app, its name begins with `test_` and it takes no arguments. A **test runner** finds these functions and calls each one. Defining a function alone does not run its assertions.
 
-            Work out the expected value by hand from the spec before you write it in the
-            `assert`. A guessed value that is wrong makes the test fail on correct code.
+            ```order
+            def triple(number): return number * 3
+            def test_triple(): assert triple(4) == 12
+            test_triple()
+            print("passed")
+            ---
+            The implementation and test must be defined before the test is called. The final message is reached only if the assertion succeeds.
+            ```
+
+            In test-writing exercises, the implementation is supplied in `target.py`. Import the function from there rather than redefining it. That implementation is the **code under test**. The written requirements are its **specification**, often shortened to spec.
+
+            Your tests must accept correct behavior and reject buggy behavior. The app checks both by running them against a correct implementation and altered versions. Calculate expected answers independently from the spec; copying the implementation's answer into the expectation cannot reveal its mistakes.
+
+            ```quiz
+            Why is assert actual == actual not a useful result check?
+            - [x] It does not compare against the promised answer :: A wrong result still equals itself.
+            - [ ] Assertions cannot compare variables :: Variables are valid; the missing independent expectation is the problem.
+            ```
+
+            **Watch out:** a function with a different name may be a helper rather than a discovered test. Keep the required naming convention.
+
+            **In short:** a test function gives the runner a repeatable, independently calculated expectation to check.
         ''',
         "prompt": r'''
             `target.py` contains a word counter used to estimate prompt sizes. Finish the test
             by replacing `___` with the right expected value.
 
-            **Write:** a test (a function named `test_...`) for `count_words(text)` from `target.py`
+            **Your job:** write a test (a function named `test_...`) for `count_words(text)` from `target.py`
+
+            The following inputs and outputs describe the supplied implementation. Your job is to test it, not replace it.
+
+            **What goes in**
 
             - `text`: a string, e.g. `"the cat sat"`
-            - **Returns:** the number of words, where words are separated by whitespace (an int)
+
+            **What comes out**
+            - the number of words, where words are separated by whitespace (an int)
 
             **Rules** (what `count_words` does - your test must check this)
             - `count_words("the cat sat")` is `3`.
@@ -420,9 +418,9 @@ EXERCISES = [
         ''',
         "tests": "",
         "hints": [
-            "The blank is the value count_words should return for that input, according to the spec.",
-            "Count the words in \"the cat sat\" yourself. That number is what the function must give back.",
-            "Replace ___ with the plain number of words (an int, no quotes).",
+            "Expected values come from the function's written behavior, independently of its implementation.",
+            "Count whitespace-separated words in the supplied input, rather than characters or gaps.",
+            "Replace the placeholder with a numerical expectation you can justify from that count. The comparison should fail if the implementation counts a different thing.",
         ],
     },
     {
@@ -431,49 +429,63 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "tests",
         "lesson": r'''
-            ## One behaviour per test
+            ## Make failures describe the broken behavior
 
-            Write many small tests, and make each one check one behaviour. When a small
-            test fails, its name tells you which behaviour is broken. When one large test
-            fails, you have to read the whole test to find out.
+            A large test checks many things, but its first failure stops the rest of its body. Several focused tests give clearer reports and let other behaviors be checked even when one fails.
 
             ```python
-            def label(role):
-                return role.upper() + ":"
-
-            def test_user_label():
-                assert label("user") == "USER:"
-
-            def test_assistant_label():
-                assert label("assistant") == "ASSISTANT:"
-
-            test_user_label()
-            test_assistant_label()
-            print("2 tests passed")
-            # 2 tests passed
+            def bracket(text):
+                return "[" + text + "]"
+            def test_nonempty_text():
+                assert bracket("sun") == "[sun]"
+            def test_empty_text():
+                assert bracket("") == "[]"
+            test_nonempty_text()
+            test_empty_text()
+            print("two checks passed")
+            # two checks passed
             ```
 
-            Give each test a **descriptive test name**: a name that states the behaviour
-            it checks, such as `test_role_is_uppercased` or `test_content_is_kept_as_is`.
-            The runner prints the name of a failed test, so the name is the first thing
-            you read.
+            A descriptive name tells you which expectation failed before you read the test body. Name the behavior, such as preserving text or handling empty input, rather than calling every check `test_one` or `test_two`.
 
-            Compare the **whole** result with `==` when you can. A check such as
-            `"USER" in result` still passes when the space is missing or the parts are in
-            the wrong order.
+            ```quiz
+            A formatter must preserve punctuation exactly. Which assertion is stronger?
+            - [x] Compare the entire returned string with the required string :: This catches missing punctuation, unwanted spaces, and wrong order together.
+            - [ ] Check that one expected word occurs somewhere :: The word could be present while the rest of the formatting is wrong.
+            ```
 
-            Give every test function a different name. A second `def` with the same name
-            makes the name refer to the new function, so the runner finds only the second
-            one and the first test never runs.
+            Choose inputs that make the behavior visible. If a function must preserve letter case, all-lowercase or already-uppercase data may fail to distinguish two plausible implementations. A mixture gives the comparison something useful to detect.
+
+            Focused tests can share the same implementation call shape while using different data. They should remain independent: one must not depend on another having run first or stored its result globally.
+
+            ```predict
+            def test_example():
+                return "old"
+            def test_example():
+                return "new"
+            print(test_example())
+            ---
+            The second definition replaces the first under the same name. A runner looking up that name can see only the newer function.
+            ```
+
+            **Watch out:** reusing a test function name silently removes the earlier test from discovery. Give each behavior its own distinct name.
+
+            **In short:** focused, uniquely named tests with whole-result comparisons make failures informative.
         ''',
         "prompt": r'''
             A chat log printer formats each message on one line.
 
-            **Write:** at least two test functions for `format_message(role, content)` from `target.py`
+            **Your job:** write at least two test functions for `format_message(role, content)` from `target.py`
+
+            The following inputs and outputs describe the supplied implementation. Your job is to test it, not replace it.
+
+            **What goes in**
 
             - `role`: a string like `"user"` or `"assistant"`
             - `content`: the message text, e.g. `"hi"`
-            - **Returns:** a string: the role in UPPERCASE, a colon, one space, then the content unchanged
+
+            **What comes out**
+            - a string: the role in UPPERCASE, a colon, one space, then the content unchanged
 
             **Rules** (what `format_message` does - your tests must check this)
             - The role is uppercased; the content is NOT changed.
@@ -527,9 +539,9 @@ EXERCISES = [
         ''',
         "tests": "",
         "hints": [
-            "Replace each ... with an assert that calls format_message and compares the result to the exact expected string.",
-            "Use the examples from the spec as your expected values. One of them has capital letters in the content - that catches a bug the other can't.",
-            "In each test write: assert format_message(<role>, <content>) == <exact string>. Use \"user\"/\"hi\" in one and \"assistant\"/\"Hello!\" in the other.",
+            "Each test should compare a complete returned line with its required formatting.",
+            "Use distinct roles and content whose letter case makes accidental content conversion visible.",
+            "Write at least two uniquely named tests. For each, derive the uppercase role, exact separator, and unchanged content from the specification, then compare the whole output.",
         ],
     },
     {
@@ -538,49 +550,60 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "tests",
         "lesson": r'''
-            ## Arrange, act, assert
+            ## Check both the result and the original input
 
-            Most tests have three parts, in this order. The pattern is named
-            **arrange, act, assert**.
-
-            1. **Arrange**: build the inputs.
-            2. **Act**: call the code under test, once.
-            3. **Assert**: check the result. Also check anything else that the call
-               should or should not have changed.
+            A helper can return the right-looking answer while secretly changing a list another part of your app still uses. Testing only the return value misses that unwanted change.
 
             ```python
-            def with_greeting(history):
-                return history + ["hello"]
-
-            # Arrange
-            history = ["hi"]
-            # Act
-            result = with_greeting(history)
-            # Assert
-            assert result == ["hi", "hello"]
-            assert history == ["hi"], "the original must not change"
-            print("passed")
-            # passed
+            def with_marker(values):
+                return values + ["done"]
+            original = ["ready"]
+            result = with_marker(original)
+            assert result == ["ready", "done"]
+            assert original == ["ready"]
+            print("result and input checked")
+            # result and input checked
             ```
 
-            The second assert checks the input. `history + ["hello"]` builds a new list
-            object, so `history` still holds one item. A function that used
-            `history.append("hello")` instead would change the list the caller passed in.
-            A change that a function makes to something outside itself is called a
-            **side effect**. In a chat app, an unwanted side effect on a history list
-            changes what every part of the program that uses that list reads.
+            The test follows **arrange, act, assert**. Arrange the starting data, act by calling the function, then assert what happened. The final stage may include the returned value and the state of objects after the call.
 
-            Check the exact contents of the result with `==`. A check of `len(result)`
-            alone passes when the items are wrong or in the wrong order.
+            A change outside a function's local work is a **side effect**. Mutating an input list is one example. Whether a side effect is correct depends on the specification: some operations promise to change an object, while others promise a fresh result.
+
+            ```quiz
+            A returned list contains the correct items, but the original list also gained the new item. Did the helper satisfy a promise to leave input unchanged?
+            - [x] No :: Output correctness and input preservation are separate requirements.
+            - [ ] Yes :: A correct returned value does not excuse an unwanted side effect.
+            ```
+
+            Keep your expected data independent. If `expected = original` refers to the same list, a mutation changes both names' view and may make a broken test pass. A separately written expected list or an appropriate snapshot avoids that shared-reference trap.
+
+            ```predict
+            original = ["first"]
+            same = original
+            original.append("second")
+            print(same == original)
+            ---
+            The comparison is True because both names refer to the same changed list. This cannot establish that the original contents were preserved.
+            ```
+
+            **Watch out:** checking only the result length misses wrong content and wrong ordering. Compare the full expected structure as well as the preserved input.
+
+            **In short:** arrange independent expectations, make the call, then check both its answer and its promised effects.
         ''',
         "prompt": r'''
             Chat history helpers must not change the history they are given.
 
-            **Write:** tests for `add_message(history, role, content)` from `target.py`
+            **Your job:** write tests for `add_message(history, role, content)` from `target.py`
+
+            The following inputs and outputs describe the supplied implementation. Your job is to test it, not replace it.
+
+            **What goes in**
 
             - `history`: a list of message dicts, e.g. `[{"role": "user", "content": "hi"}]`
             - `role`, `content`: strings
-            - **Returns:** a NEW list: all the old messages, then `{"role": role, "content": content}` at the end
+
+            **What comes out**
+            - a NEW list: all the old messages, then `{"role": role, "content": content}` at the end
 
             **Rules** (what `add_message` does - your tests must check this)
             - The new message goes at the END.
@@ -639,9 +662,9 @@ EXERCISES = [
         ''',
         "tests": "",
         "hints": [
-            "Two things need checking: what comes back, and what happened to the list you passed in.",
-            "Compare result with the full expected list (old message, then new one). Then check history still holds only the original message.",
-            "Replace ... with two asserts: result == [old message dict, new message dict], and history == [old message dict].",
+            "There are two obligations: the new returned list and the original list after the call.",
+            "Keep independent expected data for each so an accidental mutation cannot alter your expectation too.",
+            "Compare the returned list with the complete ordered old-and-new messages, then compare the original history with its unchanged starting contents.",
         ],
     },
     {
@@ -650,47 +673,58 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "tests",
         "lesson": r'''
-            ## Edge cases
+            ## Test the cases where the usual path changes
 
-            An **edge case** (also called a **corner case**) is an input at the limit of
-            what the code accepts. Code that works for a typical input often fails for an
-            edge case, because the author did not think about it.
-
-            Common edge cases:
-
-            - Empty input: `""`, `[]`, `{}`.
-            - Exactly one item.
-            - The boundary value itself: a `limit` of 5 with exactly 5 items.
-            - Zero and negative numbers.
+            A helper works for a typical list, but what happens when there is nothing to process? Empty input, one item, and values exactly at a limit often take different paths through the code.
 
             ```python
-            def safe_max(numbers):
-                if not numbers:
-                    return None
-                return max(numbers)
-
-            print(safe_max([3, 9, 4]))   # typical input
-            # 9
-            print(safe_max([7]))         # one item
-            # 7
-            print(safe_max([]))          # empty: an edge case
+            def first_or_none(values):
+                return values[0] if values else None
+            print(first_or_none(["a", "b"]))
+            # a
+            print(first_or_none(["only"]))
+            # only
+            print(first_or_none([]))
             # None
             ```
 
-            Without the `if not numbers` check, `max([])` raises `ValueError`. Only a test
-            that passes an empty list finds that bug. When a spec has a sentence such as
-            "for an empty list, return 0", write one test for that sentence.
+            An input near the boundary of expected behavior is an **edge case**. Its importance comes from the specification, not from being unusual for its own sake. If a rule explicitly promises a value for empty input, test that promise directly.
 
-            When the result is a float, choose inputs whose result you can write exactly.
-            For example, the mean (the sum divided by the count) of `[2, 4]` is `3.0`.
+            ```quiz
+            A list-size rule accepts at most four items. Which inputs best distinguish an inclusive boundary from an exclusive one?
+            - [x] Lists with three, four, and five items :: These check just below, exactly at, and just above the boundary.
+            - [ ] Only a list with one item :: Both boundary implementations would likely accept it.
+            ```
+
+            One-item inputs can expose code that accidentally skips the last value or assumes there is a second item. Empty inputs expose missing fallback behavior, including division by zero in averaging code.
+
+            Choose numbers whose expected result you can calculate independently. A mean divides the sum by the number of observations. When testing floating-point results, exact binary fractions such as halves can simplify examples; other values may need a tolerance.
+
+            ```predict
+            numbers = [1, 4]
+            print(sum(numbers) / len(numbers))
+            print(sum([]))
+            ---
+            The mean is 2.5. An empty sum is zero, but computing an average still needs a policy for its zero item count.
+            ```
+
+            **Watch out:** a test should check the promised empty result, not merely that the call does not crash. Returning None instead of zero can still break the caller.
+
+            **In short:** test the normal case, the boundary itself, and the empty or single-item cases that change control flow.
         ''',
         "prompt": r'''
             Average tokens per message is a number shown on a usage dashboard.
 
-            **Write:** tests for `average(numbers)` from `target.py`
+            **Your job:** write tests for `average(numbers)` from `target.py`
+
+            The following inputs and outputs describe the supplied implementation. Your job is to test it, not replace it.
+
+            **What goes in**
 
             - `numbers`: a list of ints, e.g. `[2, 4, 6]`
-            - **Returns:** the mean (sum divided by count) as a float
+
+            **What comes out**
+            - the mean (sum divided by count) as a float
 
             **Rules** (what `average` does - your tests must check this)
             - An empty list returns `0.0` (it does not crash).
@@ -750,9 +784,9 @@ EXERCISES = [
         ''',
         "tests": "",
         "hints": [
-            "One test is already done. The spec has a special rule for one kind of input - test it.",
-            "Call average with an empty list and check the exact value the spec promises. A single-item list is another edge worth a test.",
-            "Replace ... with: assert average([]) == 0.0. Optionally add test_single_number asserting average([5]) == 5.0.",
+            "Which behavior changes when there are no observations to average?",
+            "The existing normal case does not check the special empty-input promise. A one-item case also makes an omitted final value visible.",
+            "Add an exact empty-result assertion, then a separate single-observation test if needed. Derive every expected value from the stated mean and empty-input rules.",
         ],
     },
     {
@@ -761,51 +795,61 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "tests",
         "lesson": r'''
-            ## Wrong expected values
+            ## Check the expectation before changing the implementation
 
-            A test can contain a bug too. A test with a **wrong expected value** fails on
-            code that is correct. A test that fails on correct code is called a
-            **false positive**. People stop reading the results of tests that fail for no
-            reason.
-
-            When a test fails, there are two possible causes:
-
-            1. The code is wrong.
-            2. The expected value in the test is wrong.
-
-            To decide, go back to the spec and work the expected value out by hand,
-            character by character.
+            A test fails after you write it. The implementation might be wrong, but your expected value might also misread the requirement. Fixing the wrong side can turn correct behavior into a bug.
 
             ```python
-            def initials(name):
-                return "".join(part[0] for part in name.split()) + "."
-
-            got = initials("Ada Lovelace")
-            print(repr(got))
-            # 'AL.'
-            print(got == "AL")      # this expected value has no dot
+            def label(text):
+                return "(" + text + ")"
+            actual = label("note")
+            print(repr(actual))
+            # '(note)'
+            print(actual == "note")
             # False
-            print(got == "AL.")
+            print(actual == "(note)")
             # True
             ```
 
-            `repr(got)` returns the string as you would type it in code, with its quotes.
-            That makes leading spaces, trailing spaces and dots easy to see when you
-            compare the actual value with the expected value.
+            A failing test that incorrectly accuses correct code is a **false positive**. To investigate, derive the expected result from the specification independently. Count separators, punctuation, and spaces as actual output characters, not visual decoration.
 
-            Do not fix a failing test by making it check less, for example by checking
-            only the length. Correct the expected value, so the test still fails when the
-            code has a bug.
+            `repr` makes invisible details easier to see. Quotes expose leading and trailing spaces, while escapes make newlines visible. Use that view to compare exact strings before deciding what should change.
+
+            ```predict
+            actual = "ready\n"
+            print(repr(actual))
+            print(actual == "ready")
+            ---
+            The representation exposes the final newline. The equality comparison is False because that newline is part of the string.
+            ```
+
+            Do not repair a false positive by weakening the test until it passes. Replacing a whole-result comparison with a length check or substring check may discard requirements that matter. Correct the expectation while keeping its ability to reject plausible wrong behavior.
+
+            ```quiz
+            The specification requires brackets, but your expected string omits them. What should change?
+            - [x] The expected value in the test :: The specification is the source of the contract being checked.
+            - [ ] Remove brackets from the implementation :: That would make the implementation violate the contract to satisfy a mistaken test.
+            ```
+
+            **Watch out:** copying the latest actual output into every failing expectation is not verification. First explain why that output follows the requirement; otherwise you may approve a regression.
+
+            **In short:** a failure asks you to compare both code and expectation with the specification.
         ''',
         "prompt": r'''
             A teammate wrote tests for `truncate`, but one fails on code that is correct. Fix
             the wrong test so all tests pass on the real code - and still catch real bugs.
 
-            **Write:** tests for `truncate(text, limit)` from `target.py`
+            **Your job:** write tests for `truncate(text, limit)` from `target.py`
+
+            The following inputs and outputs describe the supplied implementation. Your job is to test it, not replace it.
+
+            **What goes in**
 
             - `text`: a string, e.g. `"hello world"`
             - `limit`: an int, the maximum number of characters to keep, e.g. `5`
-            - **Returns:** `text` unchanged if it is at most `limit` characters long;
+
+            **What comes out**
+            - `text` unchanged if it is at most `limit` characters long;
               otherwise the first `limit` characters followed by `"..."`
 
             **Rules** (what `truncate` does - your tests must check this)
@@ -860,9 +904,9 @@ EXERCISES = [
         ''',
         "tests": "",
         "hints": [
-            "Run the tests: one fails even though truncate is correct. Which one?",
-            "Re-read what truncate returns for long text. The expected string in the failing test is missing something.",
-            "In test_long_text_is_cut, change the expected value to the first 5 characters followed by three dots.",
+            "A failing expected value should be checked against the contract before the implementation is changed.",
+            "For long text, the returned value includes both kept characters and the required ending marker.",
+            "Work out the complete long-text result character by character and correct that expectation. Retain the short-text test so a fix cannot add the marker everywhere.",
         ],
     },
     {
@@ -871,37 +915,50 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Expected exceptions
+            ## Recognize when an exception is the correct result
 
-            Some functions are specified to reject bad input by raising an exception. For
-            those inputs, **raising is the correct behaviour**. A test for that rule
-            passes when the call raises and fails when it returns normally.
-
-            The test uses `try` / `except`, which you know from the Errors chapter.
+            An input validator is supposed to refuse bad data. For that case, returning normally is the failure, and raising the promised error is success. Trace where execution moves after the call.
 
             ```python
-            def check_age(age):
-                if age < 18:
-                    raise ValueError("too young")
-                return "welcome"
-
-            try:
-                check_age(15)
-                print("no error: the test should fail")
-            except ValueError as err:
-                print("rejected as expected:", err)
-            # rejected as expected: too young
+            def require_nonnegative(number):
+                if number < 0:
+                    raise ValueError("negative input")
+            for number in [1, -2, 0]:
+                try:
+                    require_nonnegative(number)
+                    print(number, "accepted")
+                except ValueError:
+                    print(number, "rejected")
+            # 1 accepted
+            # -2 rejected
+            # 0 accepted
             ```
 
-            `check_age(15)` raises `ValueError`. Python skips the rest of the `try` block
-            and runs the `except ValueError` block. With `check_age(30)` nothing is
-            raised, so the next line of the `try` block runs and the `except` block is
-            skipped. A real test puts `assert False, "expected ValueError"` on that next
-            line.
+            An **expected exception** is an exception that belongs to the specification for a particular input. The error's presence is not automatically a bug. What matters is whether it is the correct type and occurs for the correct inputs.
 
-            `except ValueError` catches only `ValueError` and its subclasses. If the call
-            raised a `TypeError`, the `except ValueError` block would not run and the
-            `TypeError` would stop the program.
+            When the call raises, Python skips the rest of that try block and looks for a matching handler. When it returns normally, the following statements run and the handler is skipped.
+
+            ```quiz
+            The contract says ValueError, but the call raises TypeError. Should an exception test pass?
+            - [x] No :: Rejecting input with the wrong error type violates the specified behavior.
+            - [ ] Yes, because any crash is enough :: An accidental crash can hide a broken validation path.
+            ```
+
+            Boundaries need particular attention. If zero is allowed, rejecting negative input does not establish that zero works. Test the endpoint separately from values clearly inside and outside the range.
+
+            ```predict
+            try:
+                int("not-a-number")
+                print("normal return")
+            except ValueError:
+                print("expected error")
+            ---
+            Conversion raises ValueError, so the normal-return print is skipped and only the handler's message appears.
+            ```
+
+            **Watch out:** a handler that accepts every exception may hide an unrelated programming error. Catch the specific promised type when testing validation.
+
+            **In short:** trace normal returns and expected exceptions as different successful behaviors for different inputs.
         ''',
         "prompt": r'''Read the code and type exactly what it prints.''',
         "code": r'''
@@ -923,15 +980,13 @@ EXERCISES = [
             2 accepted
         ''',
         "explanation": r'''
-            `0.7` and `2` are inside `0 <= t <= 2` (the boundary `2` counts), so no error is
-            raised and the `print` after the call runs. `5` is outside, so `ValueError` is
-            raised, the `accepted` line is skipped, and the `except` block prints the message.
+            The loop checks each value independently. The interior value 0.7 returns normally, so its accepted line runs. Five violates the range and raises ValueError, skipping the accepted line and printing the handler's rejection message. Two equals the upper endpoint, which is included, so it also reaches the accepted line. Handling the failure allows the loop to continue to that final input.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "For each value, decide whether check_temperature raises or returns normally.",
-            "0 <= t <= 2 includes both ends. When it raises, the rest of the try block is skipped and except runs.",
-            "Go through 0.7, 5, 2 in order: print 'VALUE accepted' if no error, else 'VALUE rejected: MESSAGE'.",
+            "For each input, determine whether the validator returns or raises.",
+            "The range includes its endpoints; an exception skips the remaining lines of the try block.",
+            "Process inputs in order and choose the reached print statement for each. Include the stored exception message only on the rejection path.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 1
@@ -941,67 +996,61 @@ EXERCISES = [
         "difficulty": 1,
         "mode": "tests",
         "lesson": r'''
-            ## Testing that a call raises
+            ## Make the no-error path fail an error test
 
-            To test that a call raises, put the call inside a `try` block and put
-            `assert False` on the line after it, still inside the `try`.
+            You wrote a test that catches a required error, but the test also passes when the function raises nothing. Catching alone is insufficient: the normal-return path must explicitly fail.
 
             ```python
-            def parse_age(text):
-                age = int(text)
-                if age < 0:
-                    raise ValueError("negative age")
-                return age
-
-            def test_negative_age_raises():
+            def reject_blank(text):
+                if not text:
+                    raise ValueError("blank")
+            def test_blank_rejected():
                 try:
-                    parse_age("-3")
-                    assert False, "expected ValueError"
+                    reject_blank("")
+                    assert False, "expected an error"
                 except ValueError:
-                    pass    # good: it raised
-
-            test_negative_age_raises()
+                    pass
+            test_blank_rejected()
             print("passed")
             # passed
             ```
 
-            - If `parse_age` raises `ValueError`, Python skips `assert False` and runs the
-              `except` block. The test function returns normally, so the test passes.
-            - If `parse_age` does not raise, `assert False` runs and raises
-              `AssertionError`. `except ValueError` does not catch it, so the test fails.
+            The call raises before the failing assertion, so the handler runs and the test finishes normally. If a buggy implementation returns instead, execution reaches `assert False` and the test fails. The assertion's error must not be caught by the same handler.
 
-            Step through the body of that test to see which lines run when the call raises.
-
-            ```diagram
-            {"type": "trace", "title": "The call raises, so assert False is skipped", "code": ["def parse_age(text):", "    age = int(text)", "    if age < 0:", "        raise ValueError(\"negative age\")", "    return age", "", "try:", "    parse_age(\"-3\")", "    assert False, \"expected ValueError\"", "except ValueError:", "    print(\"raised as expected\")"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 7, "vars": {}, "out": ""},
-              {"line": 8, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"text": "'-3'"}, "out": ""},
-              {"line": 3, "vars": {"text": "'-3'", "age": "-3"}, "out": ""},
-              {"line": 4, "vars": {"text": "'-3'", "age": "-3"}, "out": ""},
-              {"line": 10, "vars": {}, "out": "", "note": "The ValueError leaves parse_age and the try block. Line 9 never runs."},
-              {"line": 11, "vars": {}, "out": ""},
-              {"line": null, "vars": {}, "out": "raised as expected\n"}
-            ]}
+            ```quiz
+            Why is except Exception dangerous around this pattern?
+            - [x] It can catch the test's own AssertionError :: That makes the missing-error case look like a successful expected-error case.
+            - [ ] It cannot catch ValueError :: Exception does include ValueError; that breadth is the problem here.
             ```
 
-            Test both sides of every rule. A value inside the allowed range must return a
-            result, and a value outside it must raise. A **boundary value** is a value at
-            the limit of the range, such as `0` for a rule that says "0 or more".
+            Check both sides of a validation rule. Invalid inputs should raise the required type, while valid inputs should return the right value. Otherwise a function that rejects everything might satisfy your entire test file.
 
-            Catch the specific exception type. `AssertionError` is a subclass of
-            `Exception`, so `except Exception:` also catches the `AssertionError` from
-            `assert False`. That test passes whether the call raises or not.
+            Treat each kind of invalid input separately. An out-of-range number and text that cannot be converted into a number are different paths, even when both promise ValueError.
+
+            ```match
+            valid input test :: checks the returned value
+            expected-error test :: checks rejection with the promised type
+            boundary test :: checks whether the endpoint is accepted
+            ```
+
+            **Watch out:** comparing a numeric result with the original text can hide a misunderstood output contract. Write the expected value with its intended type and check type explicitly when the specification requires it.
+
+            **In short:** an exception test needs a passing expected-error path and a failing normal-return path.
         ''',
         "prompt": r'''
             A settings form sends the model temperature as text. `parse_temperature` turns it
             into a number and rejects values outside the allowed range.
 
-            **Write:** tests for `parse_temperature(value)` from `target.py`
+            **Your job:** write tests for `parse_temperature(value)` from `target.py`
+
+            The following inputs and outputs describe the supplied implementation. Your job is to test it, not replace it.
+
+            **What goes in**
 
             - `value`: a string like `"0.7"`
-            - **Returns:** the temperature as a float
+
+            **What comes out**
+            - the temperature as a float
 
             **Rules** (what `parse_temperature` does - your tests must check this)
             - Valid range is `0.0` to `2.0`, **both ends included**.
@@ -1091,9 +1140,9 @@ EXERCISES = [
         ''',
         "tests": "",
         "hints": [
-            "You need tests for normal values, the boundary, and both kinds of bad input.",
-            "For the error tests use try: call; assert False, 'expected ValueError' / except ValueError: pass. For the value tests compare to a float - \"0.7\" (a string) is not equal to 0.7.",
-            "Write four tests: \"0.7\" returns 0.7; \"2\" returns 2.0; \"3.5\" raises ValueError; \"hot\" raises ValueError.",
+            "Test accepted numeric conversion separately from each kind of rejection.",
+            "Use boundary inputs to distinguish inclusive from exclusive limits, and let error tests fail when a call returns normally.",
+            "Check a valid float result and both allowed endpoints. For out-of-range and nonnumeric text, catch the required exception specifically and assert failure if it never occurs.",
         ],
     },
     {
@@ -1101,54 +1150,57 @@ EXERCISES = [
         "title": "A raises() helper",
         "difficulty": 1,
         "lesson": r'''
-            ## A helper for error tests
+            ## Let a helper make the call inside its error handler
 
-            Every error test repeats the same `try` / `assert False` / `except` lines.
-            Test tools put those lines in one helper function, and each test calls the
-            helper.
-
-            The helper has to make the call inside its own `try` block. So you pass it
-            **the function itself**, without calling it, followed by the arguments.
+            Several tests repeat the same error-catching structure. A helper can centralize it, but only if it receives the function before the function runs. Otherwise the error happens outside the helper's protection.
 
             ```python
-            def call_it(fn, *args):
-                return fn(*args)       # the helper makes the call
-
-            print(call_it(len, "hello"))
-            # 5
-            print(call_it(max, 3, 9, 4))
-            # 9
+            def invoke(function, *arguments):
+                return function(*arguments)
+            print(invoke(len, "chapter"))
+            # 7
+            print(invoke(max, 2, 8, 5))
+            # 8
             ```
 
-            `len` without parentheses is a **function object**: the function itself as a
-            value that you can pass to another function, not the result of calling it. In the
-            parameter list, `*args` collects the extra arguments into a tuple. In the call `fn(*args)`, the `*` passes each
-            item of the tuple as a separate argument.
+            A function without call parentheses is a **function object**, which you can pass like other values. The parameter `*arguments` collects the remaining positional arguments into a tuple. Using a star in the later call unpacks that tuple into separate arguments again.
 
-            `except SomeError` also catches **subclasses** of that exception class.
-            `KeyError` is a subclass of `LookupError`, so `except LookupError` catches it.
+            ```quiz
+            Which value should a helper receive so it can control when integer conversion runs?
+            - [x] The int function and its input separately :: The helper can perform the conversion inside its own try block.
+            - [ ] The result of int on the input :: Python performs that conversion before the helper is called.
+            ```
 
-            ```python
+            An except clause can use a variable holding an exception class. It catches instances of that class and its subclasses. This lets a reusable helper apply the particular exception contract requested by each test.
+
+            ```predict
             try:
-                {}["missing"]
-            except LookupError as err:
-                print("caught", type(err).__name__)
-            # caught KeyError
+                {}["absent"]
+            except LookupError as error:
+                print(type(error).__name__)
+            ---
+            KeyError inherits from LookupError, so a handler for LookupError catches it and the printed concrete class name is KeyError.
             ```
 
-            `call_it(len("hello"))` is a mistake. Python evaluates `len("hello")` first,
-            so the helper receives the integer `5` instead of a function. Calling `5()`
-            raises `TypeError`.
+            Call the supplied function once. A preliminary call to see whether it works would consume side effects or scripted fake responses before the real check. Let unrelated exception types propagate so callers can tell a wrong error from the expected one.
+
+            **Watch out:** passing `int("bad")` evaluates immediately and raises before your helper starts. Pass the function and arguments separately.
+
+            **In short:** receive an uncalled function, invoke it inside the handler, and catch only the requested exception family.
         ''',
         "prompt": r'''
             Build the helper that error tests use, so they can be one line long.
 
-            **Write:** `raises(exc_type, fn, *args)`
+            **Your job:** write `raises(exc_type, fn, *args)`
+
+            **What goes in**
 
             - `exc_type`: an exception class, e.g. `ValueError`
             - `fn`: a function (not called yet), e.g. `int`
             - `*args`: the arguments to call `fn` with
-            - **Returns:** `True` if `fn(*args)` raises `exc_type` (or a subclass of it),
+
+            **What comes out**
+            - `True` if `fn(*args)` raises `exc_type` (or a subclass of it),
               `False` if it returns normally
 
             **Rules**
@@ -1203,9 +1255,9 @@ EXERCISES = [
                 return False
         ''',
         "hints": [
-            "Call fn(*args) inside a try block and catch only exc_type.",
-            "except can take a variable holding an exception class: except exc_type:. If you land there, return True; if the call finished normally, return False.",
-            "try: fn(*args) / except exc_type: return True / after the try, return False. Don't add a broad except - other errors must escape.",
+            "The helper must receive a callable before that callable executes.",
+            "Perform exactly one forwarded call inside a handler for the requested exception class.",
+            "If that class or its subclass is caught, give the success Boolean. If the call completes, give the no-error Boolean. Leave other error types uncaught.",
         ],
     },
     {
@@ -1214,49 +1266,59 @@ EXERCISES = [
         "difficulty": 1,
         "mode": "tests",
         "lesson": r'''
-            ## Fixtures
+            ## Start each test with independent data
 
-            Each test should build its own data. If two tests use the same object, a
-            change made by one test is visible in the other. Then the second test can
-            fail because of the first test, not because of the code under test.
-
-            A **fixture** is a helper function that builds the data a test needs. Each
-            test calls the fixture and receives a new object.
+            One test adds an item to a shared list, and a later test unexpectedly starts with that item already present. The second failure is caused by test setup leaking across cases rather than the behavior you meant to inspect.
 
             ```python
-            def make_cart():            # the fixture
-                return {"items": [], "total": 0}
-
-            def test_add_item():
-                cart = make_cart()
-                cart["items"].append("tea")
-                assert cart["items"] == ["tea"]
-
-            def test_new_cart_is_empty():
-                cart = make_cart()
-                assert cart["items"] == []
-
-            test_add_item()
-            test_new_cart_is_empty()
-            print("both passed")
-            # both passed
+            def make_folder():
+                return {"files": []}
+            a = make_folder()
+            b = make_folder()
+            a["files"].append("draft")
+            print(a["files"])
+            # ['draft']
+            print(b["files"])
+            # []
             ```
 
-            Each call to `make_cart()` builds a new dict with a new empty list. The item
-            that `test_add_item` appends is not in the cart of `test_new_cart_is_empty`.
-            The name `make_cart` does not start with `test_`, so the runner does not call
-            it as a test.
+            Reusable setup data is often called a **fixture**. Here a plain helper function creates the fixture, returning a new object for each call. Its name does not begin with `test_`, because it supports tests rather than being independently discovered as a test.
 
-            You can also test that **two objects do not share data**. Build two objects,
-            change one, and assert that the other is unchanged. The Classes chapter
-            covered class attributes: a list assigned in the class body is one list
-            object that every instance uses. A test with two objects finds that bug.
+            ```predict
+            shared = []
+            def bad_fixture():
+                return {"files": shared}
+            a = bad_fixture()
+            b = bad_fixture()
+            a["files"].append("draft")
+            print(b["files"])
+            ---
+            The dictionaries are separate but their nested file lists are the same object. A fresh outer container alone does not guarantee independent nested state.
+            ```
+
+            Choose fixture contents that make several behaviors observable. For a sequence, distinct values make first-versus-last mistakes visible. For categories, unequal or mixed counts make counting the wrong category detectable.
+
+            You can also test independence in the application itself. Create two instances, change one, and assert the other retains its original state. This finds accidental class-level collections shared by every instance.
+
+            ```quiz
+            Should a test rely on another test creating its fixture first?
+            - [x] No :: Each test should work when run independently and in a different order.
+            - [ ] Yes, if the names sort correctly :: Ordering conventions do not replace independent setup.
+            ```
+
+            **Watch out:** storing a mutable fixture globally can make failures depend on test order. Build fresh state for each test unless sharing is intentional and controlled.
+
+            **In short:** fixture helpers reuse setup instructions while creating independent objects for each test.
         ''',
         "prompt": r'''
             `target.py` has a small `Conversation` class. Write tests for it, using a fixture
             function (e.g. `make_conversation()`) so each test starts fresh.
 
-            **Write:** tests for the class `Conversation(system)` from `target.py`
+            **Your job:** write tests for the class `Conversation(system)` from `target.py`
+
+            The following inputs and outputs describe the supplied implementation. Your job is to test it, not replace it.
+
+            **What goes in**
 
             - `Conversation("Be brief")` starts with one message: `{"role": "system", "content": "Be brief"}`
               in its `.messages` list
@@ -1264,6 +1326,9 @@ EXERCISES = [
               `role` must be `"user"` or `"assistant"`, anything else raises `ValueError`
             - `.last()`: **returns** the content of the most recent message
             - `.count(role)`: **returns** how many messages have that role
+
+            **What comes out**
+            - Your test functions pass for the described behavior and fail when that behavior is broken.
 
             **Rules** (what `Conversation` does - your tests must check this)
             - Every conversation has its OWN messages list (two conversations never share messages).
@@ -1404,9 +1469,9 @@ EXERCISES = [
         ''',
         "tests": "",
         "hints": [
-            "Start with the fixture: make_conversation() should build a Conversation, add a couple of messages and return it.",
-            "Write one test per method (last, count, add with a bad role), and one test that builds two conversations and checks each has only its own messages.",
-            "Fixture: create Conversation(\"Be brief\"), add a user and an assistant message, return it. Tests: last() is the assistant text; count(\"user\") == 1; add(\"tool\", ...) raises ValueError; a brand-new Conversation has exactly 1 message even after the fixture made another.",
+            "A setup helper should create new state on every call.",
+            "Choose messages that make newest content and per-role counts distinguishable, then add a separate independence check.",
+            "Build the fixture, test each stated method and role rejection, and create two conversations to verify that changes to one do not appear in the other.",
         ],
     },
     {
@@ -1414,52 +1479,58 @@ EXERCISES = [
         "title": "Build a fake LLM",
         "difficulty": 1,
         "lesson": r'''
-            ## Fakes
+            ## Replace an external service with predictable replies
 
-            An **LLM** (large language model) is a program that writes text. A real LLM call
-            is slow, costs money, needs the network and returns a
-            different answer each time. A test needs code that is fast and returns the
-            same answer on every run. A **fake** is an object you write for tests that has
-            the same methods as the real one and returns replies you chose in advance.
-
-            A useful fake does two things:
-
-            1. It **returns scripted replies**, in order.
-            2. It **records what it was asked**, so a test can check the prompt.
+            Your test needs to check what happens after a model answers. A live service adds waiting, network failures, cost, and responses you do not fully control. A local stand-in can supply exactly the replies needed to exercise your code.
 
             ```python
-            class FakeWeather:
-                def __init__(self, answers):
-                    self.answers = list(answers)
-                    self.cities = []
-
-                def today(self, city):
-                    self.cities.append(city)
-                    return self.answers.pop(0)
-
-            fake = FakeWeather(["sunny", "rain"])
-            print(fake.today("Paris"), fake.today("Oslo"))
-            # sunny rain
-            print(fake.cities)
-            # ['Paris', 'Oslo']
+            class FakeLookup:
+                def __init__(self, replies):
+                    self.remaining = list(replies)
+                    self.requests = []
+                def lookup(self, name):
+                    self.requests.append(name)
+                    return self.remaining.pop(0)
+            fake = FakeLookup(["found", "missing"])
+            print(fake.lookup("guide"), fake.lookup("notes"))
+            # found missing
+            print(fake.requests)
+            # ['guide', 'notes']
             ```
 
-            `self.answers.pop(0)` removes the first remaining answer and returns it, so
-            the answers come out in the order given. `list(answers)` builds a new list
-            with the same items. `pop` changes that new list, and the list the caller
-            passed in stays unchanged.
+            This is a **test double**, a replacement dependency used during tests. We call this local stand-in a **fake**. A double returning predetermined answers is often called a **stub**; one recording calls is a **spy**. Terminology varies, but the behavior you need is concrete.
 
-            Three terms are in common use. A **stub** returns fixed answers. A **spy**
-            also records the calls it receives. **Fake** is the general word for both.
+            ```quiz
+            Why copy the supplied reply list before consuming it?
+            - [x] Consuming internal replies should not change the caller's list :: The fake owns its progress independently of the script provided by the test.
+            - [ ] Lists cannot be stored on objects :: Lists are valid attributes; shared mutation is the concern.
+            ```
+
+            A scripted fake has state: which replies remain and which requests have arrived. Decide the order of those changes carefully. Even a call that runs out of scripted replies may need to be recorded so a test can diagnose an unexpected extra request.
+
+            ```match
+            scripted replies :: determine what the dependency returns
+            recorded calls :: show how the dependency was used
+            fresh instance state :: prevents one test from affecting another
+            ```
+
+            **Watch out:** silently returning a default forever can hide repeated calls. A clear exhaustion error makes extra calls visible when the script is meant to be finite.
+
+            **In short:** a predictable fake supplies controlled replies and records enough interaction to check your code's behavior.
         ''',
         "prompt": r'''
             Every AI feature you test later will need a stand-in model. Build one.
 
-            **Write:** a class `FakeLLM`
+            **Your job:** write a class `FakeLLM`
+
+            **What goes in**
 
             - `FakeLLM(replies)`: `replies` is a list of strings to return, in order
             - `.complete(prompt)`: records `prompt`, then **returns** the next reply
             - `.prompts`: a list of every prompt received so far, in order (starts empty)
+
+            **What comes out**
+            - The public methods behave as described above, with independent state for every instance.
 
             **Rules**
             - Replies come out in the order given; each is used once.
@@ -1534,9 +1605,9 @@ EXERCISES = [
                     return self.replies.pop(0)
         ''',
         "hints": [
-            "In __init__, store a copy of the replies and create an empty prompts list on self.",
-            "complete() records the prompt first, then checks whether any replies are left, then hands out the first remaining one.",
-            "__init__: self.replies = list(replies); self.prompts = []. complete: append prompt to self.prompts; if self.replies is empty raise RuntimeError(...); else return self.replies.pop(0).",
+            "Your fake needs independent records of remaining answers and received prompts.",
+            "Copy the reply script and create per-instance call history. Recording must happen even when no reply remains.",
+            "On construction, prepare the two collections. On each call, record the prompt, reject exhaustion with the promised error, otherwise consume and return the earliest unused reply.",
         ],
     },
     {
@@ -1545,49 +1616,60 @@ EXERCISES = [
         "difficulty": 1,
         "mode": "tests",
         "lesson": r'''
-            ## Dependency injection
+            ## Pass a fake into the code you want to test
 
-            A function that creates its own connection to the real model always calls the
-            real model, in tests too. **Dependency injection** means the function receives
-            the model as a parameter instead. The caller decides which model the function
-            uses, so a test can pass a fake.
+            A function that creates its own remote client is hard to isolate. If it receives that dependency from its caller, a test can substitute a local function and observe how it is used.
 
             ```python
-            def translate(text, llm):
-                return llm("Translate to French: " + text)
-
-            seen = []
-            def fake_llm(prompt):          # a fake, written in the test file
-                seen.append(prompt)
-                return "bonjour"
-
-            print(translate("hello", fake_llm))
-            # bonjour
-            print(seen)
-            # ['Translate to French: hello']
+            def title_for(text, model):
+                return model("Title: " + text).strip()
+            calls = []
+            def fake(prompt):
+                calls.append(prompt)
+                return "  Notes  "
+            print(title_for("gardening", fake))
+            # Notes
+            print(calls)
+            # ['Title: gardening']
             ```
 
-            The real app calls `translate(text, real_llm)`. A test calls
-            `translate(text, fake_llm)`. With the fake, the test can check three things:
+            Passing the dependency in from outside is **dependency injection**. The application can provide the real callable, while a test provides a fake with the same calling shape. The function under test should not need to know which it received.
 
-            - What the function **returned**, which is built from your scripted reply.
-            - What **prompt** it sent, which is in `seen`.
-            - **How many times** it called the model, which is `len(seen)`.
+            ```quiz
+            The contract says to remove surrounding whitespace from replies. Which fake response tests that requirement?
+            - [x] A reply with spaces or newlines at its ends :: Leaving the reply untrimmed would now change the asserted output.
+            - [ ] A reply already free of surrounding whitespace :: Both trimming and doing nothing would give the same result.
+            ```
 
-            Choose the scripted reply so that a bug changes the result. If the spec says
-            the function removes surrounding whitespace from the reply, give the fake a
-            reply that has surrounding whitespace. With a reply that is already clean, the
-            test passes even if the function never removes anything.
+            Check interactions as well as returned text. The recorded calls can prove how often the dependency ran and whether the original input reached it. For a blank input that should skip work, an empty call record proves the absence of a call.
+
+            Avoid specifying more than the contract promises. If a prompt must contain the document, do not insist on a particular instruction prefix unless that exact prefix is required. A test should reject wrong behavior while allowing different correct implementations.
+
+            ```match
+            return assertion :: checks how the reply is processed
+            call-count assertion :: checks how often the dependency runs
+            prompt assertion :: checks what input reaches the dependency
+            ```
+
+            **Watch out:** a fake that returns the right answer without recording calls cannot reveal unnecessary extra requests by itself.
+
+            **In short:** inject a controlled dependency and test its output, inputs, and call count according to the contract.
         ''',
         "prompt": r'''
             `summarize` asks a model for a one-sentence summary. The model is injected, so you
             can test it with a fake function you write in your test file.
 
-            **Write:** tests for `summarize(text, llm)` from `target.py`
+            **Your job:** write tests for `summarize(text, llm)` from `target.py`
+
+            The following inputs and outputs describe the supplied implementation. Your job is to test it, not replace it.
+
+            **What goes in**
 
             - `text`: the document to summarize, a string
             - `llm`: a function that takes a prompt string and returns a reply string
-            - **Returns:** the model's reply with surrounding whitespace removed
+
+            **What comes out**
+            - the model's reply with surrounding whitespace removed
 
             **Rules** (what `summarize` does - your tests must check this)
             - If `text` is empty or only whitespace, returns `""` **without calling** `llm`.
@@ -1680,9 +1762,9 @@ EXERCISES = [
         ''',
         "tests": "",
         "hints": [
-            "Finish the fake first: it should remember each prompt in calls and return the reply it was built with.",
-            "Then write tests for each rule: stripped reply; exactly one call whose prompt contains the text; blank text returns \"\" with no calls.",
-            "fake: calls.append(prompt); return reply. Tests: make_fake(\"  Cats nap.\\n\") and assert the result is \"Cats nap.\"; check len(calls) == 1 and the text is in calls[0]; with \"   \" assert result == \"\" and calls == [].",
+            "A fake can both supply a reply and record how summarize used it.",
+            "Pick a reply with surrounding whitespace, and test blank input separately from a normal document.",
+            "Complete the recording fake. Check processed output, one call containing the original text, and no calls for blank input. Avoid asserting prompt wording beyond the documented containment rule.",
         ],
     },
     {
@@ -1698,50 +1780,58 @@ EXERCISES = [
             ],
         },
         "lesson": r'''
-            ## pytest
+            ## Write ordinary tests a larger runner can discover
 
-            So far this app has been your test runner. It finds every `test_` function,
-            calls it and reports what failed. Real projects use **pytest**, the most
-            widely used test runner for Python.
-
-            What pytest provides:
-
-            - The `pytest` command finds files named `test_*.py` and runs every `test_*`
-              function in them.
-            - When a plain `assert` fails, the report shows both values, for example
-              `assert "a-b" == "a--b"`.
-            - `pytest.raises(ValueError)` replaces the `try` / `assert False` / `except`
-              pattern.
-            - `@pytest.fixture` shares setup code between tests, and
-              `@pytest.mark.parametrize` runs one test function with many inputs.
-
-            You do not need pytest installed for this step. The tests you have written in
-            this chapter are **already valid pytest tests**: functions named `test_...`
-            that use plain `assert`.
+            Your tests are useful beyond this app. A project runner can discover the same named functions, execute them, and report assertion failures without requiring you to call each test manually.
 
             ```python
-            def slug(title):
-                return "-".join(title.lower().split())
-
-            def test_slug():
-                assert slug("Hello World") == "hello-world"
-
-            test_slug()
-            print(slug("  Many   spaces  here "))
-            # many-spaces-here
+            def initials(text):
+                return "".join(word[0] for word in text.split())
+            def test_initials_ignore_extra_gaps():
+                assert initials("  red   green blue ") == "rgb"
+            test_initials_ignore_extra_gaps()
+            print("passed")
+            # passed
             ```
 
-            Choose test inputs that make every rule of the spec matter: capital letters,
-            several spaces in a row, and spaces at the start and the end. An input such as
-            `"Hello World"` alone does not detect a bug in how repeated spaces are handled.
+            **pytest** is a third-party Python test runner. Under its usual conventions, it discovers test files and functions named with `test_`. Ordinary assertions work, and its reports help display the actual and expected values when a comparison fails.
+
+            The test above needs no pytest installation to run directly. In a project you would place the test in a discovered file and let the runner make the call. Discovery replaces manual invocation, not the need for good expectations.
+
+            ```quiz
+            A runner discovers your tests successfully. Does that prove the tests cover every stated behavior?
+            - [x] No :: Discovery only proves the checks ran; their inputs and assertions determine what bugs they can reveal.
+            - [ ] Yes :: A runner cannot infer every missing scenario from a passing assertion.
+            ```
+
+            Pytest adds tools for expected exceptions, reusable setup, and running one test with many input sets. `pytest.raises` expresses an expected-error check; fixtures organize setup; parameterization repeats a test over cases. The research link introduces these tools, but this exercise uses plain functions and asserts.
+
+            Choose data that distinguishes plausible errors. A normalization function needs messy spacing to test spacing rules, and mixed case to test case conversion. A clean example may leave those branches untested.
+
+            ```predict
+            print("a  b".split(" "))
+            print("a  b".split())
+            ---
+            Splitting on one literal space preserves an empty piece between adjacent spaces. Splitting on arbitrary whitespace collapses that gap instead.
+            ```
+
+            **Watch out:** a framework cannot rescue a test that checks only an already-clean input.
+
+            **In short:** keep writing focused plain assertions; a runner automates discovery and reporting around them.
         ''',
         "prompt": r'''
             Document ids in a RAG index are made from titles. Test the slug maker.
 
-            **Write:** tests for `make_slug(title)` from `target.py`
+            **Your job:** write tests for `make_slug(title)` from `target.py`
+
+            The following inputs and outputs describe the supplied implementation. Your job is to test it, not replace it.
+
+            **What goes in**
 
             - `title`: a string, e.g. `"  Intro to  RAG "`
-            - **Returns:** a string: the title in lowercase, with words joined by single dashes
+
+            **What comes out**
+            - a string: the title in lowercase, with words joined by single dashes
 
             **Rules** (what `make_slug` does - your tests must check this)
             - All letters are lowercased.
@@ -1794,9 +1884,9 @@ EXERCISES = [
         ''',
         "tests": "",
         "hints": [
-            "One simple example won't catch every bug. Use an input that has capitals, double spaces and spaces at both ends.",
-            "Write one test with a clean title and one with a messy one; compare each result to the exact expected slug.",
-            "assert make_slug(\"Hello World\") == \"hello-world\" and assert make_slug(\"  Intro to  RAG \") == \"intro-to-rag\" in two test functions.",
+            "Choose inputs where case conversion and whitespace normalization visibly change the result.",
+            "A clean example alone cannot reveal repeated-gap or boundary-gap mistakes.",
+            "Write independent tests for an ordinary title and one with mixed case and messy whitespace, comparing each whole expected slug rather than just its words or length.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 2
@@ -1807,28 +1897,59 @@ EXERCISES = [
         "mode": "tests",
         "placement": True,
         "lesson": r'''
-            ## A full test suite
+            ## Turn each behavior rule into evidence
 
-            A **test suite** is the set of all tests for one piece of code. To write one,
-            read the spec rule by rule and write one test for each rule:
+            A function has several requirements, and one successful example cannot establish them all. Read the contract as a list of behaviors and choose cases that distinguish each behavior from a plausible mistake.
 
-            - A typical input, compared with the whole expected result using `==`.
-            - Each edge case the spec mentions, such as empty input.
-            - Each boundary: an input that fits exactly, and one that leaves a remainder.
-            - Each error rule, with the `try` / `assert False` / `except` pattern.
+            ```python
+            def groups(values, size):
+                return [values[start:start + size] for start in range(0, len(values), size)]
+            print(groups([1, 2, 3, 4], 2))
+            # [[1, 2], [3, 4]]
+            print(groups([1, 2, 3], 2))
+            # [[1, 2], [3]]
+            ```
 
-            When one rule covers several bad values, test more than one of them. Code that
-            rejects one bad value can still accept another.
+            The first example checks an exact split. The second checks a leftover group. A buggy function that discards leftovers could pass the first and fail the second. These are related but distinct cases.
+
+            A collection of tests for a piece of code is a **test suite**. Putting a suite together means covering normal values, edges, boundaries, and promised errors without inventing requirements the function never agreed to meet.
+
+            ```quiz
+            An invalid-size rule rejects every value below one. Is testing only zero enough to distinguish all likely mistakes?
+            - [x] No :: Code may explicitly reject zero while accidentally allowing negative values.
+            - [ ] Yes :: Zero and negative values can follow different branches or library behavior.
+            ```
+
+            Compare the whole result to catch loss, duplication, order changes, and wrong item sizes. Checking only how many groups came back leaves their contents unverified. Use distinct items so a misplaced or repeated item is visible.
+
+            An exception check should fail if no exception occurs and should accept only the promised exception family. Pair rejection tests with successful cases so an implementation that rejects everything cannot pass.
+
+            ```match
+            exact split :: checks boundaries without a remainder
+            uneven split :: checks the final partial group
+            empty input :: checks the absence of output items
+            invalid size :: checks deliberate rejection
+            ```
+
+            **Watch out:** the phrase "thorough tests" does not mean random inputs alone. Small chosen cases often expose specific faults more clearly.
+
+            **In short:** build a suite from distinct contract behaviors and exact expected outcomes.
         ''',
         "prompt": r'''
             RAG pipelines split documents into chunks before embedding them. Write a test suite
             that would catch any plausible bug in this chunker.
 
-            **Write:** tests for `chunk_words(text, size)` from `target.py`
+            **Your job:** write tests for `chunk_words(text, size)` from `target.py`
+
+            The following inputs and outputs describe the supplied implementation. Your job is to test it, not replace it.
+
+            **What goes in**
 
             - `text`: a string of words separated by whitespace
             - `size`: an int, the maximum number of words per chunk
-            - **Returns:** a list of strings; each chunk is up to `size` words joined by single spaces
+
+            **What comes out**
+            - a list of strings; each chunk is up to `size` words joined by single spaces
 
             **Rules** (what `chunk_words` does - your tests must check this)
             - Chunks are taken in order; only the LAST chunk may be shorter than `size`.
@@ -1907,9 +2028,9 @@ EXERCISES = [
         ''',
         "tests": "",
         "hints": [
-            "Go rule by rule through the spec and write one test for each: uneven split, even split, empty text, bad sizes.",
-            "Compare whole lists with ==. For the error rule, test more than one bad size - 0 and a negative number can fail differently.",
-            "Tests: \"a b c d e\" with 2 -> [\"a b\", \"c d\", \"e\"]; \"a b c d\" with 2 -> [\"a b\", \"c d\"]; \"\" -> []; sizes 0 and -1 each raise ValueError (try / assert False / except ValueError).",
+            "Map normal results, leftover handling, empty input, and invalid sizes to separate tests.",
+            "Use distinct words and compare complete chunk lists so loss, overlap, and wrong sizes are visible.",
+            "Test exact and uneven splits, empty or whitespace-only input, and more than one invalid size. Make each error test fail when the call returns normally.",
         ],
     },
     {
@@ -1917,37 +2038,60 @@ EXERCISES = [
         "title": "A tiny test runner",
         "difficulty": 2,
         "lesson": r'''
-            ## How a test runner works
+            ## Keep running after one test fails
 
-            A test runner runs a loop over the test functions. It calls each function
-            inside a `try` block and catches whatever the function raises. pytest does the
-            same thing and adds more features.
+            A test report should include all results, not stop at the first failure. You need a loop that isolates each test call and records whether it returned normally, failed an assertion, or raised an unexpected error.
 
             ```python
-            def test_crash():
-                return 1 / 0
-
-            try:
-                test_crash()
-            except Exception as err:
-                print(type(err).__name__, "|", str(err))
-            else:
-                print("passed")
-            # ZeroDivisionError | division by zero
+            def test_good(): assert 3 > 1
+            def test_bad():
+                raise ValueError("broken setup")
+            for check in [test_good, test_bad]:
+                try:
+                    check()
+                except Exception as error:
+                    print(type(error).__name__)
+                else:
+                    print("passed")
+            # passed
+            # ValueError
             ```
 
-            `type(err).__name__` is the name of the exception class as a string, and
-            `str(err)` is its message. The `else` block of a `try` runs only when the
-            `try` block raised nothing. An `assert` without a message raises an
-            `AssertionError` whose `str(err)` is the empty string `""`.
+            Putting it together requires exception handling inside the per-test loop. A try block around the whole loop would leave later tests unrun after the first failure. The `else` block runs only when the protected call raises nothing, making it a natural place to record success.
+
+            ```quiz
+            Where should the runner catch an individual test's failure?
+            - [x] Around that one call inside the loop :: After recording it, the loop can continue to the next test.
+            - [ ] Only outside the entire loop :: An escaping exception exits the loop before the handler runs.
+            ```
+
+            An assertion failure and an unexpected crash may need different report formats. Catch the more specific exception first, because `AssertionError` is itself a kind of `Exception`. If the broad handler comes first, it consumes the specific case too.
+
+            ```predict
+            error = AssertionError()
+            print(repr(str(error)))
+            print(type(ValueError("bad")).__name__)
+            ---
+            An assertion without a message has empty message text. An exception's class name is available independently from its message.
+            ```
+
+            Filter discovered names before calling functions. A helper stored alongside tests must remain uncalled unless its name meets the runner's contract. Preserve input order so the report is predictable.
+
+            **Watch out:** a test that returns False has still returned normally. This runner judges exceptions, not return-value truthiness.
+
+            **In short:** select tests, isolate each call, classify its outcome, and continue collecting the report.
         ''',
         "prompt": r'''
             Build the core of a test runner: run test functions and report results.
 
-            **Write:** `run_tests(tests)`
+            **Your job:** write `run_tests(tests)`
+
+            **What goes in**
 
             - `tests`: a dict mapping names to functions, e.g. `{"test_ok": fn1, "helper": fn2}`
-            - **Returns:** a dict `{"passed": [...names...], "failed": {name: message}}`
+
+            **What comes out**
+            - a dict `{"passed": [...names...], "failed": {name: message}}`
 
             **Rules**
             - Only run entries whose name starts with `"test_"`, in the dict's order. Other entries are ignored (not called).
@@ -2036,9 +2180,9 @@ EXERCISES = [
                 return {"passed": passed, "failed": failed}
         ''',
         "hints": [
-            "Loop over tests.items(), skip names that don't start with test_, and call each function inside try/except.",
-            "Catch AssertionError first (its message may be empty), then any other Exception. Only add to passed if nothing was raised.",
-            "For each test name: try fn(); except AssertionError as err -> failed[name] = str(err) or \"assertion failed\"; except Exception as err -> f\"{type(err).__name__}: {err}\"; else append name to passed. Return both.",
+            "Each discovered test needs its own protected call so one failure cannot end the loop.",
+            "Catch assertion failures before the general exception handler and reserve the normal-return path for passed names.",
+            "Filter names, call eligible functions in order, record the specified assertion fallback or typed error message, and collect successful names. Return both collections after all calls finish.",
         ],
     },
     {
@@ -2050,12 +2194,18 @@ EXERCISES = [
             LLM APIs drop connections sometimes. `call_with_retry` tries again - but only for
             connection problems. Test it with a flaky fake model you write yourself.
 
-            **Write:** tests for `call_with_retry(llm, prompt, attempts=3)` from `target.py`
+            **Your job:** write tests for `call_with_retry(llm, prompt, attempts=3)` from `target.py`
+
+            The following inputs and outputs describe the supplied implementation. Your job is to test it, not replace it.
+
+            **What goes in**
 
             - `llm`: a function taking a prompt string and returning a reply string
             - `prompt`: the prompt string to send
             - `attempts`: the maximum number of calls in total (an int >= 1)
-            - **Returns:** the first successful reply
+
+            **What comes out**
+            - the first successful reply
 
             **Rules** (what `call_with_retry` does - your tests must check this)
             - If `llm` raises `ConnectionError`, it calls `llm` again, up to `attempts` calls in total.
@@ -2176,9 +2326,9 @@ EXERCISES = [
         ''',
         "tests": "",
         "hints": [
-            "Finish the flaky fake first: it must count its calls and raise for the first few.",
-            "Then check each rule with a call count: succeed-after-failures, no extra calls after success, give up after `attempts`, no retry for other errors.",
-            "In llm: append the prompt to calls; if len(calls) <= failures raise error(\"boom\"); else return reply. Then write 4 tests using make_flaky(2), make_flaky(0), make_flaky(5) with attempts=2, and make_flaky(5, error=ValueError), asserting the result/exception and len(calls).",
+            "A retry test needs control over both the sequence of failures and the count of calls.",
+            "Make the fake record prompts and fail a chosen number of times before succeeding. Use another error type to test the no-retry branch.",
+            "Check eventual success, immediate success with no extra calls, exhaustion at the total attempt limit, and immediate propagation of an unrelated error. Assert call counts as well as returned values or exceptions.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 3
@@ -2191,10 +2341,16 @@ EXERCISES = [
             Models that use tools reply with JSON describing the call. Parsing it wrongly
             means running the wrong tool. Write a thorough test suite.
 
-            **Write:** tests for `parse_tool_call(reply)` from `target.py`
+            **Your job:** write tests for `parse_tool_call(reply)` from `target.py`
+
+            The following inputs and outputs describe the supplied implementation. Your job is to test it, not replace it.
+
+            **What goes in**
 
             - `reply`: a string of JSON, e.g. `'{"name": "search", "args": {"q": "cats"}}'`
-            - **Returns:** a tuple `(name, args)`, e.g. `("search", {"q": "cats"})`
+
+            **What comes out**
+            - a tuple `(name, args)`, e.g. `("search", {"q": "cats"})`
 
             **Rules** (what `parse_tool_call` does - your tests must check this)
             - If `"args"` is missing, `args` is `{}`.
@@ -2348,9 +2504,9 @@ EXERCISES = [
         ''',
         "tests": "",
         "hints": [
-            "Write a small helper that asserts a given text raises ValueError - you'll use it a lot.",
-            "Cover both happy paths (with and without args) with == on the whole tuple, then one error test per bad-input rule. 'Not a string' and 'empty' are two different name bugs.",
-            "Helper: try parse_tool_call(text) / except ValueError: return / then assert False. Use it for: \"not json\", '[\"search\"]', '{\"name\": \"\"}', '{\"name\": 42}', '{\"args\": {}}', '{\"name\": \"x\", \"args\": [1]}'. Plus two == tests for the valid examples.",
+            "Separate valid output shape, optional defaults, and each invalid-input rule.",
+            "Missing, empty, and wrong-type values are different cases even when the error type is the same.",
+            "Compare complete tuples for normal and missing-args inputs. Use a specific ValueError helper for invalid JSON, non-object JSON, every bad-name form, and non-object arguments.",
         ],
     },
     {
@@ -2361,13 +2517,18 @@ EXERCISES = [
             A stricter fake for agent tests: it knows which prompt to expect at each step and
             fails loudly if the code under test goes off-script.
 
-            **Write:** a class `ScriptedLLM`
+            **Your job:** write a class `ScriptedLLM`
+
+            **What goes in**
 
             - `ScriptedLLM(script)`: `script` is a list of `(expected, reply)` pairs (tuples of two strings)
             - `.complete(prompt)`: handles the next step of the script:
               if `expected` is **contained in** `prompt`, **returns** `reply`
             - `.assert_done()`: checks that every step was used
             - `.calls`: the number of `.complete` calls so far (an int, starts at `0`)
+
+            **What comes out**
+            - The public methods behave as described above, with independent state for every instance.
 
             **Rules**
             - `.complete` raises `AssertionError` with a message containing the expected text if the prompt doesn't contain it.
@@ -2456,9 +2617,9 @@ EXERCISES = [
                         raise AssertionError(f"{len(self.steps)} unused step(s)")
         ''',
         "hints": [
-            "Keep a copy of the script as a list of remaining steps, plus a call counter.",
-            "complete(): count the call first, then check whether steps remain, then take the next step and compare. assert_done(): complain if steps remain.",
-            "__init__: self.steps = list(script); self.calls = 0. complete: self.calls += 1; if no steps raise AssertionError(\"unexpected call ...\"); expected, reply = self.steps.pop(0); if expected not in prompt raise AssertionError mentioning expected; return reply. assert_done: if self.steps raise AssertionError(f\"{len(self.steps)} unused step(s)\").",
+            "Track remaining script steps separately from the total call count.",
+            "Count a call before any validation, consume the next expected step, and make error messages identify the violated expectation.",
+            "Copy the script, initialize the counter, and on each call record progress before checking exhaustion and expected-text containment. Return the scripted reply on success; the completion assertion checks how many steps remain.",
         ],
     },
 ]

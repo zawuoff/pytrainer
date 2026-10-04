@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import uuid
 
-from . import ai, db, jev, personal, runner
+from . import ai, db, jev, runner
 
 LEARNER = ("The learner is a career switcher learning Python for AI engineering "
            "(building applications on LLM APIs: RAG, tool calling, agents, structured outputs, "
@@ -143,7 +143,7 @@ def tutor_reply(item_id: str, task: str, files: dict, result: dict | None, messa
               f"## Conversation so far\n{convo or '(none)'}\n\n"
               f"## Learner's new message\n{message}\n\n"
               "Reply as the tutor (just the reply text).")
-    reply = ai.complete(TUTOR_SYSTEM + personal.context_line(), prompt)
+    reply = ai.complete(TUTOR_SYSTEM, prompt)
     reply = _guard_reply(task, files, prompt, reply)
     history += [{"role": "learner", "content": message}, {"role": "tutor", "content": reply}]
     db.ex("INSERT INTO chats(item_id, messages, updated_at) VALUES(?,?,?) ON CONFLICT(item_id) "
@@ -160,7 +160,7 @@ def _guard_reply(task: str, files: dict, prompt: str, reply: str) -> str:
     try:
         if jev.tutor_gives_away(task, code, reply) < 0.6:
             return reply
-        retry = ai.complete(TUTOR_SYSTEM + personal.context_line(), prompt + "\n\nIMPORTANT: a checker flagged your previous draft for "
+        retry = ai.complete(TUTOR_SYSTEM, prompt + "\n\nIMPORTANT: a checker flagged your previous draft for "
                             "giving away the solution. Do not include any solution code or the exact fix. "
                             "Guide with a question and a pointer to where to look.")
         if jev.tutor_gives_away(task, code, retry) < 0.6:
@@ -178,7 +178,7 @@ def lesson_reply(item_id: str, title: str, lesson: str, message: str) -> list:
     convo = "\n\n".join(f"{m['role'].upper()}: {m['content']}" for m in history[-10:])
     prompt = (f"## Lesson: {title}\n{lesson}\n\n## Conversation so far\n{convo or '(none)'}\n\n"
               f"## Learner's question\n{message}\n\nReply as the teacher (just the reply text).")
-    reply = ai.complete(LESSON_SYSTEM + personal.context_line(), prompt)
+    reply = ai.complete(LESSON_SYSTEM, prompt)
     history += [{"role": "learner", "content": message}, {"role": "tutor", "content": reply}]
     db.ex("INSERT INTO chats(item_id, messages, updated_at) VALUES(?,?,?) ON CONFLICT(item_id) "
           "DO UPDATE SET messages=excluded.messages, updated_at=excluded.updated_at",
@@ -190,7 +190,7 @@ def explain_solution(task: str, solution: str, files: dict) -> str:
     attempt = "\n\n".join(files.values()).strip()
     prompt = (f"## Exercise\n{task}\n\n## Reference solution\n```python\n{solution}\n```\n\n"
               + (f"## The learner's attempt\n```python\n{attempt}\n```\n" if attempt else ""))
-    return ai.complete(EXPLAIN_SYSTEM + personal.context_line(), prompt)
+    return ai.complete(EXPLAIN_SYSTEM, prompt)
 
 
 IMPROVE_SYSTEM = f"""You are a friendly senior Python engineer. {LEARNER}
@@ -206,13 +206,13 @@ def improve_solution(task: str, files: dict, reference: str) -> str:
     prompt = (f"## Exercise\n{task}\n\n## Learner's working solution\n```python\n{code}\n```\n\n"
               f"## A reference solution (for your comparison; you may mention ideas from it)\n"
               f"```python\n{reference}\n```")
-    return ai.complete(IMPROVE_SYSTEM + personal.context_line(), prompt)
+    return ai.complete(IMPROVE_SYSTEM, prompt)
 
 
 def review_code(item_id: str, task: str, files: dict, result: dict | None) -> dict:
     prompt = (f"## Task\n{task}\n\n## Learner's code\n{_code_block(files)}\n\n"
               f"## Test results\n{_result_text(result)}")
-    review = ai.complete_json(REVIEW_SYSTEM + personal.context_line(), prompt)
+    review = ai.complete_json(REVIEW_SYSTEM, prompt)
     db.ex("INSERT INTO reviews(item_id, review, created_at) VALUES(?,?,?)",
           (item_id, json.dumps(review), db.now()))
     return review
@@ -272,8 +272,8 @@ def review_project(project: dict, files: dict, result: dict) -> dict:
     prompt = (f"## Project brief\n{project['brief']}\n\n## Rubric\n"
               + "\n".join(f"- {r}" for r in project["rubric"])
               + f"\n\n## Learner's files\n{_code_block(files)}\n\n## Hidden test results\n{_result_text(result)}")
-    return ai.complete_json(PROJECT_REVIEW_SYSTEM + personal.context_line(), prompt, timeout=400)
+    return ai.complete_json(PROJECT_REVIEW_SYSTEM, prompt, timeout=400)
 
 
 def coach_advice(snapshot: dict) -> str:
-    return ai.complete(COACH_SYSTEM + personal.context_line(), "Progress data:\n```json\n" + json.dumps(snapshot, indent=1) + "\n```")
+    return ai.complete(COACH_SYSTEM, "Progress data:\n```json\n" + json.dumps(snapshot, indent=1) + "\n```")

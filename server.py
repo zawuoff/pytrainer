@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from pytrainer import ai, coach, content, course, db, jev, labs, lint, personal, progress, runner  # noqa: E402
+from pytrainer import ai, coach, content, course, db, jev, labs, lint, progress, runner  # noqa: E402
 
 STATIC = ROOT / "static"
 PROJECTS_DIR = labs.LAB_ROOT / "projects"
@@ -118,8 +118,6 @@ def api_state(_body=None):
             "onboarded": settings.get("onboarded", False),
             "name": settings.get("name", ""),
             "jev": {"configured": bool(jev.key()), "enabled": jev.enabled(), "masked": jev.masked()},
-            "profile": personal.get_profile(),
-            "personalise": db.get_setting("personalise", True),
         },
         "tracks": data["tracks"],
         "topics": [{"id": t["id"], "title": t["title"], "track": t["track"], "summary": t["summary"],
@@ -180,15 +178,10 @@ def api_exercise(ex_id: str):
     seq = _sequence(ex)
     state = progress.get_state(ex_id)
     path = course.path_info(ex)
-    if path and path["kind"] == "chapter" and personal.enabled():
-        ids = [s["id"] for s in path["steps"]]
-        personal.prefetch(ids[path["index"]:path["index"] + 3])
     is_exam = ex.get("topic") == "exam"
     exam_open = is_exam and not (course.exam_status(ex.get("module")) or {}).get("passed")
     return {
         "path": path,
-        "personal": personal.cached(ex_id) if personal.enabled() else None,
-        "personal_available": personal.enabled() and bool(ex.get("lesson")),
         "exam": is_exam, "exam_locked_help": exam_open,
         "reference": ex["solution"] if state["status"] == "solved" and ex.get("mode") not in ("predict",) else None,
         "hints": ex.get("hints", [])[:state.get("hints_used", 0)],
@@ -360,38 +353,6 @@ def api_improve(body: dict):
         raise ApiError("Solve it first. Then I'll show you ways to make it even better.")
     files = _files(body)
     return {"advice": coach.improve_solution(_task_text(ex), files, ex["solution"])}
-
-
-def api_profile(_=None):
-    return {"profile": personal.get_profile(), "history": personal.interview_history(),
-            "ai": ai.enabled(), "personalise": db.get_setting("personalise", True)}
-
-
-def api_profile_start(body: dict):
-    return {"history": personal.interview_start(restart=bool(body.get("restart")))}
-
-
-def api_profile_chat(body: dict):
-    message = str(body.get("message", "")).strip()[:2000]
-    if not message and not body.get("finish"):
-        raise ApiError("say something first")
-    return personal.interview_turn(message or "That's everything, let's go!", finish=bool(body.get("finish")))
-
-
-def api_profile_save(body: dict):
-    if not isinstance(body.get("profile"), dict):
-        raise ApiError("profile required")
-    return {"profile": personal.save_profile(body["profile"])}
-
-
-def api_profile_clear(_body=None):
-    db.ex("DELETE FROM settings WHERE key='profile'")
-    return {"ok": True}
-
-
-def api_personal(ex_id: str, _body=None):
-    _exercise(ex_id)
-    return {"content": personal.personal_lesson(ex_id)}
 
 
 def api_run(ex_id: str, body: dict):
@@ -730,8 +691,6 @@ def api_settings(body: dict):
         db.set_setting("name", str(body["name"])[:40])
     if "onboarded" in body:
         db.set_setting("onboarded", bool(body["onboarded"]))
-    if "personalise" in body:
-        db.set_setting("personalise", bool(body["personalise"]))
     if "jev_enabled" in body:
         db.set_setting("jev_enabled", bool(body["jev_enabled"]))
     return api_state()
@@ -997,12 +956,6 @@ ROUTES = [
     ("POST", r"/api/exercise/([\w-]+)/hint", api_hint),
     ("POST", r"/api/exercise/([\w-]+)/reveal", api_reveal),
     ("POST", r"/api/run", api_run_snippet),
-    ("GET", r"/api/profile", api_profile),
-    ("POST", r"/api/profile/start", api_profile_start),
-    ("POST", r"/api/profile/chat", api_profile_chat),
-    ("POST", r"/api/profile/save", api_profile_save),
-    ("POST", r"/api/profile/clear", api_profile_clear),
-    ("POST", r"/api/personal/([\w-]+)", api_personal),
     ("GET", r"/api/exam/([\w-]+)", api_exam),
     ("POST", r"/api/ai/improve", api_improve),
     ("POST", r"/api/lesson/([\w-]+)/read", api_lesson_read),

@@ -269,7 +269,9 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Messages and roles
+            ## Keep track of who said what
+
+            You want a chat app to distinguish your instructions from the question someone typed. A list of plain strings loses that distinction. Keep the speaker beside each piece of text, and keep the messages in the order they happened.
 
             A **large language model (LLM)** is a program that takes a list of tokens and
             predicts the next token. This course calls it the **model**. A **token** is a
@@ -292,10 +294,15 @@ EXERCISES = [
             # assistant -> Yes.
             ```
 
+            ```quiz
+            Which part tells the app who wrote a message?
+            - [x] The role :: The role labels the speaker; content holds their words.
+            - [ ] The list length :: Length tells you how many messages exist, not who wrote them.
+            ```
+
             There are three roles. A `system` message holds instructions for the model. A
             `user` message holds what the person typed. An `assistant` message holds a reply
-            the model produced earlier. This layout is called the **chat messages format**, and
-            nearly every LLM API uses it.
+            the model produced earlier. This layout is called the **chat messages format**, and the examples in this chapter use it.
 
             Click a cell to read one message.
 
@@ -303,10 +310,22 @@ EXERCISES = [
             {"type":"list-index","title":"Indexes of messages","name":"messages","items":[{"role":"system","content":"Be terse."},{"role":"user","content":"Rome in May?"},{"role":"assistant","content":"Yes."}]}
             ```
 
-            The API stores nothing between calls. The model's input is only the list you send.
+            This course uses a stateless chat interface: each call receives the list you send.
             If you do not append the model's last reply, the next request does not contain it.
+
+            ```match
+            `role` :: who is speaking
+            `content` :: the message text
+            list order :: the sequence of messages
+            ```
+
+            **Watch out:** Changing a role does not change the text. A misspelled key such as `rol` makes code looking for `role` raise `KeyError`.
+
+            **In short:** A conversation is an ordered list of messages, with a role and content for each one.
         ''',
-        "prompt": r'''Read the code and type exactly what it prints.''',
+        "prompt": r'''
+            Read the program, then enter exactly what its print calls display, one output line per line.
+        ''',
         "code": r'''
             messages = [
                 {"role": "system", "content": "Be brief."},
@@ -323,16 +342,16 @@ EXERCISES = [
             ['system', 'user', 'assistant']
         ''',
         "explanation": r'''
-            The list starts with 2 messages and `append` adds a third, so `len(messages)` is 3.
+            Read the output from top to bottom. The list starts with 2 messages and `append` adds a third, so `len(messages)` is 3.
             `messages[-1]` is the last message, the one with the role `assistant`. The
             comprehension builds a list of every role in order. `print` shows the strings in
             that list with single quotes.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "append adds one item to the end of the list.",
-            "messages[-1] is the last message; the comprehension collects the \"role\" of each message in order.",
-            "Line 1: the new length. Line 2: the role of the appended message. Line 3: a Python list of the three role strings, printed with single quotes.",
+            "Look at the list before and after the append.",
+            "Track the size, the last message, and the ordered collection of roles separately.",
+            "Write one line for each print call; the last line uses Python's printed list notation.",
         ],
     },
     {
@@ -340,7 +359,9 @@ EXERCISES = [
         "title": "Make a user message",
         "difficulty": 0,
         "lesson": r'''
-            ## Message helper functions
+            ## Build the same message shape every time
+
+            Your app collects text from a form and needs to put it into a chat history. You do not want each screen inventing its own key names. A small helper can make the surrounding structure consistent while leaving the person's words alone.
 
             A message is a dict with two keys: `"role"` and `"content"`. If you write that
             dict by hand in many places, you will mistype a key or a role at some point, for
@@ -358,22 +379,41 @@ EXERCISES = [
             # system
             ```
 
+            ```quiz
+            Does a message helper need to rewrite the supplied text?
+            - [x] No :: Its job here is to package the text, including spaces and empty text.
+            - [ ] Yes, remove spaces automatically :: That changes the user input and is a separate decision.
+            ```
+
             The function takes the text as its argument and returns a new dict. The role is
             fixed inside the function, so the caller cannot misspell it.
 
-            The role strings are exact and lowercase: `"system"`, `"user"`, `"assistant"`.
-            The API rejects a role it does not know, such as `"User"`, with a
-            `400 Bad Request` error.
+            The role strings used here are exact and lowercase: `"system"`, `"user"`, `"assistant"`. The exercise contract does not treat `"User"` as the same role.
 
             For a plain text message, `content` is a string. It is not a list or another dict.
+
+            ```order
+            note = "Be concise."
+            message = {"role": "system", "content": note}
+            print(message["content"])
+            ---
+            The text exists first, then the dictionary stores it, then the last line reads it.
+            ```
+
+            **Watch out:** A fixed role is text in quotes. The content value comes from the argument; quoting the argument name stores its name instead of its value.
+
+            **In short:** Keep the message structure fixed and put the supplied text inside it unchanged.
         ''',
         "prompt": r'''
             A tiny helper so the rest of the app never typos a message dict.
 
-            **Write:** `user_message(text)`
+            **Your job:** write `user_message(text)`
 
+            **What goes in**
             - `text`: a `str`, what the user typed, e.g. `"Summarise this"`
-            - **Returns:** a `dict` with exactly two keys: `"role"` set to `"user"` and
+
+            **What comes out**
+            - Return a `dict` with exactly two keys: `"role"` set to `"user"` and
               `"content"` set to `text`
 
             **Rules**
@@ -409,9 +449,9 @@ EXERCISES = [
                 return {"role": "user", "content": text}
         ''',
         "hints": [
-            "Return a dict literal with two keys.",
-            "One key is \"role\" with the fixed value \"user\"; the other is \"content\" with the parameter.",
-            "Write one line: return a dict with \"role\": \"user\" and \"content\": text.",
+            "Recall the two pieces of information each message holds.",
+            "Keep the role fixed while taking the content from the caller.",
+            "Create a fresh dictionary with the agreed keys, preserve the supplied text, and return it.",
         ],
     },
     {
@@ -419,7 +459,9 @@ EXERCISES = [
         "title": "Build the request body",
         "difficulty": 0,
         "lesson": r'''
-            ## The request body
+            ## Put the request settings beside the messages
+
+            You have the conversation ready, but the caller also chose a model name and a reply length. Those settings need to travel with the messages. Build a dictionary whose names match the particular interface your app has agreed to call.
 
             A request to an LLM API holds the model name, the messages and a few
             **parameters**: named settings that control how the reply is generated.
@@ -427,10 +469,7 @@ EXERCISES = [
             `max_tokens` is the maximum number of tokens in the reply. Generation stops when
             the reply reaches that count, even in the middle of a sentence.
 
-            `temperature` controls how the model picks each next token. At `0` it picks the
-            most likely token almost every time, so repeated calls give nearly the same
-            reply. That suits data extraction. Around `1` it picks less likely tokens more
-            often, so replies vary more. That suits generating ideas.
+            `temperature` controls how the model picks each next token. A low value generally favors higher-probability tokens, although repeated calls can still differ. That suits data extraction. Higher supported values generally allow more variation in the selected tokens. That suits generating ideas.
 
             ```python
             import json
@@ -444,23 +483,43 @@ EXERCISES = [
             # {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Name a colour"}], "temperature": 0, "max_tokens": 20}
             ```
 
+            ```quiz
+            What does a reply-token limit control?
+            - [x] The permitted size of generated output :: It limits generation, rather than changing the text already sent.
+            - [ ] The number of messages in the history :: Messages and tokens are different units.
+            ```
+
             This dict is the **request body**. The provider's Python package converts it to
             JSON text and sends it with an HTTP POST to the **provider**: the company that
             runs the model.
 
-            Parameter names are exact. The API accepts `max_tokens`. It does not accept
-            `maxTokens` or `max_token`.
+            Parameter names are exact in this exercise: `max_tokens` and `maxTokens` are different dictionary keys.
+
+            ```predict
+            settings = {"temperature": 0.4, "max_tokens": 30}
+            settings["max_tokens"] = 60
+            print(settings["temperature"])
+            ---
+            Updating the output limit leaves the separate temperature entry unchanged.
+            ```
+
+            **Watch out:** The settings in this exercise belong to a simplified chat interface. Real models support different parameter names and ranges; a lower temperature does not guarantee identical replies.
+
+            **In short:** A request groups the messages and generation settings under the agreed names.
         ''',
         "prompt": r'''
             Build the JSON body of a chat request.
 
-            **Write:** `build_request(model, messages, temperature=0.7, max_tokens=256)`
+            **Your job:** write `build_request(model, messages, temperature=0.7, max_tokens=256)`
 
+            **What goes in**
             - `model`: a `str`, e.g. `"gpt-4o-mini"`
             - `messages`: a `list` of message dicts
             - `temperature`: a `float` (default `0.7`)
             - `max_tokens`: an `int` (default `256`)
-            - **Returns:** a `dict` with exactly the keys `"model"`, `"messages"`, `"temperature"`,
+
+            **What comes out**
+            - Return a `dict` with exactly the keys `"model"`, `"messages"`, `"temperature"`,
               `"max_tokens"`, holding the matching arguments
 
             **Examples**
@@ -500,9 +559,9 @@ EXERCISES = [
                 return {"model": model, "messages": messages, "temperature": temperature, "max_tokens": max_tokens}
         ''',
         "hints": [
-            "Each blank should be one of the function's parameters.",
-            "The value for \"model\" is the model argument; the value for \"temperature\" is the temperature argument.",
-            "Replace the first `___` with `model` and the second with `temperature` (no quotes: they are variables).",
+            "Each gap supplies the value for the key beside it.",
+            "Distinguish the text naming a setting from the variable holding that setting's value.",
+            "Match each incomplete entry to the corresponding argument; keep the complete entries and defaults intact.",
         ],
     },
     {
@@ -510,26 +569,29 @@ EXERCISES = [
         "title": "Fix the OpenAI reply reader",
         "difficulty": 0,
         "lesson": r'''
-            ## Reading an OpenAI response
+            ## Walk down to the reply text
+
+            You can see the answer in a response dictionary, but reading it directly from the outer dictionary fails. Before changing the code, trace the containers: the outer response holds choices, each choice holds a message, and that message holds the text.
 
             An OpenAI Chat Completions response is a dict that holds a list that holds more
             dicts. The reply text is several levels down. You read it one key or index at a
             time.
 
             ```python
-            response = {
-                "choices": [
-                    {"index": 0,
-                     "message": {"role": "assistant", "content": "Paris."},
-                     "finish_reason": "stop"}
-                ],
-                "usage": {"prompt_tokens": 14, "completion_tokens": 2, "total_tokens": 16},
-            }
+            response = {"choices": [{"index": 0,
+                "message": {"role": "assistant", "content": "Paris."},
+                "finish_reason": "stop"}], "usage": {"total_tokens": 16}}
             first = response["choices"][0]
             print(first["message"]["role"])
             # assistant
             print(first["message"]["content"])
             # Paris.
+            ```
+
+            ```quiz
+            What kind of value is `choices` in this response shape?
+            - [x] A list :: You select a choice by position before reading its message dictionary.
+            - [ ] The final answer string :: The text is nested inside the selected choice.
             ```
 
             `response["choices"]` is a **list**, because a request can ask for several
@@ -542,16 +604,31 @@ EXERCISES = [
 
             A choice has no `"content"` key. The text is one level deeper, inside
             `"message"`. Asking a dict for a key it does not have raises `KeyError`.
+
+            ```fill
+            packet = {"items": [{"note": "Ready"}]}
+            print(packet["items"][___]["note"])
+            ---
+            - [x] 0 :: A one-item list starts at position zero.
+            - [ ] 1 :: Position one is beyond this list.
+            ```
+
+            **Watch out:** `KeyError` often means that you asked the right question at the wrong level. Inspect the dictionary at each step instead of adding arbitrary default values.
+
+            **In short:** Follow one container at a time and use the key or index that belongs to that container.
         ''',
         "prompt": r'''
             This function should pull the reply text out of an OpenAI-shaped chat response, but
             it crashes with a `KeyError`.
 
-            **Write:** fix `openai_text(response)`
+            **Your job:** fix `openai_text(response)`
 
+            **What goes in**
             - `response`: a dict shaped like
               `{"choices": [{"index": 0, "message": {"role": "assistant", "content": "Hi!"}, "finish_reason": "stop"}], "usage": {...}}`
-            - **Returns:** a `str`, the `content` of the first choice's message
+
+            **What comes out**
+            - Return a `str`, the `content` of the first choice's message
 
             **Examples**
             ```python
@@ -587,9 +664,9 @@ EXERCISES = [
                 return response["choices"][0]["message"]["content"]
         ''',
         "hints": [
-            "Compare the path in the code with the example shape: one key is missing.",
-            "The choice holds a \"message\" dict, and the text is inside that.",
-            "After `[0]`, go into `[\"message\"]` before asking for `[\"content\"]`.",
+            "Trace the response containers one at a time.",
+            "The first choice contains another dictionary before you reach the text.",
+            "Start at the response, select the first choice, enter its message, then read the content.",
         ],
     },
     {
@@ -597,7 +674,9 @@ EXERCISES = [
         "title": "Read an Anthropic reply",
         "difficulty": 0,
         "lesson": r'''
-            ## Reading an Anthropic response
+            ## Keep the text parts and join them in order
+
+            A reply can contain several pieces of text mixed with other information. Taking only the first piece loses words; treating every piece as text can crash. Read the label on each piece before deciding whether it belongs in the displayed answer.
 
             Anthropic's Messages API also returns an assistant reply, but the response has a
             different shape. `response["content"]` is a list of **content blocks**. A content
@@ -607,13 +686,8 @@ EXERCISES = [
             Calling chapter covers them.)
 
             ```python
-            response = {
-                "role": "assistant",
-                "content": [{"type": "text", "text": "Hello"},
-                            {"type": "text", "text": " world"}],
-                "stop_reason": "end_turn",
-                "usage": {"input_tokens": 10, "output_tokens": 3},
-            }
+            response = {"content": [{"type": "text", "text": "Hello"},
+                                     {"type": "text", "text": " world"}]}
             parts = []
             for block in response["content"]:
                 if block["type"] == "text":
@@ -624,6 +698,12 @@ EXERCISES = [
             # Hello world
             ```
 
+            ```quiz
+            Why inspect the block type before reading its text?
+            - [x] Other block kinds may have no text field :: The label tells you which shape you are reading.
+            - [ ] It alphabetizes the answer :: Testing the label does not sort or reorder anything.
+            ```
+
             One reply can hold text blocks and other blocks together. To get the reply text,
             you keep the blocks whose type is `"text"`, then join their `"text"` values in
             order. `"".join(parts)` builds one string from the strings in `parts` and puts
@@ -631,15 +711,30 @@ EXERCISES = [
 
             `response["content"]` is a list, not a string. `response["content"][0]` is a
             dict, not text.
+
+            ```predict
+            parts = ["Good", " morning"]
+            print("".join(parts))
+            print(len(parts))
+            ---
+            The leading space belongs to the second fragment. Joining does not alter the list.
+            ```
+
+            **Watch out:** Adding a space between every piece can create spaces the model never sent. Preserve each text fragment exactly and join with the requested separator.
+
+            **In short:** Filter by block type, then combine the accepted text in its original order.
         ''',
         "prompt": r'''
             Get the full reply text out of an Anthropic-shaped response.
 
-            **Write:** `anthropic_text(response)`
+            **Your job:** write `anthropic_text(response)`
 
+            **What goes in**
             - `response`: a dict like
               `{"role": "assistant", "content": [{"type": "text", "text": "Hi"}], "stop_reason": "end_turn", "usage": {...}}`
-            - **Returns:** a `str`: the `"text"` of every block whose `"type"` is `"text"`,
+
+            **What comes out**
+            - Return a `str`: the `"text"` of every block whose `"type"` is `"text"`,
               joined together in order with nothing in between
 
             **Rules**
@@ -683,9 +778,9 @@ EXERCISES = [
                 return "".join(b["text"] for b in response["content"] if b["type"] == "text")
         ''',
         "hints": [
-            "Loop over response[\"content\"] and look at each block's \"type\".",
-            "Collect the text of the text blocks only, then join them together with an empty separator.",
-            "Build a list of `block[\"text\"]` for blocks where `block[\"type\"] == \"text\"`, then return `\"\".join(...)` of it.",
+            "Look at the type label on each content block.",
+            "Only text blocks contribute to the returned string.",
+            "Visit the blocks in order, collect text from the accepted ones, and join without inserting characters.",
         ],
     },
     {
@@ -693,7 +788,9 @@ EXERCISES = [
         "title": "What did that call cost?",
         "difficulty": 0,
         "lesson": r'''
-            ## Tokens and cost
+            ## Price input and output separately
+
+            An app sends a long document and gets a short answer. Charging every token at one rate gives the wrong estimate when incoming and outgoing text have different prices. Work out the two amounts separately before adding them.
 
             Providers charge per **token**. A token is a small piece of text. In English, one
             token is about 3/4 of a word on average.
@@ -720,20 +817,40 @@ EXERCISES = [
             # $0.0120
             ```
 
-            Every response has a **usage** section that holds both token counts. You can
-            compute the exact cost of a call as soon as you have its response.
+            ```quiz
+            A price is stated per million tokens. What does one million tokens cost?
+            - [x] Exactly the stated rate :: The count divided by one million is one unit of the quoted price.
+            - [ ] One thousand times the rate :: That would confuse million-token pricing with thousand-token pricing.
+            ```
+
+            When a response supplies both counts, the exercise's two-rate pricing model lets you estimate the charge. Real billing can include other categories and discounts.
 
             Divide by one million (`1_000_000`), not one thousand. Some older price lists
             were per 1K tokens.
+
+            ```predict
+            count = 250_000
+            rate = 4.0
+            print(count * rate / 1_000_000)
+            ---
+            A quarter of a million tokens costs a quarter of the per-million rate.
+            ```
+
+            **Watch out:** The numbers here are invented prices, not a live price list. Preserve the numeric result; round only when displaying it if the task requests rounding.
+
+            **In short:** Use each token count with its own rate and the unit in which that rate was quoted.
         ''',
         "prompt": r'''
             Compute the price of one API call in dollars.
 
-            **Write:** `request_cost(input_tokens, output_tokens, input_price, output_price)`
+            **Your job:** write `request_cost(input_tokens, output_tokens, input_price, output_price)`
 
+            **What goes in**
             - `input_tokens`, `output_tokens`: `int` token counts from the response usage
             - `input_price`, `output_price`: `float` prices in **dollars per million tokens**
-            - **Returns:** a `float`, the total cost in dollars (input cost + output cost)
+
+            **What comes out**
+            - Return a `float`, the total cost in dollars (input cost + output cost)
 
             **Rules**
             - Don't round the result.
@@ -777,9 +894,9 @@ EXERCISES = [
                 return input_tokens * input_price / 1_000_000 + output_tokens * output_price / 1_000_000
         ''',
         "hints": [
-            "Each side costs tokens times its price-per-million, divided by a million.",
-            "Compute the input cost and the output cost separately, then add them.",
-            "Return input_tokens * input_price / 1_000_000 plus output_tokens * output_price / 1_000_000.",
+            "Read the units of both prices.",
+            "Calculate the input charge and output charge separately.",
+            "Multiply each count by its own rate, convert from per-million units, and add the charges without rounding.",
         ],
     },
     {
@@ -788,7 +905,9 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Streaming and deltas
+            ## Show a reply as its pieces arrive
+
+            Waiting for a whole answer can leave the chat screen blank. Your app can display the beginning while later pieces are still arriving. Each incoming piece adds new text; it does not replace everything the user has already seen.
 
             A long reply can take 10 seconds to generate. With **streaming**, the server
             sends each part of the reply as soon as the model generates it. The app shows the
@@ -809,6 +928,12 @@ EXERCISES = [
             # The sky is blue.
             print("".join(deltas) == shown)
             # True
+            ```
+
+            ```quiz
+            How should the next text piece affect the displayed reply?
+            - [x] Append it to what is already shown :: Each piece contributes new text in arrival order.
+            - [ ] Replace the earlier reply :: That would discard all earlier pieces.
             ```
 
             Step through the loop and watch `shown` grow by one delta on each pass.
@@ -842,8 +967,23 @@ EXERCISES = [
             no text. The first one may hold only the role, and the last one only the stop
             reason. Their delta can be missing or `None`. `"".join`
             raises `TypeError` when an item is `None`, so replace `None` with `""` first.
+
+            ```predict
+            pieces = ["sun", "shine"]
+            answer = pieces[0]
+            answer += pieces[1]
+            print(answer)
+            ---
+            The second piece extends the first; no separator is inserted.
+            ```
+
+            **Watch out:** A piece need not be a whole word or sentence. Removing whitespace from each piece can join words that were meant to stay separate.
+
+            **In short:** Keep the pieces in order and preserve their characters as the displayed reply grows.
         ''',
-        "prompt": r'''Read the code and type exactly what it prints.''',
+        "prompt": r'''
+            Read the program, then enter exactly what its print calls display, one output line per line.
+        ''',
         "code": r'''
             deltas = ["Hel", "lo", "", " there", "!"]
             text = "".join(deltas)
@@ -858,15 +998,15 @@ EXERCISES = [
             Hi!
         ''',
         "explanation": r'''
-            Joining the five pieces (one of them empty) gives `Hello there!`. `len(deltas)` counts
+            Read the output from top to bottom. Joining the five pieces (one of them empty) gives `Hello there!`. `len(deltas)` counts
             pieces, not characters: 5. In the events, `None or ""` becomes `""`, so the join gives
             `Hi!`.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "\"\".join joins strings together with nothing between them.",
-            "An empty string adds nothing. len of a list counts its items. `None or \"\"` is \"\".",
-            "Line 1: the joined text. Line 2: how many items are in the deltas list. Line 3: the joined text of the events, where None became an empty string.",
+            "Track the text accumulated after each piece.",
+            "Adding a piece extends the existing string; it does not start a new reply.",
+            "Follow each loop pass and write the complete accumulated text at every print call.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 1
@@ -875,14 +1015,16 @@ EXERCISES = [
         "title": "Ask through an injected client",
         "difficulty": 1,
         "lesson": r'''
-            ## Passing the client as an argument
+            ## Test a model call without contacting a model
+
+            You want to test the code around a model call, even with no API key or network. Give that code a function to call. During the test, the function returns a small packet you chose, so mistakes in your request or reply handling are repeatable.
 
             A **client** is the function or object that sends the request to the provider. A
             function that creates its own client can only ever call the real API. A function
             that receives the client as an argument works with any client you pass.
 
             In the real app you pass the real client. In a test you pass a **fake client**: a
-            function that returns a fixed response dict. A fake uses no network, costs
+            function that returns a fixed packet dict. A fake uses no network, costs
             nothing and returns the same answer on every run.
 
             ```python
@@ -892,11 +1034,17 @@ EXERCISES = [
                                      "message": {"role": "assistant", "content": "You said: " + last}}]}
 
             def ask(client, question):
-                response = client(model="demo", messages=[{"role": "user", "content": question}])
-                return response["choices"][0]["message"]["content"]
+                packet = client(model="demo", messages=[{"role": "user", "content": question}])
+                return packet["choices"][0]["message"]["content"]
 
             print(ask(fake_client, "ping"))
             # You said: ping
+            ```
+
+            ```quiz
+            What does the fake client test here?
+            - [x] How your app calls and reads the interface :: A fake can record arguments and return predictable data.
+            - [ ] Whether a real model answers accurately :: The fake does not perform model inference.
             ```
 
             `**kwargs` in a parameter list collects any extra keyword arguments into a dict. The fake
@@ -909,22 +1057,37 @@ EXERCISES = [
             An **SDK** (software development kit) is the Python package a provider publishes
             for calling its API. The real OpenAI SDK call has almost the same form:
             `client.chat.completions.create(model=..., messages=...)`. It takes keyword
-            arguments and returns a response.
+            arguments and returns a packet.
 
             Call the client with **keyword arguments** (`model=...`), exactly as the task
             states. Real SDKs require them.
+
+            ```order
+            def fake(text): return text.upper()
+            client = fake
+            print(client("ready"))
+            ---
+            A function is a value: assigning it to another name still lets you call it.
+            ```
+
+            **Watch out:** These examples use plain Python functions and dictionaries. An installed SDK may return objects instead, so production code needs an adapter matching its actual interface.
+
+            **In short:** Passing the client into your function lets the same app logic use a real caller or a predictable fake.
         ''',
         "prompt": r'''
             A helper that asks one question with a system prompt, using whatever client it is given.
 
-            **Write:** `ask(client, question, system="You are a helpful assistant.", model="gpt-4o-mini")`
+            **Your job:** write `ask(client, question, system="You are a helpful assistant.", model="gpt-4o-mini")`
 
+            **What goes in**
             - `client`: a function you call as `client(model=..., messages=...)`; it returns an
               OpenAI-shaped response dict (`{"choices": [{"message": {"role": "assistant", "content": ...}, ...}]}`)
             - `question`: a `str`
             - `system`: a `str`, the system prompt
             - `model`: a `str`
-            - **Returns:** a `str`, the reply text (first choice's message content)
+
+            **What comes out**
+            - Return a `str`, the reply text (first choice's message content)
 
             **Rules**
             - Call `client` exactly once, with keyword arguments `model` and `messages` only.
@@ -983,9 +1146,9 @@ EXERCISES = [
                 return response["choices"][0]["message"]["content"]
         ''',
         "hints": [
-            "Build the two-message list, call the client with keywords, then read the reply like in the OpenAI step.",
-            "messages = system message dict, then user message dict. Call client(model=model, messages=messages).",
-            "Make the list of two dicts; call `client(model=model, messages=messages)`; return `response[\"choices\"][0][\"message\"][\"content\"]`.",
+            "The supplied client is a callable, like other function arguments.",
+            "Build the messages the contract asks for and use the stated keyword names.",
+            "Include the optional instructions when supplied, call once, and read the first reply message's text.",
         ],
     },
     {
@@ -993,7 +1156,9 @@ EXERCISES = [
         "title": "Split out the system prompt",
         "difficulty": 1,
         "lesson": r'''
-            ## The Anthropic system field
+            ## Move instructions into the expected field
+
+            Your app stores one kind of chat history, but a second interface expects its instructions separately. You can translate the request at the boundary instead of changing every screen that builds messages. Keep the original history available for the caller.
 
             The **system prompt** is the text of the system message: the instructions for the
             model. OpenAI takes it as a message with the role `"system"` inside the messages
@@ -1015,6 +1180,12 @@ EXERCISES = [
             # [{'role': 'user', 'content': 'Hi'}]
             ```
 
+            ```quiz
+            Why create a new list during conversion?
+            - [x] The caller may still need the old history :: Removing entries from its list would change shared data.
+            - [ ] A list cannot hold dictionaries :: It can; lists of message dictionaries are the format used here.
+            ```
+
             The slice `openai_style[1:]` creates a new list. `openai_style` still has both
             messages afterwards.
 
@@ -1023,14 +1194,29 @@ EXERCISES = [
 
             Build a new list for the non-system messages. Do not delete items from the
             caller's list while you loop over it, because the loop then skips items.
+
+            ```predict
+            history = ["rules", "question"]
+            conversation = history[1:]
+            print(len(history), len(conversation))
+            ---
+            Slicing creates a new list and does not shorten the original.
+            ```
+
+            **Watch out:** The exercise uses a specific provider-shaped request contract. Do not assume that every model interface accepts the same roles or puts instructions in the same place.
+
+            **In short:** An adapter changes the request layout while preserving its information and the caller's data.
         ''',
         "prompt": r'''
             Convert an OpenAI-style message list for Anthropic, which wants the system prompt separately.
 
-            **Write:** `split_system(messages)`
+            **Your job:** write `split_system(messages)`
 
+            **What goes in**
             - `messages`: a `list` of message dicts (roles `"system"`, `"user"`, `"assistant"`)
-            - **Returns:** a tuple `(system_text, other_messages)`:
+
+            **What comes out**
+            - Return a tuple `(system_text, other_messages)`:
               - `system_text`: a `str`, the `content` of all system messages joined with `"\n\n"`
                 (two newlines), in order; `""` if there are none
               - `other_messages`: a new `list` of all non-system messages, in their original order
@@ -1080,9 +1266,9 @@ EXERCISES = [
                 return "\n\n".join(system_parts), others
         ''',
         "hints": [
-            "Two passes over the list: one collecting system contents, one collecting the rest.",
-            "Join the system contents with \"\\n\\n\" (joining an empty list gives \"\"), and return a tuple of the two results.",
-            "system_parts = contents of messages whose role is \"system\"; others = messages whose role is not \"system\"; return (\"\\n\\n\".join(system_parts), others).",
+            "Separate instruction messages from the conversation.",
+            "Collect system text separately while preserving the remaining messages in order.",
+            "Build fresh output containers, join the instruction texts as specified, and include the required request settings.",
         ],
     },
     {
@@ -1090,7 +1276,9 @@ EXERCISES = [
         "title": "Was the reply cut off?",
         "difficulty": 1,
         "lesson": r'''
-            ## Stop reasons
+            ## Check whether generation finished
+
+            An answer can look plausible even when it ends halfway through a list. The text alone may not reveal that a size limit stopped it. Read the response's completion status before treating the text as a finished answer.
 
             The model generates tokens until a stop condition is met. One condition is that
             the model predicts its end-of-reply token, so the reply is complete. Another is
@@ -1107,6 +1295,12 @@ EXERCISES = [
             # end_turn
             ```
 
+            ```quiz
+            What does a length-related stop reason tell you?
+            - [x] Generation hit its output limit :: The text may be incomplete even if it contains useful words.
+            - [ ] The answer is guaranteed incorrect :: Truncation describes how generation stopped, not the truth of every word.
+            ```
+
             OpenAI calls the field `finish_reason`. The values that matter here are `"stop"`
             (the reply is complete) and `"length"` (the reply reached `max_tokens`).
             Anthropic calls the field `stop_reason`. The values that matter here are
@@ -1121,15 +1315,28 @@ EXERCISES = [
 
             The two providers put the stop reason in different places. Check which shape you
             have first, for example with `"choices" in response`.
+
+            ```match
+            `stop` :: normal completion in this chat shape
+            `length` :: output limit in this chat shape
+            `max_tokens` :: output limit in the other response shape
+            ```
+
+            **Watch out:** A successful request does not imply a complete answer. Conversely, a normal stop reason does not prove that the answer is correct or follows every instruction.
+
+            **In short:** Use the stop reason to distinguish a completed reply from one cut short by a limit.
         ''',
         "prompt": r'''
             Detect whether a reply was cut off by the token limit, for either provider.
 
-            **Write:** `was_cut_off(response)`
+            **Your job:** write `was_cut_off(response)`
 
+            **What goes in**
             - `response`: either an OpenAI-shaped dict (has a `"choices"` list; the first choice has
               `"finish_reason"`) or an Anthropic-shaped dict (has a top-level `"stop_reason"`)
-            - **Returns:** `True` if the reply stopped because it hit the token limit, else `False`
+
+            **What comes out**
+            - Return `True` if the reply stopped because it hit the token limit, else `False`
 
             **Rules**
             - OpenAI: cut off when the first choice's `finish_reason` is `"length"`.
@@ -1190,9 +1397,9 @@ EXERCISES = [
                 return response.get("stop_reason") == "max_tokens"
         ''',
         "hints": [
-            "First decide which provider's shape you have, then look at that shape's stop field.",
-            "If the dict has a \"choices\" key it is OpenAI: compare the first choice's finish_reason. Otherwise compare stop_reason.",
-            "`if \"choices\" in response:` return whether choices[0][\"finish_reason\"] == \"length\"; else return whether response[\"stop_reason\"] == \"max_tokens\". A comparison is already True/False.",
+            "The two response shapes store their stopping reason in different places.",
+            "Recognize the shape before checking its length-related reason.",
+            "Read the appropriate reason for that shape and return whether it indicates the output limit.",
         ],
     },
     {
@@ -1200,9 +1407,11 @@ EXERCISES = [
         "title": "Normalise token usage",
         "difficulty": 1,
         "lesson": r'''
-            ## Token usage
+            ## Give token counts one set of names
 
-            Every response has a `"usage"` dict. It holds the number of tokens you sent and
+            Your cost report should not need separate arithmetic for every response format. First translate the provider-specific usage names into the same two counts. Then the rest of the app can add or price those counts without knowing where they came from.
+
+            A response can include a `"usage"` dict. It holds the number of tokens you sent and
             the number of tokens the model generated. The two providers use different key
             names for the same two counts.
 
@@ -1214,11 +1423,17 @@ EXERCISES = [
             openai_usage = {"prompt_tokens": 120, "completion_tokens": 30, "total_tokens": 150}
             anthropic_usage = {"input_tokens": 120, "output_tokens": 30}
             for usage in (openai_usage, anthropic_usage):
-                inp = usage.get("prompt_tokens", usage.get("input_tokens", 0))
-                out = usage.get("completion_tokens", usage.get("output_tokens", 0))
-                print(inp, out, inp + out)
+                incoming = usage.get("prompt_tokens", usage.get("input_tokens", 0))
+                outgoing = usage.get("completion_tokens", usage.get("output_tokens", 0))
+                print(incoming, outgoing, incoming + outgoing)
             # 120 30 150
             # 120 30 150
+            ```
+
+            ```quiz
+            Why normalize usage before computing totals?
+            - [x] The same meaning can arrive under different keys :: Translation keeps provider-specific names outgoing of later calculations.
+            - [ ] Normalization changes the number of tokens :: It changes the representation, not what was used.
             ```
 
             `usage.get("prompt_tokens", default)` returns the value for `"prompt_tokens"` if
@@ -1237,15 +1452,30 @@ EXERCISES = [
             A response may have no `"usage"` key, or `"usage": None`. Some fakes and some
             stream chunks are built that way. `response.get("usage") or {}` gives you an
             empty dict in both cases, so the later `.get` calls still work.
+
+            ```predict
+            usage = {"input_tokens": 18}
+            print(usage.get("output_tokens", 0))
+            print(usage["input_tokens"])
+            ---
+            The missing field uses its fallback without changing the count that is present.
+            ```
+
+            **Watch outgoing:** A missing usage report is different from a measured zero. The exercise uses zero as a fallback; a real accounting system should retain whether the count was reported.
+
+            **In short:** Translate field names once, then calculate with a consistent input and output count.
         ''',
         "prompt": r'''
             Turn either provider's usage block into one shape for your cost tracker.
 
-            **Write:** `usage_of(response)`
+            **Your job:** write `usage_of(response)`
 
+            **What goes in**
             - `response`: an OpenAI-shaped dict (`"usage": {"prompt_tokens", "completion_tokens", ...}`)
               or an Anthropic-shaped dict (`"usage": {"input_tokens", "output_tokens"}`)
-            - **Returns:** a `dict` `{"input": int, "output": int, "total": int}`
+
+            **What comes out**
+            - Return a `dict` `{"input": int, "output": int, "total": int}`
 
             **Rules**
             - OpenAI: `input` = `prompt_tokens`, `output` = `completion_tokens`.
@@ -1294,9 +1524,9 @@ EXERCISES = [
                 return {"input": inp, "output": out, "total": inp + out}
         ''',
         "hints": [
-            "Get the usage dict safely first (it may be missing or None), then read whichever labels it uses.",
-            "`.get()` with a default lets you try the OpenAI name and fall back to the Anthropic name, and then to 0.",
-            "usage = response.get(\"usage\") or {}; input = the prompt_tokens value, else input_tokens, else 0; output likewise with completion_tokens/output_tokens; return the three-key dict with total = input + output.",
+            "Both usage formats describe incoming and outgoing tokens.",
+            "Choose the matching key names and handle missing usage before reading counts.",
+            "Read each count with its specified fallback, then build the required result including the total.",
         ],
     },
     {
@@ -1304,9 +1534,11 @@ EXERCISES = [
         "title": "Collect a stream",
         "difficulty": 1,
         "lesson": r'''
-            ## OpenAI stream chunks
+            ## Ignore stream events that contain no text
 
-            A real OpenAI stream sends a sequence of **chunks**. A chunk is a dict with almost
+            A stream can announce a role, deliver words, report that generation ended, or carry usage counts. Your text collector must distinguish those cases. An event with no words still belongs to the stream, so its presence should not crash the collector.
+
+            The simulated Chat Completions stream here sends a sequence of **chunks**. A chunk is a dict with almost
             the same shape as a normal response. The difference is that each choice has a
             `"delta"` dict, which holds only the new text, instead of a full `"message"`.
 
@@ -1318,37 +1550,51 @@ EXERCISES = [
             def fake_stream():
                 yield {"choices": [{"delta": {"role": "assistant"}}]}
                 yield {"choices": [{"delta": {"content": "Hel"}}]}
-                yield {"choices": [{"delta": {"content": "lo"}, "finish_reason": None}]}
+                yield {"choices": [{"delta": {"content": "lo"}}]}
                 yield {"choices": [{"delta": {}, "finish_reason": "stop"}]}
-                yield {"choices": [], "usage": {"prompt_tokens": 5, "completion_tokens": 2}}
-
-            for chunk in fake_stream():
-                if chunk["choices"]:
-                    print(repr(chunk["choices"][0]["delta"].get("content")))
-            # None
-            # 'Hel'
-            # 'lo'
-            # None
+                yield {"choices": [], "usage": {"prompt_tokens": 5}}
+            print([c["choices"][0]["delta"].get("content")
+                   for c in fake_stream() if c["choices"]])
+            # [None, 'Hel', 'lo', None]
             ```
 
-            The loop prints four lines for five chunks. The `if` skips the last chunk because
-            an empty list counts as false. `.get("content")` returns `None` for the two
-            deltas that have no `"content"` key.
+            ```quiz
+            What should a text collector do with an empty choices list?
+            - [x] Continue without reading its first item :: There is no first item to inspect.
+            - [ ] Read position zero anyway :: That raises IndexError on an empty list.
+            ```
+
+            The comprehension collects four values from five events. Its `if` skips the final empty choices list. Reading content with `.get` produces None for the two deltas with no content key.
 
             The stream is an **iterable**, often a generator such as `fake_stream()`. A
             generator produces each item once, so you can loop over the stream only one time.
 
             `delta.get("content")` can be `None`. `chunk["choices"][0]` raises `IndexError`
             on the chunk whose `choices` list is empty.
+
+            ```predict
+            updates = [{"content": "Yes"}, {}, {"content": None}]
+            for update in updates:
+                print(update.get("content") is None)
+            ---
+            Both a missing content key and an explicit None produce None here.
+            ```
+
+            **Watch out:** A generator may be exhausted after one pass. Collect the pieces while you inspect events instead of looping once to check them and again to build the answer.
+
+            **In short:** Check the event shape before reading text, and collect the stream in one pass.
         ''',
         "prompt": r'''
             Rebuild the full reply text from an OpenAI-style stream of chunks.
 
-            **Write:** `collect_stream(chunks)`
+            **Your job:** write `collect_stream(chunks)`
 
+            **What goes in**
             - `chunks`: an iterable (e.g. a generator) of dicts like
               `{"choices": [{"delta": {"content": "Hel"}, "finish_reason": None}]}`
-            - **Returns:** a `str`, all the `delta` `"content"` pieces of the first choice joined in order
+
+            **What comes out**
+            - Return a `str`, all the `delta` `"content"` pieces of the first choice joined in order
 
             **Rules**
             - A delta may have no `"content"` key, or `"content": None` - treat both as nothing.
@@ -1418,9 +1664,9 @@ EXERCISES = [
                 return "".join(parts)
         ''',
         "hints": [
-            "Loop over the chunks once, collecting text pieces into a list.",
-            "Skip chunks whose choices list is empty; read the delta with `.get(\"content\")` so a missing key gives None; only keep real strings.",
-            "parts = []; for each chunk: continue if no choices; piece = choices[0][\"delta\"].get(\"content\"); if piece: append it; finally return \"\".join(parts).",
+            "Not every streamed event contains a text fragment.",
+            "An empty choices list and missing or null content need to be skipped.",
+            "Traverse the stream once, collect only the text pieces, and combine them in arrival order.",
         ],
     },
     {
@@ -1428,7 +1674,9 @@ EXERCISES = [
         "title": "Survive a rate limit",
         "difficulty": 1,
         "lesson": r'''
-            ## Rate limits and status 429
+            ## Handle only the error you recognize
+
+            The app should give a useful message when a service is temporarily busy. But hiding every exception behind that message would also hide programming bugs and invalid credentials. Inspect the error before deciding whether you know how to handle it.
 
             A provider allows each account a fixed number of requests and tokens per minute.
             When you send more than that, the API responds with **HTTP 429 Too Many
@@ -1448,10 +1696,16 @@ EXERCISES = [
 
             try:
                 raise APIError(429, "Rate limit reached")
-            except Exception as err:
-                code = getattr(err, "status_code", None)
-                print("status:", code, "-", err)
+            except Exception as failure:
+                code = getattr(failure, "status_code", None)
+                print("status:", code, "-", failure)
             # status: 429 - Rate limit reached
+            ```
+
+            ```quiz
+            What happens to an unexpected error in this step?
+            - [x] It propagates to the caller :: The function only translates the specific rate-limit case.
+            - [ ] It becomes the busy message :: That would conceal an unrelated failure.
             ```
 
             `getattr(obj, "name", default)` reads the attribute called `name` from `obj`. If
@@ -1461,16 +1715,31 @@ EXERCISES = [
 
             Handle only the errors you have a response for. For every other error, write a
             bare `raise` inside the `except` block. It raises the same exception object again.
+
+            ```fill
+            error = ValueError("bad value")
+            print(getattr(error, "status_code", ___))
+            ---
+            - [x] None :: An absent attribute uses this fallback.
+            - [ ] 429 :: That would falsely label this ordinary Python error as a rate limit.
+            ```
+
+            **Watch out:** An exception may have no status_code attribute. Reading it directly can raise AttributeError and hide the original error; use the stated fallback when inspecting it.
+
+            **In short:** Translate the recognized busy condition and preserve other errors for the caller.
         ''',
         "prompt": r'''
             Show a friendly message when the model is rate limited, and let every other error through.
 
-            **Write:** `safe_ask(client, messages)`
+            **Your job:** write `safe_ask(client, messages)`
 
+            **What goes in**
             - `client`: a function called as `client(messages=messages)`; returns an OpenAI-shaped
               response dict, or raises an exception
             - `messages`: a `list` of message dicts
-            - **Returns:** a `str`: the reply text on success, or exactly
+
+            **What comes out**
+            - Return a `str`: the reply text on success, or exactly
               `"The model is busy, please try again."` when rate limited
 
             **Rules**
@@ -1548,9 +1817,9 @@ EXERCISES = [
                 return response["choices"][0]["message"]["content"]
         ''',
         "hints": [
-            "Wrap the client call in try/except and inspect the exception's status_code attribute.",
-            "In the except block, return the friendly text only when the status code is 429; otherwise re-raise. Read the reply outside the try.",
-            "try: response = client(messages=messages); except Exception as err: if getattr(err, \"status_code\", None) == 429 return the message, else `raise`; then return the first choice's message content.",
+            "Catch the client error and inspect its status without assuming the attribute exists.",
+            "Only the stated status becomes the friendly response; the others remain errors.",
+            "Call once, handle the recognized busy condition, re-raise anything else, and read reply text after success.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 2
@@ -1563,14 +1832,17 @@ EXERCISES = [
             Run one turn of a multi-turn chat: add the user's message, call the model with the
             whole history, and record its reply.
 
-            **Write:** `run_turn(client, messages, user_text, model="gpt-4o-mini")`
+            **Your job:** write `run_turn(client, messages, user_text, model="gpt-4o-mini")`
 
+            **What goes in**
             - `client`: a function called as `client(model=..., messages=...)`; returns an
               OpenAI-shaped response dict
             - `messages`: the conversation so far, a `list` of message dicts (may be empty)
             - `user_text`: a `str`, the new user message
             - `model`: a `str`
-            - **Returns:** a tuple `(reply_text, new_messages)`:
+
+            **What comes out**
+            - Return a tuple `(reply_text, new_messages)`:
               - `reply_text`: the reply text (`str`)
               - `new_messages`: a **new** list = the old messages, then
                 `{"role": "user", "content": user_text}`, then
@@ -1655,9 +1927,9 @@ EXERCISES = [
                 return reply, history + [{"role": "assistant", "content": reply}]
         ''',
         "hints": [
-            "Build a new list with `+` (which copies) instead of calling append on the caller's list.",
-            "history = old messages + the user message; call the client with it; read the reply and finish_reason; then return the reply and history + the assistant message.",
-            "history = messages + [user dict]; response = client(model=model, messages=history); take choices[0]; add \" [truncated]\" if finish_reason == \"length\"; return (reply, history + [assistant dict]).",
+            "Separate the outgoing history from the returned completed history.",
+            "The client sees the old messages and new question; the reply is added afterwards.",
+            "Copy the history, add the question, call the client, mark a truncated reply if needed, and return the text with the new history.",
         ],
     },
     {
@@ -1668,13 +1940,16 @@ EXERCISES = [
             Retry calls that fail for temporary reasons, waiting longer each time
             (*exponential backoff*).
 
-            **Write:** `call_with_retry(client, request, max_attempts=3, sleep=time.sleep)`
+            **Your job:** write `call_with_retry(client, request, max_attempts=3, sleep=time.sleep)`
 
+            **What goes in**
             - `client`: a function called as `client(request)`; returns a response dict or raises
             - `request`: a `dict` (pass it through unchanged)
             - `max_attempts`: an `int` >= 1, the total number of calls allowed
             - `sleep`: a function called as `sleep(seconds)` to wait (tests pass a fake that records the waits)
-            - **Returns:** the first successful response dict
+
+            **What comes out**
+            - Return the first successful response dict
 
             **Rules**
             - Retry only when the exception has a `status_code` attribute that is `429` or `500`-`599`.
@@ -1803,9 +2078,9 @@ EXERCISES = [
                         sleep(2 ** (attempt - 1))
         ''',
         "hints": [
-            "A for loop over attempt numbers, with try/except inside, and `return` as soon as a call works.",
-            "In the except: re-raise if the error is not retryable or this was the last attempt; otherwise sleep 2 ** (attempt - 1) seconds and loop again.",
-            "for attempt in 1..max_attempts: try return client(request); except Exception as err: code = getattr(err, \"status_code\", None); if code is not 429/5xx or attempt == max_attempts: raise; else sleep(2 ** (attempt - 1)).",
+            "Distinguish the number of total attempts from the number of retries.",
+            "Only temporary errors permit another attempt, and the last failure has no following wait.",
+            "Try each allowed call, return immediately on success, otherwise check eligibility and remaining attempts before waiting for the next call.",
         ],
     },
     {
@@ -1815,11 +2090,14 @@ EXERCISES = [
         "prompt": r'''
             Your app talks to two providers. Convert either response into one internal shape.
 
-            **Write:** `normalize_response(response)`
+            **Your job:** write `normalize_response(response)`
 
+            **What goes in**
             - `response`: an OpenAI-shaped dict (has `"choices"`) or an Anthropic-shaped dict
               (has `"content"` list and `"stop_reason"`)
-            - **Returns:** a `dict` with exactly these keys:
+
+            **What comes out**
+            - Return a `dict` with exactly these keys:
               `{"provider": str, "text": str, "stop": str, "input_tokens": int, "output_tokens": int}`
 
             **Rules**
@@ -1837,10 +2115,10 @@ EXERCISES = [
             ```python
             normalize_response({"choices": [{"message": {"role": "assistant", "content": "Hi"}, "finish_reason": "stop"}],
                                 "usage": {"prompt_tokens": 5, "completion_tokens": 1}})
-            # returns {"provider": "openai", "text": "Hi", "stop": "complete", "input_tokens": 5, "output_tokens": 1}
+            # returns {"text": "Hi", "stop": "complete", "input_tokens": 5, "output_tokens": 1, "provider": "openai"}
             normalize_response({"content": [{"type": "text", "text": "Hey"}], "stop_reason": "max_tokens",
                                 "usage": {"input_tokens": 9, "output_tokens": 50}})
-            # returns {"provider": "anthropic", "text": "Hey", "stop": "truncated", "input_tokens": 9, "output_tokens": 50}
+            # returns {"text": "Hey", "stop": "truncated", "input_tokens": 9, "output_tokens": 50, "provider": "anthropic"}
             normalize_response({"error": "oops"})   # raises ValueError
             ```
         ''',
@@ -1926,9 +2204,9 @@ EXERCISES = [
                 raise ValueError("unknown response shape")
         ''',
         "hints": [
-            "Branch on the shape first, and use a lookup dict for the stop-reason mapping.",
-            "One dict maps every known provider reason to your vocabulary; `.get(reason, \"other\")` covers the rest. Read usage with `.get(..., 0)` from `response.get(\"usage\") or {}`.",
-            "usage = response.get(\"usage\") or {}; if \"choices\" in response build the OpenAI version; elif \"content\" in response build the Anthropic version (join text blocks); else raise ValueError. Use STOP_MAP.get(reason, \"other\") for stop.",
+            "First decide which response layout you received.",
+            "Each layout supplies text, usage, and a reason that must be translated to the shared vocabulary.",
+            "Choose the shape, extract its fields with the specified defaults, map the stopping reason, and reject an unrecognized shape.",
         ],
     },
     {
@@ -1938,8 +2216,9 @@ EXERCISES = [
         "prompt": r'''
             Anthropic streams a reply as a sequence of typed **events**. Rebuild the final result.
 
-            **Write:** `collect_anthropic_stream(events)`
+            **Your job:** write `collect_anthropic_stream(events)`
 
+            **What goes in**
             - `events`: an iterable (maybe a generator) of event dicts, for example:
               ```python
               {"type": "message_start", "message": {"usage": {"input_tokens": 12, "output_tokens": 1}}}
@@ -1950,7 +2229,9 @@ EXERCISES = [
               {"type": "message_delta", "delta": {"stop_reason": "end_turn"}, "usage": {"output_tokens": 6}}
               {"type": "message_stop"}
               ```
-            - **Returns:** a `dict` `{"text": str, "stop_reason": str or None, "input_tokens": int, "output_tokens": int}`
+
+            **What comes out**
+            - Return a `dict` `{"text": str, "stop_reason": str or None, "input_tokens": int, "output_tokens": int}`
 
             **Rules**
             - `text`: join, in order, the `delta["text"]` of `content_block_delta` events whose
@@ -2041,9 +2322,9 @@ EXERCISES = [
                 return result
         ''',
         "hints": [
-            "Loop once over the events and branch on event[\"type\"].",
-            "Keep a list of text pieces and a result dict with defaults; message_start gives input tokens, content_block_delta gives text, message_delta gives the stop reason and output tokens.",
-            "Start with defaults; for each event: if type is message_start read message.usage.input_tokens; if content_block_delta and delta type is text_delta append delta text; if message_delta read delta.stop_reason and usage.output_tokens; at the end join the pieces into \"text\".",
+            "The event type tells you what information is available.",
+            "Text pieces and usage updates arrive in different kinds of event.",
+            "Start with defaults, visit events once, update the relevant fields, collect only text deltas, and join them at the end.",
         ],
     },
     # ------------------------------------------------------------------ difficulty 3
@@ -2054,8 +2335,9 @@ EXERCISES = [
         "prompt": r'''
             Wrap a raw client in a class that tracks spending and refuses to go over budget.
 
-            **Write:** a class `BudgetExceeded(Exception)` and a class `BudgetedClient`
+            **Your job:** write a class `BudgetExceeded(Exception)` and a class `BudgetedClient`
 
+            **What goes in**
             - `BudgetedClient(client, model, budget, input_price, output_price)`:
               - `client`: a function called as `client(model=..., messages=..., max_tokens=...)`,
                 returning an OpenAI-shaped response with a `"usage"` block
@@ -2192,9 +2474,9 @@ EXERCISES = [
                     return response["choices"][0]["message"]["content"]
         ''',
         "hints": [
-            "Store everything on self in __init__; do the budget check first thing in ask.",
-            "ask: refuse if spent >= budget; build the messages list; call the client with keywords; only after it returns, compute the cost from usage and update spent and calls.",
-            "In ask: `if self.spent >= self.budget: raise BudgetExceeded(...)`; messages = [system dict if system is not None] + [user dict]; response = self.client(model=..., messages=..., max_tokens=...); cost = (prompt_tokens * input_price + completion_tokens * output_price) / 1_000_000; add to spent, calls += 1; return the reply text.",
+            "The counters belong to the instance, and the budget check happens before a call.",
+            "A failed client call must not update successful-call accounting.",
+            "Store the constructor values, check the existing spend, build the request, then update both counters only after success and return the text.",
         ],
     },
 ]

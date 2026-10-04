@@ -281,11 +281,22 @@ EXERCISES = [
         "title": "Text to number",
         "difficulty": 0,
         "lesson": r'''
-            ## Types and conversion
+            ## The same digits, two different things
 
-            Every value in Python has a **type**. The type decides what you can do with the
-            value. `type()` returns the type of a value. Python prints a type in the form
-            `<class 'name'>`, where `name` is the name of the type.
+            A settings file contains the line `max_tokens=512`. Your program reads it and gets `"512"`,
+            in quotes. That is text. Watch what happens when you try to calculate with it:
+
+            ```python
+            limit = "512"
+            print(limit + limit)
+            # 512512
+            ```
+
+            Not 1024. As you saw in the Basics chapter, `+` joins two strings. Python treats `"512"` and
+            `512` as two different kinds of value, even though they look the same to you.
+
+            Every value has a kind, and the kind is called its **type**. The built-in `type()` tells you
+            the type of any value:
 
             ```python
             print(type(512))
@@ -296,15 +307,20 @@ EXERCISES = [
             # <class 'float'>
             ```
 
-            The main types are `int` (whole numbers), `float` (numbers with a decimal point),
-            `str` (text), `bool` (`True` or `False`) and `NoneType` (the value `None`, which
-            means "no value").
+            An `int` is a whole number. A `str`, short for string, is text. A `float` is a number with a
+            decimal point. The type decides what you can do with a value: you can multiply two `int`
+            values, and you can join two `str` values.
 
-            `"512"` is a `str` because of the quotes. Text read from files, forms and settings
-            is always a `str`. You cannot do maths with it until you convert it.
+            ```match
+            `512` :: `int`, a whole number
+            `"512"` :: `str`, text
+            `0.7` :: `float`, a number with a decimal point
+            ```
 
-            **Type conversion**, also called **casting**, builds a new value of another type
-            from a value. Each type has a conversion function with the same name as the type.
+            ### From one type to another
+
+            To calculate with text, turn it into a number first. Each type comes with a function that has
+            the same name as the type and builds a value of that type:
 
             ```python
             text = "0.25"
@@ -313,29 +329,58 @@ EXERCISES = [
             # 0.5
             ```
 
-            `int()` and `float()` ignore spaces around the digits. `int()` needs text that
-            holds a whole number. `int("abc")` stops the program with a `ValueError`.
+            This is called **type conversion**. The text itself is not changed. The function hands back
+            a new value of the other type.
+
+            ```predict
+            price = "4"
+            print(price + price)
+            print(int(price) + int(price))
+            print(float(price))
+            ---
+            `price` is a string, so the first line joins two strings into `44`. `int(price)` is the number 4, and `4 + 4` is 8. `float(price)` is the same number with a decimal point, and Python shows it as `4.0`.
+            ```
+
+            `int()` and `float()` are forgiving about spaces: `int(" 42 ")` gives `42`. They are strict
+            about everything else.
+
+            ```quiz
+            Which call stops the program with a `ValueError`?
+            - [x] `int("12 apples")` :: Right. The text holds more than a number, and `int()` does not guess which part you meant.
+            - [ ] `int(" 12 ")` :: Spaces around the digits are ignored, so this gives 12.
+            - [ ] `float("12")` :: A whole number can become a float. The result is 12.0.
+            ```
+
+            **Watch out:** `int()` needs text that is a whole number and nothing else. `int("abc")` stops
+            with `ValueError: invalid literal for int() with base 10: 'abc'`.
+
+            **In short:** every value has a type, and `int()`, `float()` and `str()` build a new value of
+            that type from another value.
         ''',
         "prompt": r'''
-            Settings read from files arrive as text. Finish `to_int` so it turns that text into a
-            whole number.
+            Settings in a file are stored as text. When a program reads the line `max_tokens=512`, it gets
+            the string `"512"`, sometimes with spaces around it. Before the program can calculate with the
+            setting, the text has to become a number.
 
-            **Write:** replace `___` in `to_int(text)`
+            **Your job:** finish `to_int(text)`. It is written except for one gap, marked `___`. The gap is
+            the name of the function that does the conversion.
 
-            - `text`: a string holding a whole number, maybe with spaces around it, e.g. `" 42 "`
-            - **Returns:** that number as an `int` (not a string), e.g. `42`
+            **What goes in**
+            - `text`: a string that holds a whole number, possibly with spaces around it, for example
+              `" 42 "`
+
+            **What comes out**
+            - that number as an `int`, not as a string: `42` for the example value
 
             **Rules**
-            - The result must be of type `int`: `512`, not `"512"`.
-            - Spaces around the digits must not matter.
+            - The result has the type `int`: `512`, not `"512"`.
+            - Spaces around the digits make no difference.
 
             **Examples**
             ```python
             to_int("512")    # returns 512
             to_int(" 42 ")   # returns 42
             ```
-
-            Reminder: each type has a conversion function with the same name as the type.
         ''',
         "starter": r'''
             def to_int(text):
@@ -357,9 +402,9 @@ EXERCISES = [
                 return int(text)
         ''',
         "hints": [
-            "Each type has a function with the same name that converts a value into that type.",
-            "You want a whole number, so use the conversion function named after that type.",
-            "Replace ___ with int, so the line reads return int(text).",
+            "Each type has a function that converts a value into that type.",
+            "The function has the same name as the type it produces. Which type is a whole number?",
+            "Replace the three underscores with the name of the type for whole numbers. The parentheses and `text` are already there.",
         ],
     },
     {
@@ -367,28 +412,23 @@ EXERCISES = [
         "title": "Fix: text plus number",
         "difficulty": 0,
         "lesson": r'''
-            ## Joining text and numbers
+            ## Why text and numbers will not join
 
-            The `+` operator does two different things. With two numbers, it adds them. With
-            two strings, it joins them into one string.
-
-            ```python
-            print(2 + 3)
-            # 5
-            print("2" + "3")
-            # 23
-            ```
-
-            With a string on one side and a number on the other, Python does neither. The
-            program stops with a `TypeError`. A **TypeError** means that the operation does
-            not work for a value of that type.
+            You want to build a label such as `tokens used: 5`. One part is text and the other is a
+            number. The plus sign seems the obvious tool. But `+` already has two jobs: it adds numbers,
+            and it joins strings. With a string on one side and a number on the other, Python cannot
+            know which job you mean. Should `"5" + 5` be `10`, or `"55"`? It refuses to guess and stops
+            with this message:
 
             ```text
             TypeError: can only concatenate str (not "int") to str
             ```
 
-            To fix it, make both sides the same type. `str()` returns the text form of any
-            value: a number, `True` or `None`.
+            Read it piece by piece. "Concatenate" is the word for joining strings that you met in the
+            Basics chapter. So the message says: I can only join a `str` to a `str`, and you gave me an
+            `int`. A `TypeError` always means that an operation does not work for a value of that type.
+
+            The fix is to make both sides the same type. `str()` hands back the text form of any value:
 
             ```python
             price = 0.25
@@ -397,21 +437,44 @@ EXERCISES = [
             # cost: 0.25
             ```
 
-            `"cost: " + "price"` joins the word `price`, not the value `0.25`. Write the
-            variable name without quotes.
+            ```predict
+            print("3" + "4")
+            print(int("3") + 4)
+            print("3" + str(4))
+            ---
+            The first line joins two strings into `34`. In the second, `int("3")` is the number 3, and `3 + 4` is 7. In the third, `str(4)` is the string `"4"`, so the two strings are joined into `34` again.
+            ```
+
+            ```quiz
+            `age` is the number `30`. Which expression builds the text `Age: 30`?
+            - [x] `"Age: " + str(age)` :: Right. `str(age)` is the string `"30"`, and two strings can be joined.
+            - [ ] `"Age: " + age` :: A string on one side and an `int` on the other. Python stops with a `TypeError`.
+            - [ ] `"Age: " + "age"` :: The quotes turn `age` into three letters of text. The result is `Age: age`.
+            ```
+
+            **Watch out:** a variable name inside quotes is no longer a variable. `"cost: " + "price"`
+            joins the word `price`, not the value that `price` stands for.
+
+            **In short:** `+` needs both sides to have the same type, and `str(x)` turns any value into
+            text that can be joined.
         ''',
         "prompt": r'''
-            `label(count)` builds a short text label for a token count, but it crashes with
-            `TypeError: can only concatenate str (not "int") to str`. Find and fix the bug.
+            A dashboard shows short labels such as `tokens: 5`. The function `label` should build that
+            text from a number, but it stops with
+            `TypeError: can only concatenate str (not "int") to str`.
 
-            **Write:** fix `label(count)`
+            **Your job:** find the bug in `label(count)` and fix it. The code is already in the editor.
 
-            - `count`: an `int`, e.g. `5`
-            - **Returns:** a string: `tokens: ` (with one space after the colon) followed by the number
+            **What goes in**
+            - `count`: a whole number, for example `5`
+
+            **What comes out**
+            - a string: `tokens: `, with one space after the colon, followed by the number: `"tokens: 5"`
+              for the example value
 
             **Rules**
-            - Return text, don't print it.
-            - The number appears as plain digits, no extra spaces or punctuation.
+            - The text is handed back with `return`, not printed.
+            - The number appears as plain digits, with no extra spaces or punctuation.
 
             **Examples**
             ```python
@@ -439,9 +502,9 @@ EXERCISES = [
                 return "tokens: " + str(count)
         ''',
         "hints": [
-            "The error says + can only join a str to another str, and count is an int.",
-            "Convert the number to text before joining it on.",
-            "Wrap count in str(...) on the return line.",
+            "The error says that `+` can only join a `str` to a `str`. What is the type of `count`?",
+            "The number has to become text before it can be joined to the other text.",
+            "On the `return` line, pass `count` through the conversion function that gives the text form of a value. Leave the rest of the line as it is.",
         ],
     },
     {
@@ -449,11 +512,17 @@ EXERCISES = [
         "title": "Clean up an answer",
         "difficulty": 0,
         "lesson": r'''
-            ## String methods
+            ## Cleaning up text
 
-            A **method** is a function that belongs to a value. You call it with a dot after
-            the value: `value.method()`. `.lower()` returns the text in lowercase and
-            `.upper()` returns it in uppercase.
+            You ask a model a yes-or-no question and its answer arrives as `"  YES\n"`: two spaces in
+            front, capital letters, and an odd `\n` at the end. Your program wants to compare the answer
+            with `"yes"`, so the answer needs cleaning first.
+
+            The `\n` is the **newline** character, the single character that ends a line of text. It is
+            typed as two signs and counts as one character.
+
+            Strings bring their own tools. You use one by writing a dot after the string, then the name
+            of the tool:
 
             ```python
             city = "Paris"
@@ -463,15 +532,40 @@ EXERCISES = [
             # PARIS
             ```
 
-            `.strip()` returns the text without the spaces and newlines at both ends. Inside a
-            string, `\n` is the **newline** character: the character that ends a line. It counts
-            as one character. Spaces in the middle stay.
+            Read `city.lower()` as "city, give me yourself in small letters". A function that belongs to
+            a value and is called with a dot is a **method**.
 
-            Strings are **immutable**: a string cannot change after it is created. Each method
-            returns a new string and the original stays the same. The result is a string, so
-            you can call the next method on it directly. Python runs the calls left to right.
+            The method `.strip()` removes spaces and newlines from both ends of a string. Spaces in the
+            middle stay.
 
-            Step through the program and compare `raw` with `trimmed`.
+            ```python
+            raw = "  New York\n"
+            print(len(raw))
+            # 11
+            print(len(raw.strip()))
+            # 8
+            ```
+
+            ### A method never changes the string
+
+            A string cannot change once it exists. Programmers say that strings are **immutable**. A
+            method hands back a new string, and the original stays as it was.
+
+            ```quiz
+            What does this program print?
+
+            ~~~python
+            name = "Ada"
+            name.upper()
+            print(name)
+            ~~~
+            - [x] `Ada` :: Right. `name.upper()` handed back the new string `"ADA"`, and the program did nothing with it. `name` still stands for the original.
+            - [ ] `ADA` :: That needs an assignment, `name = name.upper()`. The method alone does not change `name`.
+            - [ ] Nothing, because of an error :: Calling a method and ignoring its result is allowed. It only has no effect.
+            ```
+
+            Because the result of a method is a string again, you can call the next method straight on
+            it. Python works from left to right. Press Next and compare `raw` with `trimmed`:
 
             ```diagram
             {"type": "trace", "title": "strip() and upper() return new strings", "code": ["raw = \"  Paris\\n\"", "print(len(raw))", "trimmed = raw.strip()", "print(len(trimmed))", "shout = trimmed.upper()", "print(shout)", "print(raw.strip().upper())", "print(len(raw))"], "steps": [
@@ -487,21 +581,38 @@ EXERCISES = [
             ]}
             ```
 
-            `raw.strip` without `()` does not call the method. Always write the parentheses.
+            ```predict
+            reply = " Done.\n"
+            print(reply.strip())
+            print(reply.strip().upper())
+            print(len(reply))
+            ---
+            `strip()` removes the space in front and the newline at the end, which leaves `Done.`. The second line strips first and then makes capitals: `DONE.`. `reply` itself never changed, so it still has 7 characters: a space, the five characters of `Done.` and the newline.
+            ```
+
+            **Watch out:** a method needs its parentheses. `raw.strip` without `()` does not call the
+            method, so nothing is stripped.
+
+            **In short:** `text.strip()` trims both ends and `text.lower()` makes small letters. Each
+            hands back a new string, so the calls can follow one another.
         ''',
         "prompt": r'''
-            Model answers often come back with stray spaces, a trailing newline or random
-            capitals. Before comparing them, you clean them up.
+            Answers from a model often arrive with stray spaces, a newline at the end, or capital letters
+            in odd places. Before a program compares an answer with the one it expects, it cleans the
+            answer up.
 
-            **Write:** `normalize(answer)`
+            **Your job:** write `normalize(answer)` so that it gives back the cleaned-up text.
 
-            - `answer`: a string, e.g. `"  YES\n"`
-            - **Returns:** a string: `answer` with spaces/newlines removed from both ends and
-              all letters lowercase, e.g. `"yes"`
+            **What goes in**
+            - `answer`: a string, for example `"  YES\n"`
+
+            **What comes out**
+            - a string: `answer` without spaces and newlines at both ends, and with every letter small:
+              `"yes"` for the example value
 
             **Rules**
             - Spaces in the middle stay: `" New York "` gives `"new york"`.
-            - An empty string gives `""`.
+            - The empty string gives `""`.
 
             **Examples**
             ```python
@@ -539,9 +650,9 @@ EXERCISES = [
                 return answer.strip().lower()
         ''',
         "hints": [
-            "Strings have methods for trimming the ends and for changing letter case.",
-            "Trim the text first, then make it lowercase, and return the result.",
-            "Return answer, then .strip(), then .lower(), chained in one expression.",
+            "Strings have a method that trims both ends and a method that changes the case of the letters.",
+            "Two things happen to the text, one after the other: the ends are trimmed, and the letters become small. Each method hands back a new string.",
+            "Write one `return` line. Start with `answer`, call the trimming method on it, and call the lowercase method on the result of that.",
         ],
     },
     {
@@ -550,10 +661,15 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Type names and truthiness
+            ## The name of a type, and values that count as "nothing"
 
-            `type(x)` prints as `<class 'int'>`. Add `.__name__` (two underscores on each
-            side) to get only the name of the type, as a string.
+            This step brings two small tools. You will use both of them for the rest of the course.
+
+            ### Only the name, please
+
+            `type(512)` prints as `<class 'int'>`. Often you only want the word `int`. Add `.__name__`
+            after the call, with two underscores on each side, and you get the name of the type as a
+            string:
 
             ```python
             print(type(0.5).__name__)
@@ -562,22 +678,49 @@ EXERCISES = [
             # bool
             ```
 
-            `bool()` converts any value to `True` or `False`. A value that converts to `False`
-            is **falsy**. The falsy values you know so far are `0`, `0.0`, `""` and `None`.
-            A value that converts to `True` is **truthy**. Every other number and every
-            non-empty string is truthy. This rule is called **truthiness**.
+            That second example shows a new type. `True` and `False` are the two values of the type
+            **bool**, short for boolean. They are Python's answers to yes-or-no questions. Both are
+            written with a capital first letter and without quotes.
+
+            ### Turning any value into True or False
+
+            Every value can be turned into a bool with `bool()`. The rule is simple: values that are
+            "empty" or "zero" become `False`, and everything else becomes `True`.
 
             ```python
-            print(bool(0.0), bool(""), bool(None))
-            # False False False
+            print(bool(0), bool(0.0), bool(""), bool(None))
+            # False False False False
             print(bool(3), bool("no"))
             # True True
             ```
 
-            `bool("false")` is `True`. The string holds five characters, so it is not empty.
+            A value that turns into `False` is called **falsy**, and a value that turns into `True` is
+            **truthy**. The falsy values you know so far are `0`, `0.0`, the empty string `""` and
+            `None`. The whole idea is called **truthiness**, and the next chapter builds on it.
+
+            ```quiz
+            What is `bool("false")`?
+            - [x] `True` :: Right. `"false"` is a string with five characters, and every string that is not empty is truthy. Python does not read the word.
+            - [ ] `False` :: `bool()` looks at whether the string is empty, not at what it says. Only `""` is a falsy string.
+            - [ ] An error :: `bool()` accepts every value, so it never stops with an error here.
+            ```
+
+            ```predict
+            print(type(1.5).__name__)
+            print(bool(""), bool(" "))
+            print(bool(0), bool(-1))
+            ---
+            `1.5` has a decimal point, so its type is `float`. The empty string is falsy, but a string that holds one space is not empty, so it is truthy. `0` is falsy, and every other number is truthy, negative numbers included.
+            ```
+
+            **Watch out:** a string that looks empty is not always empty. `" "` holds a space, and
+            `"0"` holds a digit. Both are truthy.
+
+            **In short:** `type(x).__name__` is the name of a value's type as a string, and `bool(x)` is
+            `False` for zero, empty and `None`, and `True` for everything else.
         ''',
         "prompt": r'''
-            Read the code and type exactly what it prints.
+            Read the program in the editor. Type exactly what it prints, one line of output per line.
         ''',
         "code": r'''
             print(type(42).__name__)
@@ -594,17 +737,17 @@ EXERCISES = [
             False True
         ''',
         "explanation": r'''
-            `42` is an `int` and `"42"` in quotes is a `str`, so the first two lines print
-            those type names. `int("7")` returns the number `7`, and `7 + 3` is `10`.
-            `"7" + "3"` joins two strings into `"73"`. `bool(0)` is `False` because `0` is
-            falsy. `bool("hi")` is `True` because a non-empty string is truthy.
+            `42` is a whole number, so its type name is `int`. `"42"` is in quotes, so its type name is
+            `str`. `int("7")` hands back the number 7, and `7 + 3` is `10`. `"7" + "3"` joins two strings
+            into `73`. `bool(0)` is `False`, because 0 is falsy, and `bool("hi")` is `True`, because a
+            string that is not empty is truthy. A `print` with a comma puts one space between them.
         ''',
         "starter": "",
         "tests": "",
         "hints": [
-            "Quotes make a value a str, even if it contains digits.",
-            "type(x).__name__ prints the type's name. + adds numbers but joins strings. bool(0) is False.",
-            "Line 1: the type of a whole number. Line 2: the type of text. Line 3: 7 + 3. Line 4: the two characters joined together. Line 5: two bools separated by a space.",
+            "Look for quotes first. Quotes make a value a `str`, even when it holds digits.",
+            "`type(x).__name__` gives the name of the type. `+` adds numbers and joins strings. `bool()` is `False` only for zero, empty and `None`.",
+            "Lines one and two are the type names of a whole number and of text. Line three is a sum of two numbers. Line four is two characters joined together. Line five is two bools with one space between them.",
         ],
     },
     {
@@ -612,46 +755,79 @@ EXERCISES = [
         "title": "Missing or zero?",
         "difficulty": 0,
         "lesson": r'''
-            ## None
+            ## "Nothing was set" is not the same as zero
 
-            `None` is a value that means "no value". It is the only value of the type
-            `NoneType`. A function that ends without a `return` returns `None`.
+            A settings form has a field called "max retries". One user types `0`, meaning "never retry".
+            Another user leaves the field empty. Your program has to tell these two apart. Zero is an
+            answer. An empty field is no answer at all.
 
-            `None` is not `0` and it is not `""`. `0` is a number and `""` is a string with no
-            characters. `retries = 0` says that the number of retries is zero. `retries = None`
-            says that no number was set.
+            Python's value for "no answer" is `None`. You met it in the Basics chapter as the thing a
+            function hands back when it has no `return`. `None` is not `0` and it is not `""`. It is a
+            value of its own, with a type of its own, `NoneType`.
 
-            `0` and `None` are both falsy, so `bool()` gives `False` for both. To test for a
-            missing value, write `is None`. It gives `True` only when the value is `None`.
+            So how do you test for it? `bool()` does not help, because `0` and `None` are both falsy:
 
             ```python
             retries = 0
-            print(bool(retries), retries is None)
-            # False False
             setting = None
-            print(bool(setting), setting is None)
-            # False True
+            print(bool(retries), bool(setting))
+            # False False
             ```
 
-            The result of `is None` is already a `bool`. You can store it or return it directly.
+            The precise question is `is None`:
 
-            `==` compares two values and gives `True` when they are equal. `value == None` also works, but `value is None` is the
-            standard way to write it.
+            ```python
+            retries = 0
+            setting = None
+            print(retries is None)
+            # False
+            print(setting is None)
+            # True
+            ```
+
+            `value is None` asks "is this value `None`?", and the answer is a bool. Like any value, you
+            can print that bool, store it under a name, or hand it back with `return`.
+
+            ```predict
+            limit = None
+            count = 0
+            print(limit is None, count is None)
+            print(bool(limit), bool(count))
+            ---
+            Only `limit` is `None`, so the first line is `True False`. Both values are falsy, so `bool()` gives `False False` and cannot tell them apart.
+            ```
+
+            ```quiz
+            For which values does `value is None` give `True`?
+            - [x] Only for `None` :: Right. `is None` asks one exact question, and only `None` answers yes.
+            - [ ] For `None`, `0` and `""` :: Those are the falsy values, which `bool()` treats alike. `is None` is stricter: `0` and `""` are real values.
+            - [ ] For every value that has not been printed yet :: Printing has nothing to do with it. A value is `None` only when nothing was set.
+            ```
+
+            **Watch out:** `None` is written with a capital `N` and without quotes. `"None"` is a string
+            of four letters, and it is not `None`.
+
+            **In short:** `value is None` is `True` only when no value was set. `0` and `""` are values,
+            so for them it is `False`.
         ''',
         "prompt": r'''
-            An optional setting can be *missing* (`None`) or set to an "empty-looking" value like
-            `0`. Those are different things, and your function must tell them apart.
+            A setting in an app can be missing, which Python writes as `None`. It can also be set to a
+            value that looks empty, such as `0` or `""`. Those are different situations: `0` retries is a
+            real choice, and a missing setting means that nobody chose anything.
 
-            **Write:** `is_missing(value)`
+            **Your job:** write `is_missing(value)` so that it tells the two apart.
 
-            - `value`: any value, e.g. `None`, `0`, `""`, `512`
-            - **Returns:** a `bool`: `True` if `value` is `None`, otherwise `False`
+            **What goes in**
+            - `value`: any value, for example `None`, `0`, `""` or `512`
+
+            **What comes out**
+            - a bool: `True` when `value` is `None`, and `False` for everything else
 
             **Rules**
-            - Only `None` is missing: return `True` for it.
-            - `0`, `0.0`, `""` and `False` are **not** missing: return `False` for them.
-            - Any normal value (like `512`) is not missing: return `False`.
-            - Return the actual `True`/`False` values, not text like `"True"`.
+            - Only `None` is missing.
+            - `0`, `0.0`, `""` and `False` are not missing, so they give `False`.
+            - An ordinary value such as `512` gives `False`.
+            - The result is the bool `True` or `False`, not text such as `"True"`.
 
             **Examples**
             ```python
@@ -684,9 +860,9 @@ EXERCISES = [
                 return value is None
         ''',
         "hints": [
-            "The lesson shows a way to test for None that does not treat 0 or empty text as missing.",
-            "Return the result of checking whether value is None. That check already gives True or False.",
-            "Write a single return line: value, then the keyword is, then None. Do not use bool() or not here.",
+            "The lesson shows a test that says yes for `None` and no for `0` and for an empty string.",
+            "That test already gives `True` or `False`, so the function can hand its result straight back. `bool()` is the wrong tool here, because it treats `0` and `None` alike.",
+            "Write a single `return` line. After `return` comes the question from the lesson that asks whether `value` is `None`.",
         ],
     },
     {
@@ -694,46 +870,75 @@ EXERCISES = [
         "title": "Average tokens",
         "difficulty": 0,
         "lesson": r'''
-            ## Division and rounding
+            ## Dividing, and tidying up the result
 
-            The `/` operator divides one number by another. The result is always a `float`,
-            even when the division is exact.
+            A chat has used 10 tokens in 4 messages. How many tokens is that per message, on average?
+            That is a division, and Python's sign for it is `/`:
 
             ```python
-            print(9 / 2)
-            # 4.5
+            print(10 / 4)
+            # 2.5
             print(9 / 3)
             # 3.0
             print(8 / 3)
             # 2.6666666666666665
             ```
 
-            `round(number, places)` returns the number rounded to `places` **decimal places**:
-            the digits after the decimal point.
+            Two things are worth noticing. First, the result of `/` is always a `float`, even when the
+            division comes out even: `9 / 3` is `3.0`, not `3`. Second, a result can have a long tail of
+            digits that nobody wants to read.
+
+            `round` tidies that up. You met it in the Basics chapter, where you looked up its second
+            argument. That argument is the number of **decimal places** to keep, which means the digits
+            after the decimal point:
 
             ```python
             print(round(8 / 3, 2))
             # 2.67
-            print(round(20 / 3, 2))
-            # 6.67
             ```
 
-            Divide first, then round the result. Rounding the inputs first gives a different
-            number: `round(7.4 / 2.6, 1)` is `2.8`, but `round(7.4) / round(2.6)` is `7 / 3`,
-            which is about `2.33`.
+            Python works from the inside out, so the division happens first and `round` gets its result.
+
+            ```predict
+            print(7 / 2)
+            print(6 / 2)
+            print(round(20 / 3, 1))
+            ---
+            `7 / 2` is 3.5. `6 / 2` comes out even, but `/` always gives a float, so Python shows `3.0`. `20 / 3` is 6.666..., and rounded to 1 decimal place that is 6.7.
+            ```
+
+            The order matters: divide first, then round the result.
+
+            ```quiz
+            A bill of 20 is shared by 3 people, and you want each share rounded to 2 decimal places. Which expression gives `6.67`?
+            - [x] `round(20 / 3, 2)` :: Right. The division gives 6.666..., and `round` keeps 2 digits after the point.
+            - [ ] `round(20, 2) / round(3, 2)` :: This rounds the two inputs, which changes nothing, and then divides. The long tail of digits is still there.
+            - [ ] `round(20 / 3)` :: Without a second argument, `round` gives the nearest whole number, which is 7.
+            ```
+
+            **Watch out:** nothing can be divided by zero. `10 / 0` stops the program with
+            `ZeroDivisionError: division by zero`.
+
+            **In short:** `/` divides and always gives a float, and `round(x, n)` keeps `n` digits after
+            the decimal point.
         ''',
         "prompt": r'''
-            Work out the average number of tokens per message.
+            A chat app wants to show how many tokens a message uses on average. It knows the total number
+            of tokens in the conversation and the number of messages.
 
-            **Write:** `average_tokens(total, count)`
+            **Your job:** write `average_tokens(total, count)` so that it gives back the average, rounded
+            to 1 decimal place.
 
-            - `total`: an `int`, the total number of tokens, e.g. `10`
-            - `count`: an `int` greater than 0, the number of messages, e.g. `4`
-            - **Returns:** a `float`: `total` divided by `count`, **rounded to 1 decimal place**
+            **What goes in**
+            - `total`: the total number of tokens, a whole number, for example `10`
+            - `count`: the number of messages, a whole number greater than 0, for example `4`
+
+            **What comes out**
+            - a float: `total` divided by `count`, rounded to 1 decimal place: `2.5` for the example values
 
             **Rules**
-            - Use normal division (the result can have decimals).
-            - Round the result to exactly 1 decimal place (`3.333...` becomes `3.3`, `0.666...` becomes `0.7`).
+            - Use ordinary division, so that the result can have decimals.
+            - The result has exactly 1 decimal place: `3.333...` becomes `3.3`, and `0.666...` becomes `0.7`.
 
             **Examples**
             ```python
@@ -764,9 +969,9 @@ EXERCISES = [
                 return round(total / count, 1)
         ''',
         "hints": [
-            "Use normal division and the built-in that rounds a number.",
-            "Divide total by count with /, then round that result to 1 decimal place.",
-            "Return round( total / count , 1 ). The second argument of round is the number of decimals.",
+            "Two tools from the lesson are needed: the operator for ordinary division, and the built-in that rounds a number.",
+            "Divide the total by the count first. Then round the result of that division, not the two inputs.",
+            "Write one `return` line with a call to `round`. Its first argument is the division of the two parameters. Its second argument is the number of decimal places that the task asks for.",
         ],
     },
     {
@@ -774,9 +979,14 @@ EXERCISES = [
         "title": "Name the type",
         "difficulty": 1,
         "lesson": r'''
-            ## Type names in text
+            ## Building a sentence about any value
 
-            `type(x).__name__` is a `str`. You can join it to other strings with `+`.
+            When data from an API looks wrong, the first question is often: is that `42` a number, or is
+            it text? A line such as `42 is str` answers it at a glance. To build such a line you need two
+            pieces of text, and you have a tool for each.
+
+            The first tool gives the name of the type. `type(x).__name__` is a string, so it can be joined
+            to other strings:
 
             ```python
             value = True
@@ -784,8 +994,8 @@ EXERCISES = [
             # type: bool
             ```
 
-            `str()` returns the text form of any value. A string passed to `str()` comes back
-            unchanged, with no quotes added.
+            The second tool gives the value itself as text. `str()` works for every value. A string
+            passes through it unchanged, and no quotes are added:
 
             ```python
             print(str(0.7) + "!")
@@ -794,27 +1004,52 @@ EXERCISES = [
             # None (1, 2) 42
             ```
 
-            Joining strings with `+` is called **string concatenation**. Every piece must be
-            a `str`.
+            Joining strings with `+` is called **string concatenation**, and every piece must be a `str`.
+            That is why both tools matter: each of them turns something that is not text into text.
 
-            `type(x)` on its own is not a string. `"is " + type(x)` stops the program with a
-            `TypeError`. Add `.__name__` to get the name as a string.
+            ```predict
+            print("kind: " + type(None).__name__)
+            print(str(10) + str(5))
+            print(str("hi") + "!")
+            ---
+            The type of `None` is called `NoneType`. `str(10)` and `str(5)` are the strings `"10"` and `"5"`, so `+` joins them into `105`. A string passed to `str()` stays as it is, so the last line is `hi!`.
+            ```
+
+            ```fill
+            score = 0.9
+            print("score " + ___ + " ok")
+            ---
+            - [x] str(score) :: Right. `str(score)` is the string `"0.9"`, so all three pieces are strings and the program prints `score 0.9 ok`.
+            - [ ] score :: `score` is a float, and `+` cannot join a string to a float. Python stops with a `TypeError`.
+            - [ ] type(score) :: `type(score)` is a type, not a string, so this is a `TypeError` too. The name of the type would be `type(score).__name__`.
+            ```
+
+            **Watch out:** `type(x)` on its own is not text. `"is " + type(x)` stops with a `TypeError`.
+            Add `.__name__` to get the name as a string.
+
+            **In short:** `str(x)` is the value as text and `type(x).__name__` is the name of its type as
+            text, and text can be joined with `+`.
         ''',
         "prompt": r'''
-            When debugging API data it helps to see a value together with its type.
+            When you inspect data that came from an API, it helps to see each value together with its
+            type. The value `42` might be a number or it might be text, and the difference matters.
 
-            **Write:** `describe_value(value)`
+            **Your job:** write `describe_value(value)` so that it gives back one line of text about the
+            value, such as `"512 is int"`.
 
-            - `value`: any value, e.g. `512`, `0.7`, `"42"`, `True`, `None`, `(1, 2)`
-            - **Returns:** a string: the value as text, then ` is ` (a space, the word is, a space),
-              then the **name** of the value's type (like `int`, not `<class 'int'>`)
+            **What goes in**
+            - `value`: any value, for example `512`, `0.7`, `"42"`, `True`, `None` or `(1, 2)`
+
+            **What comes out**
+            - a string made of three parts: the value as text, then ` is ` (a space, the word `is`, a
+              space), then the name of the value's type
 
             **Rules**
-            - Return a string, don't print it.
-            - The value part is the value converted to text: a string like `"42"` shows as `42`
-              with no quotes.
-            - The type part is just the type's name: `int`, `float`, `str`, `bool`, `NoneType`, `tuple`...
-            - It must work for any type, not only the ones in the examples.
+            - The string is handed back with `return`, not printed.
+            - The value part is the value turned into text. A string such as `"42"` appears as `42`,
+              without quotes.
+            - The type part is only the name of the type, such as `int`, and not `<class 'int'>`.
+            - It works for every type, not only for the ones in the examples.
 
             **Examples**
             ```python
@@ -860,9 +1095,9 @@ EXERCISES = [
                 return str(value) + " is " + type(value).__name__
         ''',
         "hints": [
-            "You need two pieces of text: the value turned into text, and the type's name as text. Both are in the lesson.",
-            "str(value) turns the value into text. type(value) alone is a type object, not text; add .__name__ to get the plain name. Then join the pieces with +.",
-            "1) Convert value to text with str(). 2) Join on the text \" is \" (spaces on both sides). 3) Join on type(value).__name__. 4) Return the result.",
+            "You need two pieces of text: the value turned into text, and the name of its type as text. The lesson has a tool for each.",
+            "One built-in turns any value into a string. For the type, `type(value)` alone is not a string, so the name has to be taken from it. Join the pieces with `+`.",
+            "Write one `return` line with three pieces joined by `+`: the value passed through the text conversion, then the text `\" is \"` with a space on each side, then the name of the value's type.",
         ],
     },
     {
@@ -870,14 +1105,21 @@ EXERCISES = [
         "title": "Add up string numbers",
         "difficulty": 1,
         "lesson": r'''
-            ## Convert first, then add
+            ## Turn text into numbers before you do the maths
 
-            Data read from files, form fields and other programs is text. It often
-            has spaces around it or a newline at the end. `"42\n"` is the characters `42`
-            followed by a newline. **Parsing** means turning raw text into values of the
-            right type.
+            A usage report says that a request used `"120"` prompt tokens and `"30\n"` completion tokens.
+            Both numbers arrive as text, one of them with a newline at the end. You want the total.
 
-            `int()` and `float()` ignore spaces and newlines around the digits.
+            Adding them straight away goes wrong in a way you have seen before:
+
+            ```python
+            print("120" + "30")
+            # 12030
+            ```
+
+            `+` joined the two strings. Turning raw text into values of the right type is called
+            **parsing**, and it has to happen before any calculation. `int()` and `float()` make it easy,
+            because they ignore spaces and newlines around the digits:
 
             ```python
             print(int(" 7 ") * 2)
@@ -886,8 +1128,8 @@ EXERCISES = [
             # 0.5
             ```
 
-            The order matters. `+` on two strings joins them. Convert each string to a number
-            first, then do the maths.
+            The order of the steps decides the result. Convert each piece of text on its own, and add
+            the numbers afterwards:
 
             ```python
             print(int("12" + "3"))
@@ -896,7 +1138,8 @@ EXERCISES = [
             # 15
             ```
 
-            Step through the program to see what `+` does before and after the conversion.
+            In the first line the strings were joined before the conversion, so `int` saw `"123"`. Press
+            Next to watch what `+` does before and after the conversion:
 
             ```diagram
             {"type": "trace", "title": "Joining strings versus adding numbers", "code": ["input_text = \" 120 \"", "output_text = \"30\\n\"", "joined = input_text + output_text", "print(len(joined))", "a = int(input_text)", "b = int(output_text)", "total = a + b", "print(total)"], "steps": [
@@ -912,23 +1155,49 @@ EXERCISES = [
             ]}
             ```
 
-            `int("1.5")` stops the program with a `ValueError`. Text with a decimal point
-            needs `float()`.
+            Put this small program in an order that works:
+
+            ```order
+            price_text = " 20 "
+            count_text = "3\n"
+            price = int(price_text)
+            count = int(count_text)
+            print(price * count)
+            ---
+            Each text has to exist before it is converted, and both numbers have to exist before they are multiplied. The program prints 60.
+            ```
+
+            ```quiz
+            What does `int("1.5")` do?
+            - [x] It stops with a `ValueError` :: Right. `int()` only accepts text that is a whole number. Text with a decimal point needs `float()`.
+            - [ ] It gives `1` :: `int()` does not cut off the decimals of a string. It refuses the text.
+            - [ ] It gives `2` :: `int()` does not round text either. Rounding is the job of `round`, and it works on numbers.
+            ```
+
+            **Watch out:** choose the conversion that fits the text. `"1.5"` needs `float()`, and `int()`
+            stops on it with a `ValueError`.
+
+            **In short:** convert each piece of text to a number first, and calculate with the numbers
+            afterwards.
         ''',
         "prompt": r'''
-            A usage report gives token counts as **text**, sometimes with spaces or a trailing
-            newline. Add them up as numbers.
+            A usage report gives the token counts of a request as text, sometimes with spaces around the
+            digits or a newline at the end. Your app needs the total as a number.
 
-            **Write:** `total_tokens(prompt_text, completion_text)`
+            **Your job:** write `total_tokens(prompt_text, completion_text)` so that it gives back the two
+            counts added together.
 
-            - `prompt_text`: a string holding a whole number, e.g. `"120"` or `" 1000 "`
-            - `completion_text`: a string holding a whole number, e.g. `"30"` or `"24\n"`
-            - **Returns:** the sum of the two numbers as an `int`
+            **What goes in**
+            - `prompt_text`: a string that holds a whole number, for example `"120"` or `" 1000 "`
+            - `completion_text`: a string that holds a whole number, for example `"30"` or `"24\n"`
+
+            **What comes out**
+            - the sum of the two numbers, as an `int`: `150` for `"120"` and `"30"`
 
             **Rules**
-            - Add them as numbers: `"120"` and `"30"` give `150`, not `"12030"`.
-            - The result must be of type `int` (not a string or a float).
-            - Spaces and newlines around the digits must not matter.
+            - The counts are added as numbers: `"120"` and `"30"` give `150`, not `"12030"`.
+            - The result has the type `int`. It is not a string and not a float.
+            - Spaces and newlines around the digits make no difference.
 
             **Examples**
             ```python
@@ -964,9 +1233,9 @@ EXERCISES = [
                 return int(prompt_text) + int(completion_text)
         ''',
         "hints": [
-            "The inputs are strings. What does + do to two strings?",
-            "Convert each piece of text to a whole number first, then add the numbers.",
-            "1) int(prompt_text). 2) int(completion_text). 3) Return the two added together. int() already ignores surrounding spaces and newlines.",
+            "Both inputs are strings. What does `+` do with two strings?",
+            "Turn each piece of text into a whole number first, and add the two numbers afterwards.",
+            "Write one `return` line: the first parameter passed through the conversion to a whole number, a plus sign, and the second parameter passed through the same conversion. The conversion ignores the spaces and newlines for you.",
         ],
     },
     {
@@ -974,10 +1243,11 @@ EXERCISES = [
         "title": "Does it fit?",
         "difficulty": 1,
         "lesson": r'''
-            ## Comparisons
+            ## Asking a yes-or-no question
 
-            A **comparison** checks one value against another and gives a `bool`: `True` or
-            `False`. These two values are called **booleans**.
+            Before a request goes to a model, your app should ask: does it fit? Programs ask questions
+            like this all the time. Is this number bigger than that one? Are these two values the same?
+            The answer to such a question is always a bool.
 
             ```python
             tokens = 1200
@@ -989,13 +1259,22 @@ EXERCISES = [
             # False
             ```
 
-            There are six comparison operators. `==` means equal and `!=` means not equal.
-            `<` means less than and `<=` means less than or equal. `>` means greater than and
-            `>=` means greater than or equal.
+            A question of this kind is called a **comparison**. Python has six comparison operators:
 
-            An **expression** is a piece of code that produces a value. An expression that
-            produces a bool is a **boolean expression**. Its result is a normal value, so you
-            can store it or return it.
+            ```match
+            `==` :: is equal to
+            `!=` :: is not equal to
+            `<=` :: is less than or equal to
+            `>=` :: is greater than or equal to
+            ```
+
+            The other two are `<`, less than, and `>`, greater than.
+
+            ### A comparison is a value
+
+            Any piece of code that produces a value is called an **expression**. `2 + 3` is an
+            expression, and so is `tokens > 1000`. One that produces a bool is a **boolean expression**.
+            Its result is an ordinary value, so a function can hand it straight back:
 
             ```python
             def is_long(tokens):
@@ -1005,23 +1284,44 @@ EXERCISES = [
             # False
             ```
 
-            `=` assigns a value to a name and `==` compares two values. Floats are not exact:
-            `0.1 + 0.2 == 0.3` is `False`. Use whole numbers for exact checks.
+            Arithmetic is done before the comparison, so both sides may be calculations:
+
+            ```predict
+            used = 900
+            print(used + 200 > 1000)
+            print(used + 100 >= 1000)
+            print(used == 900.0)
+            ---
+            `900 + 200` is 1100, which is greater than 1000. `900 + 100` is exactly 1000, and `>=` also says yes when both sides are equal. An int and a float with the same value are equal, so the last line is `True` as well.
+            ```
+
+            **Watch out:** one `=` assigns a value to a name, and two `==` compare two values. Also,
+            floats are not exact: `0.1 + 0.2 == 0.3` is `False`. Use whole numbers when a comparison has
+            to be exact.
+
+            **In short:** a comparison such as `a <= b` is an expression that produces `True` or `False`,
+            and you can store it or return it like any other value.
         ''',
         "prompt": r'''
-            Before a request, check that the prompt plus the room reserved for the answer fits
-            in the model's context window.
+            A model can only handle a limited number of tokens at once. That limit is called its context
+            window. The prompt and the answer share it, so before a request your app checks that the
+            prompt, plus the room kept free for the answer, fits into the window.
 
-            **Write:** `fits_context(prompt_tokens, output_tokens, window)`
+            **Your job:** write `fits_context(prompt_tokens, output_tokens, window)` so that it says
+            whether the request fits.
 
-            - `prompt_tokens`: tokens in the prompt, an int, e.g. `1000`
-            - `output_tokens`: tokens reserved for the answer, an int, e.g. `500`
-            - `window`: the context window size, an int, e.g. `4096`
-            - **Returns:** a `bool`: `True` if the two token counts added together are **not more than** `window`, otherwise `False`
+            **What goes in**
+            - `prompt_tokens`: the tokens in the prompt, a whole number, for example `1000`
+            - `output_tokens`: the tokens kept free for the answer, a whole number, for example `500`
+            - `window`: the size of the context window, a whole number, for example `4096`
+
+            **What comes out**
+            - a bool: `True` when the two token counts added together are not more than `window`, and
+              `False` otherwise
 
             **Rules**
-            - Exactly filling the window fits (`True`).
-            - Return the bool values `True`/`False`, not text like `"True"`.
+            - A request that fills the window exactly still fits, so it gives `True`.
+            - The result is the bool `True` or `False`, not text such as `"True"`.
 
             **Examples**
             ```python
@@ -1056,9 +1356,9 @@ EXERCISES = [
                 return prompt_tokens + output_tokens <= window
         ''',
         "hints": [
-            "A comparison already produces True or False, so you can return it directly.",
-            "Add the two token counts, then compare the sum with the window. 'Not more than' includes being equal.",
-            "Return: prompt_tokens + output_tokens, then the less-than-or-equal operator <=, then window.",
+            "A comparison already produces `True` or `False`, so a function can return it directly.",
+            "Add the two token counts, then compare that sum with the window. \"Not more than\" also covers the case where both sides are equal.",
+            "Write one `return` line: the two token counts added together, then the comparison operator that means \"less than or equal to\", then the window.",
         ],
     },
     {
@@ -1066,10 +1366,11 @@ EXERCISES = [
         "title": "Full pages and leftovers",
         "difficulty": 1,
         "lesson": r'''
-            ## Floor division and remainder
+            ## How many whole times, and what is left over
 
-            17 divided by 5 is 3 with 2 left over, because `5 * 3 + 2` is `17`. Python has
-            one operator for each part of that result.
+            Seventeen documents are shown five to a page. That makes 3 full pages, with 2 documents left
+            over for a last page. It is the division you learned at school, the kind with a remainder,
+            and Python has one operator for each part of the answer:
 
             ```python
             print(17 // 5)
@@ -1080,17 +1381,31 @@ EXERCISES = [
             # 3.4
             ```
 
-            `//` is **floor division**: it divides and rounds down to a whole number. With two
-            ints, the result is an `int`. `%` is the **modulo** operator: it gives the
-            remainder, the amount left over after floor division. `/` is normal division and
-            always gives a float.
+            `//` is called **floor division**. It divides and rounds down to a whole number, and with two
+            ints the result is an int. `%` gives the **remainder**, the part that is left over. Its name
+            is the **modulo** operator. The two belong together: 5 times 3, plus 2, is 17.
 
-            When the division is exact, the remainder is `0`: `20 % 5` is `0`. When the first
-            number is smaller than the second, `//` gives `0` and `%` gives the first number:
-            `3 // 5` is `0` and `3 % 5` is `3`.
+            `/` is the ordinary division from a few steps ago, which always gives a float.
 
-            `int(17 / 5)` is also `3`, but `/` produces a float and floats are not exact for
-            very large numbers. `//` on two ints stays exact.
+            ```predict
+            print(20 // 5, 20 % 5)
+            print(3 // 5, 3 % 5)
+            print(23 // 10, 23 % 10)
+            ---
+            20 divides by 5 exactly, so the remainder is 0. 5 does not fit into 3 even once, so the whole part is 0 and all 3 are left over. 10 fits into 23 twice, with 3 left over.
+            ```
+
+            ```quiz
+            A video is 200 seconds long. Which expression gives the seconds that are left over after the full minutes?
+            - [x] `200 % 60` :: Right. 60 fits into 200 three times, which is 180, and 20 seconds are left over.
+            - [ ] `200 // 60` :: That is the number of full minutes, 3. The question asks for what is left over.
+            - [ ] `200 / 60` :: Ordinary division gives 3.33..., a float that mixes the minutes and the leftover seconds.
+            ```
+
+            ### Why not just int(17 / 5)?
+
+            It gives 3 as well, but it takes a detour through a float, and floats are not exact for very
+            large numbers. `//` on two ints stays exact however large they are:
 
             ```python
             big = 1000000000000000001
@@ -1099,21 +1414,31 @@ EXERCISES = [
             print(int(big / 1))
             # 1000000000000000000
             ```
+
+            **Watch out:** `%` has nothing to do with percent. `50 % 100` is `50`, the remainder when 50
+            is divided by 100.
+
+            **In short:** `a // b` is how many whole times `b` fits into `a`, and `a % b` is what is left
+            over.
         ''',
         "prompt": r'''
-            A dashboard lists documents, a fixed number per page. Work out how many pages are
-            completely full and how many documents are left for the last, partial page.
+            A dashboard lists documents, a fixed number on each page. To draw the page buttons, it needs
+            to know how many pages are completely full and how many documents are left for a last page
+            that is only partly filled.
 
-            **Write:** `split_into_pages(total, per_page)`
+            **Your job:** write `split_into_pages(total, per_page)` so that it gives back both numbers.
 
-            - `total`: number of documents, an int, e.g. `250`
-            - `per_page`: documents per page, an int greater than 0, e.g. `100`
-            - **Returns:** a tuple of two ints `(full_pages, leftover)`
+            **What goes in**
+            - `total`: the number of documents, a whole number, for example `250`
+            - `per_page`: the number of documents on a page, a whole number greater than 0, for example `100`
+
+            **What comes out**
+            - a tuple of two ints, `(full_pages, leftover)`: `(2, 50)` for the example values
 
             **Rules**
-            - Both values must be of type `int` (not `float`).
-            - If it divides exactly, `leftover` is `0`.
-            - If `total` is smaller than `per_page`, there are `0` full pages.
+            - Both values have the type `int`, not `float`.
+            - When the documents fill the pages exactly, `leftover` is `0`.
+            - When `total` is smaller than `per_page`, there are `0` full pages.
 
             **Examples**
             ```python
@@ -1151,9 +1476,9 @@ EXERCISES = [
                 return total // per_page, total % per_page
         ''',
         "hints": [
-            "One operator gives how many whole times a number fits; another gives what is left.",
-            "Use floor division for the full pages and the remainder operator for the leftover, then return both.",
-            "Return total // per_page, a comma, then total % per_page.",
+            "One operator tells you how many whole times a number fits into another. A second operator tells you what is left over.",
+            "The full pages come from floor division, and the leftover comes from the remainder operator. The function hands back both, as a tuple.",
+            "Write one `return` line with two values and a comma between them: first the total floor-divided by the page size, then the remainder of the same division.",
         ],
     },
     {
@@ -1161,10 +1486,14 @@ EXERCISES = [
         "title": "Count unique tags",
         "difficulty": 1,
         "lesson": r'''
-            ## Tuples and sets
+            ## Keeping one of each
 
-            A **tuple** keeps every value you put in, in order, including repeated values. A
-            **set** keeps one copy of each distinct value and has no order.
+            The documents in a search index carry tags, and the same tag turns up again and again. The
+            tag `rag` might appear forty times. How many different tags are there?
+
+            A tuple cannot tell you, because a tuple keeps everything you put into it, repeats included.
+            For this question Python has another type. A **set** keeps one copy of each distinct value,
+            and it has no order:
 
             ```python
             models = ("gpt-4o", "claude", "gpt-4o")
@@ -1177,30 +1506,42 @@ EXERCISES = [
             # True
             ```
 
-            `set(group)` builds a set from a tuple and drops the duplicates. `len()` counts
-            the items. `value in s` is a **membership test**: it gives `True` when the value
-            is in the set and `False` when it is not.
+            `set(models)` builds a set from the tuple and drops the repeats. `len` counts the items that
+            remain. The word `in` asks whether a value is in the set, and the answer is a bool. This
+            question is called a **membership test**.
 
-            You can write a set directly with curly braces. `a & b` is the set of values that
-            are in both sets. `a | b` is the set of values that are in either set.
-
-            ```python
-            a = {"rag", "llm"}
-            b = {"llm", "eval"}
-            print(a & b)
-            # {'llm'}
-            print(len(a | b))
-            # 3
+            ```quiz
+            `tags = {"rag", "llm"}`. What is `"RAG" in tags`?
+            - [x] `False` :: Right. Capital letters matter, so `"RAG"` and `"rag"` are different strings, and only `"rag"` is in the set.
+            - [ ] `True` :: The set holds `"rag"` in small letters. A string with other capitals is a different value.
+            - [ ] `2` :: `in` asks a yes-or-no question, so its answer is a bool. The number of items is `len(tags)`.
             ```
 
-            Click an operator to see which values the result holds.
+            ### Two sets together
+
+            As the quiz shows, you can write a set directly with curly braces. Two operators combine
+            sets. `a & b` is the set of values that are in both. `a | b` is the set of values that are in
+            either one. Click an operator to see which values the result holds:
 
             ```diagram
             {"type": "set-ops", "title": "Tags in a and b", "a": {"name": "a", "items": ["rag", "llm"]}, "b": {"name": "b", "items": ["llm", "eval"]}}
             ```
 
-            `{}` creates an empty dict, a different type that a later chapter covers. Write
-            `set()` for an empty set.
+            ```predict
+            a = {"rag", "llm", "eval"}
+            b = {"llm", "agents"}
+            print(len(a & b))
+            print(len(a | b))
+            print("eval" in b)
+            ---
+            Only `llm` is in both sets, so `a & b` has 1 item. Together the sets hold four different tags: rag, llm, eval and agents. `eval` is in `a` but not in `b`, so the last line is `False`.
+            ```
+
+            **Watch out:** `{}` with nothing in it is not an empty set. It makes an empty dict, another
+            type that a later chapter covers. Write `set()` for an empty set.
+
+            **In short:** `set(group)` keeps one copy of each value, `len` counts them, and `&` and `|`
+            combine two sets.
         ''',
         "research": {
             "note": 'Read the short tutorial section on sets (what they are for and how to build one), then come back.',
@@ -1209,18 +1550,22 @@ EXERCISES = [
             ],
         },
         "prompt": r'''
-            Documents in a RAG index carry tags, and the same tag is often repeated. How many
-            **different** tags are there?
+            The documents in the search index of a RAG app carry tags. (RAG means that the app looks up
+            documents and hands them to the model.) The same tag is often repeated, and you want to know
+            how many different tags there are.
 
-            **Write:** `count_unique(tags)`
+            **Your job:** write `count_unique(tags)` so that it gives back the number of distinct tags.
 
-            - `tags`: a tuple of strings, e.g. `("rag", "llm", "rag")`
-            - **Returns:** an int: the number of distinct tags, e.g. `2`
+            **What goes in**
+            - `tags`: a tuple of strings, for example `("rag", "llm", "rag")`
+
+            **What comes out**
+            - a whole number, the count of different tags: `2` for the example value
 
             **Rules**
-            - A tag repeated several times counts once.
-            - Capitals matter: `"RAG"` and `"rag"` are different tags.
-            - An empty tuple `()` gives `0`.
+            - A tag that is repeated counts once.
+            - Capital letters matter: `"RAG"` and `"rag"` are two different tags.
+            - The empty tuple `()` gives `0`.
 
             **Examples**
             ```python
@@ -1257,8 +1602,8 @@ EXERCISES = [
         ''',
         "hints": [
             "One of the types in this chapter keeps only one copy of each value.",
-            "Build that kind of group from the tuple, then count how many items it has.",
-            "Return len of set(tags).",
+            "Build that kind of group from the tuple. Then count how many items it has.",
+            "Write one `return` line with a nested call: the counting built-in on the outside, and inside it the tuple turned into a set.",
         ],
     },
     {
@@ -1267,23 +1612,30 @@ EXERCISES = [
         "difficulty": 2,
         "placement": True,
         "prompt": r'''
-            Values read from `.env` files and CLI flags always arrive as **text**, often with stray
-            spaces or newlines. Convert three request settings to their real types.
+            Settings that a program reads from a file or from the command line always arrive as text,
+            often with stray spaces or a newline. Three settings of a request to an AI model need their
+            real types: the temperature (how much variety the answers may have), the maximum number of
+            tokens, and whether the answer is streamed, which means sent piece by piece.
 
-            **Write:** `parse_settings(temperature_text, max_tokens_text, stream_text)`
+            **Your job:** write `parse_settings(temperature_text, max_tokens_text, stream_text)` so that
+            it gives back the three settings with the right types.
 
-            - `temperature_text`: text holding a number, e.g. `" 0.7 "` or `"1"`
-            - `max_tokens_text`: text holding a whole number, e.g. `"512\n"`
+            **What goes in**
+            - `temperature_text`: text that holds a number, for example `" 0.7 "` or `"1"`
+            - `max_tokens_text`: text that holds a whole number, for example `"512\n"`
             - `stream_text`: text such as `"true"`, `" TRUE "`, `"false"`, `"yes"` or `""`
-            - **Returns:** a tuple of 3 values `(temperature, max_tokens, stream)`
+
+            **What comes out**
+            - a tuple of 3 values, `(temperature, max_tokens, stream)`: a float, an int and a bool
 
             **Rules**
-            - `temperature` is always a `float`, even for `"1"` (gives `1.0`) or `"0"` (gives `0.0`).
+            - `temperature` is always a `float`, even for `"1"`, which gives `1.0`, and for `"0"`, which
+              gives `0.0`.
             - `max_tokens` is an `int`.
-            - `stream` is the bool `True` only if `stream_text` is the word `true` in any letter case
-              (`"true"`, `"TRUE"`, `"True"`...), ignoring spaces/newlines around it.
-            - Anything else for `stream` (`"false"`, `" False\n"`, `"yes"`, `""`) gives `False`.
-            - Spaces and newlines around any of the three texts must not matter.
+            - `stream` is `True` only when `stream_text` is the word `true`, in any mix of capital and
+              small letters, with or without spaces and newlines around it.
+            - Every other text gives `False` for `stream`: `"false"`, `" False\n"`, `"yes"` and `""`.
+            - Spaces and newlines around any of the three texts make no difference.
 
             **Examples**
             ```python
@@ -1329,9 +1681,9 @@ EXERCISES = [
                 return temperature, max_tokens, stream
         ''',
         "hints": [
-            "Use the conversion functions for the numbers. Careful: bool(\"false\") is True, because any non-empty text is truthy.",
-            "Convert the first two with float() and int(). For stream, clean the text (strip, lowercase) and compare it with \"true\": the comparison itself is the bool you need.",
-            "1) temperature = float(...). 2) max_tokens = int(...). 3) stream = the stripped, lowercased text == \"true\". 4) Return the three names separated by commas.",
+            "Two of the three settings are plain conversions. The third is not: `bool(\"false\")` is `True`, because every string that is not empty is truthy.",
+            "Use the conversion functions for the two numbers. For `stream`, clean the text first (trim the ends, make it lowercase), then compare it with the word you are looking for. The comparison itself is the bool.",
+            "The body has four lines: a float made from the first text, an int made from the second, a bool that comes from comparing the cleaned third text with the lowercase word for true, and a `return` with the three names separated by commas.",
         ],
     },
     {
@@ -1345,24 +1697,30 @@ EXERCISES = [
             ],
         },
         "prompt": r'''
-            A request has three costs in dollars: prompt, output and tool calls. Report the total
-            and whether it fits the budget.
+            A request to an AI model has three costs in dollars: the prompt, the output and the tool
+            calls. You want the total, and you want to know whether it stays within a budget. The costs
+            are floats, and floats are not exact: in Python, `0.1 + 0.1 + 0.1` is
+            `0.30000000000000004`. Your function has to give sensible answers in spite of that.
 
-            **Write:** `check_budget(prompt_cost, output_cost, tool_cost, budget)`
+            **Your job:** write `check_budget(prompt_cost, output_cost, tool_cost, budget)` so that it
+            gives back the total and whether the total is within the budget.
 
-            - `prompt_cost`, `output_cost`, `tool_cost`: `float` costs in dollars, e.g. `0.1`
-            - `budget`: the maximum allowed total, a number, e.g. `0.3`
-            - **Returns:** a tuple `(total, within)`
+            **What goes in**
+            - `prompt_cost`, `output_cost`, `tool_cost`: three costs in dollars, floats, for example `0.1`
+            - `budget`: the highest total that is allowed, a number, for example `0.3`
+
+            **What comes out**
+            - a tuple `(total, within)`: a float and a bool
 
             **Rules**
-            - `total` is the sum of the three costs, **rounded to 6 decimal places**
-              (`0.1 + 0.1 + 0.1` gives `0.3`, `0.0000014 + 0.0000027` gives `4e-06`).
-            - `within` is the bool `True` if the sum does not exceed `budget`, otherwise `False`.
-            - Floating-point noise must not cause a false "over budget": a sum that is above the
-              budget by at most `1e-9` (0.000000001) still counts as within.
-            - Decide `within` from the **unrounded** sum: a sum of `0.1000004` is over a `0.1`
-              budget even though its rounded total is `0.1`.
-            - Anything clearly above the budget is over, even by a little (`0.3001` vs `0.3`).
+            - `total` is the sum of the three costs, rounded to 6 decimal places. `0.1 + 0.1 + 0.1` gives
+              `0.3`, and `0.0000014 + 0.0000027` gives `4e-06`, which is how Python writes 0.000004.
+            - `within` is `True` when the sum is not more than `budget`, and `False` otherwise.
+            - A tiny float error must not make a request look too expensive. A sum that is above the
+              budget by at most `1e-9`, which is 0.000000001, still counts as within.
+            - `within` is decided from the sum before it is rounded. A sum of `0.1000004` is over a budget
+              of `0.1`, even though its rounded total is `0.1`.
+            - Anything that is clearly above the budget is over, even by a little: `0.3001` is over `0.3`.
 
             **Examples**
             ```python
@@ -1408,9 +1766,9 @@ EXERCISES = [
                 return round(raw, 6), raw <= budget + 1e-9
         ''',
         "hints": [
-            "round(x, 6) rounds; a comparison like a <= b is already a bool; floats need a small tolerance.",
-            "Add the three costs once. Round that for the returned total, but decide 'within' by comparing the raw (unrounded) sum with the budget plus a tiny tolerance.",
-            "1) raw = the three costs added. 2) total = round(raw, 6). 3) within = raw <= budget + 1e-9. 4) Return total and within, separated by a comma.",
+            "Three tools are enough: `round` with a second argument, a comparison (which is already a bool), and a small allowance for float errors.",
+            "Add the three costs once, and keep that sum under a name. Round it for the total. For `within`, compare the sum before rounding with the budget plus the tiny allowance.",
+            "Line one: a name for the three costs added together. Line two: `return` two values. The first is that sum rounded to 6 places. The second is a comparison that asks whether the unrounded sum is at most the budget plus the allowance from the task.",
         ],
     },
     {
@@ -1418,24 +1776,28 @@ EXERCISES = [
         "title": "Tag overlap",
         "difficulty": 3,
         "prompt": r'''
-            Two documents in a RAG index each have a tuple of tags (possibly with repeats). Measure
-            how similar their tags are with an **overlap score**:
+            Each document in the search index of a RAG app has a tuple of tags, and a tag may be
+            repeated. To measure how alike two documents are, you compare their tags with an **overlap
+            score**: the number of distinct tags that they share, divided by the number of distinct tags
+            that appear in either of them.
 
-            *number of distinct tags they share* / *number of distinct tags in either*
+            **Your job:** write `overlap(tags_a, tags_b)` so that it gives back the overlap score.
 
-            **Write:** `overlap(tags_a, tags_b)`
+            **What goes in**
+            - `tags_a`: a tuple of strings, for example `("rag", "llm", "rag")`
+            - `tags_b`: a tuple of strings, for example `("llm", "eval")`
 
-            - `tags_a`: a tuple of strings, e.g. `("rag", "llm", "rag")`
-            - `tags_b`: a tuple of strings, e.g. `("llm", "eval")`
-            - **Returns:** the score as a `float`, rounded to 3 decimal places
+            **What comes out**
+            - the score as a float, rounded to 3 decimal places: `0.333` for the example values (1 shared
+              tag out of 3 different tags)
 
             **Rules**
-            - Repeated tags count once (`("a", "a")` has 1 distinct tag).
-            - No shared tags gives `0.0`; that includes one tuple being empty.
-            - If both tuples are empty, return `0.0` (it must not crash).
-            - The result is always a `float` (`1.0`, not `1`).
-            - Don't use `if` statements, `x if c else y` expressions, `for`/`while` loops or `try`
-              (a check enforces this).
+            - A repeated tag counts once: `("a", "a")` has 1 distinct tag.
+            - No shared tags gives `0.0`. That includes the case where one tuple is empty.
+            - When both tuples are empty, the result is `0.0`. The function must not stop with an error.
+            - The result is always a float: `1.0`, not `1`.
+            - Use only what this chapter and the earlier ones taught. A check fails when the code
+              contains `if`, `for`, `while` or `try`, which are tools from later chapters.
 
             **Examples**
             ```python
@@ -1488,9 +1850,9 @@ EXERCISES = [
                 return round(shared / max(total, 1), 3)
         ''',
         "hints": [
-            "Sets drop repeats for you. The lesson shows & (in both) and | (in either). len() counts a set.",
-            "Turn each tuple into a set, count the shared tags and the combined tags, divide, round. For the empty case, think about what to divide by so it can never be zero without using if.",
-            "1) a = set(tags_a), b = set(tags_b). 2) shared = len of a & b. 3) total = len of a | b. 4) Divide shared by max(total, 1) (when total is 0, shared is 0 too). 5) Round to 3 places.",
+            "Sets drop repeats for you. The lesson on sets shows `&` for the values in both sets and `|` for the values in either, and `len` counts the items of a set.",
+            "Turn each tuple into a set. Count the shared tags, count all the tags, divide the first count by the second, and round. For two empty tuples, think about how to make sure that you never divide by zero.",
+            "Make two sets. Take `len` of their `&` and `len` of their `|`. Divide the shared count by the bigger of the total count and 1, which the built-in `max` picks for you. When the total is 0, the shared count is 0 as well, so the result is 0.0. Round to 3 places.",
         ],
     },
     {
@@ -1498,23 +1860,33 @@ EXERCISES = [
         "title": "Batch planner",
         "difficulty": 3,
         "prompt": r'''
-            You embed documents in batches. Plan how many API calls a job needs.
+            To turn documents into embeddings, which are lists of numbers that capture what a text means,
+            you send the documents to an API in batches of a fixed size. Before a job starts you want a
+            plan: how many batches are completely full, how many documents are left over, and how many
+            API calls the job needs in total.
 
-            **Write:** `plan_batches(total_text, batch_size)`
+            **Your job:** write `plan_batches(total_text, batch_size)` so that it gives back those three
+            numbers.
 
-            - `total_text`: the number of documents as **text**, maybe with spaces/newline, e.g. `" 1000\n"`
-            - `batch_size`: an `int` greater than 0, e.g. `100`
-            - **Returns:** a tuple of three `int`s `(full_batches, leftover, batches_needed)`:
-              - `full_batches`: how many completely full batches
-              - `leftover`: how many documents are left over after the full batches
-              - `batches_needed`: batches needed in total (a partial batch still needs a call)
+            **What goes in**
+            - `total_text`: the number of documents as text, possibly with spaces or a newline around it,
+              for example `" 1000\n"`
+            - `batch_size`: the number of documents in a batch, a whole number greater than 0, for
+              example `100`
+
+            **What comes out**
+            - a tuple of three ints, `(full_batches, leftover, batches_needed)`:
+              - `full_batches`: the number of batches that are completely full
+              - `leftover`: the number of documents that remain after the full batches
+              - `batches_needed`: the number of batches in total. A batch that is only partly filled
+                still needs a call.
 
             **Rules**
-            - All three values must be of type `int` (not `float`).
-            - Results must be exact even for huge totals like `10**18 + 1`: use whole-number
-              arithmetic only (floats are not exact at that size).
+            - All three values have the type `int`, not `float`.
+            - The results are exact even for a huge total such as `10**18 + 1` (a 1 followed by 18 zeros,
+              plus 1). Floats are not exact at that size, so use whole-number arithmetic only.
             - A total of `0` needs `0` batches.
-            - Don't use `if` statements or `x if c else y` expressions (a check enforces this).
+            - A check fails when the code contains `if`, which is a tool from the next chapter.
 
             **Examples**
             ```python
@@ -1570,9 +1942,9 @@ EXERCISES = [
                 return full_batches, leftover, batches_needed
         ''',
         "hints": [
-            "// and % give the full batches and the leftover. The hard part is 'round up' division using only whole numbers.",
-            "Rounding up a division means: add just enough to the total that any partial batch becomes a full one, then use // . Avoid / because it makes a float.",
-            "1) total = int(total_text). 2) full = total // batch_size. 3) leftover = total % batch_size. 4) needed: add one less than batch_size to the total, then divide with //. 5) Return the three values.",
+            "`//` and `%` give the full batches and the leftover. The hard part is the third number: a division that rounds up, done with whole numbers only.",
+            "To round a division up, first add just enough to the total that a partly filled batch becomes a full one, then use `//`. Stay away from `/`, because it makes a float.",
+            "Convert the text to an int first. The full batches are the total floor-divided by the batch size, and the leftover is the remainder of that division. For the batches needed, add one less than the batch size to the total, and floor-divide that by the batch size. Return the three values.",
         ],
     },
 ]

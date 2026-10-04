@@ -213,33 +213,72 @@ EXERCISES = [
         "title": "What gets printed?",
         "difficulty": 0,
         "lesson": r'''
-            ## Patterns and `re.search`
+            ## Find text when you only know its shape
 
-            A **regular expression** (or **regex**) is a string that describes which characters to look
-            for in a text. That string is called the **pattern**. The `re` module in the standard
-            library searches text with patterns.
+            A log line says `Model v4 costs 30 dollars`, and your program needs the numbers in it. The
+            string methods you know can look for a text you already have: `text.find("30")` works when
+            you know that the number is 30. Here you do not know the number. You only know what a number
+            looks like: digits.
 
-            In a pattern, `\d` matches one digit. A `+` after an item means "one or more of that item".
-            So `\d+` matches one or more digits in a row. The example writes the pattern as
-            `r"\d+"`. The `r` before the quote is explained at the end of this step.
+            Python has a small language for describing what a piece of text looks like. It lives in the
+            `re` module, which comes with Python. Here is the first sign of that language:
 
             ```python
             import re
 
             text = "Model v4 costs 30 dollars"
-            m = re.search(r"\d+", text)
-            print(m.group())
-            # 4
+            print(re.findall(r"\d", text))
+            # ['4', '3', '0']
+            ```
+
+            `\d` stands for "one digit, whichever digit it is". `re.findall` reads the text from left to
+            right and collects every place where that description fits. Each digit fits on its own, so
+            you get three pieces. (The `r` in front of the quote is explained at the end.)
+
+            Three loose digits are not the numbers you wanted. Add one more sign:
+
+            ```python
+            import re
+
+            text = "Model v4 costs 30 dollars"
             print(re.findall(r"\d+", text))
             # ['4', '30']
             ```
 
-            `re.search(pattern, text)` finds the **first** match. It returns a **match object**: a value
-            that records which part of the text matched. `m.group()` returns the matched text as a string.
+            `+` means "one or more of the thing in front of me, as many as stand in a row". So `\d+` is
+            a whole run of digits.
 
-            `re.findall(pattern, text)` returns **every** match as a list of strings.
+            A description such as `\d+` is called a **pattern**. The language of patterns is called
+            **regular expressions**, or **regex** for short. When a piece of text fits a pattern, the
+            pattern **matches** it.
 
-            Step through the stages to see how `re.search` finds the `4`.
+            ```match
+            `re.findall(r"\d", "room 12")` :: `['1', '2']`
+            `re.findall(r"\d+", "room 12")` :: `['12']`
+            `re.findall(r"\d+", "3 rooms, 12 beds")` :: `['3', '12']`
+            `re.findall(r"\d+", "room twelve")` :: `[]`
+            ---
+            Without the `+`, every digit is a match of its own. With it, a run of digits is one match. A text without digits gives an empty list. The quotes show that the pieces are strings, not numbers.
+            ```
+
+            ### Only the first match
+
+            `re.search` takes the same pattern and text, and stops at the first place where the pattern
+            matches:
+
+            ```python
+            import re
+
+            m = re.search(r"\d+", "Model v4 costs 30 dollars")
+            print(m)
+            # <re.Match object; span=(7, 8), match='4'>
+            print(m.group())
+            # 4
+            ```
+
+            `re.search` hands back a **match object**: a value that remembers what matched and where.
+            `m.group()` asks it for the matched text. Step through the stages to see why the `30` is
+            never reached:
 
             ```diagram
             {"type":"flow","title":"How re.search scans the text","steps":[
@@ -251,13 +290,39 @@ EXERCISES = [
             ],"loop":{"from":2,"to":1,"label":"until the pattern matches or the text ends"}}
             ```
 
-            Write the pattern as a **raw string**: put `r` before the opening quote. In a normal
-            string Python reads a backslash and the next character as one special character:
-            `"\n"` is a newline. In a raw string Python keeps every backslash as written, so `re`
-            receives `\d` unchanged.
+            ```quiz
+            What does this program print?
+
+            ~~~python
+            import re
+
+            m = re.search(r"\d+", "call 911 or 112")
+            print(m.group())
+            ~~~
+            - [x] `911` :: Right. `re.search` stops at the first run of digits, and `.group()` gives its text.
+            - [ ] `['911', '112']` :: That is the answer of `re.findall`, which collects every match. `re.search` stops at the first one.
+            - [ ] `9` :: `\d` alone would stop after one digit. The `+` takes the whole run, `911`.
+            - [ ] `<re.Match object; span=(5, 8), match='911'>` :: That is what `print(m)` shows. `.group()` takes the text out of the match object.
+            ```
+
+            ### The `r` in front of the quote
+
+            In a normal string, a backslash starts an escape sequence: `"\n"` is one newline character.
+            A pattern needs its backslashes to reach `re` exactly as you wrote them. An `r` in front of
+            the opening quote switches escape sequences off, so in `r"\d+"` the backslash stays a
+            backslash. This is called a **raw string**. Write every pattern as one.
+
+            **Watch out:** `re.search` gives you a match object, not the text. If your program prints
+            something like `<re.Match object; span=(7, 8), match='4'>`, the `.group()` is missing.
+
+            **In short:** `\d+` matches a run of digits, `re.findall` gives every match as a list of
+            strings, and `re.search` gives a match object for the first match, which `.group()` turns
+            into text.
         ''',
         "mode": "predict",
-        "prompt": r'''Read the code and type exactly what it prints.''',
+        "prompt": r'''
+            Read the program in the editor. Type exactly what it prints, one line for each `print`.
+        ''',
         "code": r'''
             import re
 
@@ -271,15 +336,17 @@ EXERCISES = [
             66
         ''',
         "explanation": r'''
-            `\d+` means "one or more digits". `re.findall` returns **every** match as a list of
-            strings (not ints), so you get `['66', '3']`. `re.search` stops at the **first**
-            match, and `.group()` gives its text: `66`.
+            `\d+` matches a run of one or more digits, and this text has two runs: `66` and `3`.
+            `re.findall` collects every match in a list. The matches are strings, so Python prints them
+            in quotes: `['66', '3']`. `re.search` stops at the first match, which is `66`, and hands back
+            a match object. `m.group()` reads the matched text out of it, and `print` shows a string
+            without quotes: `66`.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            r"`\d` is one digit and `+` means 'one or more', so `\d+` matches a whole run of digits.",
-            "`findall` collects every match into a list of strings; `search` only finds the first one.",
-            "Line 1: list every digit run in the text, printed as a Python list with quotes. Line 2: just the first run, printed without quotes.",
+            "Work out first which pieces of the text `\\d+` matches. A piece ends at the first character that is not a digit.",
+            "The first `print` shows what `re.findall` hands back, and the second shows what `m.group()` hands back. One of the two is a list, and the other is a single string.",
+            "Your first line is a list of every run of digits in the text, written the way Python prints a list of strings: square brackets, a comma between the items, and single quotes around each item. Your second line is only the first run of digits, without quotes.",
         ],
     },
     {
@@ -287,10 +354,15 @@ EXERCISES = [
         "title": "Find all numbers",
         "difficulty": 0,
         "lesson": r'''
-            ## `re.findall`
+            ## Collect every match in one list
 
-            `re.findall(pattern, text)` scans the text from left to right. It returns a list of every
-            part of the text that matches the pattern, in the order the matches appear.
+            One line of a log reads `latency 120ms, 85ms, 240ms`. You want all three numbers, perhaps to
+            find the slowest call. `re.search` stops at the first match, so it would give you `120` and
+            nothing more.
+
+            In the last step you met the function that keeps going. `re.findall` moves through the text
+            from left to right, collects every match, and hands them back as a list, in the order in
+            which they stand in the text:
 
             ```python
             import re
@@ -300,45 +372,88 @@ EXERCISES = [
             # ['120', '85', '240']
             ```
 
-            Each item in the list is a string, even when it contains only digits. Call `int()` on an
-            item when you need a number.
+            A match may sit in the middle of a word. `\d+` asks for digits, and it does not care what
+            stands around them:
 
-            ```python
+            ```predict
             import re
 
-            numbers = re.findall(r"\d+", "latency 120ms, 85ms, 240ms")
-            print(int(numbers[0]) + int(numbers[1]))
-            # 205
+            line = "gpt-4 retried 3 times in 20s"
+            found = re.findall(r"\d+", line)
+            print(found)
+            print(len(found))
+            ---
+            The `4` in `gpt-4` and the `20` in `20s` are runs of digits like any other, so the list has three items. The letters and the `-` around them are not part of the matches.
             ```
 
-            When nothing matches, `findall` returns an empty list, not `None`. A `for` loop over an
-            empty list runs zero times, so you can loop over the result without a check.
+            ### The items are strings
+
+            Every item in that list is a piece of the text. So it is a string, even when it holds
+            nothing but digits. To calculate with an item, turn it into a number with `int()` first, as
+            you did in the Data types chapter.
+
+            ```try
+            import re
+
+            sizes = re.findall(r"\d+", "chunks of 200 and 350 words")
+            print(sizes[0] + sizes[1])
+            ---
+            The program glues two strings together and prints `200350`. Change the last line so that it adds the two numbers and prints `550`.
+            ---
+            import re
+
+            sizes = re.findall(r"\d+", "chunks of 200 and 350 words")
+            print(int(sizes[0]) + int(sizes[1]))
+            ---
+            `findall` hands back strings, and `+` between two strings joins them. `int()` around each item turns it into a number first.
+            ```
+
+            ### When nothing matches
 
             ```python
             import re
 
-            print(re.findall(r"\d+", "no numbers"))
+            print(re.findall(r"\d+", "no numbers here"))
             # []
             ```
 
-            Matches do not overlap. After a match ends, the scan continues at the index where that
-            match ended.
+            Finding nothing is not an error. You get an empty list. A `for` loop over an empty list
+            runs zero times, so code that loops over the result needs no extra check.
 
-            `re.search` stops at the first match and returns a match object. Use `findall` when you
-            need all the matches.
+            ```quiz
+            How many items are in the list that `re.findall(r"\d+", "v2.5 has 10 tools")` hands back?
+            - [x] 3 :: Right: `'2'`, `'5'` and `'10'`. The dot is not a digit, so it ends the first run, and the `5` starts a new one.
+            - [ ] 2 :: `2.5` is one number to you, but `\d+` only knows digits. The dot ends one run, and the `5` starts another.
+            - [ ] 4 :: `10` is two digits in a row, and the `+` keeps a run together as one match.
+            - [ ] 1 :: `re.search` stops after one match. `re.findall` carries on to the end of the text.
+            ```
+
+            **Watch out:** the items are strings, and strings are compared character by character, like
+            words in a dictionary. So `max(['120', '85', '240'])` is `'85'`, with no error to warn you.
+            Turn the items into numbers before you compare them or add them up.
+
+            **In short:** `re.findall(pattern, text)` hands back a list of every match, as strings, in
+            the order of the text, and an empty list when nothing matches.
         ''',
         "prompt": r'''
-            Logs mix numbers into text (`"used 1200 tokens"`). Pull out all of them.
+            The logs of an AI app mix numbers into plain text, as in `"gpt-4o used 1200 tokens"`. Before
+            you can add the numbers up or chart them, you have to get them out of the text.
 
-            **Write:** replace the `___` in `find_numbers(text)` with the right `re` function name.
+            **Your job:** finish `find_numbers(text)` so that it gives back every number in the text. The
+            function is already written except for one gap, marked `___`. The name of a function of the
+            `re` module belongs there. Replace the gap.
 
-            - `text`: a `str`, e.g. `"gpt-4o used 1200 tokens"`
-            - **Returns:** a `list` of strings: **every** run of digits, in order, e.g. `["4", "1200"]`
+            **What goes in**
+            - `text`: a string, for example `"gpt-4o used 1200 tokens"`
+
+            **What comes out**
+            - a list of strings: every run of digits in the text, in the order in which they stand
+              there. For the example value that is `["4", "1200"]`.
 
             **Rules**
-            - Keep the pattern as it is; only fill in the blank.
-            - The numbers stay strings (`"1200"`, not `1200`).
-            - No digits: return `[]`.
+            - The pattern in the editor is right. Only the gap changes.
+            - The numbers stay strings: `"1200"`, not `1200`.
+            - A text without any digit gives the empty list, `[]`.
 
             **Examples**
             ```python
@@ -377,9 +492,9 @@ EXERCISES = [
                 return re.findall(r"\d+", text)
         ''',
         "hints": [
-            "You need the `re` function that returns ALL matches, not just the first.",
-            "`re.search` gives one match object; the other function gives a list of every matching string.",
-            "Replace `___` with the name of the function from the lesson that returns a list of all matches (it starts with 'find').",
+            "The lesson compares two functions of the `re` module. One of them stops at the first match. Which one keeps going?",
+            "Look at what must come out: a list with every run of digits in it, and an empty list when there is none. Only one of the two functions hands back a list.",
+            "The gap takes one word: the name of the function that the first example of the lesson calls. The pattern and the text after the gap stay as they are.",
         ],
     },
     {
@@ -387,59 +502,108 @@ EXERCISES = [
         "title": "Fix the version finder",
         "difficulty": 0,
         "lesson": r'''
-            ## Where the pattern must match
+            ## Is it anywhere in the text?
 
-            Three functions take the same arguments, a pattern and a text. They differ in where the
-            pattern is allowed to match.
+            Release notes mention model versions: `now using v2 for chat`. Your program has a yes-or-no
+            question about such a text: does it mention a version at all?
 
-            - `re.match` tries the pattern at index 0 only.
-            - `re.search` tries every index and stops at the first match.
-            - `re.fullmatch` succeeds only when the pattern matches the whole string, from index 0 to the end.
+            First the pattern. A plain letter in a pattern stands for itself, so `v\d` reads: the
+            letter `v`, and then one digit.
 
             ```python
             import re
 
-            text = "use model v2 today"
-            print(re.match(r"v\d", text))
-            # None
-            print(re.search(r"v\d", text).group())
-            # v2
-            print(re.fullmatch(r"v\d", text))
-            # None
-            print(re.fullmatch(r"v\d", "v2").group())
-            # v2
+            print(re.findall(r"v\d", "version v2, later v3"))
+            # ['v2', 'v3']
             ```
 
-            Each function returns a match object when it succeeds and `None` when it fails. The
-            comparison `result is not None` turns that result into `True` or `False`.
+            The `v` of `version` is not in the list. The whole pattern has to fit, and after that `v`
+            comes an `e`, which is not a digit.
+
+            ```match
+            `v\d` :: fits `v2`, but not `vx`
+            `\d\d` :: fits `42`, but not `4`
+            `id\d+` :: fits `id7` and `id123`, but not `id`
+            `\d+%` :: fits `50%`, but not `50`
+            ---
+            Read a pattern from left to right, one piece at a time. Every piece has to find its character in the text, or there is no match.
+            ```
+
+            ### Yes or no
+
+            You know that `re.search` hands back a match object. When the pattern fits nowhere, there
+            is no match object to hand back, and you get `None` instead:
 
             ```python
             import re
 
-            text = "use model v2 today"
-            print(re.search(r"v\d", text) is not None)
+            print(re.search(r"v\d", "now using v2 for chat"))
+            # <re.Match object; span=(10, 12), match='v2'>
+            print(re.search(r"v\d", "no version here"))
+            # None
+            ```
+
+            For a yes-or-no answer, compare the result with `None`, as you did in the Data types
+            chapter. `re.search(...) is not None` is `True` when there is a match and `False` when there
+            is none.
+
+            ### The function with the misleading name
+
+            The `re` module also has a function called `re.match`. The name sounds like "find a match".
+            But `re.match` tries the pattern at the very start of the text only, at index 0, and gives
+            up when it does not fit there.
+
+            ```python
+            import re
+
+            print(re.match(r"v\d", "v2 is out") is not None)
             # True
-            print(re.match(r"v\d", text) is not None)
+            print(re.match(r"v\d", "now using v2 for chat") is not None)
             # False
             ```
 
-            The name `re.match` does not mean "find a match anywhere". `re.match(r"v\d", text)` returns
-            `None` here because the text starts with `u`, not `v`.
+            The second text does contain `v2`. It starts with `n`, though, so `re.match` says no.
+
+            The program below should print `True`, because the note mentions `v7`. Pick the function:
+
+            ```fill
+            import re
+
+            note = "we moved to v7 last week"
+            print(re.___(r"v\d", note) is not None)
+            ---
+            - [x] search :: Right. `re.search` tries every position, so it finds `v7` in the middle of the text.
+            - [ ] match :: `re.match` only tries index 0. This text starts with `w`, so it hands back `None`, and the program prints `False`.
+            - [ ] find :: `find` is a string method, as in `note.find("v7")`. The `re` module has no function of that name, so Python stops with `AttributeError: module 're' has no attribute 'find'`.
+            ```
+
+            **Watch out:** `re.match` raises no error when you meant `re.search`. It quietly hands back
+            `None` for every text that does not start with the pattern, so the bug shows only on some
+            inputs.
+
+            **In short:** `re.search` looks for the pattern anywhere in the text, `re.match` looks only
+            at the very start, and `is not None` turns either result into `True` or `False`.
         ''',
         "prompt": r'''
-            Release notes mention model versions like `v1.2`. `has_version` should spot one
-            anywhere in the text, but right now it only finds a version at the very start.
+            Release notes mention model versions such as `v1.2`. The function `has_version` is meant to
+            say whether a text mentions a version anywhere. It has a bug: it says yes only when the
+            version stands at the very start of the text.
 
-            **Write:** fix `has_version(text)`
+            **Your job:** find the bug in `has_version(text)` and fix it. The code is already in the
+            editor.
 
-            - `text`: a `str`, e.g. `"release v10.04 now"`
-            - **Returns:** `True` if the text contains a version **anywhere**, else `False`
-              (a real `bool`)
+            **What goes in**
+            - `text`: a string, for example `"release v10.04 now"`
+
+            **What comes out**
+            - `True` when the text contains a version anywhere, and `False` when it does not
 
             **Rules**
-            - A version is `v`, one or more digits, `.`, one or more digits (e.g. `v1.2`, `v10.04`).
-              The pattern is already correct; the bug is elsewhere.
-            - `v1` alone (no `.` and minor number) is not a version.
+            - A version is the letter `v`, one or more digits, a dot, and one or more digits again, as
+              in `v1.2` and `v10.04`.
+            - The pattern in the editor already says exactly that, so leave it alone. (`\.` stands for
+              a real dot. A later step explains why it needs the backslash.) The bug is somewhere else.
+            - `v1` on its own, with no dot and no second number, is not a version.
 
             **Examples**
             ```python
@@ -477,9 +641,9 @@ EXERCISES = [
                 return re.search(r"v\d+\.\d+", text) is not None
         ''',
         "hints": [
-            "The pattern is fine. Look at which `re` function is used.",
-            "`re.match` only checks the beginning of the string. You need a function that looks anywhere.",
-            "Swap `re.match` for the function that scans the whole text for the first match (see 'Where must it match?' in the lesson).",
+            "The pattern is right. Look at the name of the function that is called with it, and read the last part of the lesson again.",
+            "The function in the editor tries the pattern at one position only. Which position is that? And which function of the `re` module tries every position?",
+            "Change one word on the `return` line: the name of the `re` function. Use the one that looks for the pattern anywhere in the text. Everything else on that line stays.",
         ],
     },
     {
@@ -487,58 +651,100 @@ EXERCISES = [
         "title": "Validate a ticket id",
         "difficulty": 0,
         "lesson": r'''
-            ## Validation with `re.fullmatch`
+            ## Is the whole text a valid code?
 
-            To **validate** a string is to check that the whole string has an expected format.
-            `re.fullmatch(pattern, text)` does this. It returns a match object only when the pattern
-            matches every character of the text, from the first to the last.
-
-            ```python
-            import re
-
-            print(re.fullmatch(r"\d{3}", "123") is not None)
-            # True
-            print(re.fullmatch(r"\d{3}", "1234") is not None)
-            # False
-            print(re.fullmatch(r"ID-\d{3}", "ID-042") is not None)
-            # True
-            print(re.fullmatch(r"ID-\d{3}", "my ID-042") is not None)
-            # False
-            print(re.fullmatch(r"ID-\d{3}", "id-042") is not None)
-            # False
-            ```
-
-            A **quantifier** is a part of a pattern that says how many times the item before it
-            repeats. `{3}` means exactly 3 times, so `\d{3}` matches exactly 3 digits.
-
-            A **literal** is a character in a pattern that matches itself. The letters `I` and `D` and
-            the `-` are literals here. Literals are case-sensitive, so `ID` does not match `id`.
-
-            `re.search` is the wrong function for validation. It accepts a string that has extra
-            characters around the match.
+            A form asks for an order code such as `ORD-042`. Your program must accept `ORD-042` and refuse
+            `please send ORD-042 now`. You already know a function that answers yes or no, `re.search`.
+            Try it on both texts:
 
             ```python
             import re
 
-            print(re.search(r"\d{3}", "1234").group())
-            # 123
+            print(re.search(r"ORD-\d+", "ORD-042") is not None)
+            # True
+            print(re.search(r"ORD-\d+", "please send ORD-042 now") is not None)
+            # True
             ```
+
+            Both say yes, because `re.search` looks for the pattern anywhere, and a code does sit inside
+            the second text. A form needs a different question: does the whole text fit the pattern, from
+            the first character to the last? `re.fullmatch` asks exactly that. It hands back a match
+            object when the whole text fits, and `None` when it does not.
+
+            ```python
+            import re
+
+            print(re.fullmatch(r"ORD-\d+", "ORD-042") is not None)
+            # True
+            print(re.fullmatch(r"ORD-\d+", "please send ORD-042 now") is not None)
+            # False
+            ```
+
+            Checking that a text has the right format, like this, is called **validation**.
+
+            ### Exactly this many
+
+            `\d+` accepts any number of digits. A code with exactly three digits needs a stricter sign:
+            a number in curly braces, written after a piece of the pattern, says how many times that piece
+            must appear. `\d{3}` is three digits, no more and no fewer.
+
+            ```python
+            import re
+
+            print(re.fullmatch(r"ORD-\d{3}", "ORD-042") is not None)
+            # True
+            print(re.fullmatch(r"ORD-\d{3}", "ORD-0421") is not None)
+            # False
+            ```
+
+            `+` and `{3}` are both **quantifiers**: signs that say how many times the piece in front of
+            them repeats. Letters and the hyphen in a pattern match themselves, and a capital letter is
+            not the same as a lower-case one, so `ORD` does not match `ord`.
+
+            ```predict
+            import re
+
+            for text in ["A-7", "A-77", "A-777"]:
+                print(text, re.fullmatch(r"A-\d{2}", text) is not None)
+            ---
+            `\d{2}` wants exactly two digits. `A-7` has one, so it fails. `A-77` has two, so it passes. `A-777` has three, and the third digit is left over, so `re.fullmatch` says no.
+            ```
+
+            ```quiz
+            Which text does `re.fullmatch(r"ORD-\d{3}", text)` accept?
+            - [x] `ORD-042` :: Right. `ORD-` matches itself, the three digits fill `\d{3}`, and nothing is left over.
+            - [ ] `ORD-0421` :: The pattern takes three digits and stops, but this text has a fourth digit left over. The whole text has to fit.
+            - [ ] `my ORD-042` :: Text before the code is not allowed either. `re.fullmatch` starts at the first character of the text.
+            - [ ] `ord-042` :: Letters match themselves exactly, capital letters included. `ord` is not `ORD`.
+            ```
+
+            **Watch out:** `re.match` is no replacement. It only insists on the start of the text, so
+            `re.match(r"ORD-\d{3}", "ORD-0421")` still hands back a match object for `ORD-042`. For a
+            yes-or-no check of the whole text, use `re.fullmatch`.
+
+            **In short:** `re.fullmatch(pattern, text)` gives a match object only when the whole text fits
+            the pattern, `{3}` means exactly three times, and `is not None` turns the result into `True`
+            or `False`.
         ''',
         "prompt": r'''
-            A support bot should only look up a ticket when the user typed a valid ticket id.
+            A support bot should only look up a ticket when the user typed a valid ticket id, and nothing
+            else around it.
 
-            **Write:** `is_ticket_id(text)`
+            **Your job:** write `is_ticket_id(text)` so that it says whether the whole text is a valid
+            ticket id.
 
-            - `text`: a `str`, e.g. `"TICKET-1234"`
-            - **Returns:** `True` if the **whole** string is a ticket id, else `False` (a real `bool`)
+            **What goes in**
+            - `text`: a string, for example `"TICKET-1234"`
+
+            **What comes out**
+            - `True` when the whole text is a ticket id, and `False` when it is not. It must be a real
+              `True` or `False`, not a match object.
 
             **Rules**
-            - A ticket id is exactly `TICKET-` (upper case) followed by **exactly 4 digits**.
-            - Nothing may come before or after it: `"see TICKET-1234"` and `"TICKET-1234!"` are `False`.
-            - 3 or 5 digits, lower case `ticket-`, or a letter among the digits: `False`.
-
-            Reminder: `re.fullmatch(pattern, text)` returns a match object or `None`, and `\d{4}`
-            means exactly four digits.
+            - A ticket id is the word `TICKET` in capital letters, a hyphen, and exactly 4 digits.
+            - Nothing may stand before it or after it. `"see TICKET-1234"` and `"TICKET-1234!"` are
+              `False`.
+            - 3 digits or 5 digits, a lower-case `ticket`, and a letter among the digits are all `False`.
 
             **Examples**
             ```python
@@ -579,9 +785,9 @@ EXERCISES = [
                 return re.fullmatch(r"TICKET-\d{4}", text) is not None
         ''',
         "hints": [
-            "Whole-string checks are the job of `re.fullmatch`.",
-            "Write a pattern with the literal text `TICKET-` followed by a digit class with an exact count, then turn the result into True/False.",
-            r"1) Pattern: the literal `TICKET-` then `\d{4}`. 2) Call `re.fullmatch(pattern, text)`. 3) Return whether the result `is not None`.",
+            "The text must fit as a whole, with nothing before it and nothing after it. Which function of the lesson asks exactly that?",
+            "The pattern is the fixed letters and the hyphen, followed by a digit that must appear an exact number of times. The function you picked hands back a match object or `None`, and the result you return must be `True` or `False`.",
+            "Write the pattern as a raw string: the capital letters and the hyphen as they are, then the sign for one digit and the sign for an exact count. Call the whole-text function with the pattern and the text. Compare what it hands back with `None`, and return that comparison.",
         ],
     },
     {
@@ -589,63 +795,110 @@ EXERCISES = [
         "title": "Collect hashtags",
         "difficulty": 0,
         "lesson": r'''
-            ## Character classes
+            ## A set of allowed characters
 
-            A **character class** is a set of characters in square brackets. It matches exactly one
-            character, and that character must be in the set. `[aeiou]` matches one lower-case vowel.
-
-            A `-` between two characters makes a range. `[a-z]` is any lower-case letter, `[A-Z]` any
-            upper-case letter and `[0-9]` any digit. You can combine them: `[A-Za-z]` is any letter.
+            `\d` matches one digit. But how do you match the words in `gpt4 and llama3`? There is no short
+            sign for "any letter", so you describe the characters you allow yourself. Put them in square
+            brackets, and the pattern matches one character that is any of them.
 
             ```python
             import re
 
             print(re.findall(r"[aeiou]", "prompt tokens"))
             # ['o', 'o', 'e']
-            print(re.findall(r"[a-z]+", "abc DEF ghi"))
-            # ['abc', 'ghi']
             ```
 
-            Put a quantifier after the class to repeat it. `[A-Za-z]+` matches one or more letters in a
-            row. The match ends at the first character that is not in the set.
+            `[aeiou]` matches one vowel. Every vowel in the text is a match of its own, just as every
+            digit was a match of its own for `\d` in the first step. The part in square brackets is called
+            a **character class**.
+
+            Listing every letter would be long, so a class can contain a **range**: a hyphen between two
+            characters stands for all the characters from the first to the last. `[a-z]` is any lower-case
+            letter, `[A-Z]` any capital letter and `[0-9]` any digit. Put several in one class to combine
+            them, as in `[A-Za-z]` for any letter. A `+` after a class repeats it, just as it repeated
+            `\d`.
 
             ```python
             import re
 
-            text = "tags: #ai, #ML_ops, #2024!"
-            print(re.findall(r"#[A-Za-z]+", text))
-            # ['#ai', '#ML']
-            print(re.findall(r"#\w+", text))
-            # ['#ai', '#ML_ops', '#2024']
+            print(re.findall(r"[A-Z][a-z]+", "Ada met Grace in Paris"))
+            # ['Ada', 'Grace', 'Paris']
             ```
 
-            Three classes have a short form:
+            Here one capital letter is followed by a run of lower-case letters. A run ends at the first
+            character that is not in the class.
 
-            - `\d` matches one digit, the same as `[0-9]`.
-            - `\w` matches one letter, digit or `_`.
-            - `\s` matches one whitespace character: a space, a tab or a newline.
+            ```match
+            `re.findall(r"[a-z]+", "Ada-7 ok_2")` :: `['da', 'ok']`
+            `re.findall(r"[A-Za-z]+", "Ada-7 ok_2")` :: `['Ada', 'ok']`
+            `re.findall(r"[0-9]+", "Ada-7 ok_2")` :: `['7', '2']`
+            `re.findall(r"\w+", "Ada-7 ok_2")` :: `['Ada', '7', 'ok_2']`
+            ---
+            The first class has no capital letters, so the `A` is skipped and the run of `Ada` starts at the `d`. The hyphen and the space are in none of these classes, so they end every run. The last pattern, `\w`, is explained next.
+            ```
 
-            `#[A-Za-z]+` stops at the `_` in `#ML_ops` and finds nothing in `#2024`, because `_` and
-            digits are not in that set. `\w` includes them.
+            ### A short sign for letters, digits and underscore
+
+            Letters, digits and `_` are what names in code are made of, so they have a short sign of their
+            own: `\w`. Then `\w+` is a run of them:
+
+            ```python
+            import re
+
+            print(re.findall(r"\w+", "user_id=42, ok"))
+            # ['user_id', '42', 'ok']
+            ```
+
+            The `=`, the comma and the space are none of the three, so they end each run.
+
+            ```try
+            import re
+
+            print(re.findall(r"[a-z]+", "gpt4 and llama3"))
+            ---
+            The program prints `['gpt', 'and', 'llama']`: the digits are cut off. Change the class so that the digits stay in the words and the program prints `['gpt4', 'and', 'llama3']`.
+            ---
+            import re
+
+            print(re.findall(r"[a-z0-9]+", "gpt4 and llama3"))
+            ---
+            A class can hold several ranges. `[a-z0-9]` accepts a lower-case letter or a digit at each position, so the run no longer ends at the digit.
+            ```
+
+            ```quiz
+            What does `re.findall(r"[a-z]+", "model_v2")` give?
+            - [x] `['model', 'v']` :: Right. The `_` is not in the class, so it ends the first run. The `v` starts a new run, which ends at the `2`, and the `2` is not in the class either.
+            - [ ] `['model_v']` :: The underscore is not between `a` and `z`, so `[a-z]` cannot match it. Only `\w` includes `_`.
+            - [ ] `['model', 'v2']` :: `[a-z]` has no digits in it, so the `2` is not part of any match.
+            - [ ] `['m', 'o', 'd', 'e', 'l', 'v']` :: The `+` keeps a run of letters together as one match, so `model` is a single item.
+            ```
+
+            **Watch out:** a class matches one single character. `[a-z]` alone finds letters one at a
+            time, and you need the `+` after it to get whole words. A word that has a digit or an
+            underscore in it is cut at that place unless the class contains them.
+
+            **In short:** `[...]` matches one character out of those listed, `a-z` is a range, `+` repeats
+            the class, and `\w` is the short sign for a letter, a digit or an underscore.
         ''',
         "prompt": r'''
-            You want to tag social posts by topic before sending them to a classifier. Pull
-            out the hashtags.
+            You want to tag social posts by topic before sending them to a classifier, so you need the
+            hashtags out of each post.
 
-            **Write:** `find_hashtags(text)`
+            **Your job:** write `find_hashtags(text)` so that it gives back every hashtag in the text.
 
-            - `text`: a `str`, e.g. `"Loving #RAG and #llm_ops!"`
-            - **Returns:** a `list` of strings, every hashtag in the order it appears, each
-              including its `#`, e.g. `["#RAG", "#llm_ops"]`
+            **What goes in**
+            - `text`: a string, for example `"Loving #RAG and #llm_ops!"`
+
+            **What comes out**
+            - a list of strings: every hashtag, in the order in which it stands in the text, each one with
+              its `#` in front. For the example value that is `["#RAG", "#llm_ops"]`.
 
             **Rules**
-            - A hashtag is `#` followed by **one or more** letters, digits or `_`.
-            - The hashtag ends at the first other character (`!`, `,`, `-`, space...), so
+            - A hashtag is a `#` followed by one or more letters, digits or underscores.
+            - A hashtag ends at the first other character (a `!`, a comma, a hyphen, a space), so
               `"#gpt-4"` gives `"#gpt"`.
             - A `#` with nothing valid after it is not a hashtag.
-            - No hashtags: return `[]`.
-
-            Reminder: a *character class* like `[A-Za-z]` matches one character from the set.
+            - A text without any hashtag gives the empty list, `[]`.
 
             **Examples**
             ```python
@@ -683,9 +936,9 @@ EXERCISES = [
                 return re.findall(r"#[A-Za-z0-9_]+", text)
         ''',
         "hints": [
-            "Use `re.findall` with a pattern that starts with a literal `#`.",
-            "After the `#`, put a character class containing letters, digits and underscore, and repeat it one or more times.",
-            r"1) Start the pattern with `#`. 2) Add a class like `[A-Za-z0-9_]` (or the shortcut `\w`). 3) Add `+` after it. 4) Return `re.findall(pattern, text)`.",
+            "You need every match, in a list: which function of the lesson gives that? And which part of the lesson describes a set of allowed characters?",
+            "The pattern starts with the `#`, written as it is. Then comes a class that allows letters, digits and underscore, repeated for one or more characters. The match ends by itself at the first other character.",
+            "Write the pattern as a raw string: the `#` first, then a class of the allowed characters (written with ranges, or with the short sign for letter, digit or underscore), then the sign for one or more. Hand back what the find-every function returns for that pattern and the text.",
         ],
     },
     {
@@ -693,16 +946,16 @@ EXERCISES = [
         "title": "Capture the pieces",
         "difficulty": 0,
         "lesson": r'''
-            ## Capturing groups
+            ## Pull one match apart
 
-            A pair of parentheses in a pattern creates a **capturing group**. The match object stores
-            the text that this part of the pattern matched, and you read it with `m.group(number)`.
+            The text `size 1024x768` holds a width and a height. `re.findall` with `\d+` would give you both
+            numbers, but in a list that does not say which is which. A match object can do better. If you
+            mark parts of the pattern with parentheses, it remembers the text of each part separately.
 
             ```python
             import re
 
-            text = "size 1024x768"
-            m = re.search(r"(\d+)x(\d+)", text)
+            m = re.search(r"(\d+)x(\d+)", "size 1024x768")
             print(m.group(0))
             # 1024x768
             print(m.group(1))
@@ -711,31 +964,59 @@ EXERCISES = [
             # 768
             ```
 
-            - `m.group(0)` is the whole match. `m.group()` with no argument returns the same string.
-            - `m.group(1)` is the first group and `m.group(2)` is the second. Groups are numbered by
-              their opening parenthesis, from left to right.
+            Each pair of parentheses marks a part of the pattern whose text the match object keeps. Such a
+            part is called a **group**.
 
-            Each group is a span of indexes in the text. `m.start(1)` is `5` and `m.end(1)` is `9`, so
-            `m.group(1)` equals `text[5:9]`. Move the handles to `10` and `13` to see the span of group 2.
+            - `m.group(1)` is the text of the first group, and `m.group(2)` the text of the second.
+              Groups are numbered from 1, in the order of their opening parentheses.
+            - `m.group(0)` is the whole match. `m.group()` with no number gives the same text.
+
+            The parentheses do not change which text matches: `\d+x\d+` matches the same `1024x768`. They
+            only mark what to remember.
+
+            A group is a stretch of the text, so it has a start and an end, like a slice. `m.start(1)` is
+            the index where group 1 begins, and `m.end(1)` is the index just after it ends. Move the
+            handles to `10` and `13` to see the stretch that group 2 covers.
 
             ```diagram
             {"type":"slice","title":"The span of group 1 in text","name":"text","value":"size 1024x768","start":5,"stop":9}
             ```
 
-            A group is always a string. Call `int()` on it before you do arithmetic.
-
-            ```python
+            ```fill
             import re
 
-            m = re.search(r"(\d+)x(\d+)", "size 1024x768")
-            print(int(m.group(1)) * int(m.group(2)))
-            # 786432
+            m = re.search(r"(\w+)@(\w+)", "mail ana@lab now")
+            print(m.group(___))
+            ---
+            - [x] 2 :: Right. The second pair of parentheses matched `lab`, the part after the `@`.
+            - [ ] 1 :: That is the first group, the part before the `@`, which is `ana`.
+            - [ ] 0 :: That is the whole match, `ana@lab`, with both parts and the `@`.
             ```
 
-            The parentheses do not change which text matches. `\d+x\d+` matches the same `1024x768`.
+            The program above should print `lab`, the text after the `@`. Pick the number for the gap.
+
+            ### A group is text
+
+            A group holds a piece of the text, so it is a string, even when it holds only digits. To do
+            arithmetic with it, turn it into a number with `int()` first.
+
+            ```quiz
+            `m.group(1)` holds the text `1024`. What does `print(m.group(1) * 2)` print?
+            - [x] `10241024` :: Right. A group is a string, and `*` on a string repeats it. There is no arithmetic yet.
+            - [ ] `2048` :: That is what you get after `int(m.group(1)) * 2`. Without `int`, the group is still text.
+            - [ ] `TypeError` :: A string times a whole number is allowed. It repeats the string.
+            ```
+
+            **Watch out:** only the numbers from 0 up to the number of groups exist. With two groups,
+            `m.group(3)` stops with `IndexError: no such group`.
+
+            **In short:** a pair of parentheses makes a group, `m.group(1)`, `m.group(2)` and so on give
+            the text of each one as a string, and `m.group(0)` gives the whole match.
         ''',
         "mode": "predict",
-        "prompt": r'''Read the code and type exactly what it prints.''',
+        "prompt": r'''
+            Read the program in the editor. Type exactly what it prints, one line for each `print`.
+        ''',
         "code": r'''
             import re
 
@@ -750,88 +1031,82 @@ EXERCISES = [
             1024
         ''',
         "explanation": r'''
-            The pattern matches `max_tokens=512` (a run of word characters, `=`, a run of digits).
-            `group(0)` is that whole match, `group(1)` is the first parenthesised part
-            (`max_tokens`), and `group(2)` is the text `"512"`, which `int` turns into a number
-            before doubling it.
+            `re.search` tries the pattern from the left. At `set` the `\w+` finds letters, but no `=` follows,
+            so the attempt fails and `re.search` moves on. The match starts at `max_tokens`: a run of
+            letters, digits and underscores, then `=`, then the digits `512`.
+
+            - `m.group(0)` is the whole match: `max_tokens=512`.
+            - `m.group(1)` is the text of the first pair of parentheses: `max_tokens`.
+            - `m.group(2)` is the text of the second pair, the string `"512"`. `int` turns it into the
+              number 512, and `* 2` makes it 1024. `print` shows a number without quotes.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            r"`\w+` stops at the first character that is not a letter, digit or `_` - the `=` here. `set` is not followed by `=`.",
-            "Group 0 is the whole match; groups 1 and 2 are the parts inside each pair of parentheses.",
-            "Line 1: the whole `name=number` text. Line 2: only the name. Line 3: the number converted to int and doubled.",
+            "Find the piece of the text that the pattern matches first. It is a run of letters, digits and underscores, then an `=`, then digits. `re.search` skips the words that are not followed by an `=`.",
+            "Group 0 is the whole match. Group 1 is the text matched by the first pair of parentheses, and group 2 by the second. A group is a string until `int` turns it into a number.",
+            "Your first line is the whole matched text, with the `=` in it. Your second line is only the part in front of the `=`. Your third line is the number after the `=`, doubled, printed without quotes.",
         ],
     },
     {
         "id": "regex-1",
         "hints": [
-            'Use `re.findall` with one pattern built from character classes `[...]` and quantifiers like `+` and `{2,}`.',
-            'Describe an email left to right: allowed name characters, `@`, domain characters, a literal dot, then 2+ letters. Use no capturing groups so findall returns whole addresses.',
-            '1) Name part: a class holding `\\w` plus the symbols `. % + -`, repeated with `+`. 2) A literal `@`. 3) Domain: a class of letters, digits, `.` and `-`, repeated. 4) An escaped dot `\\.` then letters repeated `{2,}`. 5) Return `re.findall(pattern, text)`.',
+            "Describe the address as consecutive pieces rather than trying to match arbitrary text around it.",
+            "Use character classes for the name and domain, then require a literal separator and a sufficiently long letter ending.",
+            "Build the pattern left to right using the allowed characters and repetition rules. Avoid capturing groups so all matches are returned as complete strings, and test punctuation and absent-address cases.",
         ],
         "title": "Extract emails",
         "difficulty": 1,
         "lesson": r'''
-            ## Escaping and compiled patterns
+            ## Match punctuation without giving it special meaning
 
-            You build a longer pattern by writing the small parts one after another, left to right. The
-            pattern below reads: a dollar sign, one or more digits, a dot, exactly 2 digits.
-
-            ```python
-            import re
-
-            PRICE = re.compile(r"\$\d+\.\d{2}")
-            print(PRICE.findall("was $19.99, now $9.50 (or 9.50?)"))
-            # ['$19.99', '$9.50']
-            ```
-
-            ### Escaping
-
-            Some characters have a special meaning in a pattern. `.` matches any character except a
-            newline, and `$` matches the end of the text. To match the real character, put a backslash in front of it: `\.` and `\$`.
-            This is called **escaping**.
+            You want to find a price such as `$8.25` inside a sentence. A pattern needs to describe both the digits and the punctuation, but some punctuation already tells the pattern engine what to do. You need to distinguish those instructions from actual characters.
 
             ```python
             import re
-
-            print(re.findall(r"a.b", "a.b axb a-b"))
-            # ['a.b', 'axb', 'a-b']
-            print(re.findall(r"a\.b", "a.b axb a-b"))
-            # ['a.b']
+            price = re.compile(r"\$\d+\.\d{2}")
+            print(price.findall("pay $8.25 or $12.50"))
+            # ['$8.25', '$12.50']
             ```
 
-            Inside a character class most special characters are literals already. `[.%+]` matches one
-            dot, one percent sign or one plus sign.
+            Read the pattern from left to right: a dollar sign, one or more digits, a dot, and exactly two digits. A backslash before a special character requests the real character. This is **escaping**. The raw-string prefix keeps those backslashes intact for the pattern engine.
 
-            ### `{2,}`
-
-            The quantifier `{2,}` means 2 or more times.
-
-            ```python
+            ```predict
             import re
-
-            print(re.findall(r"\d{2,}", "7 42 1200"))
-            # ['42', '1200']
+            print(re.findall(r"x.y", "x.y x-y"))
+            print(re.findall(r"x\.y", "x.y x-y"))
+            ---
+            The unescaped dot matches either punctuation character. The escaped dot matches only the literal dot, so only x.y remains in the second list.
             ```
 
-            ### `re.compile`
+            `re.compile` produces a **pattern object**. It has methods such as `findall` and `fullmatch`, with the pattern already attached. Keeping one named pattern can make repeated use clearer. Compilation is optional for a one-off operation.
 
-            `re.compile(pattern)` builds a **pattern object** once. The object has the same methods as
-            the module: `.findall(text)`, `.search(text)`, `.fullmatch(text)`. Use it for a pattern that
-            you apply many times. The usual place is a constant with an upper-case name at the top of
-            the file.
+            Remember character classes? Most punctuation inside square brackets is already literal. A class such as `[.%+]` accepts one of those three characters. Repetition belongs after the class. `{2,}` means at least two occurrences, with no stated maximum.
 
-            An unescaped `.` outside a class raises no error. It matches more than you intended:
-            `v\d+.\d+` matches `v10x3` as well as `v1.2`.
+            ```fill
+            import re
+            print(re.findall(r"[A-Z]___", "A BB CCC"))
+            ---
+            - [x] {2,} :: Each match needs at least two capitals, so BB and CCC qualify.
+            - [ ] {2} :: This takes only two characters from CCC instead of the whole run.
+            - [ ] ? :: This allows zero or one capital, including empty matches.
+            ```
+
+            **Watch out:** an unescaped dot usually causes no Python error. It quietly accepts unwanted characters, so test a near-match as well as a valid example.
+
+            **In short:** escape literal punctuation and combine small pattern parts in the order the text must follow.
         ''',
         "prompt": r'''
             Before sending support tickets to an LLM you want to know which contacts they
             mention. Extract the email addresses.
 
-            **Write:** `find_emails(text)`
+            **Your job:** write `find_emails(text)`
+
+            **What goes in**
 
             - `text`: a `str`, e.g. `"Contact ops@x.io today"`
-            - **Returns:** a `list` of strings: every whole email address, in the order they
+
+            **What comes out**
+            - a `list` of strings: every whole email address, in the order they
               appear, e.g. `["ops@x.io"]`
 
             **Rules** (what counts as an email here, left to right):
@@ -894,64 +1169,66 @@ EXERCISES = [
     {
         "id": "regex-2",
         "hints": [
-            'Checking a WHOLE string is the job of `re.fullmatch`.',
-            'The pattern is the literal prefix `sk-` followed by one character class repeated between 20 and 48 times. Convert the match result to a bool.',
-            '1) Build a class with letters, digits, `_` and `-` (put `-` last inside the brackets). 2) Add the quantifier `{20,48}`. 3) Put `sk-` in front. 4) Return `re.fullmatch(pattern, key) is not None`.',
+            "You are validating a whole string, not searching for a fragment.",
+            "Use a literal case-sensitive prefix followed by an allowed-character class with inclusive length bounds.",
+            "Describe the suffix alphabet with a literal hyphen, apply the required repetition range, and convert the full-match result to a Boolean without trimming input.",
         ],
         "title": "Validate an API key",
         "difficulty": 1,
         "lesson": r'''
-            ## Range quantifiers
+            ## Check the whole value, including its boundaries
 
-            The quantifier `{m,n}` means "between m and n times", with both ends included. `{3,5}`
-            accepts 3, 4 or 5 repeats of the item before it.
-
-            Combine it with `fullmatch` to check that a key or an id has the right format
-            before you send it to an API (an API is a service your program sends requests to).
+            An identifier has a fixed prefix and a limited number of characters after it. Finding a valid-looking fragment inside a longer string is not enough: the complete input must obey the format, with nothing extra attached.
 
             ```python
             import re
-
-            CODE = re.compile(r"ab-[a-z0-9_-]{3,5}")
-            for text in ["ab-x1y", "ab-x1_-z", "ab-x1", "ab-x1y2z9"]:
-                print(text, CODE.fullmatch(text) is not None)
-            # ab-x1y True
-            # ab-x1_-z True
-            # ab-x1 False
-            # ab-x1y2z9 False
-            ```
-
-            `ab-x1` has 2 characters after `ab-` and `ab-x1y2z9` has 6, so both fail.
-
-            ### A hyphen inside a class
-
-            Between two characters in a class, `-` makes a range such as `a-z`. To include a real
-            hyphen in the set, put it last: `[a-z_-]`.
-
-            ### Extra characters
-
-            `fullmatch` rejects any extra character, including a newline `"\n"` at the end. A key that
-            you read from a file often ends with that newline.
-
-            ```python
-            import re
-
-            CODE = re.compile(r"ab-[a-z0-9_-]{3,5}")
-            print(CODE.fullmatch("ab-x1y\n") is not None)
+            pattern = r"job-[a-z0-9_-]{3,5}"
+            for value in ["job-ab3", "job-a", "job-ab3!"]:
+                print(re.fullmatch(pattern, value) is not None)
+            # True
+            # False
             # False
             ```
 
-            This check is called **format validation**. It catches typing mistakes early. It cannot
-            tell you that the key is accepted: only the API can do that.
+            `{3,5}` permits three, four, or five repetitions of the preceding part. These are inclusive boundaries. Here the repeated part is a character class, so each character must belong to the allowed set.
+
+            The hyphen inside a class needs care. Between letters, it describes a range, as in `a-z`. At the end of the class it represents a real hyphen. That lets an identifier contain hyphens without accidentally inventing another range.
+
+            ```predict
+            import re
+            pattern = r"job-[a-z]{3,5}"
+            print(re.fullmatch(pattern, "job-abc\n") is not None)
+            print(re.search(pattern, "job-abc\n") is not None)
+            ---
+            fullmatch rejects the extra newline. search can find a valid fragment before that newline, so it succeeds despite the extra character.
+            ```
+
+            A match result is an object or `None`, rather than necessarily the Boolean your caller expects. Comparing it with `None` produces an actual `True` or `False`.
+
+            Checking shape is **format validation**. It can catch a pasted space or missing character, but it cannot establish that a credential exists, belongs to you, or is accepted by a remote service.
+
+            ```quiz
+            Which input belongs in a boundary test for a suffix length of three through five?
+            - [x] A suffix with two characters :: It sits just outside the permitted range and should fail.
+            - [ ] Only a suffix with four characters :: An interior value cannot reveal an incorrect minimum or maximum.
+            ```
+
+            **Watch out:** trimming input before validation changes the rule. If extra whitespace is forbidden, reject it rather than silently removing it.
+
+            **In short:** use full-string matching and explicit inclusive repetition limits for exact formats.
         ''',
         "prompt": r'''
             Before calling an LLM API, check that the configured key at least looks right, so
             a typo fails fast with a clear message.
 
-            **Write:** `is_valid_key(key)`
+            **Your job:** write `is_valid_key(key)`
+
+            **What goes in**
 
             - `key`: a `str`, e.g. `"sk-proj_Ab3-xxxxxxxxxxxx"`
-            - **Returns:** `True` if the **whole** string is a valid key, else `False` (a real `bool`)
+
+            **What comes out**
+            - `True` if the **whole** string is a valid key, else `False` (a real `bool`)
 
             **Rules**
             - It starts with lower-case `sk-` (`pk-` or `SK-` are invalid).
@@ -1012,65 +1289,60 @@ EXERCISES = [
         "title": "Tidy the whitespace",
         "difficulty": 1,
         "lesson": r'''
-            ## `re.sub`
+            ## Replace each matching run once
 
-            `re.sub(pattern, replacement, text)` returns a new string in which every match of the
-            pattern is replaced by the replacement string. The arguments come in that order: pattern
-            first, text last.
+            Copied text often contains repeated separators. You want to clean those parts while keeping letters and punctuation unchanged. Instead of finding positions and rebuilding the string yourself, let a pattern identify each part to replace.
 
             ```python
             import re
-
-            phone = "call 555-1234 or 555-9876"
-            print(re.sub(r"\d", "#", phone))
-            # call ###-#### or ###-####
-            print(phone)
-            # call 555-1234 or 555-9876
+            original = "first---second--third"
+            cleaned = re.sub(r"-+", "/", original)
+            print(cleaned)
+            # first/second/third
+            print(original)
+            # first---second--third
             ```
 
-            `\d` has no quantifier, so each digit is one match and each is replaced by one `#`.
-            `re.sub` does not change `phone`. A string cannot be changed after it is created, so
-            `re.sub` builds and returns a new one.
+            `re.sub` takes the pattern, replacement, and original text in that order. Each entire match is replaced once. Because the plus sign matches a run of one or more hyphens, three adjacent hyphens become one slash, not three slashes.
 
-            A quantifier makes one match cover several characters in a row. The whole match is replaced
-            by one copy of the replacement.
-
-            ```python
+            ```predict
             import re
-
-            print(re.sub(r"-+", "-", "a---b--c"))
-            # a-b-c
+            print(re.sub(r"\d", "#", "room 204"))
+            print(re.sub(r"\d+", "#", "room 204"))
+            ---
+            The first pattern makes three separate digit matches, producing three replacement characters. The second treats the entire run of digits as one match.
             ```
 
-            When the pattern matches nothing, `re.sub` returns the text unchanged.
+            The result is a new string. Python strings cannot have their characters changed in place, so calling a string-cleaning operation without storing or returning its result leaves the caller's original value unchanged.
 
-            ```python
+            The pattern `\s` matches whitespace, including spaces, tabs, and line breaks. Adding a repetition marker lets one match cover a mixed run of those characters. Decide whether line breaks are allowed to disappear before choosing this broad category.
+
+            ```fill
             import re
-
-            print(re.sub(r"x", "y", "no match here"))
-            # no match here
+            print(re.sub(r"\s", "_", "a\tb\nc"))
+            print("  done  ".___())
+            ---
+            - [x] strip :: This removes whitespace at the two ends and prints done.
+            - [ ] upper :: This changes letters and preserves the surrounding whitespace.
+            - [ ] split :: This returns a list rather than the cleaned string.
             ```
 
-            `\s` matches one whitespace character: a space, a tab `\t` or a newline `\n`.
+            **Watch out:** matching one whitespace character at a time preserves the count of gaps through repeated replacements. Match the whole run when you need one replacement per run.
 
-            ```python
-            import re
-
-            print(re.sub(r"\s", "_", "a b\tc\nd"))
-            # a_b_c_d
-            ```
-
-            Programs use `re.sub` to clean text: to normalise spacing before counting words, to mask
-            numbers or ids before writing them to a log, and to clean user input before using it.
+            **In short:** substitution replaces each match once, so the pattern determines how much text becomes one replacement.
         ''',
         "prompt": r'''
             Text pasted by users (or scraped from PDFs) is full of messy spacing. Normalise it
             before putting it in a prompt.
 
-            **Write:** `tidy_spaces(text)`
+            **Your job:** write `tidy_spaces(text)`
+
+            **What goes in**
 
             - `text`: a `str`, e.g. `"  Summarise\tthis\n\n  please "`
-            - **Returns:** a `str`: every run of whitespace (spaces, tabs, newlines, in any mix)
+
+            **What comes out**
+            - a `str`: every run of whitespace (spaces, tabs, newlines, in any mix)
               replaced by **one** space, with no whitespace at the start or end
 
             **Rules**
@@ -1118,9 +1390,9 @@ EXERCISES = [
                 return re.sub(r"\s+", " ", text).strip()
         ''',
         "hints": [
-            r"`re.sub` replaces every match of a pattern; `\s` matches any whitespace character.",
-            "Replace each run of one-or-more whitespace characters with a single space, then remove what's left at both ends.",
-            r"1) Call `re.sub` with the pattern `\s+`, the replacement `\" \"` and the text. 2) Call `.strip()` on the result. 3) Return it.",
+            "Think about how much text one substitution match should consume.",
+            "A mixed run of whitespace should become one space; the two ends need no spaces at all.",
+            "Substitute each nonempty whitespace run with one ordinary space, remove remaining boundary whitespace, and return the new text.",
         ],
     },
     {
@@ -1128,44 +1400,43 @@ EXERCISES = [
         "title": "Named groups",
         "difficulty": 1,
         "lesson": r'''
-            ## Named groups
+            ## Give extracted pieces meaningful names
 
-            A numbered group such as `m.group(3)` does not say what it contains. A **named group** is a
-            capturing group that also has a name. Write it as `(?P<name>pattern)` and read it with
-            `m.group("name")`.
+            A log entry contains several useful values. If your code reads group one and group two, a future change to the pattern can make those numbers hard to follow. You can name each captured piece according to what it represents.
 
             ```python
             import re
-
-            m = re.search(r"(?P<w>\d+)x(?P<h>\d+)", "size 1024x768")
-            print(m.group("w"), m.group("h"))
-            # 1024 768
-            print(m.groupdict())
-            # {'w': '1024', 'h': '768'}
+            match = re.search(r"(?P<width>\d+)x(?P<height>\d+)", "image 640x480")
+            print(match.group("width"))
+            # 640
+            print(match.groupdict())
+            # {'width': '640', 'height': '480'}
             ```
 
-            - The `P` in `(?P<name>...)` is upper case.
-            - `m.groupdict()` returns a dict with every named group. The keys are the group names and
-              the values are strings.
-            - A named group still has a number, so `m.group(1)` also returns `'1024'` here.
+            The form `(?P<width>...)` creates a **named group**. It captures the text matched inside it, just as ordinary parentheses do, and also associates that text with a name. The capital `P` is part of the syntax.
 
-            If you add another group to the pattern later, the numbers of the groups after it change.
-            The names stay the same, so code that reads groups by name still gets the right text.
-
-            When nothing matches, `re.search` returns `None`. Check for `None` before you call `.group(...)`.
-
-            ```python
+            ```predict
             import re
-
-            m = re.search(r"(?P<w>\d+)x", "no size")
-            print(m)
-            # None
+            match = re.search(r"page=(?P<number>\d+)", "page=08")
+            print(match.group("number"))
+            print(int(match.group("number")) + 1)
+            ---
+            The group contains text, including its leading zero. Converting that text with int creates the number eight, so the later addition produces nine.
             ```
 
-            Calling `m.group("w")` on that `None` raises `AttributeError`.
+            Captured digits are still strings. Convert them when your caller expects numbers. `groupdict` is convenient when you need all named pieces, but it does not perform type conversion for you.
 
-            This step has a research task: read the official description of named groups, so that you
-            recognise the syntax in code written by other people.
+            The search itself can fail. `re.search` returns `None` when no match exists, so check that result before reading a group. This keeps an absent record distinct from malformed extraction code.
+
+            ```quiz
+            Your pattern searches a line without the expected fields. What should you check before calling group?
+            - [x] Whether the search result is None :: There is no match object to inspect in that case.
+            - [ ] Whether the first captured number is zero :: You cannot read any captured value until a match exists.
+            ```
+
+            **Watch out:** calling `.group(...)` on `None` raises `AttributeError`. A missing match is often normal input, so handle it deliberately rather than letting attribute access crash.
+
+            **In short:** name captured pieces, check that a match exists, and convert their text to the required output types.
         ''',
         "research": {
             "note": "Read how named groups `(?P<name>...)` are written and how you get their text back from a match object, then come back.",
@@ -1178,10 +1449,14 @@ EXERCISES = [
             Usage logs contain lines like `"model=gpt-4o tokens=512 status=ok"`. Pull out the
             model and the token count.
 
-            **Write:** `parse_usage(line)`
+            **Your job:** write `parse_usage(line)`
+
+            **What goes in**
 
             - `line`: a `str`, e.g. `"ts=17:02 model=gpt-4o tokens=512 status=ok"`
-            - **Returns:** a `dict` `{"model": <str>, "tokens": <int>}`, e.g.
+
+            **What comes out**
+            - a `dict` `{"model": <str>, "tokens": <int>}`, e.g.
               `{"model": "gpt-4o", "tokens": 512}`, or `None` if the line has no usage info
 
             **Rules**
@@ -1242,9 +1517,9 @@ EXERCISES = [
                 return {"model": m.group("model"), "tokens": int(m.group("tokens"))}
         ''',
         "hints": [
-            "Use `re.search` with a pattern that has two named groups, one for the model and one for the number.",
-            "Describe it left to right: literal `model=`, a named group for the name characters, spaces, literal `tokens=`, a named group of digits. Return None when search fails.",
-            r"1) Pattern: `model=(?P<model>[\w.-]+) +tokens=(?P<tokens>\d+)`-style. 2) `m = re.search(pattern, line)`. 3) If `m is None`, return None. 4) Return a dict with `m.group(\"model\")` and `int(m.group(\"tokens\"))`.",
+            "The output needs two named pieces and one type conversion.",
+            "Search anywhere in the line for the literal labels with named captures around their values.",
+            "Describe model characters and the digit count in separate named groups. Return the absent-result value if search fails; otherwise build the required dictionary and convert the captured count to an integer.",
         ],
     },
     {
@@ -1252,73 +1527,55 @@ EXERCISES = [
         "title": "Errors at the start of a line",
         "difficulty": 1,
         "lesson": r'''
-            ## Anchors and flags
+            ## Restrict matches to the start of each line
 
-            An **anchor** matches a position in the text, not a character. `^` matches at the start and
-            `$` matches at the end. By default these are the start and the end of the **whole** string.
-
-            A **flag** is an extra argument that changes how `re` applies the pattern. You pass it as
-            `flags=...`.
-
-            - `re.MULTILINE` makes `^` and `$` also match at the start and end of **every line**.
-            - `re.IGNORECASE` makes letters match in upper or lower case.
+            A log message may mention a warning without actually being a warning entry. You need to distinguish a label at the start of a line from the same text buried inside its message.
 
             ```python
             import re
-
-            log = "INFO: start\nWARN: slow\nINFO: done"
-            print(re.findall(r"^INFO: (\w+)$", log))
-            # []
-            print(re.findall(r"^INFO: (\w+)$", log, flags=re.MULTILINE))
-            # ['start', 'done']
-            print(re.findall(r"warn", log, flags=re.IGNORECASE))
-            # ['WARN']
+            log = "INFO: ready\nNOTE: mentions INFO: later\nINFO: done"
+            print(re.findall(r"^INFO: (.*)$", log, flags=re.MULTILINE))
+            # ['ready', 'done']
             ```
 
-            Without the flag, `^` matches only at index 0 and `$` only at the end of the text. No single
-            line of `log` covers the whole text, so the first call returns `[]`. With `re.MULTILINE`
-            each of the three lines has its own start and end.
+            The `^` and `$` parts match positions rather than consuming characters. Such position checks are called **anchors**. Normally they refer to the whole string's boundaries. `re.MULTILINE` makes them also recognize each line's start and end.
 
-            ### `findall` with a group
+            An option that changes pattern behavior is a **flag**. Another flag, `re.IGNORECASE`, makes letter case irrelevant. Combine flags with `|` only when both behaviors belong in your specification.
 
-            When the pattern has **one** capturing group, `findall` returns the text of that group for
-            each match, not the whole match. That is why the result above is `['start', 'done']` and
-            not `['INFO: start', 'INFO: done']`.
-
-            ### `*` and `.*`
-
-            The quantifier `*` means zero or more times, so the item before it can be absent.
-            `.` matches any character except a newline, so `.*` matches the rest of the line,
-            and it can match an empty string.
-
-            ```python
+            ```predict
             import re
-
-            print(re.findall(r"ab*", "a ab abbb"))
-            # ['a', 'ab', 'abbb']
-            print(re.search(r"id: *(.*)", "id:   42 ok\nnext").group(1))
-            # 42 ok
+            text = "Note: one\nNOTE: two"
+            print(re.findall(r"^NOTE", text, flags=re.MULTILINE))
+            print(re.findall(r"^NOTE", text, flags=re.MULTILINE | re.IGNORECASE))
+            ---
+            MULTILINE changes positions, not letter case. The first search finds only NOTE. Adding IGNORECASE also accepts the mixed-case label Note.
             ```
 
-            ### Several flags
+            With one capturing group, `findall` returns the text inside that group for every match. This lets you recognize a line's label while returning only its message. `.*` accepts zero or more characters other than a newline, so it can capture an empty message too.
 
-            Combine flags by writing `|` between them.
+            Be precise about whitespace near line boundaries. `\s` includes newlines; a class containing only space and tab does not. Accidentally consuming a newline can make an empty message borrow text from the next line.
 
-            ```python
-            import re
-
-            log = "INFO: start\nWARN: slow\nINFO: done"
-            print(re.findall(r"^info", log, flags=re.MULTILINE | re.IGNORECASE))
-            # ['INFO', 'INFO']
+            ```quiz
+            Which repetition allows a message to be empty?
+            - [x] The star quantifier :: It permits zero characters as well as longer runs.
+            - [ ] The plus quantifier :: It requires at least one character.
             ```
+
+            **Watch out:** multiline mode does not make the dot match newlines. Those are separate pattern behaviors, and keeping them separate helps prevent cross-line matches.
+
+            **In short:** anchors choose positions, flags adjust their behavior, and a capture group selects the text you return.
         ''',
         "prompt": r'''
             An agent's log has one event per line. Collect the error messages.
 
-            **Write:** `error_messages(log)`
+            **Your job:** write `error_messages(log)`
+
+            **What goes in**
 
             - `log`: a `str`, lines separated by `"\n"`, e.g. `"INFO: ok\nERROR: disk full"`
-            - **Returns:** a `list` of strings: for each line that **starts** with `ERROR:`,
+
+            **What comes out**
+            - a `list` of strings: for each line that **starts** with `ERROR:`,
               the rest of that line after `ERROR:` and any spaces following it, in order
 
             **Rules**
@@ -1372,17 +1629,17 @@ EXERCISES = [
                 return re.findall(r"^ERROR:[ \t]*(.*)$", log, flags=re.MULTILINE)
         ''',
         "hints": [
-            r"`^` anchors to the start of a line only when you pass `re.MULTILINE`; one group makes `findall` return just the captured part.",
-            "Pattern: start-of-line anchor, the literal `ERROR:`, optional spaces, then capture the rest of the line up to the end-of-line anchor.",
-            r"1) Pattern `^ERROR:[ \t]*(.*)$` (`.` never crosses a newline). 2) `re.findall(pattern, log, flags=re.MULTILINE)`. 3) Return the list.",
+            "The label must match a position at a line boundary, not merely occur in the text.",
+            "Use multiline anchors and one group for the message. Restrict optional spacing so it cannot consume a newline.",
+            "Match the exact uppercase label at the line start, skip horizontal whitespace, and capture the possibly empty remainder of that line. Return all captured messages in order.",
         ],
     },
     {
         "id": "regex-3",
         "hints": [
-            'You need named or numbered groups, the `^`/`$` anchors and the `re.MULTILINE` flag so they work per line.',
-            'Match a whole line: optional spaces, `Action:`, optional spaces, an identifier group, `[`, a greedy group for the input, `]`, optional trailing spaces, end of line. Use `re.search` to get the first one.',
-            '1) Compile with `re.MULTILINE`. 2) Use `[ \\t]*` for spaces (not `\\s`, which crosses lines). 3) Identifier: `[A-Za-z_]\\w*`. 4) Input: `.*` between `\\[` and `\\]` (greedy, so it reaches the last `]`). 5) Return `None` if no match, else the two groups with the input `.strip()`ed.',
+            "Think about line boundaries and the two pieces that the caller needs.",
+            "Capture a valid identifier and the input on the same line, allowing only horizontal spacing around the fixed punctuation.",
+            "Search for the first anchored action line with multiline behavior. Let the input capture extend to the final closing bracket, then trim its surrounding whitespace and return both captures, or None when no line qualifies.",
         ],
         "title": "Parse a ReAct action",
         "difficulty": 2,
@@ -1393,10 +1650,14 @@ EXERCISES = [
             `Action: search[weather in Paris]`. Your code must find that line in the model's
             multi-line output and pull out which tool to call and with what input.
 
-            **Write:** `parse_action(text)`
+            **Your job:** write `parse_action(text)`
+
+            **What goes in**
 
             - `text`: a `str`, the model output, possibly several lines separated by `"\n"`
-            - **Returns:** a tuple `(tool_name, tool_input)` of two strings, e.g.
+
+            **What comes out**
+            - a tuple `(tool_name, tool_input)` of two strings, e.g.
               `("search", "weather in Paris")`, or `None` if there is no valid action line
 
             **Rules**
@@ -1480,9 +1741,9 @@ EXERCISES = [
             ],
         },
         "hints": [
-            'Use two `re.sub` calls; for the API key, pass a function as the replacement so you can use the matched text.',
-            'For keys, use a negative lookbehind `(?<!...)` so `sk-` inside words like `task-` is not matched. For bearer tokens, capture the `Authorization: Bearer ` part in a group and keep it in the replacement.',
-            "1) Key pattern: a lookbehind saying 'not preceded by a letter, digit or underscore', then the literal `sk-`, then the allowed characters repeated at least 16 times. 2) Replacement function: build the masked text from the matched string's last 4 characters. 3) Bearer pattern: capture the header words and the spaces after them in a group (any case), then match the token as a run of non-whitespace. 4) In the replacement, refer back to that group and add `[REDACTED]`.",
+            "Separate key masking from authorization-header masking because their replacement rules differ.",
+            "A replacement function can inspect matched text. A captured header prefix can be reused unchanged in the replacement.",
+            "Reject keys embedded in words with a lookbehind condition, mask each qualifying key while retaining its suffix, then match authorization headers without case sensitivity and replace only their token portions.",
         ],
         "title": "Redact secrets from logs",
         "difficulty": 2,
@@ -1491,10 +1752,14 @@ EXERCISES = [
             prove who you are). Mask them
             before the log is written.
 
-            **Write:** `redact(log)`
+            **Your job:** write `redact(log)`
+
+            **What goes in**
 
             - `log`: a `str`, possibly several lines, e.g. `"key=sk-abcdefghijklmnop1234 ok"`
-            - **Returns:** a `str`: the same text with every secret masked and everything else unchanged
+
+            **What comes out**
+            - a `str`: the same text with every secret masked and everything else unchanged
 
             **Rules**
             - **API key:** `sk-` followed by **16 or more** characters that are letters, digits,
@@ -1567,9 +1832,9 @@ EXERCISES = [
     {
         "id": "regex-5",
         "hints": [
-            "Split the job: one pattern that validates a line's prefix (timestamp + level), then a second pattern that finds `key=value` pairs.",
-            'Use `finditer` with `re.MULTILINE` to go line by line, turn the pairs into a dict, check the required keys, then validate latency and tokens with `fullmatch`.',
-            "1) Line pattern: a timestamp group, whitespace, a level group (case-insensitive), then the rest of the line as a repeated 'whitespace + key=value' part, anchored to the line end. 2) Pull the pairs out of the rest with `findall` and turn them into a dict. 3) Skip the line if `model` or `latency` is missing. 4) Check latency with `fullmatch` (a number with optional decimals, then a unit) and convert it to whole milliseconds with `round`. 5) If tokens is present it must be all digits. 6) Build the result dict with the level in upper case.",
+            "Break validation into the line prefix, named pairs, and each pair's allowed value.",
+            "Read pairs independently of their order. A line is usable only after required fields and numeric formats have passed their checks.",
+            "Extract the timestamp and level, collect pairs, reject missing or malformed required values, convert seconds or milliseconds with the specified rounding, and build only the requested output fields.",
         ],
         "title": "Parse usage logs",
         "difficulty": 3,
@@ -1582,10 +1847,14 @@ EXERCISES = [
             2024-05-01T12:00:03Z info model=gpt-4o latency=532ms tokens=1234 status=200
             ```
 
-            **Write:** `parse_log(text)`
+            **Your job:** write `parse_log(text)`
+
+            **What goes in**
 
             - `text`: a `str` with zero or more log lines separated by `"\n"`
-            - **Returns:** a `list` of dicts, one per **valid** line, in order. Each dict has exactly
+
+            **What comes out**
+            - a `list` of dicts, one per **valid** line, in order. Each dict has exactly
               these keys: `{"timestamp": str, "level": str, "model": str, "latency_ms": int, "tokens": int | None}`
 
             **Rules**
@@ -1697,9 +1966,9 @@ EXERCISES = [
     {
         "id": "regex-6",
         "hints": [
-            '`re.sub` with a replacement FUNCTION processes each placeholder once and never re-scans the replaced text.',
-            'Write one pattern with named groups for the variable name and an optional filter; inside the replacement function, look the value up, apply the filter, and raise on unknown filters.',
-            '1) Pattern: escaped double braces on each side; inside them optional spaces/tabs, a name group (letter or underscore first, then word characters), and an optional non-capturing part with a pipe and a named filter group. Use `[ \\t]` rather than `\\s` so it stays on one line. 2) In the replacement function, look the name up in `variables` and convert it with `str` (a missing name raises KeyError by itself). 3) Keep a dict from filter names to string methods and raise ValueError for unknown ones. 4) Return the result of `sub` with that function.',
+            "A substitution function can calculate a different replacement for each match.",
+            "Capture the variable name and optional filter while keeping all whitespace matching on one line.",
+            "Find only valid placeholder forms. In the replacement callback, look up the value, convert it to text, apply an allowed filter when present, and raise for an unknown filter. Let one substitution pass leave inserted values unscanned.",
         ],
         "title": "Prompt template engine",
         "difficulty": 3,
@@ -1707,11 +1976,15 @@ EXERCISES = [
             Prompt templates keep your prompts out of your code. Build a tiny template engine
             that fills in placeholders like `{{ name }}` or `{{name|upper}}`.
 
-            **Write:** `render(template, variables)`
+            **Your job:** write `render(template, variables)`
+
+            **What goes in**
 
             - `template`: a `str`, e.g. `"Hi {{ name }}! Topic: {{topic|upper}}"`
             - `variables`: a `dict` from names to values, e.g. `{"name": "Ana", "topic": "rag"}`
-            - **Returns:** a `str`: the template with every valid placeholder replaced
+
+            **What comes out**
+            - a `str`: the template with every valid placeholder replaced
 
             **Rules**
             - A valid placeholder is `{{`, optional spaces/tabs, a name, optionally `|` and a filter

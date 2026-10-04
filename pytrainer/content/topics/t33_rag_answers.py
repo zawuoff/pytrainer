@@ -248,7 +248,9 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## Numbered sources
+            ## Give each supplied passage a citation number
+
+            Your answer should point readers to the passages it used. Before asking for an answer, give each supplied passage a number that the model can mention. Keep that numbering attached to the exact ordered set of passages in this request.
 
             An LLM on its own generates an answer from what it learned before. When what it
             learned does not contain the answer, the model can still produce text that is
@@ -267,13 +269,32 @@ EXERCISES = [
             # 2 Rome is in Italy.
             ```
 
+            ```quiz
+            What does citation number one refer to?
+            - [x] The first passage supplied for this request :: Citation numbering is local to the ordered source list.
+            - [ ] The second list item :: Python indexes begin at zero, but these citation numbers begin at one.
+            ```
+
             A numbered chunk is called a **source**. A **citation** is a source number in
             square brackets inside the answer, such as `[2]`. Your app reads the citations
             to show the user which document each statement came from.
 
             Without `start=1`, `enumerate` starts at 0 and the first source gets number 0.
+
+            ```predict
+            passages = ["Open weekdays.", "Closed Sundays."]
+            print(list(enumerate(passages, start=1)))
+            ---
+            The counter starts at one while preserving the order of the supplied passages.
+            ```
+
+            **Watch out:** A citation marker identifies a source but does not prove the source supports the surrounding claim. That requires checking the content of both.
+
+            **In short:** Number the supplied passages consistently so citation numbers can point back to them.
         ''',
-        "prompt": r'''Read the code and type exactly what it prints.''',
+        "prompt": r'''
+            Read the program, then enter exactly what its print calls display, one output line per line.
+        ''',
         "code": r'''
             chunks = ["Refunds take 5 days.", "Shipping is free."]
             for n, text in enumerate(chunks, start=1):
@@ -286,15 +307,15 @@ EXERCISES = [
             2
         ''',
         "explanation": r'''
-            `enumerate(chunks, start=1)` yields `(1, "Refunds take 5 days.")` then
+            Read the output from top to bottom. `enumerate(chunks, start=1)` yields `(1, "Refunds take 5 days.")` then
             `(2, "Shipping is free.")`. The f-string puts the number in square brackets before
             the text. Finally `len(chunks)` is `2`.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "`enumerate(..., start=1)` pairs each item with a counter that starts at 1, not 0.",
-            "The loop prints one line per chunk: the number in square brackets, a space, then the text. Then one more line with the length.",
-            "Line 1: [1] followed by the first chunk. Line 2: [2] followed by the second chunk. Line 3: how many chunks there are.",
+            "Track the starting value of the enumeration counter.",
+            "Each loop pass prints one source line before the final length print.",
+            "Pair numbers with chunks in order, reproduce the bracketed format, then evaluate the final count.",
         ],
     },
     {
@@ -302,7 +323,9 @@ EXERCISES = [
         "title": "Number the sources",
         "difficulty": 0,
         "lesson": r'''
-            ## Joining sources into one string
+            ## Build the numbered source text
+
+            The prompt needs one readable section containing all selected passages. Make a line for each passage and join those lines with newlines. Keeping separators between lines avoids an extra trailing newline and makes exact formatting predictable.
 
             The prompt needs all the sources as one string, with one source per line.
             `"\n".join(lines)` returns one string made of the items of `lines` with a newline
@@ -318,6 +341,12 @@ EXERCISES = [
             # '[1] alpha\n[2] beta'
             ```
 
+            ```quiz
+            What does joining an empty list of lines produce?
+            - [x] An empty string :: There are no items and no separators to insert.
+            - [ ] One newline :: Join places separators between items, not around them.
+            ```
+
             `join` also accepts a generator expression, so you do not need to build a list first.
             Joining zero items returns the empty string.
 
@@ -331,14 +360,29 @@ EXERCISES = [
 
             Citation numbers start at 1. If you number the sources from 0, the model's `[1]`
             refers to your second source and every citation is off by one.
+
+            ```fill
+            lines = ["first", "second"]
+            print(___.join(lines))
+            ---
+            - [x] "\n" :: A newline places the two lines below each other.
+            - [ ] " " :: A space keeps both items on the same line.
+            ```
+
+            **Watch out:** Do not confuse the display number with the original list index. Using zero-based numbering would shift the link between citations and source text.
+
+            **In short:** Build one numbered line per passage and join those lines without extra separators.
         ''',
         "prompt": r'''
             Format retrieved chunks as a numbered list of sources for a prompt.
 
-            **Write:** fill in the blank (`___`) in `format_sources(chunks)`
+            **Your job:** write fill in the blank (`___`) in `format_sources(chunks)`
 
+            **What goes in**
             - `chunks`: a list of strings, e.g. `["Refunds take 5 days.", "Shipping is free."]`
-            - **Returns:** one string with a line `"[n] text"` per chunk, numbered from **1**,
+
+            **What comes out**
+            - Return one string with a line `"[n] text"` per chunk, numbered from **1**,
               lines separated by `"\n"` (no newline at the end)
 
             **Rules**
@@ -375,9 +419,9 @@ EXERCISES = [
                 return "\n".join(f"[{n}] {text}" for n, text in enumerate(chunks, start=1))
         ''',
         "hints": [
-            "The blank is the number `enumerate` starts counting from.",
-            "Citations are numbered like humans count, so the first source must be number 1.",
-            "Replace `___` with the integer one.",
+            "The gap controls the first displayed source number.",
+            "The task uses human-facing one-based citation numbers.",
+            "Set the counter to the requested starting convention and leave the line formatting and joining intact.",
         ],
     },
     {
@@ -385,7 +429,9 @@ EXERCISES = [
         "title": "The grounded prompt",
         "difficulty": 0,
         "lesson": r'''
-            ## The grounded prompt
+            ## Separate instructions, sources, and the question
+
+            You now have source text and a question, but their roles need to be clear inside the prompt. Put the answer instructions, the supplied evidence, and the question in recognizable sections. This makes the intended task readable for people as well as the model.
 
             A **grounded prompt** is a prompt that tells the model to answer only from the
             sources it contains. It has three parts in a fixed order:
@@ -411,20 +457,40 @@ EXERCISES = [
             # Question: Where is Paris?
             ```
 
+            ```quiz
+            Do source labels enforce factual correctness?
+            - [x] No :: They communicate the intended structure; the response still needs checking.
+            - [ ] Yes :: Formatting is not a guarantee that the model uses sources faithfully.
+            ```
+
             `\n\n` produces an empty line. The first newline ends the current line. The second
             newline ends a line that has no characters in it.
 
             The string above does not end with `\n`. A newline after `{question}` would
             change the string, and a test that compares exact strings would fail.
+
+            ```predict
+            parts = ["Instructions", "Sources", "Question"]
+            print("\n\n".join(parts))
+            ---
+            Each pair of sections is separated by an empty line, with no final separator.
+            ```
+
+            **Watch out:** The task compares exact prompt text. A missing blank line or extra final newline changes that text even when the screen looks almost the same.
+
+            **In short:** Use a consistent layout to distinguish the task from its sources and question.
         ''',
         "prompt": r'''
             Build the grounded prompt that will be sent to the model.
 
-            **Write:** `grounded_prompt(question, sources_text)`
+            **Your job:** write `grounded_prompt(question, sources_text)`
 
+            **What goes in**
             - `question`: the user's question (`str`), e.g. `"How long do refunds take?"`
             - `sources_text`: the already-numbered sources (`str`), e.g. `"[1] Refunds take 5 days."`
-            - **Returns:** exactly this string (with the values filled in):
+
+            **What comes out**
+            - Return exactly this string (with the values filled in):
 
             ```text
             Answer the question using only the sources below. Cite sources like [1].
@@ -477,9 +543,9 @@ EXERCISES = [
                 )
         ''',
         "hints": [
-            "One f-string (or a few joined together) with `\\n` for line breaks is enough.",
-            "Write the instruction line, then a blank line, then `Sources:` on its own line followed by the sources, then a blank line, then `Question: ` and the question.",
-            "Return: the exact instruction sentence + \"\\n\\n\" + \"Sources:\\n\" + sources_text + \"\\n\\n\" + \"Question: \" + question. Copy the instruction sentence character by character.",
+            "Treat the prompt as fixed sections separated by exact newline sequences.",
+            "Instructions, sources, and the question each have a specified position.",
+            "Build the required instruction line, source section, and question section with the exact spacing and no additional output.",
         ],
     },
     {
@@ -487,9 +553,11 @@ EXERCISES = [
         "title": "Fix the confidence check",
         "difficulty": 0,
         "lesson": r'''
-            ## The similarity threshold
+            ## Decide whether any result passes the minimum score
 
-            A **hallucination** is model output that states something no source supports.
+            Your search returned several passages, and most are weak matches. A single acceptable passage may still be useful. Test whether the best score clears the chosen threshold instead of requiring every retrieved passage to be strong.
+
+            Here an **unsupported claim** is a statement not established by the supplied sources. Model-generated false or unsupported claims are often described as hallucinations.
             When retrieval finds nothing relevant, the prompt contains only unrelated chunks,
             and the model is more likely to hallucinate. In that case a RAG app should
             reply that it does not know.
@@ -509,22 +577,43 @@ EXERCISES = [
             # False
             ```
 
-            One relevant chunk is enough to answer from, so you compare the best score,
+            ```quiz
+            Does a low score on one passage mean all passages are unusable?
+            - [x] No :: This step asks whether at least one score reaches the minimum.
+            - [ ] Yes :: That would test the weakest result instead of the strongest.
+            ```
+
+            This exercise treats one above-threshold chunk as sufficient to proceed, so you compare the best score,
             `max(scores)`, with the threshold. Comparing `min(scores)` rejects every result
             list that contains one weak chunk.
 
             The right threshold depends on your embedding model. You choose it by looking at
             the scores of real questions.
+
+            ```predict
+            scores = [0.1, 0.8, 0.2]
+            print(max(scores) >= 0.7)
+            print(min(scores) >= 0.7)
+            ---
+            The best-match condition passes even though some results are below the minimum.
+            ```
+
+            **Watch out:** Similarity is not calibrated answer confidence. The threshold is an application rule to evaluate on representative questions, not a proof that an answer will be supported.
+
+            **In short:** Check for an acceptable best result and handle no results explicitly.
         ''',
         "prompt": r'''
             `has_good_match` decides whether retrieval found anything worth answering from.
             It refuses to answer far too often. Find and fix the bug.
 
-            **Write:** fix `has_good_match(scores, threshold)`
+            **Your job:** fix `has_good_match(scores, threshold)`
 
+            **What goes in**
             - `scores`: a list of similarity scores (`float`), in any order
             - `threshold`: the minimum acceptable score (`float`), e.g. `0.5`
-            - **Returns:** `True` if the **best** score is greater than or equal to `threshold`, else `False`
+
+            **What comes out**
+            - Return `True` if the **best** score is greater than or equal to `threshold`, else `False`
 
             **Rules**
             - An empty list returns `False`.
@@ -566,9 +655,9 @@ EXERCISES = [
                 return max(scores) >= threshold
         ''',
         "hints": [
-            "Look at which score the function compares with the threshold.",
-            "It checks the worst score. One strong source is enough, so it should check the best score.",
-            "Replace `min` with `max` in the last line.",
+            "The question is whether any source reaches the minimum.",
+            "The strongest result determines that condition, not the weakest.",
+            "Keep the empty-input handling and compare the appropriate extreme score with the inclusive threshold.",
         ],
     },
     {
@@ -576,7 +665,9 @@ EXERCISES = [
         "title": "Find the citations",
         "difficulty": 0,
         "lesson": r'''
-            ## Extracting citations
+            ## Read citation numbers from an answer
+
+            The answer contains bracketed source numbers among ordinary words. Your interface needs those numbers as data before it can link or validate them. Extract only the exact marker format this task defines, then turn the captured digits into integers.
 
             The model's answer is a string with citations in it, such as
             `"Paris is in France [1]. Rome is in Italy [2]."`. To check or display the
@@ -596,6 +687,12 @@ EXERCISES = [
             # [1, 2, 1]
             ```
 
+            ```quiz
+            Does extraction itself check that a cited source exists?
+            - [x] No :: It recognizes the marker and reads its number; range checking is a later step.
+            - [ ] Yes :: Finding digits does not reveal how many sources were supplied.
+            ```
+
             `findall` returns strings, in the order they appear, with duplicates. Convert
             each one with `int()` before you compare it with a number.
 
@@ -608,14 +705,28 @@ EXERCISES = [
             print(re.findall(r"\[(\d+)\]", "See [a] and [ 1 ] and [12]."))
             # ['12']
             ```
+
+            ```predict
+            matches = ["2", "2", "10"]
+            print([int(value) for value in matches])
+            ---
+            Conversion changes strings to integers without sorting or removing duplicates.
+            ```
+
+            **Watch out:** The pattern deliberately ignores markers with spaces or letters inside the brackets. Preserve duplicate matches and their order when the extraction contract asks for all occurrences.
+
+            **In short:** Extract the specified marker syntax first, then validate or display its numbers separately.
         ''',
         "prompt": r'''
             Extract the citation numbers from a model's answer.
 
-            **Write:** `find_citations(answer)`
+            **Your job:** write `find_citations(answer)`
 
+            **What goes in**
             - `answer`: the model's reply (`str`), e.g. `"Refunds take 5 days [1]. Free shipping [2][1]."`
-            - **Returns:** a list of `int`s: every `[n]` citation (digits inside square
+
+            **What comes out**
+            - Return a list of `int`s: every `[n]` citation (digits inside square
               brackets), in the order they appear
 
             **Rules**
@@ -663,9 +774,9 @@ EXERCISES = [
                 return [int(n) for n in re.findall(r"\[(\d+)\]", answer)]
         ''',
         "hints": [
-            "Use `re.findall` with a pattern that has a group around the digits.",
-            "The pattern is: a literal opening bracket, one or more digits (captured), a literal closing bracket. Then convert every match to an int.",
-            "1) matches = re.findall(r\"\\[(\\d+)\\]\", answer). 2) Return a list comprehension that applies `int()` to each match.",
+            "A capture group can return only the digits inside each marker.",
+            "Convert each captured string into a number while preserving its occurrence order.",
+            "Find the exact bracketed-digit pattern, retain all matches including repeats, and return their integer values.",
         ],
     },
     {
@@ -674,7 +785,9 @@ EXERCISES = [
         "difficulty": 0,
         "mode": "predict",
         "lesson": r'''
-            ## The context budget
+            ## Stop when the next passage does not fit
+
+            You have a ranked list of passages and a fixed allowance for source text. Walk through the list while tracking how much space you have used. In this introductory policy, the first passage that would exceed the allowance ends selection, even if later passages are shorter.
 
             A prompt has a size limit. The model's **context window** is the maximum number
             of tokens it accepts, and you pay for every token you send. You cannot add every
@@ -682,8 +795,7 @@ EXERCISES = [
             allow in one prompt. You add the best-ranked chunks first and stop when the next
             one would exceed the budget.
 
-            Real apps count tokens. This chapter counts characters with `len`, which is a
-            rough estimate: English text has about 4 characters per token.
+            This chapter counts characters with `len`. Actual context accounting uses the relevant tokenizer and also includes instructions, labels, and the question.
 
             ```python
             budget = 12
@@ -694,6 +806,12 @@ EXERCISES = [
             # pack 4 True
             # this 8 True
             # stuff 13 False
+            ```
+
+            ```quiz
+            What happens when a passage exactly fills the remaining allowance?
+            - [x] Keep it :: Equality fits; only a total above the budget is too large.
+            - [ ] Reject it :: That would leave unused space despite satisfying the stated limit.
             ```
 
             `break` ends a loop immediately. Python skips the rest of the loop body and all
@@ -711,8 +829,22 @@ EXERCISES = [
             ```
 
             `2` is never printed, because the loop ended at `9`.
+
+            ```predict
+            used, budget = 4, 9
+            print(used + 5 > budget)
+            print(used + 6 > budget)
+            ---
+            Exactly reaching the budget is allowed; passing it is not.
+            ```
+
+            **Watch out:** This step counts source characters only. A real prompt also includes labels, instructions, the question, and tokenization overhead, so this is not a complete model-context calculation.
+
+            **In short:** Include ranked passages while they fit, and stop at the first over-budget candidate under this policy.
         ''',
-        "prompt": r'''Read the code and type exactly what it prints.''',
+        "prompt": r'''
+            Read the program, then enter exactly what its print calls display, one output line per line.
+        ''',
         "code": r'''
             chunks = ["aaaa", "bbbbbb", "cc", "dddddd"]
             budget = 10
@@ -731,15 +863,15 @@ EXERCISES = [
             10
         ''',
         "explanation": r'''
-            `"aaaa"` fits (0 + 4 = 4). `"bbbbbb"` fits exactly (4 + 6 = 10, and `10 > 10` is
+            Read the output from top to bottom. `"aaaa"` fits (0 + 4 = 4). `"bbbbbb"` fits exactly (4 + 6 = 10, and `10 > 10` is
             False). `"cc"` would make 12, which is over the budget, so the loop `break`s:
             `"cc"` and everything after it are left out. `used` stays at `10`.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "Track `used` after each chunk, and remember `>` is strict: exactly 10 is not over 10.",
-            "The first chunk brings `used` to 4, the second to 10. The third would push it past 10, which triggers `break`.",
-            "Line 1: the list of the chunks kept before the break, in list notation with quotes. Line 2: the total length of those kept chunks.",
+            "Track the used amount after each accepted passage.",
+            "An exact fit is permitted; the first excessive candidate ends this loop.",
+            "Evaluate each proposed total in order, stop where the condition breaks, and print the kept list and final used amount.",
         ],
     },
     # ---------------------------------------------------------------- difficulty 1
@@ -748,7 +880,9 @@ EXERCISES = [
         "title": "Fill the context budget",
         "difficulty": 1,
         "lesson": r'''
-            ## Skipping a chunk with continue
+            ## Skip an oversized passage and consider the next one
+
+            A high-ranked passage is too long for the remaining space, but a later short passage may still help. This selection policy skips the oversized passage and continues scanning. Compare it with the earlier stop-at-first-failure policy so the difference is deliberate.
 
             In the last exercise the loop ended at the first chunk that did not fit. A
             lower-ranked chunk that is short can still fit in the remaining budget, and it
@@ -769,6 +903,12 @@ EXERCISES = [
             # keep 5 room left 3
             # skip 9
             # keep 2 room left 1
+            ```
+
+            ```quiz
+            Which loop control allows later passages to be considered?
+            - [x] continue :: It skips only the current iteration.
+            - [ ] break :: It ends the loop and prevents later candidates from being examined.
             ```
 
             Step through the loop and watch `room` when `size` is `9`.
@@ -798,15 +938,33 @@ EXERCISES = [
             order, take each one that still fits, and never undo a choice.
 
             Keep the chunks in their ranked order. Do not sort them by size.
+
+            ```predict
+            remaining = 5
+            for size in [8, 3]:
+                if size > remaining:
+                    continue
+                remaining -= size
+            print(remaining)
+            ---
+            The oversized item changes nothing; the later three-character item consumes space.
+            ```
+
+            **Watch out:** Only selected text consumes this budget. Skipping a candidate must leave the amount used unchanged, or later passages will be rejected for space never actually spent.
+
+            **In short:** Skip candidates that do not fit while preserving the rank order of those you keep.
         ''',
         "prompt": r'''
             Choose which ranked chunks go into the prompt without going over a character budget.
 
-            **Write:** `fit_context(chunks, max_chars)`
+            **Your job:** write `fit_context(chunks, max_chars)`
 
+            **What goes in**
             - `chunks`: a list of strings, best-ranked first
             - `max_chars`: the budget (`int`): the total `len` of the kept chunks must not exceed it
-            - **Returns:** a new list of the kept chunks, in their original order
+
+            **What comes out**
+            - Return a new list of the kept chunks, in their original order
 
             **Rules**
             - Go through the chunks in order. Keep a chunk if it still fits in the remaining budget.
@@ -862,9 +1020,9 @@ EXERCISES = [
                 return kept
         ''',
         "hints": [
-            "Loop over the chunks with a running total, and use `continue` (not `break`) when one doesn't fit.",
-            "Start with an empty result and a total of 0. For each chunk: if adding its length would go over the budget, skip it; otherwise keep it and add its length to the total.",
-            "1) kept, used = [], 0. 2) for chunk in chunks: if used + len(chunk) > max_chars: continue. 3) Otherwise append it and add len(chunk) to used. 4) Return kept.",
+            "Unlike the earlier policy, later short passages can still be considered.",
+            "A skipped candidate does not consume space.",
+            "Track used space, keep each fitting passage in order, skip oversized ones, and return the collected passages.",
         ],
     },
     {
@@ -872,7 +1030,9 @@ EXERCISES = [
         "title": "Ask a fake LLM",
         "difficulty": 1,
         "lesson": r'''
-            ## Injecting the model as a function
+            ## Test the answer request with a fake model function
+
+            You want to know whether your app passes the right instructions, source numbering, and question to the model. A prepared local function can record its input and return fixed text. That lets you inspect the request without a network call or an unpredictable answer.
 
             Your RAG code does not call an API directly. It takes the model as a parameter
             named `llm`, which is a function. Passing a dependency in as an argument is called
@@ -886,11 +1046,9 @@ EXERCISES = [
 
             ```python
             seen = []
-
             def fake_llm(messages):
                 seen.append(messages)
                 return "Paris [1]."
-
             reply = fake_llm([{"role": "user", "content": "Where is the Eiffel Tower?"}])
             print(reply)
             # Paris [1].
@@ -900,19 +1058,41 @@ EXERCISES = [
             # user
             ```
 
+            ```quiz
+            What can this fake establish?
+            - [x] That the app builds and sends the required messages :: It records ordinary Python values for the test to inspect.
+            - [ ] That a real model answers faithfully :: The prepared return value does not measure real model behavior.
+            ```
+
             `seen[0]` is the message list from the first call, and `seen[0][0]` is its first
             message. Because the fake stores its input, a test can check that your code built
             the right messages and called the model exactly once.
+
+            ```order
+            seen = []
+            def fake(value): seen.append(value); return "recorded"
+            print(fake("question"))
+            print(len(seen))
+            ---
+            The callable records the supplied input and returns a predetermined reply.
+            ```
+
+            **Watch out:** Call the supplied function with the interface the task specifies. A fake is not an SDK object, and adding an unrequested API call would bypass the test dependency.
+
+            **In short:** Inject a callable to make request construction and call count observable without contacting a model.
         ''',
         "prompt": r'''
             Send the question and its sources to an injected LLM function and return the reply.
 
-            **Write:** `ask(question, chunks, llm)`
+            **Your job:** write `ask(question, chunks, llm)`
 
+            **What goes in**
             - `question`: the user's question (`str`)
             - `chunks`: a list of retrieved texts (`str`), best first
             - `llm`: a function that takes a list of message dicts and returns the reply text (`str`)
-            - **Returns:** whatever `llm` returns
+
+            **What comes out**
+            - Return whatever `llm` returns
 
             **Rules**
             - Call `llm` exactly once with a list of **two** messages:
@@ -926,7 +1106,7 @@ EXERCISES = [
             ```python
             ask("How long do refunds take?", ["Refunds take 5 days.", "Shipping is free."], fake_llm)
             # calls fake_llm with:
-            # [{"role": "system", "content": SYSTEM},
+            # [{"content": SYSTEM, "role": "system"},
             #  {"role": "user", "content": "Sources:\n[1] Refunds take 5 days.\n[2] Shipping is free.\n\nQuestion: How long do refunds take?"}]
             # and returns whatever fake_llm returned
             ```
@@ -984,9 +1164,9 @@ EXERCISES = [
                 return llm(messages)
         ''',
         "hints": [
-            "Reuse the numbered-sources idea (`enumerate(..., start=1)` + `\"\\n\".join`) and build a list of two dicts.",
-            "Build the sources block, put it into the user content with the question, make the system and user message dicts, then return the result of calling `llm` with that list.",
-            "1) sources = \"\\n\".join of f\"[{n}] {text}\" over enumerate(chunks, start=1). 2) user content = f\"Sources:\\n{sources}\\n\\nQuestion: {question}\". 3) messages = [system dict, user dict]. 4) return llm(messages).",
+            "Build the source block before placing it with the question into the user message.",
+            "The model receives one instruction message and one question-with-sources message.",
+            "Number and join passages, build the two required messages, call the supplied function once, and return its text.",
         ],
     },
     {
@@ -994,44 +1174,66 @@ EXERCISES = [
         "title": "Answer or decline",
         "difficulty": 1,
         "lesson": r'''
-            ## Filtering sources by score
+            ## Decline before calling when no source qualifies
+
+            Your app should avoid asking for an answer when its retrieval step found no acceptable evidence under the chosen score rule. Filter the candidates first. If none remain, return the specified decline response without making a model call.
 
             The retriever returns each chunk together with its score, as a `(text, score)`
             tuple. Before you build the prompt, you remove every chunk whose score is below
             the threshold. If no chunk is left, you return a fixed message such as "I don't
-            know based on the available documents." and you do not call the model. That call
-            would cost money and could return an invented answer.
+            know based on the available documents." and you do not call the model. That call would have no accepted source evidence under the chosen threshold policy.
 
             ```python
             results = [("Rome is in Italy.", 0.81), ("Cats sleep a lot.", 0.12)]
             threshold = 0.5
-            good = [text for text, score in results if score >= threshold]
-            print(good)
+            accepted = [text for text, score in results if score >= threshold]
+            print(accepted)
             # ['Rome is in Italy.']
-            print(not good)
+            print(not accepted)
             # False
+            ```
+
+            ```quiz
+            When should you assign source numbers?
+            - [x] After filtering :: Only passages actually sent should receive citation numbers.
+            - [ ] Before filtering and preserve all gaps :: That complicates the local numbering contract used here.
             ```
 
             `for text, score in results` uses **tuple unpacking**: Python assigns the first
             item of each tuple to `text` and the second to `score`. That is easier to read
             than `pair[0]` and `pair[1]`.
 
-            An empty list is falsy, so `not good` is `True` only when no chunk passed the
+            An empty list is falsy, so `not accepted` is `True` only when no chunk passed the
             filter.
 
             Number the sources after you filter. A low-scoring chunk left in the prompt is
             unrelated text that the model can cite as a source.
+
+            ```predict
+            results = [("weak", 0.1), ("usable", 0.7)]
+            kept = [text for text, score in results if score >= 0.5]
+            print(list(enumerate(kept, start=1)))
+            ---
+            The surviving source becomes number one, regardless of its old position.
+            ```
+
+            **Watch out:** A passing retrieval score is only a selection rule. The model can still make unsupported claims, so accepting sources does not establish answer correctness.
+
+            **In short:** Filter first, decline on an empty selection, and number only the sources you actually send.
         ''',
         "prompt": r'''
             Only call the model when retrieval found good sources; otherwise decline.
 
-            **Write:** `answer_or_decline(question, results, llm, threshold=0.5)`
+            **Your job:** write `answer_or_decline(question, results, llm, threshold=0.5)`
 
+            **What goes in**
             - `question`: the user's question (`str`)
             - `results`: a list of `(text, score)` tuples from the retriever, best first
             - `llm`: a function that takes a prompt **string** and returns the reply (`str`)
             - `threshold`: minimum score for a source to be used (`float`, default `0.5`)
-            - **Returns:** the reply text (`str`)
+
+            **What comes out**
+            - Return the reply text (`str`)
 
             **Rules**
             - Keep only the results with `score >= threshold`, in their given order.
@@ -1106,9 +1308,9 @@ EXERCISES = [
                 return llm(f"Sources:\n{sources}\n\nQuestion: {question}")
         ''',
         "hints": [
-            "Filter first with a comprehension that unpacks `(text, score)`, then decide whether to call the model.",
-            "Keep the texts whose score is at least the threshold. If that list is empty, return DECLINE straight away. Otherwise number the kept texts, build the prompt and return llm(prompt).",
-            "1) good = [text for text, score in results if score >= threshold]. 2) if not good: return DECLINE. 3) sources = \"\\n\".join(f\"[{n}] {text}\" ...enumerate(good, start=1)). 4) return llm(f\"Sources:\\n{sources}\\n\\nQuestion: {question}\").",
+            "Whether to call the model depends on the filtered set, not the original set.",
+            "Only accepted passages belong in the numbered prompt.",
+            "Filter using the inclusive threshold, return the fixed decline for an empty result, otherwise build the required prompt and call once.",
         ],
     },
     {
@@ -1116,7 +1318,9 @@ EXERCISES = [
         "title": "Catch invented citations",
         "difficulty": 1,
         "lesson": r'''
-            ## Validating citations
+            ## Find citation numbers outside the supplied range
+
+            The answer points to source five, but the prompt supplied only two sources. That marker cannot point to one of the supplied passages. Check the citation range separately from extracting the digits, and report invalid numbers in the predictable form the caller expects.
 
             Given 3 sources, a model sometimes cites `[4]` or `[0]`. A **hallucinated
             citation** is a citation to a source that was not in the prompt. If you show one
@@ -1133,6 +1337,12 @@ EXERCISES = [
             # 1 True
             # 3 True
             # 4 False
+            ```
+
+            ```quiz
+            Does an in-range citation prove its sentence is supported?
+            - [x] No :: It proves only that the numbered source exists in the supplied set.
+            - [ ] Yes :: A real source can still be irrelevant to the cited claim.
             ```
 
             To report each invalid number once, put the numbers in a set. A set keeps one copy
@@ -1160,15 +1370,29 @@ EXERCISES = [
 
             You decide what to do with invalid citations: remove them, flag the answer, or
             call the model again. A later exercise covers the retry.
+
+            ```predict
+            numbers = [0, 2, 5, 5]
+            print(sorted(set(n for n in numbers if not 1 <= n <= 3)))
+            ---
+            The invalid numbers are deduplicated and sorted; the in-range two is omitted.
+            ```
+
+            **Watch out:** Zero is outside this one-based citation range. Do not let Python's negative indexing accidentally map it to the last passage.
+
+            **In short:** Range validation checks whether a citation can refer to a supplied source, not whether it supports a claim.
         ''',
         "prompt": r'''
             Find the citation numbers that point at sources that don't exist.
 
-            **Write:** `invalid_citations(answer, n_sources)`
+            **Your job:** write `invalid_citations(answer, n_sources)`
 
+            **What goes in**
             - `answer`: the model's reply (`str`), containing citations like `[1]`
             - `n_sources`: how many sources were in the prompt (`int`)
-            - **Returns:** a sorted list of the **distinct** cited numbers (`int`) that are
+
+            **What comes out**
+            - Return a sorted list of the **distinct** cited numbers (`int`) that are
               not between `1` and `n_sources` (inclusive)
 
             **Rules**
@@ -1221,9 +1445,9 @@ EXERCISES = [
                 return sorted(n for n in cited if not 1 <= n <= n_sources)
         ''',
         "hints": [
-            "Extract the numbers with the same regex as before, then keep the ones outside the valid range.",
-            "Turn every match into an int and put them in a set so duplicates disappear. Keep the numbers that are NOT between 1 and n_sources, and return them sorted.",
-            "1) cited = {int(n) for n in re.findall(r\"\\[(\\d+)\\]\", answer)}. 2) Return sorted(n for n in cited if not 1 <= n <= n_sources).",
+            "Extraction and range checking are separate operations.",
+            "Repeated bad numbers should appear only once in the report.",
+            "Read the marker numbers, retain those outside the permitted one-based range, remove duplicates, and sort the report.",
         ],
     },
     {
@@ -1231,7 +1455,9 @@ EXERCISES = [
         "title": "Show the cited sources",
         "difficulty": 1,
         "lesson": r'''
-            ## Mapping citations to sources
+            ## Link citations back to the selected sources
+
+            A reader clicks a citation and expects the actual source. Translate the one-based citation number into the correct position in the selected source list. Repeated citations should not create repeated entries in the displayed source list when the contract asks for first appearances only.
 
             The text `[2]` alone tells the user nothing. Your app shows the source itself, for example
             "Source: shipping.md" with a link. After the model replies, you map each citation
@@ -1245,6 +1471,12 @@ EXERCISES = [
             n = 2
             print(sources[n - 1]["title"])
             # Italy
+            ```
+
+            ```quiz
+            How should repeated citations affect the output ordering?
+            - [x] Keep each valid source at its first cited position :: A set tracks repeats while a list preserves order.
+            - [ ] Sort all sources alphabetically :: That loses the order in which citations first appeared.
             ```
 
             If the model cites `[2]` three times, you list that source once. Keep the order in
@@ -1264,6 +1496,18 @@ EXERCISES = [
 
             Check the range before you index. With `n = 0`, `sources[n - 1]` is `sources[-1]`.
             That returns the last source and raises no error.
+
+            ```predict
+            sources = ["north.md", "south.md"]
+            number = 2
+            print(sources[number - 1])
+            ---
+            Citation two refers to the second source, whose Python index is one.
+            ```
+
+            **Watch out:** Validate the number before subtracting for the list index. Zero would otherwise become a valid negative index and return the wrong source without raising an error.
+
+            **In short:** Map valid numbers into the same source list and keep the first appearance order.
         ''',
         "research": {
             "note": "Read how Anthropic's API can return citations that point at the exact passages of the documents you provided. Compare it with the [n] markers you parse by hand here.",
@@ -1274,12 +1518,15 @@ EXERCISES = [
         "prompt": r'''
             Turn the citations in an answer into the list of source records to display.
 
-            **Write:** `cited_sources(answer, sources)`
+            **Your job:** write `cited_sources(answer, sources)`
 
+            **What goes in**
             - `answer`: the model's reply (`str`), with citations like `[2]`
             - `sources`: the list of source dicts that were numbered `[1]`, `[2]`, ... in the
               prompt, e.g. `[{"title": "Refunds", "url": "https://x/refunds"}, ...]`
-            - **Returns:** a list of the cited source dicts, each **once**, in the order they
+
+            **What comes out**
+            - Return a list of the cited source dicts, each **once**, in the order they
               were **first** cited
 
             **Rules**
@@ -1339,9 +1586,9 @@ EXERCISES = [
                 return result
         ''',
         "hints": [
-            "Extract the numbers in order, and use a set to remember which ones you already added.",
-            "Walk through the citation numbers in order. Skip a number if it's out of range or already seen; otherwise mark it seen and append sources[n - 1].",
-            "1) seen, result = set(), []. 2) for each match of r\"\\[(\\d+)\\]\": n = int(match). 3) if 1 <= n <= len(sources) and n not in seen: add to seen, append sources[n - 1]. 4) Return result.",
+            "The displayed number and Python list index use different starting conventions.",
+            "Keep a record of already included citations while walking the matches in appearance order.",
+            "Ignore invalid or repeated numbers, translate each accepted number into its source position, and append that source to the result.",
         ],
     },
     # ---------------------------------------------------------------- difficulty 2
@@ -1351,7 +1598,9 @@ EXERCISES = [
         "difficulty": 2,
         "placement": True,
         "lesson": r'''
-            ## Budget, numbering and layout together
+            ## Select sources before building the final layout
+
+            Your final prompt must combine a source-text budget, source names, citation numbering, and exact section formatting. Keep those responsibilities separate while planning. First choose the passages, then describe the chosen list, and only then assemble the full prompt.
 
             This exercise combines three earlier steps. First you select the ranked chunks
             that fit in the budget. Then you number the kept chunks from 1 and add each
@@ -1369,17 +1618,37 @@ EXERCISES = [
             # [2] (italy.md) Rome is in Italy.
             ```
 
-            Number the chunks after you select them. A skipped chunk gets no number.
+            ```quiz
+            Which list determines citation numbering?
+            - [x] The kept passages :: Skipped passages must not consume numbers in the final source block.
+            - [ ] All original candidates :: The model cannot cite passages that were not supplied.
+            ```
+
+            Number the chunks after you select them. A skipped chunk gets no number because it is absent from the final prompt.
+
+            ```predict
+            selected = ["brief note", "short fact"]
+            print([number for number, text in enumerate(selected, start=1)])
+            ---
+            Numbers are assigned to the selected list, so they are consecutive.
+            ```
+
+            **Watch out:** The exercise budget measures only chunk text. Adding source labels and instructions makes the whole prompt longer than that amount, which is expected under this narrow contract.
+
+            **In short:** Select under the stated budget, number that selection, then format its labels and question.
         ''',
         "prompt": r'''
             Build the full grounded prompt from ranked chunks, respecting a character budget.
 
-            **Write:** `build_prompt(question, chunks, max_chars)`
+            **Your job:** write `build_prompt(question, chunks, max_chars)`
 
+            **What goes in**
             - `question`: the user's question (`str`)
             - `chunks`: a list of dicts `{"text": ..., "source": ...}`, best-ranked first
             - `max_chars`: the budget for the **texts** of the chunks (`int`)
-            - **Returns:** the prompt string (see layout below)
+
+            **What comes out**
+            - Return the prompt string (see layout below)
 
             **Rules**
             - Choose chunks greedily in order: keep a chunk if the total `len(text)` of the kept
@@ -1465,9 +1734,9 @@ EXERCISES = [
                 return f"{HEADER}\n\nSources:\n{sources}\n\nQuestion: {question}"
         ''',
         "hints": [
-            "Three stages: greedy packing (like fit_context), numbering with enumerate, then one f-string for the layout.",
-            "Pack by len(chunk[\"text\"]), skipping chunks that don't fit. If nothing was kept, raise ValueError. Otherwise build one \"[n] (source) text\" line per kept chunk and join them with newlines inside the template.",
-            "1) kept, used = [], 0; loop: skip if used + len(text) > max_chars, else keep and add. 2) if not kept: raise ValueError. 3) lines = [f\"[{n}] ({c['source']}) {c['text']}\" for n, c in enumerate(kept, start=1)]. 4) return f\"{HEADER}\\n\\nSources:\\n\" + joined lines + f\"\\n\\nQuestion: {question}\".",
+            "Keep selection, numbering, and final formatting as separate stages.",
+            "Only passage text counts toward the specified budget.",
+            "Choose fitting passages in order, reject an empty selection, number the kept records with source names, and assemble the exact prompt layout.",
         ],
     },
     {
@@ -1475,33 +1744,53 @@ EXERCISES = [
         "title": "Flag unsupported sentences",
         "difficulty": 2,
         "lesson": r'''
-            ## Sentences without a citation
+            ## Flag missing citation markers for review
 
-            In a grounded answer, every sentence should cite a source. A sentence with no
-            `[n]` is a statement that no source supports, so the model may have invented it.
-            You split the answer into sentences and test each one with `re.search`, which
-            returns `None` when the pattern is not found.
+            A sentence has no visible citation marker. Your interface can flag it for review, but absence of a marker alone does not tell you whether the claim is true or supported somewhere in the sources. This step checks that narrow formatting signal.
+
+            The task's title uses "unsupported" as a short label, but the implemented test is deliberately narrower: it looks for sentences without a bracketed number. It does not read the sources or decide whether a sentence follows from them.
 
             ```python
             import re
-
-            sentences = ["Paris is in France [1].", "It is large!"]
-            for s in sentences:
-                print(s, bool(re.search(r"\[\d+\]", s)))
-            # Paris is in France [1]. True
-            # It is large! False
+            lines = ["Delivery takes a week [2].", "Delivery takes a week."]
+            for line in lines:
+                print(bool(re.search(r"\[\d+\]", line)))
+            # True
+            # False
             ```
 
-            Splitting an empty string still returns one item, the empty string, so skip
-            empty sentences.
+            ```quiz
+            What does this detector establish about a flagged sentence?
+            - [x] It lacks the required marker syntax :: Determining factual support requires a separate content check.
+            - [ ] It is definitely invented :: A missing marker is not proof that a claim is false.
+            ```
+
+            The two sentences make the same claim. The pattern finds a marker only in the first one. This is a useful distinction when building a review interface: you can show what was checked without claiming more than the check establishes.
+
+            First divide the answer using the task's stated sentence-boundary rule. Skip empty pieces, then apply the marker test to each remaining piece. Return flagged sentences in their original order so a reviewer can locate them in the answer. This is a **heuristic**, a limited rule that detects one signal rather than deciding the entire question of factual support.
+
+            ```predict
+            import re
+            print(bool(re.search(r"\[\d+\]", "A fact [3].")))
+            print(bool(re.search(r"\[\d+\]", "A fact.")))
+            ---
+            The pattern detects marker syntax and does not inspect the underlying claim.
+            ```
+
+            **Watch out:** A sentence with a marker may still cite an unrelated source. Treat both presence and absence checks as limited signals, not as factual verification.
+
+            **In short:** Use missing markers to identify sentences needing review, without claiming to verify their meaning.
         ''',
         "prompt": r'''
             Find the sentences of an answer that don't cite any source.
 
-            **Write:** `uncited_sentences(answer)`
+            **Your job:** write `uncited_sentences(answer)`
 
+            **What goes in**
             - `answer`: the model's reply (`str`)
-            - **Returns:** a list of the sentences (`str`) that contain no citation, in order
+
+            **What comes out**
+            - Return a list of the sentences (`str`) that contain no citation, in order
 
             **Rules**
             - Split sentences with exactly `re.split(r"(?<=[.!?])\s+", answer.strip())`
@@ -1556,9 +1845,9 @@ EXERCISES = [
                 return [s for s in sentences if s and not re.search(r"\[\d+\]", s)]
         ''',
         "hints": [
-            "Split with the given `re.split` call, then test each sentence with `re.search`.",
-            "After splitting, keep the sentences that are not empty and in which a search for a bracketed number finds nothing.",
-            "1) sentences = re.split(r\"(?<=[.!?])\\s+\", answer.strip()). 2) Return [s for s in sentences if s and not re.search(r\"\\[\\d+\\]\", s)].",
+            "Check the sentence list produced by the specified splitting rule.",
+            "An empty piece is not a sentence to report.",
+            "Split and trim as specified, ignore empty pieces, and retain the sentences with no bracketed-number match.",
         ],
     },
     {
@@ -1566,7 +1855,9 @@ EXERCISES = [
         "title": "Retry bad citations",
         "difficulty": 2,
         "lesson": r'''
-            ## Retrying with feedback
+            ## Retry marker failures without an endless loop
+
+            The answer either omits citations or refers to unavailable sources. Tell the next attempt what citation format is required, but limit the number of calls. A successful syntax-and-range check should end the loop immediately rather than consume the remaining attempts.
 
             The structured-output chapter introduced retries. Here you retry when the reply
             cites no source, or cites a source that does not exist. The retry prompt states
@@ -1592,17 +1883,40 @@ EXERCISES = [
             print(bool([]))
             # False
             ```
+
+            ```quiz
+            Why is an all-in-range check insufficient by itself?
+            - [x] An empty list passes all :: You must also require at least one citation.
+            - [ ] All always rejects empty lists :: Its empty-input result is True.
+            ```
+
+
+
+            ```predict
+            numbers = []
+            print(all(1 <= n <= 2 for n in numbers))
+            print(bool(numbers))
+            ---
+            Every item in an empty list satisfies the condition vacuously, but there is no citation present.
+            ```
+
+            **Watch out:** The feedback prompt is based on the original prompt plus the stated feedback. Repeatedly appending feedback can unintentionally grow it on every attempt.
+
+            **In short:** Require nonempty valid-range citations, stop on success, and cap the total attempts.
         ''',
         "prompt": r'''
             Call the model, check its citations, and retry with feedback when they're bad.
 
-            **Write:** `answer_with_retry(prompt, llm, n_sources, max_attempts=2)`
+            **Your job:** write `answer_with_retry(prompt, llm, n_sources, max_attempts=2)`
 
+            **What goes in**
             - `prompt`: the grounded prompt (`str`)
             - `llm`: a function `llm(prompt_text) -> reply (str)`
             - `n_sources`: how many numbered sources the prompt contains (`int`)
             - `max_attempts`: the maximum number of `llm` calls (`int`, default `2`)
-            - **Returns:** the first reply whose citations are good
+
+            **What comes out**
+            - Return the first reply whose citations are good
 
             **Rules**
             - A reply is good if it has **at least one** citation `[n]` and **every** citation is
@@ -1691,9 +2005,9 @@ EXERCISES = [
                 raise ValueError(f"no answer with valid citations after {max_attempts} attempts")
         ''',
         "hints": [
-            "Write a small helper that says whether a reply's citations are good, then loop at most `max_attempts` times.",
-            "The helper extracts the citation numbers and returns True only if there's at least one and all are in range. In the loop, call the model with the current prompt; return a good reply; otherwise switch the prompt to original + feedback. After the loop, raise.",
-            "1) citations_ok: nums = ints from re.findall; return bool(nums) and all(1 <= n <= n_sources ...). 2) current = prompt. 3) for _ in range(max_attempts): reply = llm(current); if ok: return reply; current = prompt + FEEDBACK.format(n=n_sources). 4) raise ValueError(...).",
+            "A usable marker list must be nonempty and entirely within range.",
+            "Every retry uses the original prompt plus the required feedback.",
+            "Call within the limit, check markers, return an accepted reply immediately, otherwise prepare the retry prompt and raise on exhaustion.",
         ],
     },
     # ---------------------------------------------------------------- difficulty 3
@@ -1702,7 +2016,9 @@ EXERCISES = [
         "title": "End-to-end RAG pipeline",
         "difficulty": 3,
         "lesson": r'''
-            ## The full pipeline
+            ## Connect retrieval, answering, and source display
+
+            You can now turn stored passages into an answer with source names. Plan the data passed between stages so the source list used for numbering is also the list used to resolve citations. Otherwise an apparently valid number can link to the wrong document.
 
             This exercise combines every step of the chapter in one class. `add` stores each
             chunk with its vector. `ask` scores the chunks by cosine similarity, declines
@@ -1715,11 +2031,30 @@ EXERCISES = [
 
             ```python
             scored = [(0.7, "a.md"), (0.2, "b.md"), (1.0, "c.md"), (0.7, "d.md")]
-            good = [pair for pair in scored if pair[0] >= 0.5]
-            good.sort(key=lambda pair: pair[0], reverse=True)
-            print(good[:2])
+            accepted = [pair for pair in scored if pair[0] >= 0.5]
+            accepted.sort(key=lambda pair: pair[0], reverse=True)
+            print(accepted[:2])
             # [(1.0, 'c.md'), (0.7, 'a.md')]
             ```
+
+            ```quiz
+            Why keep the selected sources until after the model replies?
+            - [x] Citation numbers refer to that exact ordered selection :: Re-running or reordering retrieval can change their meaning.
+            - [ ] Citation numbers are permanent document ids :: They are local numbers assigned for this request.
+            ```
+
+
+
+            ```match
+            embedding function :: turns supplied text into a test vector
+            retrieval stage :: selects and orders eligible passages
+            model function :: receives the constructed prompt
+            citation mapping :: links reply numbers to that selection
+            ```
+
+            **Watch out:** The fake embedding and model functions test the pipeline's mechanics. They do not prove retrieval quality, factual grounding, or resistance to malicious source text.
+
+            **In short:** Use one consistent selected-source list from prompt construction through final citation mapping.
         ''',
         "research": {
             "note": "Read Anthropic's write-up on contextual retrieval: how adding context to chunks, hybrid (embeddings + BM25) search and re-ranking reduce failed retrievals. Map each idea to a function you wrote in the retrieval chapter.",
@@ -1730,8 +2065,9 @@ EXERCISES = [
         "prompt": r'''
             Build a complete retrieve-then-generate pipeline with injected models.
 
-            **Write:** a class `RagPipeline`
+            **Your job:** write a class `RagPipeline`
 
+            **What goes in**
             - `RagPipeline(embed, llm, k=3, threshold=0.5)`:
               `embed(text) -> list of numbers`, `llm(prompt) -> reply str`
             - `.add(text, source)`: stores a chunk; calls `embed(text)` once
@@ -1898,9 +2234,9 @@ EXERCISES = [
                     return {"answer": reply, "sources": names, "declined": False}
         ''',
         "hints": [
-            "Split the work into small methods: `add`, a `retrieve` helper that returns the kept chunks, and `ask`. Reuse your `cosine` function.",
-            "`add` stores text, source and embed(text). `retrieve` embeds the question, scores every chunk, keeps scores >= threshold, sorts best first and slices to k. `ask` declines on an empty result, otherwise builds the numbered prompt, calls llm, and maps valid citation numbers to source names without duplicates.",
-            "1) __init__ saves embed, llm, k, threshold and self.chunks = []. 2) add appends {text, source, vector}. 3) retrieve: q = embed(question); pairs (score, chunk); filter by threshold; sort by score reverse=True; take [:k]. 4) ask: if not kept return the declined dict; build \"Sources:\\n...\\n\\nQuestion: ...\"; reply = llm(prompt); loop over re.findall citations, keep in-range ones, append kept[n - 1][\"source\"] if not already listed.",
+            "Keep retrieval results available for both numbering and later source mapping.",
+            "The no-source branch must avoid calling the model.",
+            "Store passage vectors, embed each question once, select ranked qualifying passages, build and send the prompt, then map valid citations to distinct source names.",
         ],
     },
 ]

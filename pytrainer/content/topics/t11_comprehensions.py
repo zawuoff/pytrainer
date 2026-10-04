@@ -238,62 +238,113 @@ EXERCISES = [
         "title": "Read the comprehension",
         "difficulty": 0,
         "lesson": r'''
-            ## List comprehensions
+            ## A whole loop in one line
 
-            A **list comprehension** is one expression that builds a new list from the items
-            of another list. It replaces three steps you already know: create an empty list,
-            loop, append.
+            You have the token counts of three messages, and you want a second list in which every count
+            is doubled. You know how to build it from the Loops chapter: start with an empty list, go
+            through the counts, and append one result for each item.
 
             ```python
-            nums = [1, 2, 3]
-
+            counts = [3, 5, 8]
             doubled = []
-            for n in nums:
-                doubled.append(n * 2)
+            for c in counts:
+                doubled.append(c * 2)
             print(doubled)
-            # [2, 4, 6]
-
-            print([n * 2 for n in nums])
-            # [2, 4, 6]
+            # [6, 10, 16]
             ```
 
-            In `[n * 2 for n in nums]`, the part `for n in nums` gives each item the name `n`.
-            The part at the front, `n * 2`, is the value Python puts in the new list.
-
-            Step through the loop to see what the comprehension does for each item.
+            Press Next and watch the new list grow by one item on each iteration:
 
             ```diagram
-            {"type": "trace", "title": "The for loop that [n * 2 for n in nums] replaces", "code": ["nums = [1, 2, 3]", "doubled = []", "for n in nums:", "    doubled.append(n * 2)", "print(doubled)"], "steps": [
+            {"type": "trace", "title": "The loop that [c * 2 for c in counts] replaces", "code": ["counts = [3, 5, 8]", "doubled = []", "for c in counts:", "    doubled.append(c * 2)", "print(doubled)"], "steps": [
               {"line": 1, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"nums": "[1, 2, 3]"}, "out": ""},
-              {"line": 3, "vars": {"nums": "[1, 2, 3]", "doubled": "[]"}, "out": ""},
-              {"line": 4, "vars": {"nums": "[1, 2, 3]", "doubled": "[]", "n": "1"}, "out": ""},
-              {"line": 3, "vars": {"nums": "[1, 2, 3]", "doubled": "[2]", "n": "1"}, "out": ""},
-              {"line": 4, "vars": {"nums": "[1, 2, 3]", "doubled": "[2]", "n": "2"}, "out": ""},
-              {"line": 3, "vars": {"nums": "[1, 2, 3]", "doubled": "[2, 4]", "n": "2"}, "out": ""},
-              {"line": 4, "vars": {"nums": "[1, 2, 3]", "doubled": "[2, 4]", "n": "3"}, "out": ""},
-              {"line": 3, "vars": {"nums": "[1, 2, 3]", "doubled": "[2, 4, 6]", "n": "3"}, "out": ""},
-              {"line": 5, "vars": {"nums": "[1, 2, 3]", "doubled": "[2, 4, 6]", "n": "3"}, "out": ""},
-              {"line": null, "vars": {"nums": "[1, 2, 3]", "doubled": "[2, 4, 6]", "n": "3"}, "out": "[2, 4, 6]\n"}
+              {"line": 2, "vars": {"counts": "[3, 5, 8]"}, "out": ""},
+              {"line": 3, "vars": {"counts": "[3, 5, 8]", "doubled": "[]"}, "out": ""},
+              {"line": 4, "vars": {"counts": "[3, 5, 8]", "doubled": "[]", "c": "3"}, "out": ""},
+              {"line": 3, "vars": {"counts": "[3, 5, 8]", "doubled": "[6]", "c": "3"}, "out": ""},
+              {"line": 4, "vars": {"counts": "[3, 5, 8]", "doubled": "[6]", "c": "5"}, "out": ""},
+              {"line": 3, "vars": {"counts": "[3, 5, 8]", "doubled": "[6, 10]", "c": "5"}, "out": ""},
+              {"line": 4, "vars": {"counts": "[3, 5, 8]", "doubled": "[6, 10]", "c": "8"}, "out": ""},
+              {"line": 3, "vars": {"counts": "[3, 5, 8]", "doubled": "[6, 10, 16]", "c": "8"}, "out": ""},
+              {"line": 5, "vars": {"counts": "[3, 5, 8]", "doubled": "[6, 10, 16]", "c": "8"}, "out": ""},
+              {"line": null, "vars": {"counts": "[3, 5, 8]", "doubled": "[6, 10, 16]", "c": "8"}, "out": "[6, 10, 16]\n"}
             ]}
             ```
 
-            An `if` at the end skips the items where the condition is false. Curly braces
-            with `key: value` at the front build a dict instead of a list.
+            That is three lines for one small idea: "`c * 2` for each `c` in `counts`". Python lets you
+            write the idea almost the way you say it:
 
             ```python
-            tokens = [12, 30, 7]
-            print([t for t in tokens if t > 10])
-            # [12, 30]
-            print({t: t * 2 for t in tokens})
-            # {12: 24, 30: 60, 7: 14}
+            counts = [3, 5, 8]
+            print([c * 2 for c in counts])
+            # [6, 10, 16]
             ```
 
-            Read the `for` part first to learn the variable name. Then read the front to see
-            what goes into the result.
+            Start reading in the middle. `for c in counts` is the `for` line of the loop, without its
+            colon. In front of it stands `c * 2`, which is what the loop appended. The square brackets
+            around everything say that the results are gathered in a new list. Python creates that list
+            and does the appending for you.
+
+            This short form is called a **list comprehension**. It does the same work as the loop, one
+            item after the other.
+
+            ```match
+            `for c in counts` :: goes through the items and calls each one `c`
+            `c * 2` :: is worked out for each item and goes into the new list
+            `[` and `]` :: gather all the results in a new list
+            ```
+
+            ### Leaving items out
+
+            An `if` at the end is a test. Only the items that pass it are used:
+
+            ```python
+            counts = [3, 5, 8]
+            print([c for c in counts if c > 4])
+            # [5, 8]
+            ```
+
+            `3 > 4` is false, so 3 is left out. In front stands the plain `c`, so 5 and 8 go into the
+            new list unchanged.
+
+            ```predict
+            sizes = [4, 10, 15, 7]
+            print([s + 1 for s in sizes])
+            print([s for s in sizes if s % 5 == 0])
+            ---
+            The first comprehension has no `if`, so every item is used, and each result is one more than the item. In the second, `s % 5` is the remainder when `s` is divided by 5. It is 0 for 10 and for 15, so those two pass the test, and they are kept as they are.
+            ```
+
+            ### The same idea builds a dict
+
+            With curly braces and a colon in front, the result is a dict. Left of the colon is the key
+            and right of it is the value, as in a dict that you write by hand:
+
+            ```python
+            counts = [3, 5, 8]
+            print({c: c * 2 for c in counts})
+            # {3: 6, 5: 10, 8: 16}
+            ```
+
+            ```quiz
+            What does `{c: c + 1 for c in [1, 2, 3] if c > 1}` build?
+            - [x] `{2: 3, 3: 4}` :: Right. The `if` leaves out 1. Each of the other two numbers becomes a key, and its value is one more.
+            - [ ] `{1: 2, 2: 3, 3: 4}` :: This uses all three numbers. The `if` at the end lets only the numbers greater than 1 through.
+            - [ ] `[3, 4]` :: Those are the values only. Curly braces with a colon build a dict, so each value is stored under its key.
+            - [ ] `{2: 2, 3: 3}` :: The keys are right. The value is the part after the colon, `c + 1`, so it is one more than the key.
+            ```
+
+            **Watch out:** the `if` at the end only decides which items are used. It never changes them.
+            What goes into the result is always the part in front of `for`.
+
+            **In short:** `[c * 2 for c in counts]` builds a new list with one result for each item, an
+            `if` at the end leaves items out, and curly braces with `key: value` build a dict in the
+            same way.
         ''',
         "mode": "predict",
-        "prompt": r'''Read the code and type exactly what it prints.''',
+        "prompt": r'''
+            Read the program in the editor. Type exactly what it prints, one line for each `print`.
+        ''',
         "code": r'''
             nums = [1, 2, 3, 4, 5]
             print([n * 10 for n in nums])
@@ -306,15 +357,18 @@ EXERCISES = [
             {4: 16, 5: 25}
         ''',
         "explanation": r'''
-            The first comprehension transforms every item. The second keeps only the items
-            where the `if` is true (the even numbers). The third is a dict comprehension:
-            for each `n` greater than 3 it makes the key `n` with the value `n * n`.
+            The first comprehension has no `if`, so all five numbers are used, and each result is the
+            number times 10. In the second one, `n % 2` is the remainder when `n` is divided by 2. It is
+            0 for the even numbers, so only 2 and 4 pass the test. The part in front is the plain `n`, so
+            they are kept unchanged. The third one has curly braces and a colon, so it builds a dict.
+            Only 4 and 5 pass `n > 3`. Each of them becomes a key, and its value is `n * n`: 16 for 4,
+            and 25 for 5.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "Read each comprehension as a small loop: for every n, (maybe) check the if, then produce the expression.",
-            "Line 1 changes every number. Line 2 only keeps numbers with remainder 0 when divided by 2. Line 3 builds key: value pairs.",
-            "Line 1: multiply each number by 10. Line 2: keep 2 and 4. Line 3: only 4 and 5 pass the filter; write them as a dict mapping each to its square.",
+            "Read each comprehension as the loop it stands for: take every `n` in turn, check the `if` when there is one, and then work out the part in front of `for`.",
+            "The first line has no `if`, so all five numbers are used. The second line keeps the numbers that leave no remainder when they are divided by 2. The third line has a colon in front, so it builds a dict from the numbers that pass its test.",
+            "Your first line is a list of five numbers, each ten times as big as the original. Your second line is a list of the even numbers, unchanged. Your third line is a dict, written the way Python prints one: curly braces, and for each number greater than 3 the number, a colon, a space and the number times itself, with a comma and a space between the two pairs.",
         ],
     },
     {
@@ -322,60 +376,107 @@ EXERCISES = [
         "title": "Shout every word",
         "difficulty": 0,
         "lesson": r'''
-            ## The expression at the front
+            ## The same change for every item
 
-            A list comprehension has the form `[expression for item in iterable]`. The
-            expression at the front is evaluated once per item. Each result becomes one item
-            of the new list.
-
-            ```python
-            names = ["ada", "grace"]
-            print([n.title() for n in names])
-            # ['Ada', 'Grace']
-            print([len(n) for n in names])
-            # [3, 5]
-            print([n + "!" for n in names])
-            # ['ada!', 'grace!']
-            ```
-
-            `title()` is a string method. It returns the text with the first letter of each
-            word in upper case.
-
-            The three parts are:
-
-            - `item` is a new variable. It refers to each item of the iterable in turn.
-            - `expression` is the value that goes into the new list. It usually uses `item`.
-            - An **iterable** is any value a `for` loop can go through item by item, such as
-              a list, a string or a `range`.
-
-            The result is a new list with the same number of items, in the same order. The
-            original list is not changed.
+            People type the name of a model in all sorts of ways: `"GPT-4o"`, `"Claude"`, `"LLAMA"`.
+            Before your app compares the names with its own list, it needs all of them in small letters.
+            With a loop, the change happens inside `append(...)`:
 
             ```python
-            names = ["ada", "grace"]
-            longer = [n + "!" for n in names]
-            print(names)
-            # ['ada', 'grace']
+            typed = ["GPT-4o", "Claude", "LLAMA"]
+            clean = []
+            for name in typed:
+                clean.append(name.lower())
+            print(clean)
+            # ['gpt-4o', 'claude', 'llama']
             ```
 
-            The expression must use the variable named in the `for` part.
-            `[x.title() for n in names]` raises `NameError` because no variable `x` exists.
-            The variable is called `n`.
+            In a list comprehension, whatever stood inside `append(...)` moves to the front:
+
+            ```python
+            typed = ["GPT-4o", "Claude", "LLAMA"]
+            print([name.lower() for name in typed])
+            # ['gpt-4o', 'claude', 'llama']
+            ```
+
+            The `for` part gives each item the name `name`. The part in front uses that name to say what
+            goes into the new list. Python works it out once for each item, so three items give three
+            results, in the same order.
+
+            The part in front does not have to be a method call. It can be any piece of code that
+            produces a value. You met the word for that in the Data Types chapter: an **expression**.
+
+            ```python
+            typed = ["GPT-4o", "Claude", "LLAMA"]
+            print([len(name) for name in typed])
+            # [6, 6, 5]
+            print([f"model: {name}" for name in typed])
+            # ['model: GPT-4o', 'model: Claude', 'model: LLAMA']
+            ```
+
+            ```try
+            tools = ["search", "email", "weather"]
+            print([t for t in tools])
+            ---
+            The program prints the list unchanged. Change the expression in front of `for` so that it prints the number of characters of each name: `[6, 5, 7]`.
+            ---
+            tools = ["search", "email", "weather"]
+            print([len(t) for t in tools])
+            ---
+            The `for` part stayed as it was. Only the expression in front changed, and that alone decides what goes into the new list.
+            ```
+
+            ### No items, no results
+
+            An empty list is no problem. The `for` part has nothing to go through, so the expression is
+            never worked out, and the new list is empty too:
+
+            ```python
+            print([n * 2 for n in []])
+            # []
+            ```
+
+            ### One name, in two places
+
+            ```quiz
+            What happens when this line runs?
+
+            ~~~python
+            print([t.lower() for w in ["AI", "Rag"]])
+            ~~~
+            - [x] Python stops with a `NameError` :: Right. The `for` part calls each item `w`, and the expression in front asks for `t`. No variable `t` exists, so Python reports `NameError: name 't' is not defined`.
+            - [ ] It prints `['ai', 'rag']` :: It would with `w.lower()` in front. The expression asks for `t`, and the `for` part never created that name.
+            - [ ] It prints `['AI', 'Rag']` :: Python does not skip an expression that it cannot work out. The name `t` does not exist, so the program stops with an error.
+            ```
+
+            **Watch out:** a `NameError` in a comprehension nearly always means that the name in the
+            expression and the name after `for` are not the same. Pick one name and use it in both
+            places.
+
+            **In short:** the expression in front of `for` is worked out once for each item, and each
+            result becomes one item of the new list.
         ''',
         "prompt": r'''
-            Upper-case every word in a list (fill in the blank).
+            A chat app has a "shout" mode that shows every word of a message in capital letters.
 
-            **Write:** `shout_all(words)` - replace the `___` in the starter.
+            **Your job:** finish `shout_all(words)` so that it gives back a new list with every word in
+            upper case. The function is already written except for one gap, marked `___`. Replace the
+            gap.
 
-            - `words`: a list of strings, e.g. `["hi", "there"]`
-            - **Returns:** a new list with every word in upper case, in the same order
+            **What goes in**
+            - `words`: a list of strings, for example `["hi", "there"]`. It may be empty.
+
+            **What comes out**
+            - a new list with the same words in the same order, each one in capital letters:
+              `["HI", "THERE"]` for the example value
 
             **Rules**
-            - An empty list returns `[]`.
+            - An empty list gives `[]`.
 
             **Examples**
             ```python
             shout_all(["hi", "there"])   # returns ["HI", "THERE"]
+            shout_all(["ok"])            # returns ["OK"]
             shout_all([])                # returns []
             ```
         ''',
@@ -398,9 +499,9 @@ EXERCISES = [
                 return [w.upper() for w in words]
         ''',
         "hints": [
-            "The blank is the expression: what each item of the new list should be.",
-            "Each item is the word w, upper-cased with a string method.",
-            "Replace ___ with w.upper().",
+            "The gap is the expression in front of `for`. Ask yourself what one item of the new list should be.",
+            "The `for` part calls each word `w`. The gap has to turn that one word into capital letters, with a string method from the Strings chapter.",
+            "Write the loop variable, a dot, and the name of the method that gives back a string in upper case, followed by a pair of parentheses. That takes the place of the three underscores.",
         ],
     },
     {
@@ -408,53 +509,98 @@ EXERCISES = [
         "title": "Fix: backwards lookup",
         "difficulty": 0,
         "lesson": r'''
-            ## Dict comprehensions
+            ## A lookup table from a list
 
-            A dict stores pairs: each key maps to one value. A **dict comprehension** is one
-            expression that builds a dict from the items of an iterable. You write it with
-            curly braces and a colon.
+            An agent has three tools, and you want to count how often each one is called. Every count
+            starts at 0, so you need a dict such as `{"search": 0, "email": 0, "weather": 0}`. Typing it
+            by hand works for three tools. It does not work when the list of tools is read from a config
+            file.
+
+            A loop can build the dict, one key at a time:
 
             ```python
-            models = ["gpt", "claude"]
-            print({m: m.upper() for m in models})
-            # {'gpt': 'GPT', 'claude': 'CLAUDE'}
-            print({m: 0 for m in models})
-            # {'gpt': 0, 'claude': 0}
+            tools = ["search", "email", "weather"]
+            calls = {}
+            for t in tools:
+                calls[t] = 0
+            print(calls)
+            # {'search': 0, 'email': 0, 'weather': 0}
             ```
 
-            The form is `{key: value for item in iterable}`. The expression left of the colon
-            is the key. The expression right of the colon is the value. This is the same
-            order you use when you write a dict by hand.
-
-            The two sides are not interchangeable, because the keys of a dict are unique.
-            When two items produce the same key, Python stores the later value under that
-            key and the earlier value is gone. No error is raised.
+            The comprehension with curly braces from the first step of this chapter does it in one line:
 
             ```python
+            tools = ["search", "email", "weather"]
+            print({t: 0 for t in tools})
+            # {'search': 0, 'email': 0, 'weather': 0}
+            ```
+
+            The line `calls[t] = 0` of the loop has become `t: 0`. Left of the colon is the key, and
+            right of it is the value. That is the order you use when you write a dict by hand. A
+            comprehension with curly braces and a colon is called a **dict comprehension**.
+
+            Both sides of the colon may be expressions that use the loop variable. Which side is which
+            decides what you can look up later. The program below should print
+            `{'en': 'EN', 'fr': 'FR'}`:
+
+            ```fill
+            codes = ["en", "fr"]
+            print({___ for c in codes})
+            ---
+            - [x] c: c.upper() :: Right. Each code is a key, and its value is the same code in capital letters.
+            - [ ] c.upper(): c :: The two sides are the wrong way round. The capitals become the keys, and the program prints `{'EN': 'en', 'FR': 'fr'}`.
+            - [ ] c, c.upper() :: A dict comprehension needs a colon between the key and the value. With a comma in its place, Python stops with a `SyntaxError`.
+            ```
+
+            ### Each key only once
+
+            The two sides cannot be swapped freely, and the reason is a rule from the Dicts chapter: a
+            dict holds each key only once. Storing a value under a key that is already there replaces
+            the old value.
+
+            In the next program, `m[0]` is the first character of the string `m`, in the same way that
+            `[0]` reads the first item of a list.
+
+            ```predict
             models = ["gpt", "claude", "gemini"]
-            print({m[0]: m for m in models})
-            # {'g': 'gemini', 'c': 'claude'}
+            by_letter = {m[0]: m for m in models}
+            print(len(by_letter))
+            print(by_letter["g"])
+            ---
+            `"gpt"` and `"gemini"` both give the key `"g"`. The dict can hold that key only once, so `"gemini"` replaced `"gpt"`. Three items went in and two entries came out, without any error.
             ```
 
-            `m[0]` is the first character of `m`. `"gpt"` and `"gemini"` both produce the
-            key `"g"`, so only `"gemini"` is kept.
-            Choose a key that is different for every item.
+            **Watch out:** when a dict comprehension gives you fewer entries than the list had items,
+            two items produced the same key. Python does not warn you. Put on the left of the colon the
+            thing that is different for every item.
+
+            **In short:** `{key: value for item in items}` builds a dict, with the key on the left of
+            the colon and the value on the right.
         ''',
         "prompt": r'''
-            Build a lookup of word lengths. The starter has one bug - find and fix it.
+            A text tool needs to look up quickly how long each word of a text is. Someone wrote a
+            function that builds the lookup table as a dict, with each word as a key and the length of
+            that word as its value. It has a bug: the table comes out backwards, with the lengths as the
+            keys. Because of that, two words of the same length cannot both be in it.
 
-            **Write:** `word_lengths(words)` (fix the starter)
+            **Your job:** find the bug in `word_lengths(words)` and fix it. The code is already in the
+            editor.
 
-            - `words`: a list of strings, e.g. `["hi", "hello"]`
-            - **Returns:** a dict where each **key is a word** and its **value is that word's length**
+            **What goes in**
+            - `words`: a list of strings, for example `["hi", "hello"]`
+
+            **What comes out**
+            - a dict in which each key is a word and its value is the number of characters of that word:
+              `{"hi": 2, "hello": 5}` for the example value
 
             **Rules**
-            - Words with the same length must all be kept (each word is its own key).
+            - Words of the same length must all be in the dict, each under its own key.
 
             **Examples**
             ```python
             word_lengths(["hi", "hello"])   # returns {"hi": 2, "hello": 5}
             word_lengths(["cat", "dog"])    # returns {"cat": 3, "dog": 3}
+            word_lengths([])                # returns {}
             ```
         ''',
         "starter": r'''
@@ -477,9 +623,9 @@ EXERCISES = [
                 return {w: len(w) for w in words}
         ''',
         "hints": [
-            "In a dict comprehension the part before the colon is the key and the part after is the value.",
-            "The spec says the word is the key and its length is the value. Check which is which in the code.",
-            "Swap the two sides of the colon so it reads w: len(w).",
+            "In a dict comprehension, which side of the colon is the key? The lesson shows it with `tools`.",
+            "The task wants the word as the key and its length as the value. Compare that with what the code has on each side of the colon.",
+            "The two expressions around the colon are the wrong way round. Make the word the left side and its length the right side. The rest of the line can stay as it is.",
         ],
     },
     {
@@ -487,25 +633,23 @@ EXERCISES = [
         "title": "Keep the short names",
         "difficulty": 0,
         "lesson": r'''
-            ## Filtering with if
+            ## Keep only the items that pass a test
 
-            **Filtering** means keeping some items and skipping the rest. In a comprehension
-            you filter with an `if` at the end.
+            A retriever has handed back four similarity scores, and only the scores of 0.5 or more are
+            worth using. With a loop you put an `if` around the `append`, so that only the scores that pass
+            are added:
 
             ```python
             scores = [0.9, 0.2, 0.7, 0.4]
-            print([s for s in scores if s >= 0.5])
+            kept = []
+            for s in scores:
+                if s >= 0.5:
+                    kept.append(s)
+            print(kept)
             # [0.9, 0.7]
-            print([s * 100 for s in scores if s < 0.5])
-            # [20.0, 40.0]
             ```
 
-            The form is `[expression for item in iterable if condition]`. For each item,
-            Python evaluates the condition first. When it is true, Python evaluates the
-            expression and adds the result to the new list. When it is false, Python moves on
-            to the next item. The kept items stay in their original order.
-
-            Step through the loop that the first comprehension replaces.
+            Press Next and watch which scores reach `append`:
 
             ```diagram
             {"type": "trace", "title": "The for loop that [s for s in scores if s >= 0.5] replaces", "code": ["scores = [0.9, 0.2, 0.7, 0.4]", "kept = []", "for s in scores:", "    if s >= 0.5:", "        kept.append(s)", "print(kept)"], "steps": [
@@ -527,28 +671,80 @@ EXERCISES = [
             ]}
             ```
 
-            The expression can be the item itself, as in `[s for s in scores if ...]`. That
-            keeps the chosen items unchanged.
+            The comprehension does the same work. The `if` line of the loop moves to the end, after the
+            `for` part, and what the loop appended moves to the front:
 
-            The filter `if` goes after the `for` part, never before it. It has no `else`.
+            ```python
+            scores = [0.9, 0.2, 0.7, 0.4]
+            print([s for s in scores if s >= 0.5])
+            # [0.9, 0.7]
+            ```
+
+            Python goes through the scores one by one and checks the test. When it is true, the score goes
+            into the new list. When it is false, Python skips the score and moves on to the next one. The
+            scores that stay keep their order. An `if` at the end of a comprehension is called a
+            **filter**.
+
+            ```quiz
+            `scores = [0.9, 0.2, 0.7]`. Which line builds `[0.9, 0.7]`?
+            - [x] `[s for s in scores if s > 0.5]` :: Right. The filter sits after the `for` part, and the plain `s` in front keeps each score that passes as it is.
+            - [ ] `[s for s in scores if s < 0.5]` :: The comparison is the wrong way round. It keeps the scores that are below 0.5, so the result is `[0.2]`.
+            - [ ] `[s if s > 0.5 for s in scores]` :: An `if` in front of `for` belongs to a conditional expression, and that needs an `else`. Python stops with `SyntaxError: expected 'else' after 'if' expression`.
+            - [ ] `[s for s in scores if s > 0.5 else 0]` :: A filter has no `else`. Scores that fail are skipped, not replaced, and Python stops with a `SyntaxError`.
+            ```
+
+            ### The test can ask about the item
+
+            The test does not have to compare the item itself. It can ask a question about it. Here the
+            test looks at the length of each tag, while the new list holds the tags themselves:
+
+            ```python
+            tags = ["rag", "agents", "llm", "evals"]
+            print([t for t in tags if len(t) > 3])
+            # ['agents', 'evals']
+            ```
+
+            ```fill
+            models = ["gpt", "claude", "gemini", "phi"]
+            print([m for m in models if ___])
+            ---
+            - [x] len(m) > 3 :: Right. `claude` and `gemini` have more than 3 characters, so the program prints `['claude', 'gemini']`.
+            - [ ] len(m) :: A length is a number, and every number except 0 counts as true in a test. Nothing is left out, so all four names are printed.
+            - [ ] m > 3 :: This compares text with a number. Python stops with `TypeError: '>' not supported between instances of 'str' and 'int'`.
+            ```
+
+            **Watch out:** items that fail the filter are skipped, never replaced. The new list can be
+            shorter than the old one, and it is `[]` when no item passes.
+
+            **In short:** `[item for item in items if test]` keeps the items for which the test is true, in
+            their original order.
         ''',
         "prompt": r'''
-            Keep only the short model names from a list (this is called *filtering*).
+            A chat window has a narrow column, and a long model name does not fit into it. The app wants to
+            show only the names that are short enough.
 
-            **Write:** `short_names(names)`
+            **Your job:** write `short_names(names)` so that it gives back a new list with only the short
+            names.
 
-            - `names`: a list of strings, e.g. `["gpt-4o", "claude", "llama", "phi"]`
-            - **Returns:** a new list with only the names that have **5 characters or fewer**,
-              in their original order
+            **What goes in**
+            - `names`: a list of model names (strings), for example `["gpt-4o", "claude", "llama", "phi"]`.
+              It may be empty.
+
+            **What comes out**
+            - a new list with the names that have 5 characters or fewer, in the order they had before:
+              `["llama", "phi"]` for the example value
 
             **Rules**
             - A name with exactly 5 characters is kept.
-            - Use a list comprehension with an `if` (a check looks for a list comprehension).
+            - The names that are kept are not changed.
+            - Write it as a list comprehension with an `if` at the end. A check looks for a list
+              comprehension.
 
             **Examples**
             ```python
             short_names(["gpt-4o", "claude", "llama", "phi"])   # returns ["llama", "phi"]
             short_names(["abcde"])                              # returns ["abcde"]
+            short_names(["abcdef"])                             # returns []
             ```
         ''',
         "starter": r'''
@@ -576,9 +772,9 @@ EXERCISES = [
                 return [name for name in names if len(name) <= 5]
         ''',
         "hints": [
-            "A list comprehension with a filter: [item for item in list if condition].",
-            "The item itself is kept unchanged; the condition compares its length with 5.",
-            "Return [name for name in names if len(name) <= 5].",
+            "Look at the example with `tags` in the lesson. Which part of a comprehension decides whether an item is used at all?",
+            "The new list holds the names themselves, so the part in front of `for` is only the loop variable. The test goes at the end, and it asks how many characters the name has.",
+            "Write one `return` line with square brackets. Inside them put the loop variable, then the `for` part over `names`, then an `if` and a comparison between the length of the name and 5. Choose the comparison that lets a length of exactly 5 through.",
         ],
     },
     {
@@ -586,60 +782,109 @@ EXERCISES = [
         "title": "Total characters",
         "difficulty": 0,
         "lesson": r'''
-            ## Generator expressions
+            ## One number from many items
 
-            Sometimes you need one number computed from the items, not a new list. The
-            built-in function `sum()` adds up the numbers of an iterable. You can pass it a
-            list comprehension.
-
-            ```python
-            prices = [0.5, 1.25, 2.0]
-            print(sum([p * 2 for p in prices]))
-            # 7.5
-            ```
-
-            You can also leave out the square brackets. The result is a **generator
-            expression**: it produces its values one at a time and builds no list. `sum`
-            adds each value as soon as it is produced.
+            Every message that you send to a model costs its token count plus 2 tokens for formatting. You
+            want the total cost of three messages. This is the accumulator pattern from the Loops chapter: a
+            variable that starts at 0, and each message adds its cost to it.
 
             ```python
-            prices = [0.5, 1.25, 2.0]
-            print(sum(p * 2 for p in prices))
-            # 7.5
-            print(max(len(w) for w in ["hi", "hello"]))
-            # 5
+            counts = [3, 5, 8]
+            total = 0
+            for c in counts:
+                total += c + 2
+            print(total)
+            # 22
             ```
 
-            Use a generator expression when you pass a comprehension directly to `sum`,
-            `min`, `max`, `any` or `all`.
-
-            `sum` of no values is `0`, so an empty list gives `0`.
+            You also know `sum`, which adds up the numbers of a list. So there is a second way: build the
+            list of costs with a comprehension, then hand that list to `sum`.
 
             ```python
-            print(sum(p * 2 for p in []))
-            # 0
+            counts = [3, 5, 8]
+            costs = [c + 2 for c in counts]
+            print(costs)
+            # [5, 7, 10]
+            print(sum(costs))
+            # 22
             ```
 
-            `max` and `min` behave differently. With no values they raise
-            `ValueError: max() iterable argument is empty`.
+            The list `costs` exists only to be added up. You can drop its name and its square brackets and
+            write the comprehension directly inside the parentheses of `sum`:
+
+            ```python
+            counts = [3, 5, 8]
+            print(sum(c + 2 for c in counts))
+            # 22
+            ```
+
+            Without brackets, Python does not build a list first. It works out one cost, hands it to `sum`,
+            which adds it, and then works out the next one. A comprehension without brackets, written inside
+            the parentheses of a call, is called a **generator expression**. Its `for` is part of one
+            expression. It is not a `for` loop statement, which is a line that starts with `for`, ends with a
+            colon and has an indented body.
+
+            ```try
+            prices = [4, 6, 10]
+            print([p * 3 for p in prices])
+            ---
+            The program prints each price times 3, as a list. Change the `print` line so that it prints the total of those three numbers, `60`, as one number.
+            ---
+            prices = [4, 6, 10]
+            print(sum(p * 3 for p in prices))
+            ---
+            The comprehension stayed the same. It moved inside `sum(...)` and lost its brackets, and `sum` added up the three results.
+            ```
+
+            ### A filter, and no items at all
+
+            A generator expression can have a filter, like any comprehension:
+
+            ```predict
+            sizes = [10, 20, 30]
+            print(sum(s - 5 for s in sizes))
+            print(sum(s for s in sizes if s > 15))
+            ---
+            Without a filter, every size counts: 5 + 15 + 25 is 45. With the filter, only 20 and 30 pass, and they are added as they are, which gives 50.
+            ```
+
+            ```quiz
+            `counts` is an empty list. What does `sum(c + 2 for c in counts)` give?
+            - [x] `0` :: Right. The `for` part has nothing to go through, so there is nothing to add, and the sum of no numbers is 0.
+            - [ ] `None` :: `sum` always gives back a number. With nothing to add, that number is 0.
+            - [ ] An error :: An empty list is fine. The loop body in the comprehension never runs, and `sum` simply starts and ends at 0.
+            ```
+
+            **Watch out:** the `for` part has to stay inside the parentheses of `sum`. In `sum(c + 2)`,
+            `sum` is given one number instead of a series of them, and Python stops with
+            `TypeError: 'int' object is not iterable`.
+
+            **In short:** `sum(expression for item in items)` adds up one value for each item, and it gives 0
+            when there are no items.
         ''',
         "prompt": r'''
-            Count how many characters a set of text chunks contains in total.
+            A RAG app cuts every document into chunks, which are pieces of text. To judge how big a document
+            is, you want to know the total number of characters in all of its chunks.
 
-            **Write:** `total_chars(chunks)`
+            **Your job:** write `total_chars(chunks)` so that it gives back the number of characters in all
+            the chunks together.
 
-            - `chunks`: a list of strings, e.g. `["abc", "de", ""]`
-            - **Returns:** an int - the sum of the lengths of all the strings
+            **What goes in**
+            - `chunks`: a list of strings, for example `["abc", "de", ""]`. It may be empty.
+
+            **What comes out**
+            - a whole number: the lengths of all the strings added together, `5` for the example value
 
             **Rules**
-            - An empty list returns `0`.
-            - Use `sum()` with a comprehension or *generator expression* (a comprehension
-              without the square brackets). A check fails if your file has a `for` loop
-              statement (a `for` inside a comprehension is fine).
+            - An empty list gives `0`.
+            - Write it with `sum` and a generator expression. A check fails if your code contains a `for`
+              loop statement, which is a line that starts with `for` and ends with a colon. A `for` inside a
+              comprehension is fine.
 
             **Examples**
             ```python
             total_chars(["abc", "de", ""])   # returns 5
+            total_chars(["hello"])           # returns 5
             total_chars([])                  # returns 0
             ```
         ''',
@@ -668,9 +913,9 @@ EXERCISES = [
                 return sum(len(c) for c in chunks)
         ''',
         "hints": [
-            "sum() adds up numbers. You need one number per chunk: its length.",
-            "Produce the length of each chunk with a comprehension and pass that straight to sum().",
-            "Return sum(len(c) for c in chunks).",
+            "You need one number from many strings. Which function adds numbers up, and what has to be added for each string?",
+            "Work out the length of every chunk and hand all those lengths to the function that adds. Write the comprehension straight inside its parentheses, with no square brackets.",
+            "Write one `return` line. Call the adding function, and inside its parentheses put what to work out for one chunk, followed by the `for` part over `chunks`. An empty list needs no special case, because the sum of nothing is 0.",
         ],
     },
     {
@@ -678,58 +923,95 @@ EXERCISES = [
         "title": "Which roles appear?",
         "difficulty": 0,
         "lesson": r'''
-            ## Set comprehensions
+            ## Which different values appear?
 
-            A **set** is a collection that holds each value at most once and has no order.
-            Adding a value that is already in the set changes nothing. A **set
-            comprehension** builds a set. You write it with curly braces and no colon.
+            People typed the names of models in different ways: `"GPT-4o"`, `"gpt-4o"`, `"Claude"`,
+            `"claude"`. You want to know which models there are, once each, whatever the capital letters. A
+            set is made for this, because it keeps one copy of each value. You can fill a set in a loop. The
+            method `add` does for a set what `append` does for a list: it puts a value in, and when the
+            value is already there, nothing changes.
 
             ```python
-            tags = ["ai", "python", "ai", "rag"]
-            unique = {t.upper() for t in tags}
-            print(len(tags))
-            # 4
-            print(len(unique))
-            # 3
-            print("AI" in unique)
-            # True
+            typed = ["GPT-4o", "gpt-4o", "Claude", "claude"]
+            models = set()
+            for t in typed:
+                models.add(t.lower())
+            print(sorted(models))
+            # ['claude', 'gpt-4o']
             ```
 
-            `tags` has 4 items, but `"ai"` appears twice. The set holds `"AI"` once, so its
-            length is 3.
+            A set has no order, so the program prints `sorted(models)`, which puts the values in
+            alphabetical order and shows the same thing on every run. Four names went in, and two values
+            stayed.
 
-            The brackets decide what a comprehension builds:
-
-            - `[x for ...]` builds a list. It keeps duplicates and keeps order.
-            - `{x for ...}` builds a set. It holds unique values and has no order.
-            - `{k: v for ...}` builds a dict of key and value pairs.
-
-            Use a set to find which different values appear in some data. An `in` check on
-            a set is also fast. Python finds the value directly and does not compare it
-            with every item, as it does for a list.
-
-            `{}` is an empty dict, not an empty set. An empty set is written `set()`.
-            `type(x).__name__` returns the name of the type of `x` as a string.
+            The comprehension keeps the same two pieces as before: what went into `add` moves to the front,
+            and the `for` line follows it. The brackets are curly braces with no colon:
 
             ```python
-            print(type({}).__name__)
-            # dict
-            print(set())
+            typed = ["GPT-4o", "gpt-4o", "Claude", "claude"]
+            print(sorted({t.lower() for t in typed}))
+            # ['claude', 'gpt-4o']
+            ```
+
+            A comprehension with curly braces and no colon builds a **set comprehension**. The brackets
+            decide what a comprehension builds:
+
+            ```match
+            `[t.lower() for t in typed]` :: a list that keeps every item, repeats included
+            `{t.lower() for t in typed}` :: a set that keeps each value once
+            `{t: t.lower() for t in typed}` :: a dict, because of the colon between key and value
+            ```
+
+            ```predict
+            words = ["Hi", "hi", "HELLO", "hello", "hey"]
+            unique = {w.lower() for w in words}
+            print(len(words))
+            print(len(unique))
+            print("hello" in unique)
+            ---
+            `words` has 5 items. In small letters, `"Hi"` and `"hi"` are the same value, and so are `"HELLO"` and `"hello"`, so the set holds three values: hi, hello and hey. The last line is `True` because `"hello"` is one of them.
+            ```
+
+            ### The empty set
+
+            ```quiz
+            You need an empty set to start from. Which line makes one?
+            - [x] `set()` :: Right. The name of the type, with nothing inside the parentheses, gives an empty set.
+            - [ ] `{}` :: Python keeps empty curly braces for an empty dict, so this is a dict, not a set.
+            - [ ] `[]` :: This is an empty list. A list can hold repeats, so it is not a set.
+            ```
+
+            A set comprehension over an empty list gives an empty set without any extra work:
+
+            ```python
+            print({t.lower() for t in []})
             # set()
             ```
+
+            **Watch out:** Python prints an empty set as `set()`, never as `{}`, because `{}` is an empty
+            dict.
+
+            **In short:** `{expression for item in items}` builds a set, which holds each value once and has no
+            order.
         ''',
         "prompt": r'''
-            A chat log has many messages; you want to know which different roles appear in it.
+            A chat log is a list of messages, and every message says who wrote it: `"user"`, `"assistant"`,
+            `"system"` or `"tool"`. Before sending the log to a model, your app wants to know which different
+            roles appear in it. How often each role appears does not matter.
 
-            **Write:** `roles_used(messages)`
+            **Your job:** write `roles_used(messages)` so that it gives back a set of the different roles.
 
-            - `messages`: a list of message dicts, each like `{"role": "user", "content": "hi"}`
-            - **Returns:** a **set** of the different `"role"` values
+            **What goes in**
+            - `messages`: a list of dicts, each like `{"role": "user", "content": "hi"}`. It may be empty.
+
+            **What comes out**
+            - a set that holds each role that appears at least once: `{"user", "assistant"}` for a chat with
+              messages from the user and the assistant
 
             **Rules**
-            - Each role appears once in the result, however many messages have it.
-            - An empty list returns an empty set, `set()`.
-            - Use a **set comprehension** (a check looks for one).
+            - Each role is in the set once, however many messages have it.
+            - An empty list gives an empty set. Python prints it as `set()`, because `{}` is an empty dict.
+            - Write it as a set comprehension. A check looks for one.
 
             **Examples**
             ```python
@@ -738,7 +1020,8 @@ EXERCISES = [
                         {"role": "user", "content": "thanks"}])
             # returns {"user", "assistant"}
 
-            roles_used([])   # returns set()
+            roles_used([{"role": "tool", "content": "42"}])   # returns {"tool"}
+            roles_used([])                                    # returns set()
             ```
         ''',
         "starter": r'''
@@ -773,50 +1056,52 @@ EXERCISES = [
                 return {m["role"] for m in messages}
         ''',
         "hints": [
-            "A set comprehension uses curly braces without a colon: {expression for item in list}.",
-            "Each item is a message dict; the expression is that message's role, looked up with its key.",
-            "Return a set comprehension that produces m[\"role\"] for every m in messages.",
+            "You want each role once, however many messages carry it. Which kind of comprehension from the lessons keeps only one copy of each value?",
+            "Go through the messages. For each message, the value that belongs in the set is the one stored under the key that names the role. Curly braces with no colon build the set.",
+            "Write one `return` line inside curly braces. In front of `for`, read the role out of the message with its key. After `for`, name the loop variable and go through `messages`. No `if` and no special case for an empty list are needed.",
         ],
     },
     {
         "id": "comprehensions-1",
         "title": "Token lengths",
         "hints": [
-            "A list comprehension with a filter: [expression for item in list if condition].",
-            "The expression is the chunk's length. The condition must be false for empty and whitespace-only chunks - strip() the chunk and check whether anything is left.",
-            "Return [len(chunk) for chunk in chunks if chunk.strip()]. An empty string is falsy, so chunk.strip() works directly as the condition.",
+            "The condition decides whether to keep a chunk; the expression decides what to measure.",
+            "Test whether trimmed text exists, but measure the original chunk.",
+            "Write one list comprehension with the character count at the front and the nonblank test at the end, preserving input order.",
         ],
         "difficulty": 1,
         "lesson": r'''
-            ## Expression and filter together
+            ## Choose items, then transform the survivors
 
-            A comprehension can change items and filter them at the same time. The filter at
-            the end decides which items are used. The expression at the front decides what
-            goes into the new list for each of them.
+            A document list contains real text and empty entries left by an earlier step. You want measurements of the useful entries, without letting the rule for selecting them change what you measure. A comprehension can express these two decisions separately.
 
             ```python
-            words = ["cat", "", "horse", "  "]
-            print([w.upper() for w in words if w])
-            # ['CAT', 'HORSE', '  ']
-            print([len(w) for w in words if len(w) > 3])
-            # [5]
+            labels = [" map ", "", "  ", "notes"]
+            sizes = [len(label) for label in labels if label.strip()]
+            print(sizes)
+            # [5, 5]
             ```
 
-            For each item, Python evaluates the `if` condition first. When the condition is
-            true, Python evaluates the expression and adds the result to the list.
+            Read the `for` part first: it gives each input item a name. Next read the final `if`: it decides whether this item contributes anything. Finally read the expression at the front: it calculates the value to include. This combines **filtering**, deciding what stays, with **transformation**, deciding what each kept item becomes.
 
-            A string is **truthy** when it has at least one character and **falsy** when it
-            is empty. So `if w` skips `""`. The string `"  "` is not empty, because it holds
-            two spaces, so `if w` keeps it. The method `strip()` returns the string without
-            the whitespace at both ends. For `"  "` it returns `""`, which is falsy.
-
-            ```python
-            words = ["cat", "", "horse", "  "]
-            print([w for w in words if w.strip()])
-            # ['cat', 'horse']
+            ```predict
+            labels = [" map ", "", "notes"]
+            print([label.upper() for label in labels if label])
+            ---
+            The empty string is skipped. The two remaining strings become uppercase, with their original surrounding spaces preserved.
             ```
 
-            The filter tests the original item, not the result of the expression.
+            The filter does not edit the original value. Calling `strip` only in the condition asks whether meaningful text exists; it does not force the output expression to use trimmed text. That distinction matters when the result must count all original characters.
+
+            ```quiz
+            A condition uses a trimmed copy. What does the expression at the front receive?
+            - [x] The original item bound by the for clause. :: Evaluating a condition does not reassign the item.
+            - [ ] Only the trimmed copy. :: You must explicitly use a trimmed value in the output expression if that is wanted.
+            ```
+
+            **Watch out:** a string containing spaces is nonempty and therefore true. Testing the original string alone will keep whitespace-only entries.
+
+            Treat the keep-or-skip decision and the output calculation as separate questions.
         ''',
         "research": {
             "note": "Skim the Python tutorial's section on list comprehensions (it shows the same idea with a for loop next to it), then come back.",
@@ -828,10 +1113,13 @@ EXERCISES = [
         "prompt": r'''
             Before embedding text chunks you want their sizes, ignoring blank chunks.
 
-            **Write:** `chunk_lengths(chunks)`
+            **Your job:** write `chunk_lengths(chunks)`
 
+            **What goes in**
             - `chunks`: a list of strings, e.g. `["hello", "  ", "hi there", ""]`
-            - **Returns:** a list of ints - the length (in characters) of each kept chunk,
+
+            **What comes out**
+            - a list of ints - the length (in characters) of each kept chunk,
               in the original order
 
             **Rules**
@@ -884,54 +1172,60 @@ EXERCISES = [
         "id": "comprehensions-2",
         "title": "Model lookup table",
         "hints": [
-            "A dict comprehension looks like {key: value for item in list if condition}.",
-            "For each model dict, the key is its \"name\" and the value is its \"context\". Keep only the ones whose \"deprecated\" is False.",
-            "Return {m[\"name\"]: m[\"context\"] for m in models if not m[\"deprecated\"]}.",
+            "Choose the field that will become each lookup key.",
+            "Each retained record supplies a name and its context size; the retired flag determines exclusion.",
+            "Build a dictionary comprehension using the two required fields, and retain records only when their deprecated flag is false.",
         ],
         "difficulty": 1,
         "lesson": r'''
-            ## A dict built from a list of dicts
+            ## Turn records into a lookup by name
 
-            The data an API sends back often contains a list of dicts, one per record, such
-            as one dict per user. Finding one record in a list means looping over it. A dict
-            that uses each name as a key gives you the value with one lookup. A dict
-            comprehension builds that dict, and a filter leaves out the records you do not
-            want.
+            A service returns a list of records, but your next step repeatedly asks for a value by name. Searching the entire list each time repeats work. Build a dictionary whose keys are the names you want to look up.
 
             ```python
-            users = [{"name": "ada", "age": 36, "active": True},
-                     {"name": "bob", "age": 20, "active": False}]
-            ages = {u["name"]: u["age"] for u in users if u["active"]}
-            print(ages)
-            # {'ada': 36}
-            print(ages["ada"])
-            # 36
+            people = [{"name": "Mina", "active": True, "level": 3},
+                      {"name": "Leo", "active": False, "level": 1}]
+            levels = {p["name"]: p["level"] for p in people if p["active"]}
+            print(levels)
+            # {'Mina': 3}
+            print(levels["Mina"])
+            # 3
             ```
 
-            The form is `{key: value for item in iterable if condition}`. Each item `u` is a
-            dict, so `u["name"]` reads the key and `u["age"]` reads the value.
+            The colon separates the key expression from the value expression. Each retained record supplies one pair. This **dictionary comprehension** follows the same iteration and filtering order as a list comprehension, but builds a keyed lookup instead of a sequence.
 
-            The operator `not` turns `True` into `False` and `False` into `True`. So
-            `if not u["active"]` keeps the users whose `"active"` is `False`.
-
-            ```python
-            users = [{"name": "ada", "age": 36, "active": True},
-                     {"name": "bob", "age": 20, "active": False}]
-            print({u["name"]: u["age"] for u in users if not u["active"]})
-            # {'bob': 20}
+            ```fill
+            records = [{"name": "Mina", "disabled": False}]
+            print({r["name"]: 1 for r in records if ___ r["disabled"]})
+            ---
+            - [x] not :: Inverting the disabled flag keeps the enabled record.
+            - [ ] + :: False behaves like zero here, so the record would be discarded.
+            - [ ] - :: Negating False also gives zero and discards the record.
             ```
 
-            The filter goes in the same place as in a list comprehension: at the end, after
-            the `for` part.
+            Translate flags carefully. A field called `active` may be kept when true; a field called `disabled` usually means the opposite. Read the field's meaning rather than copying a condition from another example.
+
+            ```quiz
+            What happens if no records pass the condition?
+            - [x] The result is an empty dictionary. :: No retained record contributes a key-value pair.
+            - [ ] The result is None. :: A dictionary comprehension always produces a dictionary.
+            ```
+
+            **Watch out:** repeated keys replace earlier values, as with ordinary dictionary assignment. A lookup is not a way to keep multiple separate entries under the same key.
+
+            Choose the lookup key, the stored value, and the inclusion rule independently.
         ''',
         "prompt": r'''
             Turn a list of model records into a quick lookup table of context windows.
 
-            **Write:** `context_table(models)`
+            **Your job:** write `context_table(models)`
 
+            **What goes in**
             - `models`: a list of dicts, each like
               `{"name": "gpt-4o", "context": 128000, "deprecated": False}`
-            - **Returns:** a dict mapping each **non-deprecated** model's `"name"` to its
+
+            **What comes out**
+            - a dict mapping each **non-deprecated** model's `"name"` to its
               `"context"` value
 
             **Rules**
@@ -990,62 +1284,52 @@ EXERCISES = [
         "title": "Label every result",
         "difficulty": 1,
         "lesson": r'''
-            ## Conditional expressions
+            ## Choose a label without dropping an item
 
-            A filter skips items. Sometimes you want a result for every item, where the
-            result depends on a condition. For that you use a **conditional expression**:
-            `a if condition else b`. Its value is `a` when the condition is true and `b`
-            when it is false.
+            A dashboard needs a status beside every result, including unsuccessful ones. Filtering out failures would make the dashboard shorter than the original result list. Instead, choose one of two labels for each item.
 
             ```python
-            print("big" if 10 > 3 else "small")
-            # big
+            attempts = [1, 4, 2]
+            labels = ["repeat" if count > 2 else "initial" for count in attempts]
+            print(labels)
+            # ['initial', 'repeat', 'initial']
             ```
 
-            A conditional expression works anywhere a value is allowed. In a comprehension
-            it goes at the front, as the expression: `[a if cond else b for x in items]`.
-            The new list has the same length as the original.
+            The choice appears at the front, where a comprehension normally calculates its output value. The form `a if condition else b` picks one value when the condition is true and the other when it is false. This is a **conditional expression**. It still produces one output per input.
 
-            ```python
-            scores = [0.9, 0.2, 0.6]
-            print(["pass" if s >= 0.5 else "fail" for s in scores])
-            # ['pass', 'fail', 'pass']
+            ```predict
+            sizes = [2, 5, 8]
+            print(["large" if size >= 5 else "small" for size in sizes])
+            ---
+            Every size gets a label. The comparison includes equality, so both five and eight receive large.
             ```
 
-            Step through the loop that this comprehension replaces. Every score reaches one
-            of the two `append` lines.
+            Compare this with a final `if` after the `for` part. That final condition is a filter, so failed items disappear. A conditional expression has an `else` because it must supply an answer even when the condition fails. These two uses of `if` answer different questions.
 
-            ```diagram
-            {"type": "trace", "title": "The for loop that [\"pass\" if s >= 0.5 else \"fail\" for s in scores] replaces", "code": ["scores = [0.9, 0.2, 0.6]", "labels = []", "for s in scores:", "    if s >= 0.5:", "        labels.append(\"pass\")", "    else:", "        labels.append(\"fail\")", "print(labels)"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"scores": "[0.9, 0.2, 0.6]"}, "out": ""},
-              {"line": 3, "vars": {"scores": "[0.9, 0.2, 0.6]", "labels": "[]"}, "out": ""},
-              {"line": 4, "vars": {"scores": "[0.9, 0.2, 0.6]", "labels": "[]", "s": "0.9"}, "out": ""},
-              {"line": 5, "vars": {"scores": "[0.9, 0.2, 0.6]", "labels": "[]", "s": "0.9"}, "out": ""},
-              {"line": 3, "vars": {"scores": "[0.9, 0.2, 0.6]", "labels": "['pass']", "s": "0.9"}, "out": ""},
-              {"line": 4, "vars": {"scores": "[0.9, 0.2, 0.6]", "labels": "['pass']", "s": "0.2"}, "out": ""},
-              {"line": 7, "vars": {"scores": "[0.9, 0.2, 0.6]", "labels": "['pass']", "s": "0.2"}, "out": ""},
-              {"line": 3, "vars": {"scores": "[0.9, 0.2, 0.6]", "labels": "['pass', 'fail']", "s": "0.2"}, "out": ""},
-              {"line": 4, "vars": {"scores": "[0.9, 0.2, 0.6]", "labels": "['pass', 'fail']", "s": "0.6"}, "out": ""},
-              {"line": 5, "vars": {"scores": "[0.9, 0.2, 0.6]", "labels": "['pass', 'fail']", "s": "0.6"}, "out": ""},
-              {"line": 3, "vars": {"scores": "[0.9, 0.2, 0.6]", "labels": "['pass', 'fail', 'pass']", "s": "0.6"}, "out": ""},
-              {"line": 8, "vars": {"scores": "[0.9, 0.2, 0.6]", "labels": "['pass', 'fail', 'pass']", "s": "0.6"}, "out": ""},
-              {"line": null, "vars": {"scores": "[0.9, 0.2, 0.6]", "labels": "['pass', 'fail', 'pass']", "s": "0.6"}, "out": "['pass', 'fail', 'pass']\n"}
-            ]}
+            ```match
+            condition at the end :: whether an item contributes a result
+            choice at the front :: which result an item contributes
+            `else` in a conditional expression :: the value for a false condition
             ```
 
-            The two kinds of `if` are different. The `if` at the end filters and has no
-            `else`. The `if ... else` at the front picks a value and always needs the `else`.
+            Boundary values need deliberate attention. A condition using greater-than excludes equality, while greater-than-or-equal includes it. Pick the comparison that matches the promised labels rather than whichever example you last saw.
+
+            **Watch out:** moving the condition to the end changes a labeling task into filtering. The code can run successfully while returning too few items.
+
+            Put the choice in the output expression when every input needs an answer.
         ''',
         "prompt": r'''
             A retriever returns similarity scores. Label each one so a dashboard can colour it,
             keeping **every** score (this uses a *conditional expression*, `a if cond else b`).
 
-            **Write:** `label_scores(scores, threshold=0.5)`
+            **Your job:** write `label_scores(scores, threshold=0.5)`
 
+            **What goes in**
             - `scores`: a list of floats, e.g. `[0.9, 0.2, 0.5]`
             - `threshold`: a float, default `0.5`
-            - **Returns:** a list of strings, one per score in the same order: `"relevant"` if
+
+            **What comes out**
+            - a list of strings, one per score in the same order: `"relevant"` if
               the score is **greater than or equal to** `threshold`, otherwise `"ignore"`
 
             **Rules**
@@ -1096,9 +1380,9 @@ EXERCISES = [
                 return ["relevant" if s >= threshold else "ignore" for s in scores]
         ''',
         "hints": [
-            "Every score stays, so there is no filter at the end. The choice happens in the expression at the front.",
-            "The expression is a conditional expression: one string if the score is at least the threshold, the other string otherwise.",
-            "Return a list comprehension whose expression is \"relevant\" if s >= threshold else \"ignore\", for s in scores.",
+            "Every input needs an output, so a final filter is the wrong shape.",
+            "Make the expression choose between two labels while keeping every score.",
+            "Use a conditional expression at the front of the list comprehension, including equality in the relevant case.",
         ],
     },
     {
@@ -1106,50 +1390,50 @@ EXERCISES = [
         "title": "Any chunk too long?",
         "difficulty": 1,
         "lesson": r'''
-            ## any and all
+            ## Ask one question about a whole collection
 
-            Two built-in functions test a whole iterable and return one boolean (`True` or
-            `False`). `any(...)` returns `True` when at least one value is truthy. `all(...)`
-            returns `True` when every value is truthy.
+            A batch can contain many documents, but you may only need one yes-or-no answer: does anything exceed the size limit, or does everything satisfy a rule? Building a full list of labels would do more work than that answer needs.
 
             ```python
-            lengths = [120, 800, 40]
-            print(any(n > 500 for n in lengths))
+            sizes = [4, 12, 7]
+            print(any(size > 10 for size in sizes))
             # True
-            print(all(n > 500 for n in lengths))
+            print(all(size > 10 for size in sizes))
             # False
             ```
 
-            You pass them a generator expression that produces one `True` or `False` per
-            item. Here `n > 500` produces `False`, `True`, `False`. Both functions stop
-            reading values once the answer is known: `any` stops at the first true value,
-            and `all` stops at the first false value.
+            The expression supplies one condition result at a time. `any` succeeds when at least one is true; `all` succeeds when none is false. Both stop once later items cannot change the answer. Supplying those values without building a list uses the **generator expression** form introduced earlier in this chapter.
 
-            With no values, `any` returns `False` because no value was true. `all` returns
-            `True` because no value was false.
-
-            ```python
-            print(any(n > 5 for n in []), all(n > 5 for n in []))
-            # False True
+            ```predict
+            print(any(number < 0 for number in []))
+            print(all(number < 0 for number in []))
+            ---
+            With no items there is no successful example for any, so it is False. There is no counterexample for all, so it is True.
             ```
 
-            Always write the condition. `any(lengths)` tests whether each number is truthy,
-            which for a number means not zero. It does not compare anything with 500.
+            Empty collections are not errors for these functions. Think of `all` as asking whether any item breaks the rule: an empty collection has no such item. Think of `any` as asking for at least one witness: an empty collection cannot supply one.
 
-            ```python
-            lengths = [120, 800, 40]
-            print(any(lengths))
-            # True
+            ```quiz
+            Does `any([2, 3])` check whether a number exceeds ten?
+            - [x] No; it only tests whether those values count as true. :: Nonzero numbers are true, so you must supply the actual comparison.
+            - [ ] Yes; any guesses the intended limit. :: The rule must be written explicitly in the expression.
             ```
+
+            **Watch out:** a whitespace-only string counts as true until you trim it. Write the condition for meaningful text, not merely for a nonempty original string.
+
+            Use any for at least one success and all for no failures.
         ''',
         "prompt": r'''
             Before embedding, check a batch of text chunks against the model's size limit.
 
-            **Write:** `any_too_long(chunks, limit)` and `all_non_empty(chunks)`
+            **Your job:** write `any_too_long(chunks, limit)` and `all_non_empty(chunks)`
 
+            **What goes in**
             - `chunks`: a list of strings, e.g. `["short", "a much longer chunk"]`
             - `limit`: an int, the maximum allowed length in characters, e.g. `10`
-            - **Returns:**
+
+            **What comes out**
+            -
               - `any_too_long`: `True` if at least one chunk has **more than** `limit`
                 characters, else `False`
               - `all_non_empty`: `True` if every chunk contains at least one non-whitespace
@@ -1222,18 +1506,18 @@ EXERCISES = [
                 return all(c.strip() != "" for c in chunks)
         ''',
         "hints": [
-            "any() answers 'is at least one true?', all() answers 'is every one true?'. Feed each a generator expression of True/False values.",
-            "any_too_long: one comparison per chunk, its length against the limit. all_non_empty: one check per chunk, whether anything is left after removing whitespace.",
-            "Return any(len(c) > limit for c in chunks). For the other, return all(...) over a comparison that is True when c.strip() is not the empty string.",
+            "Ask whether one example is enough or whether every example must pass.",
+            "One helper checks lengths against the limit; the other checks for meaningful text after trimming.",
+            "Feed each built-in the corresponding per-chunk condition through a generator expression, keeping the specified empty-batch behavior.",
         ],
     },
     {
         "id": "comprehensions-3",
         "title": "Flatten chunked documents",
         "hints": [
-            "A comprehension can have two for clauses, read left to right like nested loops. enumerate() gives (index, item) pairs.",
-            "The outer for goes over the docs; the inner for goes over enumerate(doc[\"chunks\"]). The expression builds the tuple.",
-            "Return [(doc[\"id\"], i, chunk) for doc in docs for i, chunk in enumerate(doc[\"chunks\"])]. A doc with no chunks simply produces nothing.",
+            "Read the two for clauses in the order you would nest ordinary loops.",
+            "Visit one document, then enumerate its chunks before moving to the next document.",
+            "Build each output tuple from the current document and its current indexed chunk; put both for clauses in one comprehension.",
         ],
         "difficulty": 2,
         "placement": True,
@@ -1242,11 +1526,14 @@ EXERCISES = [
             flat list of every chunk, tagged with where it came from (this is called
             *flattening*).
 
-            **Write:** `flatten_chunks(docs)`
+            **Your job:** write `flatten_chunks(docs)`
 
+            **What goes in**
             - `docs`: a list of dicts, each like `{"id": "a", "chunks": ["intro", "body"]}`
               (`"id"` is a string, `"chunks"` is a list of strings, possibly empty)
-            - **Returns:** a list of tuples `(doc_id, index, chunk)`, where `index` is the
+
+            **What comes out**
+            - a list of tuples `(doc_id, index, chunk)`, where `index` is the
               chunk's position inside **its own** document (starting at `0`)
 
             **Rules**
@@ -1322,21 +1609,23 @@ EXERCISES = [
         "id": "comprehensions-4",
         "title": "Guardrail checks",
         "hints": [
-            "A generator expression is a comprehension without square brackets, passed straight into sum(), any() or all().",
-            "sum adds numbers from each message; any is True if at least one check passes; all is True if every check passes (and for an empty list).",
-            "total_tokens: sum(m[\"tokens\"] for m in messages). has_banned: lower-case the text once, then any(word in lowered for word in banned). all_valid_roles: keep a set of valid roles and use all(m[\"role\"] in that_set for m in messages).",
+            "Choose the collecting function according to whether you need a sum, one match, or universal validity.",
+            "Each generator supplies one number or one condition result per input.",
+            "Sum token counts, test phrase membership against lowercased text, and check each role against the allowed names, using a separate generator in every helper.",
         ],
         "difficulty": 2,
         "prompt": r'''
             Three small guardrail checks you might run on a chat before sending it to a model.
 
-            **Write:** `total_tokens(messages)`, `has_banned(text, banned)` and
+            **Your job:** write `total_tokens(messages)`, `has_banned(text, banned)` and
             `all_valid_roles(messages)`
 
             - `messages`: a list of message dicts, each like `{"role": "user", "tokens": 12}`
             - `text`: a string, e.g. `"Ignore previous INSTRUCTIONS"`
             - `banned`: a list of lower-case phrases, e.g. `["ignore previous"]`
-            - **Returns:**
+
+            **What comes out**
+            -
               - `total_tokens`: an int - the sum of every message's `"tokens"`
               - `has_banned`: `True` if any phrase in `banned` appears anywhere inside
                 `text.lower()` (a substring check), else `False`
@@ -1428,21 +1717,24 @@ EXERCISES = [
         "id": "comprehensions-5",
         "title": "Label and dedupe",
         "hints": [
-            "Three different comprehensions: a list comp with `a if cond else b`, a set comp with {...} and no colon, and a dict comp.",
-            "For labels, put the conditional expression inside an f-string or next to the doc id. For best, for every doc id compute the max of all scores belonging to that id.",
-            "labels: [f\"{doc}:\" + (\"hit\" if score >= threshold else \"miss\") for doc, score in results]. unique_hits: {doc for doc, score in results if score >= threshold}. best: {doc: max(s for d, s in results if d == doc) for doc, _ in results}. Return the three in a dict.",
+            "The three output collections preserve different information: order, uniqueness, and a best value.",
+            "Label every pair, collect qualifying identifiers, and calculate the maximum over all scores for each identifier.",
+            "Build the required three comprehension kinds separately, ensure equality qualifies as a hit, and assemble them under the specified dictionary keys.",
         ],
         "difficulty": 3,
         "prompt": r'''
             Summarise retriever results: label each hit or miss, list the documents that
             were hits, and find each document's best score.
 
-            **Write:** `summarise_scores(results, threshold)`
+            **Your job:** write `summarise_scores(results, threshold)`
 
+            **What goes in**
             - `results`: a list of `(doc_id, score)` tuples, e.g. `[("a", 0.9), ("b", 0.2)]`
               (`doc_id` is a string, `score` a float; the same doc may appear more than once)
             - `threshold`: a float, e.g. `0.5`
-            - **Returns:** a dict with exactly three keys:
+
+            **What comes out**
+            - a dict with exactly three keys:
               - `"labels"`: a list of strings, one per pair in input order:
                 `"<doc_id>:hit"` if `score >= threshold`, else `"<doc_id>:miss"`
               - `"unique_hits"`: a **set** of the doc ids with at least one score `>= threshold`
@@ -1524,41 +1816,43 @@ EXERCISES = [
         "id": "comprehensions-6",
         "title": "Transpose embeddings",
         "hints": [
-            "Nested list comprehensions: the outer one goes over column positions, the inner one over rows.",
-            "Column i of the result is [row[i] for row in matrix]. There are len(matrix[0]) columns. The mean vector is the average of each column of the transposed matrix.",
-            "transpose: return [] for an empty matrix, else [[row[i] for row in matrix] for i in range(len(matrix[0]))]. mean_vector: raise ValueError if empty, else [sum(col) / len(vectors) for col in transpose(vectors)].",
+            "A column contains the same position from every input row.",
+            "Build columns first; their averages become the entries of the mean vector.",
+            "Handle empty inputs according to each function's contract, construct columns with nested comprehensions, then divide each column total by the number of vectors.",
         ],
         "difficulty": 3,
         "prompt": r'''
             Embeddings are stored as a list of equal-length vectors (lists of numbers).
-            Averaging them gives a single "centre" vector for a group of documents.
+                      Averaging them gives a single "centre" vector for a group of documents.
 
-            **Write:** `transpose(matrix)` and `mean_vector(vectors)`
+                      **Your job:** write `transpose(matrix)` and `mean_vector(vectors)`
 
-            - `matrix` / `vectors`: a list of equal-length lists of numbers,
-              e.g. `[[1, 2, 3], [4, 5, 6]]`
-            - **Returns:**
-              - `transpose`: a list of lists where row `i` holds item `i` of every input row
-                (rows become columns - this is called *transposing*)
-              - `mean_vector`: a list of floats - the *element-wise mean*: position `i` is the
-                average of item `i` across all the vectors
+                      - `matrix` / `vectors`: a list of equal-length lists of numbers,
+                        e.g. `[[1, 2, 3], [4, 5, 6]]`
 
-            **Rules**
-            - `transpose` must return **lists**, not tuples, for each row.
-            - `transpose([])` returns `[]`.
-            - `mean_vector([])` raises `ValueError` (any message).
-            - Use comprehensions only: a check fails if your file has a `for` loop statement
-              or mentions `numpy` (a library for
-  number arrays that you do not need here).
+            **What comes out**
+            -
+                        - `transpose`: a list of lists where row `i` holds item `i` of every input row
+                          (rows become columns - this is called *transposing*)
+                        - `mean_vector`: a list of floats - the *element-wise mean*: position `i` is the
+                          average of item `i` across all the vectors
 
-            **Examples**
-            ```python
-            transpose([[1, 2, 3], [4, 5, 6]])   # returns [[1, 4], [2, 5], [3, 6]]
-            transpose([])                       # returns []
-            mean_vector([[1, 2], [3, 6]])       # returns [2.0, 4.0]
-            mean_vector([[0.5, 1.0, -1.0]])     # returns [0.5, 1.0, -1.0]
-            mean_vector([])                     # raises ValueError
-            ```
+                      **Rules**
+                      - `transpose` must return **lists**, not tuples, for each row.
+                      - `transpose([])` returns `[]`.
+                      - `mean_vector([])` raises `ValueError` (any message).
+                      - Use comprehensions only: a check fails if your file has a `for` loop statement
+                        or mentions `numpy` (a library for
+            number arrays that you do not need here).
+
+                      **Examples**
+                      ```python
+                      transpose([[1, 2, 3], [4, 5, 6]])   # returns [[1, 4], [2, 5], [3, 6]]
+                      transpose([])                       # returns []
+                      mean_vector([[1, 2], [3, 6]])       # returns [2.0, 4.0]
+                      mean_vector([[0.5, 1.0, -1.0]])     # returns [0.5, 1.0, -1.0]
+                      mean_vector([])                     # raises ValueError
+                      ```
         ''',
         "starter": r'''
             def transpose(matrix):

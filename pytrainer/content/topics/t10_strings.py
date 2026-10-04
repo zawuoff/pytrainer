@@ -234,13 +234,12 @@ EXERCISES = [
         "title": "Method chain",
         "difficulty": 0,
         "lesson": r'''
-            ## Strings and string methods
+            ## Looking inside a piece of text
 
-            A **string** is a sequence of characters. Prompts, documents and model replies
-            are all strings. Each character has an index that starts at `0`, the same way
-            list items do. A negative index counts from the end, so `word[-1]` is the last
-            character. `len` returns the number of characters, and a slice such as
-            `word[:3]` returns part of the string: here the characters at indexes 0, 1 and 2.
+            A prompt, a document, a reply from a model: almost everything an AI app handles is text. And
+            text rarely arrives in the shape you need. A reply has spaces around it. A file name has
+            capital letters where you expected none. This chapter is about the tools that deal with that.
+            It starts with a question: what is a string made of?
 
             ```python
             word = "prompt"
@@ -252,40 +251,74 @@ EXERCISES = [
             # pro
             ```
 
-            Click a character to see both of its indexes.
+            A string is a row of characters, and Python treats that row much like a list. `len` counts the
+            characters. Index `0` is the first character and index `-1` is the last. The slice `word[:3]`
+            takes the characters at indexes 0, 1 and 2 and hands them back as a new string.
+
+            Values that keep their contents in a row like this are called **sequences**. A list is a
+            sequence of items, and a string is a sequence of characters. Click a character to see both of
+            its indexes:
 
             ```diagram
             {"type":"string-index","title":"Indexes of word","name":"word","value":"prompt"}
             ```
 
-            A **method** is a function that belongs to a value. You call it with a dot
-            after the value. `strip()` returns the text without the spaces at both ends,
-            `upper()` returns it with every letter in upper case, and `split()` returns a
-            list of the words. `startswith("Hi")` returns `True` when the string begins
-            with `Hi`, and `False` when it does not.
+            Pick the gap that makes this program print `de`:
 
-            ```python
-            text = "  Hi There  "
-            clean = text.strip()
-            print(clean)
-            # Hi There
-            print(clean.upper())
-            # HI THERE
-            print(clean.split())
-            # ['Hi', 'There']
-            print(text.startswith("Hi"))
-            # False
+            ```fill
+            name = "claude"
+            print(name[___])
+            ---
+            - [x] -2: :: Right. A start of `-2` counts from the end, and with no stop the slice runs to the end of the string. That is the last two characters.
+            - [ ] -2 :: Without the colon this is one index, not a slice. It reads the single character `d`.
+            - [ ] :2 :: With no start, the slice begins at the first character. It takes the first two characters and prints `cl`.
             ```
 
-            A string is **immutable**: its characters cannot change after it is created.
-            No method changes the original string. `strip()` and `upper()` each return a
-            new string.
+            ### Tools that come with every string
 
-            `text.strip()` did not change `text`. `text` still starts with two spaces, so
-            `text.startswith("Hi")` is `False`.
+            In the Data Types chapter you met `strip()`, `lower()` and `upper()`. They are methods: you
+            write them after a string and a dot, and each one hands back a new string. Two more methods
+            appear in this step. Later steps come back to both, so a first look is enough here.
+
+            ```python
+            text = "  Ask me anything  "
+            clean = text.strip()
+            print(clean.upper())
+            # ASK ME ANYTHING
+            print(clean.split())
+            # ['Ask', 'me', 'anything']
+            print(clean.startswith("Ask"))
+            # True
+            ```
+
+            `split()` cuts the string at its spaces and hands back a list of the words.
+            `startswith("Ask")` answers a yes-or-no question: does the string begin with exactly this
+            text? The answer is `True` or `False`.
+
+            Every one of those lines used `clean`. What about `text` itself, now that `text.strip()` has
+            run?
+
+            ```predict
+            text = "  Ask me anything  "
+            clean = text.strip()
+            print(len(text), len(clean))
+            print(text.startswith("Ask"))
+            ---
+            Strings are immutable, so no method can change one. `text.strip()` built a new string of 15 characters, and `clean` is the name for it. `text` still has all 19 characters. It begins with a space, not with `Ask`, so the answer is `False`.
+            ```
+
+            **Watch out:** a method works on the string in front of its dot, and on no other. When you ask
+            the wrong string, there is no error message. The program runs and gives a correct answer about
+            a string you did not mean. So before you read a line such as `text.startswith("Ask")`, look at
+            which name stands in front of the dot, and at what that name holds.
+
+            **In short:** a string is a sequence of characters that you can index and slice like a list,
+            and its methods hand back new values and leave the string itself as it was.
         ''',
         "mode": "predict",
-        "prompt": r'''Read the code and type exactly what it prints.''',
+        "prompt": r'''
+            Read the program in the editor. Type exactly what it prints, one line for each `print`.
+        ''',
         "code": r'''
             text = "  Hello World  "
             clean = text.strip()
@@ -301,16 +334,18 @@ EXERCISES = [
             False
         ''',
         "explanation": r'''
-            `strip()` removes the outer spaces, giving `"Hello World"` (11 characters).
-            `lower()` returns a lower-case copy. `split()` breaks it into a list of words.
-            The last line checks the **original** `text`, which still starts with spaces,
-            so `startswith("Hello")` is `False`.
+            `strip()` takes the two spaces off each end, so `clean` is `"Hello World"`. The first `print`
+            shows it in small letters. `len(clean)` counts 11 characters: five letters, the space in the
+            middle, and five more letters. `split()` cuts at that space and hands back a list of the two
+            words, which Python prints in square brackets with the words in single quotes. The last line
+            asks about `text`, not about `clean`. No method changed `text`, so it still begins with two
+            spaces, and the answer is `False`.
         ''',
         "starter": "", "tests": "",
         "hints": [
-            "Work out what `clean` holds first. Then evaluate each print one at a time.",
-            "strip only removes spaces at the ends, not the one in the middle. The last line uses text, not clean.",
-            "clean is \"Hello World\". Line 1: lower-case version. Line 2: count its characters including the middle space. Line 3: a list of two words. Line 4: does the unstripped text begin with Hello?",
+            "Start by working out what `clean` holds. Three of the four `print` lines use it.",
+            "`strip()` takes whitespace off the two ends only, and the space between the two words is a character that `len` counts. Before you answer the last line, look at which name stands in front of the dot.",
+            "Your first line is `clean` in small letters. Your second line is the number of characters in `clean`, with the space in the middle counted. Your third line is a list of two words, written the way Python prints a list. Your fourth line is `True` or `False`: does the string that still has its spaces begin with `Hello`?",
         ],
     },
     {
@@ -318,59 +353,99 @@ EXERCISES = [
         "title": "Tidy a user message",
         "difficulty": 0,
         "lesson": r'''
-            ## strip, lower and upper
+            ## Trimming the ends of a string
 
-            **Whitespace** is the name for spaces, tabs (`\t`) and newlines (`\n`). Text
-            typed by users often has whitespace at the start or at the end.
+            A user types a message, taps the space bar a few times and presses Enter. Your program receives
+            `"  Hello \n"`. On the screen it looks like a clean `Hello`, because spaces and newlines are
+            invisible. To Python it is a different string from `"Hello"`, and a comparison of the two says
+            `False`.
 
-            `strip()` returns a new string with all whitespace removed from both ends.
+            So the first job is to see what is really there:
 
             ```python
-            raw = "\t  Summarise this document.  \n"
+            raw = "\t Summarise this. \n"
+            print(repr(raw))
+            # '\t Summarise this. \n'
             print(repr(raw.strip()))
-            # 'Summarise this document.'
-            print(repr("  a  b  ".strip()))
-            # 'a  b'
+            # 'Summarise this.'
             ```
 
-            `repr` returns the string the way you would type it in code, with its quotes,
-            so you can see where it starts and ends.
+            `repr(raw)` hands back the string written the way you would type it in code: inside quotes,
+            with `\t` for a tab and `\n` for a newline. Printing that shows exactly where the string
+            starts and ends. The checks in this app show your results in the same form.
 
-            `lower()` returns a copy with every letter in lower case. `upper()` returns a
-            copy with every letter in upper case.
+            Spaces, tabs and newlines have one name together: **whitespace**. `strip()`, which you know
+            from the Data Types chapter, removes all the whitespace at both ends, however much there is. It
+            stops at the first character that is not whitespace, so it never reaches the middle.
+
+            ```predict
+            line = "  a  b \n"
+            print(repr(line.strip()))
+            print(len(line.strip()))
+            ---
+            The two spaces in front are gone, and so are the space and the newline at the end. The two spaces between `a` and `b` are in the middle, so they stay. `'a  b'` has 4 characters.
+            ```
+
+            ### Other characters at the ends
+
+            Put a string in the parentheses, and `strip` removes those characters instead of whitespace:
 
             ```python
-            title = "Hello World"
-            print(title.lower())
-            # hello world
-            print(title.upper())
-            # HELLO WORLD
+            word = "...wait!?"
+            print(word.strip(".!?"))
+            # wait
+            print("(a.b)".strip("()."))
+            # a.b
             ```
 
-            You can **chain** methods: write one call directly after another. Python runs
-            them left to right, and each method runs on the result of the one before it.
+            The argument is not a word to look for. Python reads it as single characters, and each one is
+            a character to remove. The order in which you write them does not matter. At each end, Python
+            removes characters for as long as they are among the ones you named, and stops at the first
+            one that is not. The dot between `a` and `b` is in the middle, so it stays. You will need this
+            later in the chapter, to take the punctuation off words.
 
-            ```python
-            raw = "  GPT-4o Mini \n"
-            print(raw.strip().upper())
-            # GPT-4O MINI
+            Pick the argument that makes this program print `'Setup'`:
+
+            ```fill
+            tag = "## Setup ##"
+            print(repr(tag.strip(___)))
+            ---
+            - [x] "# " :: Right. Both `#` and the space are named, so Python keeps removing until it reaches the `S` on one side and the `p` on the other.
+            - [ ] "#" :: Only `#` is named, so Python stops at the spaces. This prints `' Setup '`, with a space on each side.
+            - [ ] " " :: Only the space is named, and the string begins and ends with `#`. Nothing is removed.
             ```
 
-            `strip()` only removes whitespace at the two ends. The two spaces between `a`
-            and `b` in the first example are still there.
+            ### One method after another
+
+            `strip()` hands back a string, so the next method can follow it directly, as in
+            `raw.strip().upper()`. Python works from left to right: it strips first, and then makes
+            capitals of the result. In the Lists chapter this was called chaining.
+
+            **Watch out:** `strip("the")` does not remove the word `the`. It removes the characters `t`,
+            `h` and `e` from both ends. `"the theme".strip("the")` gives `" them"`: the `the` in front is
+            gone, and so is the `e` at the end. There is no error to warn you.
+
+            **In short:** `text.strip()` removes the whitespace at both ends of a string,
+            `text.strip(chars)` removes the characters you name instead, and neither touches the middle.
         ''',
         "prompt": r'''
-            User messages arrive with stray spaces and random capitals. Tidy them up.
+            People type messages with stray spaces at the ends and with capital letters in odd places.
+            Before a chat app compares a message with anything or stores it, it tidies the message up.
 
-            **Write:** `tidy(text)` - fill in the `___` in the starter.
+            **Your job:** finish `tidy(text)` so that it gives back the tidied message. The function is
+            already written except for one gap, marked `___`. The part that makes the letters small is
+            there. The part that trims the two ends is missing.
 
-            - `text`: a string, e.g. `"  Hello THERE \n"`
-            - **Returns:** a new string with the whitespace (spaces, tabs, newlines) at
-              both ends removed **and** every letter lower-case.
+            **What goes in**
+            - `text`: a string, for example `"  Hello THERE \n"`
+
+            **What comes out**
+            - a string: `text` without the whitespace (spaces, tabs, newlines) at both ends, and with
+              every letter small: `"hello there"` for the example value
 
             **Rules**
             - Whitespace in the middle stays as it is.
-            - Text that is already clean comes back unchanged.
+            - A text that is already tidy comes back unchanged.
 
             **Examples**
             ```python
@@ -397,9 +472,9 @@ EXERCISES = [
                 return text.strip().lower()
         ''',
         "hints": [
-            "You need the string method that removes whitespace from both ends.",
-            "The lower-casing is already there. Only the whitespace-removing method name is missing.",
-            "Replace ___ with strip.",
+            "Which method takes the whitespace off both ends of a string? You met it in the Data Types chapter, and the lesson takes a closer look at it.",
+            "The gap sits where the name of a method belongs: after the dot and before the parentheses. That method has to hand back a string, because `.lower()` is then called on its result.",
+            "Read the finished line from left to right: start with `text`, trim its two ends, then make the letters small. The gap is the name of the method that does the trimming. Write the name only, because its parentheses are already there.",
         ],
     },
     {
@@ -407,10 +482,11 @@ EXERCISES = [
         "title": "Fix: the redaction does nothing",
         "difficulty": 0,
         "lesson": r'''
-            ## replace returns a new string
+            ## Swapping one piece of text for another
 
-            `replace(old, new)` returns a new string in which every occurrence of `old` is
-            replaced by `new`. The original string stays as it was.
+            You wrote a prompt with a placeholder in it: `"Dear NAME, your order has shipped."`. For each
+            customer, `NAME` has to become a real name. The same need turns up when a secret must be
+            hidden before a text is saved. One piece of text comes out, and another goes in its place.
 
             ```python
             msg = "hello world, hello again"
@@ -421,39 +497,73 @@ EXERCISES = [
             # hello world, hello again
             ```
 
-            If `old` does not appear in the string, `replace` returns the same text.
+            `replace` takes two arguments: the text to look for, and the text to put in its place. It
+            finds every place where the first one appears, not only the first place, and hands back a new
+            string with the swap made in all of them.
 
-            Strings are **immutable**: their characters cannot change after they are
-            created. So a call to `replace` on a line by itself has no effect. Python
-            builds the new string and then discards it, because no name refers to it.
+            Three details. Capital letters count: to `replace`, `A` and `a` are different characters. When
+            the text to look for is not in the string at all, you get back a string equal to the original,
+            and that is not an error. And the second argument may be the empty string `""`, which deletes
+            what was found.
 
-            ```python
+            ```match
+            `"a-b-a".replace("a", "x")` :: `"x-b-x"`
+            `"a-b-a".replace("-", "")` :: `"aba"`
+            `"a-b-a".replace("A", "x")` :: `"a-b-a"`
+            `"a-b-a".replace("a-b", "c")` :: `"c-a"`
+            ---
+            Every `a` is swapped, not only the first one. Swapping the dashes for the empty string deletes them. A capital `A` is not in the string, so it comes back as it was. And the text to look for can be several characters long: `a-b` is found once, at the start.
+            ```
+
+            ### Where did the new string go?
+
+            Look at the last line of the first example: `msg` still says `hello`. Strings are immutable,
+            so `replace` cannot change `msg`. It builds a new string and hands it back, the same way
+            `strip()` does. So what happens when nobody takes that new string?
+
+            ```quiz
+            What does this program print?
+
+            ~~~python
             setting = "temperature=0.7"
             setting.replace("0.7", "0.2")
             print(setting)
-            # temperature=0.7
-            setting = setting.replace("0.7", "0.2")
-            print(setting)
-            # temperature=0.2
+            ~~~
+            - [x] `temperature=0.7` :: Right. The second line builds the string `"temperature=0.2"`, and then nothing stores it, so it is lost. `setting` still stands for the original.
+            - [ ] `temperature=0.2` :: That needs an assignment: `setting = setting.replace("0.7", "0.2")`. The method alone cannot change what `setting` stands for.
+            - [ ] Nothing, because of an error :: Calling a method and ignoring what it hands back is allowed. It only has no effect.
             ```
 
-            To keep the result, assign it to a name: `setting = setting.replace(...)`.
+            A method call on a line of its own makes sense for `append`, which changes its list in place.
+            A string method never changes its string. What it hands back has to go somewhere: under a
+            name, into `print`, or after `return`.
 
-            The same mistake happens with `strip()`, `lower()` and every other string
-            method. None of them changes the original string.
+            **Watch out:** a `replace` whose result is not stored does nothing, and Python gives no
+            warning. When a text comes out of your function unchanged, look for a method call that stands
+            on a line of its own.
+
+            **In short:** `text.replace(old, new)` hands back a new string with every `old` swapped for
+            `new`, and you have to store that string to keep it.
         ''',
         "prompt": r'''
-            Before logging a prompt we hide API keys. The starter's `redact` has one bug:
-            it returns the text unchanged.
+            A program that writes its prompts to a log file must never write an API key there. An API key
+            is the secret password for a paid service, and anyone who can read the log could use it. So
+            before a prompt is logged, the key in it is swapped for the placeholder `[KEY]`. Hiding a
+            secret in this way is called redacting it.
 
-            **Write:** fix `redact(text)`
+            **Your job:** find the bug in `redact(text)` and fix it. The code is already in the editor. At
+            the moment the function gives back the text exactly as it came in, with the key still in it.
 
-            - `text`: a string, e.g. `"my key is sk-secret"`
-            - **Returns:** a new string where every `"sk-secret"` is replaced by `"[KEY]"`.
+            **What goes in**
+            - `text`: a string, for example `"my key is sk-secret"`
+
+            **What comes out**
+            - a string: `text` with `"sk-secret"` swapped for `"[KEY]"`: `"my key is [KEY]"` for the
+              example value
 
             **Rules**
-            - Replace **every** occurrence, not just the first.
-            - Text without `"sk-secret"` comes back unchanged.
+            - Every `"sk-secret"` in the text is swapped, not only the first one.
+            - A text without `"sk-secret"` comes back unchanged.
 
             **Examples**
             ```python
@@ -487,9 +597,9 @@ EXERCISES = [
                 return text
         ''',
         "hints": [
-            "Strings never change in place. What does replace() do with its result?",
-            "replace returns a NEW string. The code throws that new string away and returns the old one.",
-            "Store the result: assign text.replace(...) back to text (or return it directly).",
+            "What does `replace` do with the new string it builds? The quiz in the lesson shows what happens when nobody takes it.",
+            "The first line of the function does build the redacted string. Then nothing stores it, and the `return` line hands back the old `text`.",
+            "Make sure that the string which `replace` hands back is the one that reaches `return`. You can store it under a name and return that name, or you can return what `replace` hands back directly.",
         ],
     },
     {
@@ -499,55 +609,88 @@ EXERCISES = [
         "lesson": r'''
             ## Splitting text into words
 
-            `split()` cuts a string at its whitespace and returns a **list** of the pieces.
+            How long is this prompt? Before anything more exact, programmers often answer with a rough count of its words. To count words you first have to get them apart, and real text does not make that easy: some words have two spaces after them, some have a tab, some end a line.
+
+            You met `split()` in the first step of this chapter. Here is what it does with that mess:
 
             ```python
             line = "the  quick\tbrown\nfox"
             words = line.split()
             print(words)
             # ['the', 'quick', 'brown', 'fox']
-            print(len(words))
-            # 4
-            print("   ".split())
+            ```
+
+            Between `the` and `quick` there are two spaces, and a tab and a newline sit further on. `split()` coped with all of it. A stretch of one or more whitespace characters in a row is called a **run** of whitespace. With nothing in the parentheses, `split()` makes one cut at each run, however long it is, and throws the whitespace away. What you get is a list, so everything you know about lists works on it.
+
+            Try it before you read on:
+
+            ```predict
+            note = "  tokens\t\tand   costs\n"
+            print(note.split())
+            print(note.split()[-1])
+            ---
+            The whitespace at the two ends and between the words is cut away, and no empty strings are left behind. The list holds three words, and `[-1]` reads the last one, `costs`.
+            ```
+
+            A text with no words in it gives a list with no items:
+
+            ```python
+            print("     ".split())
             # []
             ```
 
-            A **run** of whitespace is one or more spaces, tabs or newlines in a row. With
-            no argument, `split()` makes one cut at each run, whatever its length. The
-            list never contains empty strings. Text that is empty or only
-            whitespace gives the empty list `[]`.
+            `split()` never puts an empty string in its list. A list with no items has a `len` of `0`.
 
-            You can also pass a **separator**: the exact text to cut at.
+            ### Cutting at a piece of text you choose
 
-            ```python
-            print("a,b,c".split(","))
-            # ['a', 'b', 'c']
-            ```
-
-            The number of words is a quick estimate of how long a text is.
-
-            `split(" ")` with a space as the separator cuts at every single space. Two
-            spaces in a row produce an empty string.
+            Sometimes you want to cut at one particular piece of text, such as a comma. Put it in the parentheses. Programmers call it the **separator**, and Python cuts at every single copy of it:
 
             ```python
-            print("a  b".split(" "))
-            # ['a', '', 'b']
-            print("a  b".split())
-            # ['a', 'b']
+            print("gpt,claude,llama".split(","))
+            # ['gpt', 'claude', 'llama']
             ```
+
+            So what happens when the separator is a space and two spaces sit side by side?
+
+            ```quiz
+            What does `"a  b".split(" ")` return? (There are two spaces between the letters.)
+            - [x] `['a', '', 'b']` :: Right. Python cuts at each space on its own. The two cuts sit next to each other, so an empty string is left between them.
+            - [ ] `['a', 'b']` :: That is what `split()` with nothing in the parentheses returns. A separator that you name is taken literally, so the double space is two cuts, not one.
+            - [ ] `['a b']` :: The string does contain spaces, and Python cuts at every one it finds. It does not stay in one piece.
+            ```
+
+            That is why splitting text into words uses `split()` with the parentheses empty. Make this program print `['gpt', 'claude', 'llama']`:
+
+            ```try
+            text = "gpt  claude\tllama"
+            print(text.split(" "))
+            ---
+            The program prints an empty piece and two names stuck together. Change one thing so that it prints `['gpt', 'claude', 'llama']`.
+            ---
+            text = "gpt  claude\tllama"
+            print(text.split())
+            ---
+            A tab is whitespace but it is not a space, so `split(" ")` did not cut there. With nothing in the parentheses, every run of whitespace is one cut.
+            ```
+
+            **Watch out:** `text.split(" ")` looks like `text.split()` but behaves differently. A double space leaves an empty string in the list, and a tab or a newline is not cut at all. No error warns you. The list is simply wrong, and so is anything you count from it.
+
+            **In short:** `text.split()` cuts at every run of whitespace and hands back the list of words, which is empty when there are none.
         ''',
         "prompt": r'''
-            A rough word count is a quick way to estimate how long a document is.
+            A rough word count is a quick way to estimate how long a document is, for example before you decide whether it fits into a prompt.
 
-            **Write:** `word_count(text)`
+            **Your job:** write `word_count(text)` so that it gives back how many words `text` contains.
 
-            - `text`: a string, e.g. `"the quick  brown\nfox"`
-            - **Returns:** an `int`, the number of words in `text`.
+            **What goes in**
+            - `text`: a string, for example `"the quick  brown\nfox"`
+
+            **What comes out**
+            - an int: the number of words, `4` for the example value
 
             **Rules**
-            - Words are separated by any amount of whitespace (spaces, tabs, newlines).
-            - Extra spaces never count as words.
-            - Text that is empty or only whitespace has `0` words.
+            - Words are separated by whitespace: spaces, tabs or newlines, in any amount. Extra whitespace between two words never adds a word.
+            - A text that is empty, or holds only whitespace, has `0` words.
 
             **Examples**
             ```python
@@ -579,9 +722,9 @@ EXERCISES = [
                 return len(text.split())
         ''',
         "hints": [
-            "One string method turns text into a list of words. Then count the list.",
-            "split() with no argument splits on any whitespace and ignores extra spaces.",
-            "Return len() of text.split().",
+            "The job has two steps: get the words apart, then count them. The lesson shows the first step, and you used `len` on lists in the Lists chapter.",
+            "Cutting a string with nothing in the parentheses ignores extra whitespace, and a text without words gives an empty list. A list with no items has a length of 0, so the blank case needs no code of its own.",
+            "One `return` line is enough. Cut `text` into words with that method, and put the result inside the built-in function that counts how many items a list has.",
         ],
     },
     {
@@ -591,51 +734,81 @@ EXERCISES = [
         "lesson": r'''
             ## Joining a list into one string
 
-            `join` does the reverse of `split`. It takes a list of strings and returns one
-            string, with a separator between the items.
+            You are saving a prompt to a file, and its title is `My First Prompt`. File names and web addresses are happier without spaces, so you want `my-first-prompt`. The last step cut text apart into a list of words. Now you need the way back: take a list of words and glue them into one string, with a dash between them.
 
             ```python
             parts = ["gpt", "4o", "mini"]
-            print("-".join(parts))
+            name = "-".join(parts)
+            print(name)
             # gpt-4o-mini
-            print(" ".join(["hello", "there"]))
-            # hello there
-            print(", ".join(["a", "b", "c"]))
-            # a, b, c
+            print(", ".join(["red", "green", "blue"]))
+            # red, green, blue
             ```
 
-            `join` is a method of the separator string, so the separator comes first:
-            `"-".join(parts)`. Python puts the separator only **between** the items. It
-            never adds one at the start or at the end.
+            Read `"-".join(parts)` as "use the dash to join the items of `parts`". The string in front of the dot is the glue, and the list goes inside the parentheses. The method is called `join`. Python puts the glue **between** the items. It never adds any at the start or at the end.
 
-            A common sequence is to split text into words and then join the words with a
-            different separator.
+            Work out where the glue goes before you run this:
+
+            ```predict
+            print("+".join(["a", "b", "c"]))
+            print("+".join(["solo"]))
+            print(repr("+".join([])))
+            ---
+            Glue goes between neighbours. Three items have two gaps, so two plus signs. One item has no neighbour, so no glue appears. An empty list has no items at all, so the result is the empty string, which `repr` shows as two quote marks with nothing between them.
+            ```
+
+            ### Split, then join
+
+            Cutting a text into words and gluing them back with something else takes two steps, one after the other:
 
             ```python
-            words = "Big  Cat".split()
+            phrase = "hello   big world"
+            words = phrase.split()
             print(words)
-            # ['Big', 'Cat']
+            # ['hello', 'big', 'world']
             print("_".join(words))
-            # Big_Cat
+            # hello_big_world
             ```
 
-            `parts.join("-")` raises `AttributeError: 'list' object has no attribute 'join'`.
-            Lists have no `join` method. Every item in the list must also be a string:
-            `"-".join(["gpt", 4])` raises `TypeError`, because `4` is an int.
+            `split()` takes the extra spaces away and `join` puts exactly one piece of glue in each gap. Put these four lines in the order that makes the program print `hello_big_world`:
+
+            ```order
+            phrase = "hello   big world"
+            words = phrase.split()
+            joined = "_".join(words)
+            print(joined)
+            ---
+            A name has to exist before a line can use it. `phrase` comes first, then `words` is made from it, then `joined` is made from `words`, and `print` shows the result last.
+            ```
+
+            The glue comes first in `join` and the list goes inside the parentheses. It is easy to turn that around:
+
+            ```quiz
+            You have `parts = ["gpt", "4o"]` and you want the text `gpt-4o`. Which line makes it?
+            - [x] `"-".join(parts)` :: Right. `join` is called on the glue, and the list goes inside the parentheses.
+            - [ ] `parts.join("-")` :: A list has no `join` method. Python stops with `AttributeError: 'list' object has no attribute 'join'`.
+            - [ ] `join("-", parts)` :: `join` only exists as a method, written after a string and a dot. On its own the name is unknown, and Python stops with `NameError: name 'join' is not defined`.
+            ```
+
+            **Watch out:** every item must be a string. `"-".join(["gpt", 4])` stops with `TypeError: sequence item 1: expected str instance, int found`, because `4` is a number. Turn it into text first with `str(4)`, as you learned in the Data Types chapter.
+
+            **In short:** `glue.join(items)` makes one string from a list of strings, with the glue between the items and nowhere else.
         ''',
         "prompt": r'''
-            A *slug* is a URL-friendly name, e.g. for saving a prompt as `my-first-prompt`.
+            A slug is a short name made only of small letters and dashes, safe to use in a file name or a web address. An app can use one to save the prompt titled `My First Prompt` as `my-first-prompt`.
 
-            **Write:** `slugify(title)`
+            **Your job:** write `slugify(title)` so that it gives back the slug for a title.
 
-            - `title`: a string, e.g. `"My First  Prompt"`
-            - **Returns:** a string: the words of the title, lower-cased, joined by `-`.
+            **What goes in**
+            - `title`: a string of words, for example `"My First  Prompt"`
+
+            **What comes out**
+            - a string: the words of the title in small letters, with a single `-` between neighbouring words: `"my-first-prompt"` for the example value
 
             **Rules**
-            - Words are separated by any amount of whitespace; extra spaces (in the
-              middle or at the ends) must not produce empty pieces or extra dashes.
-            - No dash at the start or end.
-            - A single word gives just that word, lower-cased.
+            - Words are separated by whitespace in any amount. Extra spaces, in the middle or at either end of the title, never produce an empty piece or an extra dash.
+            - There is no dash at the start or at the end.
+            - A title with one word gives just that word, in small letters.
 
             **Examples**
             ```python
@@ -667,9 +840,9 @@ EXERCISES = [
                 return "-".join(title.lower().split())
         ''',
         "hints": [
-            "Three steps: lower-case, split into words, join them back with a dash.",
-            "split() gives a list of words without empty pieces. join is called on the separator string.",
-            "Lower-case the title, split it with split(), then call \"-\".join(...) on that list and return the result.",
+            "Three small jobs, each with a tool from this chapter or the one before: make the letters small, get the words apart, and put the words back together with a dash.",
+            "Cutting with nothing in the parentheses already removes the extra spaces, so no dash can come out doubled or at an end. The glue goes in front of the dot of the joining method, and the list of words goes inside its parentheses.",
+            "Write one `return` line and read it from the inside out. Make the title small, cut that result into words, and join the words with a dash as the glue. The first two steps are two methods chained one after the other, and the joining wraps around them.",
         ],
     },
     {
@@ -677,28 +850,38 @@ EXERCISES = [
         "title": "Is it Markdown?",
         "difficulty": 0,
         "lesson": r'''
-            ## startswith and endswith
+            ## Does it start or end with this?
 
-            Programs often check one end of a string. A file name that ends with `.txt` is
-            a text file. A reply that starts with `"Error"` is a failed request.
-
-            `startswith(x)` returns `True` if the string begins with `x`. `endswith(x)`
-            returns `True` if the string finishes with `x`. Otherwise they return `False`.
+            A document loader receives file names, and it can only open the ones that end in `.md`. How does it ask? In the first step you met `startswith`, which answers a yes-or-no question about the beginning of a string. It has a partner, `endswith`, that asks about the end.
 
             ```python
-            name = "notes.TXT"
-            print(name.endswith(".txt"))
-            # False
-            print(name.lower().endswith(".txt"))
+            name = "report.pdf"
+            print(name.endswith(".pdf"))
             # True
+            print(name.endswith(".md"))
+            # False
             print("/help".startswith("/"))
             # True
             ```
 
-            Both methods return a **boolean**: the value `True` or `False`. You can use
-            the result directly in an `if` or after `return`.
+            Each of them answers `True` or `False`. That is a **boolean**, the type you met in the Data Types chapter. You can put the answer straight after `return`, or use it in an `if`.
 
-            To check whether some text appears **anywhere** in a string, use `in`.
+            Both methods compare the text exactly, capital letters included, the same way `replace` did. Work out what that means here:
+
+            ```predict
+            upload = "Photo.PNG"
+            print(upload.endswith(".png"))
+            print(upload.lower().endswith(".png"))
+            print(upload.endswith(".PNG"))
+            ---
+            The first check compares exactly, and `.PNG` is not `.png`. Making the string small first turns `Photo.PNG` into `photo.png`, so the second check finds the ending. The third check asks for the capitals that are really there, so it also gives `True`.
+            ```
+
+            When capitals should not matter, make the string small first and ask afterwards, as the second line of that program did.
+
+            ### Anywhere in the text
+
+            `startswith` and `endswith` look at one end only. To ask whether a piece of text appears anywhere inside a string, use `in`. You used it on lists in the Lists chapter, and on strings it works the same way:
 
             ```python
             print("key" in "my api key")
@@ -707,22 +890,35 @@ EXERCISES = [
             # False
             ```
 
-            All of these checks are case-sensitive: `"T"` and `"t"` are different
-            characters. `"notes.TXT".endswith(".txt")` is `False`. Call `lower()` first
-            when upper and lower case should count as the same.
+            It is exact about capitals too. Match each question with the line that asks it:
+
+            ```match
+            Does `name` begin with `data`? :: `name.startswith("data")`
+            Does `name` end with `.json`? :: `name.endswith(".json")`
+            Does `json` appear anywhere in `name`? :: `"json" in name`
+            Does `json` appear in `name`, whatever the capitals? :: `"json" in name.lower()`
+            ---
+            `startswith` and `endswith` look at one end only, and `in` looks everywhere. The last line makes `name` small first, so `JSON` and `Json` count too.
+            ```
+
+            **Watch out:** a name in capitals gets a quiet `False`. `"README.MD".endswith(".md")` is `False`, and Python does not warn you that the only difference is the capital letters.
+
+            **In short:** `text.startswith(x)` and `text.endswith(x)` ask about the two ends and `x in text` asks about anywhere, all three answer `True` or `False`, and all three care about capital letters.
         ''',
         "prompt": r'''
-            A document loader only handles Markdown files. Check a file name. Fill in
-            the `___` in the starter.
+            A document loader reads only Markdown files, which are text files whose names end in `.md`. Before it opens a file, it checks the file's name.
 
-            **Write:** `is_markdown(filename)`
+            **Your job:** finish `is_markdown(filename)` so that it tells whether a file name belongs to a Markdown file. The function is already written except for one gap, marked `___`. The part that makes the letters small is there. The part that asks how the name finishes is missing.
 
-            - `filename`: a string, e.g. `"README.md"`
-            - **Returns:** `True` if the name ends with `.md`, otherwise `False`
+            **What goes in**
+            - `filename`: a string, for example `"README.md"`
+
+            **What comes out**
+            - `True` when the name ends with `.md`, and `False` when it does not
 
             **Rules**
-            - Upper or lower case doesn't matter: `"NOTES.MD"` is Markdown.
-            - Only the **end** counts: `"md_notes.txt"` is not Markdown.
+            - Capital letters do not matter: `"NOTES.MD"` is a Markdown file.
+            - Only the end of the name counts. A name that has `md` somewhere else, such as `"md_notes.txt"`, is not Markdown.
 
             **Examples**
             ```python
@@ -755,62 +951,67 @@ EXERCISES = [
                 return filename.lower().endswith(".md")
         ''',
         "hints": [
-            "You need the string method that checks how a string finishes.",
-            "The lower-casing is already done, so only the method name is missing. It returns True or False.",
-            "Replace ___ with endswith.",
+            "Which two string methods answer a yes-or-no question about one end of a string? You met the first one in the first step of this chapter, and this lesson adds its partner.",
+            "One of the two looks at the beginning and the other at the end. This task is about how the name finishes. The gap holds a method name and nothing else, because the dot before it and the parentheses with the text after it are already written.",
+            "Say the finished line aloud: \"the file name, made small, finishes with `.md`\". The gap is the word that stands for \"finishes with\". Type the name of that method only, with no dot and no parentheses.",
         ],
     },
     {
         "id": "strings-1",
         "title": "Normalise whitespace",
         "hints": [
-            "Two string methods together solve this: one breaks text into words, the other joins words back together.",
-            "split() with no argument splits on ANY run of whitespace and drops empty pieces. Join the pieces with a single space.",
-            "Call text.split() to get the words, then return \" \".join(...) of that list. Empty or whitespace-only text gives an empty list, which joins to \"\".",
+            "Think about the difference between words and their whitespace boundaries.",
+            "Separate on any whitespace, then rebuild with one consistent separator.",
+            "Split without a literal separator, join the resulting words with one space, and return the rebuilt string.",
         ],
         "difficulty": 1,
         "lesson": r'''
-            ## Whitespace normalisation
+            ## Make inconsistent spacing predictable
 
-            Text copied out of a PDF has runs of spaces, tabs and newlines between its
-            words. You can replace every run with one separator in two steps: split the
-            text into words, then join the words.
+            Text copied from a document may put three spaces between words, a tab after a heading, and a newline in the middle of a sentence. You want the words without letting those layout choices change the text you compare or count.
 
             ```python
-            messy = "one   two\n\nthree"
-            pieces = messy.split()
+            copied = "  red\t green\nblue  "
+            words = copied.split()
+            print(words)
+            # ['red', 'green', 'blue']
+            print(" / ".join(words))
+            # red / green / blue
+            ```
+
+            Calling `split` without a separator treats a run of whitespace as one boundary. It also drops whitespace at either end, so it does not invent empty words there. Then `join` places your chosen separator between the words, without adding it before the first or after the last.
+
+            ```predict
+            pieces = " \t\n ".split()
             print(pieces)
-            # ['one', 'two', 'three']
-            print("|".join(pieces))
-            # one|two|three
+            print("-".join(pieces) == "")
+            ---
+            Whitespace alone contains no words, so splitting produces an empty list. Joining that list produces an empty string.
             ```
 
-            `split()` with no argument cuts at every run of whitespace, whatever its
-            length, and drops the whitespace. `join` then puts exactly one separator
-            between each pair of words.
+            Giving different-looking inputs one consistent representation is **normalisation**. Here you are normalising whitespace, which is useful when accidental spacing should not matter. It does discard line breaks and indentation, so do not apply it when those carry meaning, such as Python source code.
 
-            Step through the stages to see the value at each one.
-
-            ```diagram
-            {"type":"flow","title":"From messy to one separator","steps":[{"label":"messy","detail":"The string has three spaces between one and two, and two newlines between two and three.","code":"'one   two\\n\\nthree'"},{"label":"split()","detail":"split() cuts at each run of whitespace. It returns a list of the words and discards the whitespace.","code":"['one', 'two', 'three']"},{"label":"\"|\".join(pieces)","detail":"join builds one string. It puts the separator between the items and nowhere else.","code":"'one|two|three'"}]}
+            ```quiz
+            Why does replacing one double space with one space miss some cases?
+            - [x] Tabs, newlines, and longer runs still need handling. :: Splitting on whitespace recognizes all those boundaries together.
+            - [ ] Python cannot replace spaces inside strings. :: Replacement works; the issue is covering all permitted whitespace.
             ```
 
-            Replacing every run of whitespace with a single separator is called
-            **whitespace normalisation**. It is a standard step before you count text,
-            compare it or send it to a model. It makes the text shorter, and two copies of the
-            same text with different spacing become equal strings.
+            **Watch out:** `split(" ")` behaves differently from `split()`: repeated literal spaces can produce empty pieces, and tabs are not treated as the chosen separator.
 
-            Empty or whitespace-only text needs no special case. `"".split()` returns `[]`,
-            and joining an empty list returns the empty string `""`.
+            Separate the words first, then choose how their boundaries should look.
         ''',
         "prompt": r'''
             Text pasted from PDFs is full of stray spaces, tabs and newlines. Clean it up
             before sending it to a model.
 
-            **Write:** `normalize_ws(text)`
+            **Your job:** write `normalize_ws(text)`
 
+            **What goes in**
             - `text`: a string, e.g. `"  Hello \t\n  world  "`
-            - **Returns:** a string where every run of whitespace (spaces, tabs, newlines)
+
+            **What comes out**
+            - a string where every run of whitespace (spaces, tabs, newlines)
               is replaced by a **single space**, with no whitespace at the start or end.
 
             **Rules**
@@ -860,55 +1061,47 @@ EXERCISES = [
         "id": "strings-2",
         "title": "Model name parts",
         "hints": [
-            "Clean the string first (strip, lower), then check whether it contains a slash with `in`.",
-            "If there is no slash, return the default provider with the whole string. Otherwise split only once so the rest of the name stays together.",
-            "cleaned = model_id.strip().lower(). If \"/\" not in cleaned, return (\"openai\", cleaned). Otherwise provider, model = cleaned.split(\"/\", 1) and return them as a tuple.",
+            "Clean the outside and case before deciding whether a provider was supplied.",
+            "A single cut preserves any later slashes as part of the model name.",
+            "Normalize the string, handle the missing-slash case with the default provider, otherwise split once and return the two parts as a tuple.",
         ],
         "difficulty": 1,
         "lesson": r'''
-            ## Splitting once with maxsplit
+            ## Split the first boundary and keep the rest
 
-            `split("/")` cuts at every `/`. Sometimes you want to cut only at the
-            **first** separator and keep the rest of the string in one piece.
-
-            The second argument of `split` is **maxsplit**: the maximum number of cuts.
+            A stored name contains a category followed by a longer path. You need to separate the category without breaking up all the later path components. A limit on the number of cuts gives you exactly that control.
 
             ```python
-            path = "docs/2024/report.txt"
-            print(path.split("/"))
-            # ['docs', '2024', 'report.txt']
-            print(path.split("/", 1))
-            # ['docs', '2024/report.txt']
+            location = "archive/2025/notes.txt"
+            print(location.split("/"))
+            # ['archive', '2025', 'notes.txt']
+            print(location.split("/", 1))
+            # ['archive', '2025/notes.txt']
             ```
 
-            With a maxsplit of `1`, the list has at most two items. The second item keeps
-            every later `/`.
+            The second argument limits the number of splits, not the number of pieces. It is called **maxsplit** in the documentation. One split can produce two pieces. Everything after that first boundary remains together, including later copies of the separator.
 
-            You can **unpack** a two-item list: write two names on the left of `=`, and
-            Python assigns the first item to the first name and the second item to the
-            second name.
-
-            ```python
-            path = "docs/2024/report.txt"
-            first, rest = path.split("/", 1)
-            print(first)
-            # docs
-            print(rest)
-            # 2024/report.txt
+            ```fill
+            location = "archive/2025/notes.txt"
+            print(location.split("/", ___))
+            ---
+            - [x] 1 :: One cut leaves the remaining path together as the second piece.
+            - [ ] 2 :: Two cuts break the year away from the filename too.
+            - [ ] 0 :: Zero cuts leave the complete string in one piece.
             ```
 
-            When the separator is not in the string, `split` returns a list with one item.
-            Use `in` to check for the separator before you unpack.
+            Remember unpacking from the variables chapter: two names can receive a two-item result. But a split limit is a maximum, not a guarantee. If the separator is absent, the result contains the original string as its only item. Decide what that missing boundary means before attempting to unpack two pieces.
 
-            ```python
-            print("/" in "gpt-4o")
-            # False
-            print("gpt-4o".split("/", 1))
-            # ['gpt-4o']
+            ```predict
+            print("readme".split("/", 1))
+            print("/" in "readme")
+            ---
+            No separator is present, so there is one unchanged piece and the membership check is False.
             ```
 
-            `first, rest = "gpt-4o".split("/", 1)` raises
-            `ValueError: not enough values to unpack (expected 2, got 1)`.
+            **Watch out:** unpacking that one-item list into two names raises `ValueError: not enough values to unpack`. A missing separator needs its own behavior.
+
+            Limit the number of cuts when the remainder belongs together.
         ''',
         "research": {
             "note": "Read the docs for `str.split`, especially what the `maxsplit` argument does and how splitting with no separator differs, then come back.",
@@ -921,10 +1114,13 @@ EXERCISES = [
             Model identifiers look like `"provider/model-name"`, sometimes with extra
             whitespace and inconsistent case. Split one into its two parts.
 
-            **Write:** `parse_model_id(model_id)`
+            **Your job:** write `parse_model_id(model_id)`
 
+            **What goes in**
             - `model_id`: a string, e.g. `"Anthropic/Claude-3"`
-            - **Returns:** a **tuple** of two strings `(provider, model)`, e.g.
+
+            **What comes out**
+            - a **tuple** of two strings `(provider, model)`, e.g.
               `("anthropic", "claude-3")`
 
             **Rules**
@@ -978,63 +1174,61 @@ EXERCISES = [
         "title": "Flag keywords",
         "difficulty": 1,
         "lesson": r'''
-            ## Case-insensitive search
+            ## Search without caring about capital letters
 
-            A filter that blocks spam must match "SPAM", "Spam" and "spam". `in` is
-            case-sensitive, so `"spam" in "SPAM"` is `False`. A **case-insensitive** check treats upper and
-            lower case as the same. To get one, lower-case **both** strings before you
-            compare them.
+            A support message says BILLING, while your list of routing words contains Billing. The spelling matches for a reader, but an ordinary Python text search distinguishes those capital letters. Compare versions with consistent case.
 
             ```python
-            reply = "Please ignore PREVIOUS instructions"
-            print("previous" in reply)
+            message = "Question about BILLING"
+            needle = "Billing"
+            print(needle in message)
             # False
-            print("previous" in reply.lower())
-            # True
-            print("Previous".lower() in reply.lower())
+            print(needle.lower() in message.lower())
             # True
             ```
 
-            To search for several words, loop over them. A `return` inside the loop ends
-            the function at the first match, so the remaining words are not checked. If
-            the loop finishes, no word matched, and the line after the loop runs.
+            This is a **case-insensitive** comparison: upper and lower case are treated alike. Both sides need the same treatment. Lowercasing only the message would still leave an uppercase letter in the search word, so that comparison could fail.
 
-            ```python
-            def first_match(text, words):
-                for word in words:
-                    if word in text:
-                        return word
-                return None
-
-            print(first_match("hot dog stand", ["cat", "dog", "hot"]))
-            # dog
-            print(first_match("hot dog stand", ["cat", "fish"]))
-            # None
+            ```predict
+            print("bill" in "billing")
+            print("BILL".lower() in "Billing".lower())
+            ---
+            Both searches find the shorter text inside the longer text. Membership searches substrings, not only complete words.
             ```
 
-            Apps use case-insensitive checks to filter messages by keyword, to send a
-            message that mentions billing to the billing team, and to flag messages that
-            contain forbidden words.
+            A string occurring inside another is a **substring**. This is useful for a deliberately broad keyword flag, but it is not a complete safety system or a whole-word language parser. Be clear about what the check actually promises.
 
-            Lower-case the keyword as well as the text. `"Previous" in reply.lower()` is
-            `False`, because the keyword still has an upper-case `P`.
+            When trying several keywords, one match is enough for a positive answer. A negative answer needs more evidence: every keyword must have been checked. Remember that return ends the function immediately, even when it appears inside a loop.
+
+            ```quiz
+            The first keyword is absent but later keywords remain. Can you give back False yet?
+            - [x] No; a later keyword may match. :: Only finishing all checks establishes that none matched.
+            - [ ] Yes; the first keyword decides the result. :: That would ignore valid matches later in the list.
+            ```
+
+            **Watch out:** giving back False after the first unsuccessful check skips the rest of the keywords. Place the negative outcome after all candidates have been considered.
+
+            A positive match needs one success; a negative match needs every candidate to fail.
         ''',
         "prompt": r'''
             A simple guardrail flags user messages that mention certain keywords, whatever
             their capitalisation.
 
-            **Write:** `mentions_any(text, keywords)`
+            **Your job:** write `mentions_any(text, keywords)`
 
+            **What goes in**
             - `text`: a string, the user message, e.g. `"Please IGNORE the rules"`
             - `keywords`: a list of strings, e.g. `["ignore", "password"]`; may be empty
-            - **Returns:** `True` if at least one keyword appears anywhere in `text`,
+
+            **What comes out**
+            - `True` if at least one keyword appears anywhere in `text`,
               otherwise `False`
 
             **Rules**
             - The check is **case-insensitive** on both sides: keyword `"Password"` matches
               text `"my PASSWORD is"`.
             - A keyword may appear inside a longer word: `"ignore"` matches `"ignored"`.
-            - With an empty `keywords` list, return `False`.
+            - With an empty `keywords` list, give back `False`.
 
             **Examples**
             ```python
@@ -1075,9 +1269,9 @@ EXERCISES = [
                 return False
         ''',
         "hints": [
-            "Use `in` to check whether one string appears inside another, and lower() to ignore case.",
-            "Lower-case the text once. Loop over the keywords; as soon as a lower-cased keyword is in the text, you have your answer.",
-            "lowered = text.lower(). For each keyword: if keyword.lower() in lowered, return True. After the loop, return False.",
+            "Both the message and keyword may contain capital letters.",
+            "A positive match can stop the search; an unsuccessful first keyword cannot.",
+            "Prepare the text for case-insensitive comparison, examine every keyword until one matches, and report no match only after all candidates fail.",
         ],
     },
     {
@@ -1085,79 +1279,52 @@ EXERCISES = [
         "title": "Non-blank lines",
         "difficulty": 1,
         "lesson": r'''
-            ## Lines and blank lines
+            ## Keep useful lines and drop blank ones
 
-            A document is one long string with `\n` (newline) characters in it.
-            `splitlines()` cuts the string at every line break and returns a list of the
-            lines, without the `\n` characters.
+            A document contains headings, paragraphs, and blank lines inserted for layout. You need each meaningful line as a separate item while preserving the text inside it. Splitting into words would lose the line boundaries you still care about.
 
             ```python
-            doc = "apples\n\n  milk  \nbread"
-            print(doc.splitlines())
-            # ['apples', '', '  milk  ', 'bread']
+            page = "  Overview  \n\n  Two words\r\n"
+            print(page.splitlines())
+            # ['  Overview  ', '', '  Two words']
+            print(page.splitlines()[0].strip())
+            # Overview
             ```
 
-            A blank line becomes an empty string `""` or a string that holds only spaces.
-            `line.strip()` removes those spaces, so it returns `""` for both.
+            The `splitlines` method recognizes line endings and removes those boundary characters from the resulting items. It understands both newline and Windows-style carriage-return/newline endings. Trimming each resulting line is a separate operation: `strip` removes whitespace at its ends, while leaving spaces within the line alone.
 
-            An empty string is **falsy**: it counts as `False` in an `if`. Any other
-            string counts as `True`. So `if line.strip():` runs its block only for lines
-            that contain text.
-
-            ```python
-            doc = "apples\n\n  milk  \nbread"
-            for line in doc.splitlines():
-                item = line.strip()
-                if item:
-                    print(item)
-            # apples
-            # milk
-            # bread
+            ```predict
+            print(bool("   "))
+            print(bool("   ".strip()))
+            ---
+            A spaces-only string is nonempty and therefore true. Trimming it produces an empty string, which is false.
             ```
 
-            Step through the loop and watch `item` on the blank line.
+            That distinction explains the order of the work. Testing the original line for emptiness would keep a line full of spaces. Test the trimmed version when your goal is meaningful text. Keep the original sequence of the surviving lines; cleaning should not silently rearrange the document.
 
-            ```diagram
-            {"type": "trace", "title": "Skipping the blank line", "code": ["doc = \"apples\\n\\n  milk  \\nbread\"", "for line in doc.splitlines():", "    item = line.strip()", "    if item:", "        print(item)"], "steps": [
-              {"line": 1, "vars": {}, "out": ""},
-              {"line": 2, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'"}, "out": ""},
-              {"line": 3, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'apples'"}, "out": ""},
-              {"line": 4, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'apples'", "item": "'apples'"}, "out": ""},
-              {"line": 5, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'apples'", "item": "'apples'"}, "out": ""},
-              {"line": 2, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'apples'", "item": "'apples'"}, "out": "apples\n"},
-              {"line": 3, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "''", "item": "'apples'"}, "out": "apples\n"},
-              {"line": 4, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "''", "item": "''"}, "out": "apples\n", "note": "item is the empty string, which is falsy, so line 5 is skipped."},
-              {"line": 2, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "''", "item": "''"}, "out": "apples\n"},
-              {"line": 3, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'  milk  '", "item": "''"}, "out": "apples\n"},
-              {"line": 4, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'  milk  '", "item": "'milk'"}, "out": "apples\n"},
-              {"line": 5, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'  milk  '", "item": "'milk'"}, "out": "apples\n"},
-              {"line": 2, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'  milk  '", "item": "'milk'"}, "out": "apples\nmilk\n"},
-              {"line": 3, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'bread'", "item": "'milk'"}, "out": "apples\nmilk\n"},
-              {"line": 4, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'bread'", "item": "'bread'"}, "out": "apples\nmilk\n"},
-              {"line": 5, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'bread'", "item": "'bread'"}, "out": "apples\nmilk\n"},
-              {"line": 2, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'bread'", "item": "'bread'"}, "out": "apples\nmilk\nbread\n"},
-              {"line": null, "vars": {"doc": "'apples\\n\\n  milk  \\nbread'", "line": "'bread'", "item": "'bread'"}, "out": "apples\nmilk\nbread\n"}
-            ]}
+            ```match
+            `splitlines()` :: separates a document into lines
+            `strip()` :: removes whitespace at both ends of one string
+            an empty cleaned line :: contains no text to keep
             ```
 
-            `split("\n")` also cuts at newlines, but it returns an extra `""` at the end
-            when the text ends with a newline. `splitlines()` does not.
+            An empty document naturally produces no lines. A final line ending does not invent an extra useful line either, so the same process works when a saved file ends with a newline.
 
-            ```python
-            print("a\nb\n".split("\n"))
-            # ['a', 'b', '']
-            print("a\nb\n".splitlines())
-            # ['a', 'b']
-            ```
+            **Watch out:** splitting on whitespace would also cut a line such as `Two words` into two items. Choose boundaries that match the structure you need.
+
+            Find the lines first, then decide which cleaned lines contain text.
         ''',
         "prompt": r'''
             Before chunking a document you want its real lines: trimmed, with blank lines
             dropped.
 
-            **Write:** `clean_lines(text)`
+            **Your job:** write `clean_lines(text)`
 
+            **What goes in**
             - `text`: a string with newlines, e.g. `"  intro \n\n body\n"`
-            - **Returns:** a list of strings: each line of `text` with whitespace removed
+
+            **What comes out**
+            - a list of strings: each line of `text` with whitespace removed
               from both ends, skipping lines that are empty or only whitespace
 
             **Rules**
@@ -1171,6 +1338,8 @@ EXERCISES = [
             clean_lines("one\ntwo")              # returns ["one", "two"]
             clean_lines("\n  \n")                # returns []
             ```
+
+            Both `\n` and Windows-style `\r\n` line endings count as line boundaries.
         ''',
         "research": {
             "note": "Look up `str.splitlines` in the Python docs: see which characters count as line boundaries and how it differs from `split(\"\\n\")`, then come back.",
@@ -1215,29 +1384,32 @@ EXERCISES = [
                 return result
         ''',
         "hints": [
-            "There is a string method that cuts text into a list of lines. Then look at each line on its own.",
-            "Loop over the lines, strip each one, and keep it only if something is left after stripping.",
-            "Make an empty list. For each line in text.splitlines(): strip it; if the stripped line is not empty, append it. Return the list.",
+            "Line boundaries and word boundaries are different.",
+            "Trim a line before checking whether it has any content left.",
+            "Split into lines, trim each one, append only nonempty results in order, and return that list.",
         ],
     },
     {
         "id": "strings-3",
         "title": "Truncate to N words",
         "hints": [
-            "Get the words with split(), then compare how many there are with n.",
-            "If there are more than n words, keep only the first n (slicing) and add \"...\". Otherwise just rejoin all the words.",
-            "words = text.split(). If len(words) > n, return \" \".join(words[:n]) + \"...\". Else return \" \".join(words).",
+            "Compare the full word count with the requested preview size.",
+            "The ellipsis means words were omitted, not merely that the limit was reached.",
+            "Separate words on whitespace, keep the permitted prefix, join with spaces, and append the ellipsis only when some original words were left out.",
         ],
         "difficulty": 2,
         "placement": True,
         "prompt": r'''
             Search results show a short preview of each long document. Build that preview.
 
-            **Write:** `truncate_words(text, n)`
+            **Your job:** write `truncate_words(text, n)`
 
+            **What goes in**
             - `text`: a string, e.g. `"The quick brown fox jumps"` (may contain newlines)
             - `n`: an `int` >= 0, the maximum number of words to keep, e.g. `3`
-            - **Returns:** a string: the kept words joined by single spaces, plus `"..."`
+
+            **What comes out**
+            - a string: the kept words joined by single spaces, plus `"..."`
               if words were cut off.
 
             **Rules**
@@ -1302,18 +1474,21 @@ EXERCISES = [
         "id": "strings-4",
         "title": "Word frequencies",
         "hints": [
-            "Split into words, clean each word with strip() given a string of punctuation characters, and count with a dict.",
-            "strip(chars) removes any of those characters from both ends only. Lower-case each word, skip empty results, and increase its count in the dict.",
-            "Store the punctuation characters in a string. Loop over text.split(): word = raw.strip(PUNCT).lower(); if word is not empty, set counts[word] = counts.get(word, 0) + 1. Return counts.",
+            "Combine the dictionary counting pattern with per-word cleaning.",
+            "Strip only the listed punctuation at word boundaries, preserving internal characters.",
+            "Split words, clean and lowercase each one, skip empty results, then increase the stored count under that cleaned word.",
         ],
         "difficulty": 2,
         "prompt": r'''
             Word frequencies are a first step in keyword search over documents.
 
-            **Write:** `word_counts(text)`
+            **Your job:** write `word_counts(text)`
 
+            **What goes in**
             - `text`: a string, e.g. `"The cat. THE dog!"`
-            - **Returns:** a `dict` mapping each word (a lower-case string) to how many
+
+            **What comes out**
+            - a `dict` mapping each word (a lower-case string) to how many
               times it appears (an `int`), e.g. `{"the": 2, "cat": 1, "dog": 1}`
 
             **Rules**
@@ -1384,19 +1559,22 @@ EXERCISES = [
         "id": "strings-5",
         "title": "Clean LLM output",
         "hints": [
-            "Work in stages, each one a small check with startswith/endswith followed by slicing, and strip() between stages.",
-            "Compare prefixes against a lower-cased copy but cut from the original text. For the fence, drop the closing fence and then everything up to and including the first newline. For quotes, check both ends and slice off one character each side.",
-            "text = reply.strip(). Loop over the lower-case prefixes; if text.lower() starts with one, text = text[len(prefix):].strip() and break. If text starts and ends with three backticks: remove the last three chars, find the first \"\\n\" and keep what is after it, strip. If it starts and ends with a double quote (and is at least 2 long), use text[1:-1].",
+            "Each wrapping layer has its own position and removal rule.",
+            "Compare prefixes using lowercase text, but preserve the case of the actual answer.",
+            "Follow the stated stages in order: outside whitespace, at most one prefix, complete outer fence, then paired outer quotes; keep internal text intact.",
         ],
         "difficulty": 3,
         "prompt": r'''
             Models often wrap an answer in chatter, code fences or quotes. Strip that
             wrapping so only the answer is left.
 
-            **Write:** `clean_reply(reply)`
+            **Your job:** write `clean_reply(reply)`
 
+            **What goes in**
             - `reply`: a string, the raw model output, e.g. `"  Sure! Here it is  "`
-            - **Returns:** the cleaned string.
+
+            **What comes out**
+            - the cleaned string.
 
             **Rules** (apply these steps in this order)
             1. Remove whitespace (spaces, newlines) at both ends.
@@ -1484,22 +1662,25 @@ EXERCISES = [
         "id": "strings-6",
         "title": "Prompt builder",
         "hints": [
-            "Split the raw text into lines with splitlines(). The first line is the instruction, the rest are snippets. Build the output as a list of lines and join them with \"\\n\" at the end.",
-            "Clean the instruction (strip, upper-case only the first letter, add a period if needed). Keep only non-blank stripped snippets. Then add the section lines in order, numbering snippets from 1.",
-            "lines = raw.splitlines(). instruction = lines[0].strip() if there are lines; instruction = instruction[:1].upper() + instruction[1:]; if not instruction.endswith((\"?\", \".\")) add \".\". snippets = stripped non-empty lines[1:]. Build a list: \"### Instruction\", instruction, \"\", \"### Context\", then [i] lines (enumerate(snippets, start=1)) or \"(none)\", then \"\", \"### Answer\". Return \"\\n\".join(that list) + \"\\n\".",
+            "Build the instruction and context separately before assembling their headings.",
+            "Preserve the instruction's existing case except for its first letter, and number only nonblank snippets.",
+            "Clean the instruction, prepare snippets in order, build the required section lines with the specified blank lines, then join them and include the final newline.",
         ],
         "difficulty": 3,
         "prompt": r'''
             A RAG app turns a task plus retrieved chunks into one prompt for the model.
             Build that prompt from a block of text.
 
-            **Write:** `build_prompt(raw)`
+            **Your job:** write `build_prompt(raw)`
 
+            **What goes in**
             - `raw`: a string with one item per line, e.g.
               `"summarise the docs\nFirst chunk\n\n  Second chunk \n"`
               - line 1 is the task instruction
               - every following line is a context snippet
-            - **Returns:** one string in exactly this format, where every line (including
+
+            **What comes out**
+            - one string in exactly this format, where every line (including
               the last, `### Answer`) ends with `\n`:
 
             ```
