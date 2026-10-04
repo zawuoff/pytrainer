@@ -1044,3 +1044,17 @@ input[type=text], input[type=number], input[type=password], select, textarea { t
 .cap-body code { font-size: 12px; margin-left: 6px; }
 .cap-st { text-align: right; display: grid; gap: 4px; justify-items: end; }
 @media (max-width: 560px) { .cap-stage { grid-template-columns: 34px minmax(0, 1fr); } .cap-st { grid-column: 2; justify-items: start; text-align: left; } }
+
+/* Speed drill */
+.drill-lengths { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+.drill-len { display: grid; gap: 4px; justify-items: start; padding: 16px; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--panel); cursor: pointer; color: var(--text); text-align: left; font: inherit; }
+.drill-len b { font-family: var(--display); font-size: 22px; }
+.drill-len:hover { border-color: var(--amber); }
+.drill-bar { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; padding: 10px 0 14px; border-bottom: 1px solid var(--rule); position: sticky; top: 0; background: var(--bg); z-index: 2; }
+.drill-bar .grow { flex: 1; }
+.drill-clock { font: 700 28px var(--mono); font-variant-numeric: tabular-nums; min-width: 92px; }
+.drill-clock.low { color: var(--fail); }
+.drill-task { margin-top: 14px; max-height: 260px; overflow: auto; padding-right: 6px; }
+.drill-task h2 { margin: 0 0 6px; }
+.drill-editor { position: relative; height: 240px; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; margin-top: 12px; }
+.drill-editor .CodeMirror { position: absolute; inset: 0; height: auto; }

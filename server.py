@@ -26,7 +26,7 @@ if sys.version_info < (3, 11):
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from pytrainer import (ai, capstone, coach, content, course, db, jev, labs, lint, progress, runner, sandbox,  # noqa: E402
+from pytrainer import (ai, capstone, coach, content, course, db, drills, jev, labs, lint, progress, runner, sandbox,  # noqa: E402
                        tracer, variants)
 
 STATIC = ROOT / "static"
@@ -1001,6 +1001,28 @@ def api_project_review(pid: str, body: dict):
 
 # --------------------------------------------------------------------------- labs
 
+def api_drill(_=None):
+    exercises = drills.pool()
+    return {"pool": exercises, "enough": len(exercises) >= drills.MIN_POOL, "min": drills.MIN_POOL} | drills.stats()
+
+
+def api_drill_check(body: dict):
+    """Grade a drill answer. Not recorded: drills never change stats or the review schedule."""
+    ex = _exercise(str(body.get("id", "")))
+    if ex.get("mode", "function") not in drills.MODES:
+        raise ApiError("This step can't be drilled.")
+    files, result = _grade(ex, body)
+    return {"result": result}
+
+
+def api_drill_finish(body: dict):
+    try:
+        return drills.finish(int(body.get("seconds", 0)), int(body.get("solved", 0)), int(body.get("skipped", 0)),
+                             int(body.get("best_streak", 0)))
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
+
+
 def api_capstone(_=None):
     return capstone.status()
 
@@ -1097,6 +1119,9 @@ ROUTES = [
     ("POST", r"/api/project/([\w-]+)/run", api_project_run),
     ("POST", r"/api/project/([\w-]+)/submit", api_project_submit),
     ("POST", r"/api/project/([\w-]+)/review", api_project_review),
+    ("GET", r"/api/drill", api_drill),
+    ("POST", r"/api/drill/check", api_drill_check),
+    ("POST", r"/api/drill/finish", api_drill_finish),
     ("GET", r"/api/capstone", api_capstone),
     ("POST", r"/api/capstone/export", api_capstone_export),
     ("GET", r"/api/labs", api_labs),
