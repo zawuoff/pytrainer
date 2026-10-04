@@ -111,6 +111,11 @@ CREATE TABLE IF NOT EXISTS lesson_state (
     topic_id TEXT PRIMARY KEY,
     read_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS review_variants (
+    exercise_id TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS lab_state (
     lab_id TEXT PRIMARY KEY,
     done INTEGER NOT NULL DEFAULT 0,
@@ -215,7 +220,8 @@ def backup() -> None:
 
 def export_all() -> dict:
     tables = ["settings", "attempts", "exercise_state", "drafts", "topic_state", "activity",
-              "placement", "custom_exercises", "submissions", "chats", "reviews", "lab_state", "lesson_state"]
+              "placement", "custom_exercises", "submissions", "chats", "reviews", "lab_state", "lesson_state",
+              "review_variants"]
     return {"exported_at": now(), "version": 1,
             "tables": {t: [dict(r) for r in q(f"SELECT * FROM {t}")] for t in tables}}
 

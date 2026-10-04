@@ -9,7 +9,18 @@ import { createDebugger } from "../debugger.js";
 export async function viewStep(id, reviewFlag) {
   const review = !!reviewFlag;
   const d = await api("exercise/" + id);
-  const ex = d.exercise, path = d.path, exam = d.exam, noHelp = d.exam_locked_help;
+  const ex = d.exercise, path = d.path, exam = d.exam;
+  // Reviews come in a changed form when one is ready: same skill, new names and data.
+  let variant = null;
+  if (review && reviewFlag !== "?review-original" && ["function", "script", undefined].includes(ex.mode)) {
+    const v = await api(`exercise/${id}/variant`).catch(() => null);
+    if (v?.variant) {
+      variant = { original: ex.title };
+      Object.assign(ex, v.variant, { lesson: null });
+      d.checks = v.checks; d.debug_call = v.debug_call; d.reference = null;
+    }
+  }
+  const noHelp = d.exam_locked_help || !!variant;
   const predict = ex.mode === "predict", testsMode = ex.mode === "tests";
   let lastResult = null, chat = d.chat, reviewData = d.review, hints = d.hints, canReveal = d.can_reveal;
   let revealed = d.revealed, explanation = d.explanation, walkthrough = null, improve = null, answer = "";
@@ -22,7 +33,7 @@ export async function viewStep(id, reviewFlag) {
   const idx = path ? path.index : 0, total = path ? path.total : 1;
   const prevId = path && idx > 0 ? path.steps[idx - 1].id : null;
   const nextId = path && idx + 1 < total ? path.steps[idx + 1].id : null;
-  const kindText = exam ? "Module test" : review ? "Review: rebuild it from memory" : stepKind(ex);
+  const kindText = exam ? "Module test" : variant ? "Review: same idea, new form" : review ? "Review: rebuild it from memory" : stepKind(ex);
 
   main.innerHTML = `<div class="page wide"><div class="ws" style="${modColor(d.module)}">
     <div class="ws-top">
@@ -90,7 +101,8 @@ export async function viewStep(id, reviewFlag) {
   if ($("#read-lesson")) lessonTracker($(".ws-read"), $("#read-lesson"));
   function drawRead() {
     const status = d.state.status === "solved" ? `<span class="pill pass">solved</span>` : d.state.status === "attempted" ? `<span class="pill warn">attempted</span>` : "";
-    $("#read-head").innerHTML = `<div class="kindline"><span>${esc(kindText)}</span>${ex.difficulty ? diffBars(ex.difficulty) : ""}${status}</div><h1>${esc(ex.title)}</h1>`;
+    $("#read-head").innerHTML = `<div class="kindline"><span>${esc(kindText)}</span>${ex.difficulty ? diffBars(ex.difficulty) : ""}${status}</div><h1>${esc(ex.title)}</h1>
+      ${variant ? `<div class="note small">This review tests the same skill as <b>${esc(variant.original)}</b>, with new names and data, so you rebuild the idea rather than remember the text. Passing it counts as reviewing that step. <a href="#/step/${id}?review-original">Review the original instead</a></div>` : ""}`;
     const extra = $("#read-extra");
     let h = "";
     if (explanation) h += `<div class="good" style="margin-top:18px"><b>Why:</b> ${md(explanation)}</div>`;
@@ -108,6 +120,8 @@ export async function viewStep(id, reviewFlag) {
           <div class="row">${ex.hint_count && hints.length < ex.hint_count ? `<button class="btn small" id="hint-inline">Get hint ${hints.length + 1} of ${ex.hint_count}</button>` : ""}
           <button class="btn small ${canReveal ? "" : "ghost"}" id="reveal-btn" ${canReveal ? "" : "disabled"}>Show solution</button></div></div>`;
       }
+    } else if (variant) {
+      h += `<p class="faint small" style="margin-top:22px">No hints, tutor or solution in a changed-form review: they belong to the original. If you're stuck, <a href="#/step/${id}?review-original">review the original</a> instead.</p>`;
     } else {
       h += `<p class="faint small" style="margin-top:22px">Module test: no hints, tutor or solutions until you pass. Some questions need you to look things up, and that's part of the test.</p>`;
     }
@@ -249,7 +263,7 @@ export async function viewStep(id, reviewFlag) {
   async function check() {
     const btn = $("#check-btn"); busy(btn, true, "Checking");
     try {
-      const payload = predict ? { answer } : { files: ed.files() };
+      const payload = predict ? { answer } : { files: ed.files(), variant: !!variant };
       const r = await api(`exercise/${id}/check`, { ...payload, kind: review ? "review" : "practice", duration_s: timer.secs });
       lastResult = r.result; lastResult._fresh = true; canReveal = r.can_reveal;
       $$("#read-task .check-list li").forEach((li, i) => {

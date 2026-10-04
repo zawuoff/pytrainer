@@ -80,6 +80,37 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(t["stdout"], "2\n")
         self.assertEqual([s["line"] for s in t["steps"] if s["event"] == "line"], [1, 2, 3])
 
+    def test_a_changed_form_review_counts_for_the_original(self):
+        from pytrainer import variants
+        exercises = content.load()["exercises"].values()
+        ex = next(e for e in exercises if e.get("mode", "function") == "function" and e["difficulty"] >= 1
+                  and e.get("topic") != "exam" and e["id"] != self.ex["id"])
+        st = progress.get_state(ex["id"]) | {"status": "solved", "next_review": date.today().isoformat(),
+                                             "last_review": (date.today() - timedelta(days=4)).isoformat(),
+                                             "stability": 3.0, "difficulty": 5.0}
+        progress.save_state(st)
+        variants.save(ex["id"], {
+            "title": "Shout it", "prompt": "Write shout(text).", "starter": "def shout(text):\n    ...\n",
+            "solution": "def shout(text):\n    return text.upper() + '!'\n",
+            "tests": "from solution import shout\n\ndef test_a():\n    assert shout('hi') == 'HI!'\n",
+            "based_on": ex["id"]})
+        status, v = self.request("GET", f"/api/exercise/{ex['id']}/variant")
+        self.assertEqual(v["variant"]["title"], "Shout it")
+        self.assertNotIn("solution", v["variant"])
+        self.assertEqual(v["checks"], ["a"])
+        status, r = self.request("POST", f"/api/exercise/{ex['id']}/check", {
+            "files": {"solution.py": "def shout(text):\n    return text.upper() + '!'\n"},
+            "kind": "review", "variant": True, "duration_s": 200})
+        self.assertEqual(r["result"]["status"], "passed", r["result"])
+        self.assertIn("shout", r["reference"])
+        st = progress.get_state(ex["id"])
+        self.assertEqual(st["review_count"], 1)
+        self.assertGreater(st["next_review"], date.today().isoformat())
+        self.assertIsNone(variants.get(ex["id"]), "a used variant is dropped")
+        status, r = self.request("POST", f"/api/exercise/{ex['id']}/check", {
+            "files": {"solution.py": "x = 1"}, "kind": "review", "variant": True})
+        self.assertEqual(status, 400)
+
     def test_solving_and_reviewing_updates_the_schedule(self):
         status, r = self.check(self.ex["starter"])
         self.assertEqual(status, 200)

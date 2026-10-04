@@ -22,7 +22,7 @@ const routes = [
   [/^#\/course(?:\/([\w-]+))?$/, viewCourse],
   [/^#\/chapter\/([\w-]+)(\?notes)?$/, viewChapter],
   [/^#\/topic\/([\w-]+)(\?learn)?$/, (id) => { location.replace("#/chapter/" + id); }],
-  [/^#\/step\/([\w-]+)(\?review)?$/, viewStep],
+  [/^#\/step\/([\w-]+)(\?review(?:-original)?)?$/, viewStep],
   [/^#\/ex\/([\w-]+)(\?review)?$/, (id, r) => { location.replace("#/step/" + id + (r || "")); }],
   [/^#\/exam\/([\w-]+)$/, viewExam],
   [/^#\/extras$/, viewExtras],

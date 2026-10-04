@@ -26,7 +26,7 @@ if sys.version_info < (3, 11):
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from pytrainer import ai, coach, content, course, db, jev, labs, lint, progress, runner, sandbox, tracer  # noqa: E402
+from pytrainer import ai, coach, content, course, db, jev, labs, lint, progress, runner, sandbox, tracer, variants  # noqa: E402
 
 STATIC = ROOT / "static"
 PROJECTS_DIR = labs.LAB_ROOT / "projects"
@@ -110,6 +110,8 @@ def _quality(ex: dict, code: str) -> dict | None:
 # --------------------------------------------------------------------------- state
 
 def api_state(_body=None):
+    if variants.enabled():
+        variants.prepare(progress.all_exercises())
     data = content.load()
     states = progress.exercise_states()
     tp = progress.topic_progress(states)
@@ -123,6 +125,7 @@ def api_state(_body=None):
             "onboarded": settings.get("onboarded", False),
             "name": settings.get("name", ""),
             "jev": {"configured": bool(jev.key()), "enabled": jev.enabled(), "masked": jev.masked()},
+            "review_variants": settings.get("review_variants", True),
         },
         "tracks": data["tracks"],
         "topics": [{"id": t["id"], "title": t["title"], "track": t["track"], "summary": t["summary"],
@@ -378,6 +381,22 @@ def api_run(ex_id: str, body: dict):
                            args=[str(a) for a in body.get("args", [])][:20])
 
 
+def _variant_test_names(tests: str) -> list[str]:
+    return [n.removeprefix("test_").replace("_", " ") for n in re.findall(r"^def (test_\w+)", tests, re.M)]
+
+
+def api_variant(ex_id: str):
+    """The changed-form version of a review, if one is ready (never its solution or tests)."""
+    ex = _exercise(ex_id)
+    v = variants.get(ex_id) if variants.eligible(ex) else None
+    if not v:
+        return {"variant": None, "enabled": variants.enabled()}
+    return {"variant": {"title": v["title"], "prompt": v["prompt"], "starter": v["starter"]},
+            "checks": _variant_test_names(v["tests"]),
+            "debug_call": tracer.suggest_call(v["solution"], v["tests"]) if ex.get("mode", "function") == "function" else "",
+            "enabled": variants.enabled()}
+
+
 def api_trace(ex_id: str, body: dict):
     """Step through the learner's file (or, for read-and-predict steps, the program once it's unlocked)."""
     ex = _exercise(ex_id)
@@ -414,10 +433,23 @@ def api_check(ex_id: str, body: dict):
     kind = body.get("kind", "practice")
     if kind not in ("practice", "review"):
         kind = "practice"
-    files, result = _grade(ex, body)
+    variant = variants.get(ex_id) if body.get("variant") and kind == "review" else None
+    if body.get("variant") and kind == "review" and not variant:
+        raise ApiError("This changed-form review is no longer available. Reload the page to review the original.")
+    if variant:
+        # Graded against the variant's own tests; it still counts as a review of the original step.
+        files = _files(body)
+        result = runner.run_tests(files, variant["tests"], mode=ex.get("mode", "function"),
+                                  setup_files=ex.get("setup_files"))
+        ex_view = {**ex, "title": variant["title"], "prompt": variant["prompt"], "solution": variant["solution"]}
+    else:
+        files, result = _grade(ex, body)
+        ex_view = ex
     if result["status"] == "passed" and ex.get("mode") != "predict":
-        result["quality"] = _quality(ex, files.get("solution.py", ""))
+        result["quality"] = _quality(ex_view, files.get("solution.py", ""))
     state = progress.record_attempt(ex, files, result, kind, body.get("duration_s", 0))
+    if variant and result["status"] == "passed":
+        variants.drop(ex_id)  # the next review gets a fresh one
     if result["status"] == "passed" and ex.get("mode") == "predict":
         result["explanation"] = ex.get("explanation", "")
     tp = progress.topic_progress()
@@ -429,7 +461,7 @@ def api_check(ex_id: str, body: dict):
         placed_now = passed and course.place_module_if_exam_passed(ex["module"])
         exam = course.exam_status(ex["module"]) | {"placed_now": placed_now}
     return {"result": result, "state": state, "style": style, "exam": exam,
-            "reference": ex["solution"] if passed and ex.get("mode") != "predict" else None,
+            "reference": ex_view["solution"] if passed and ex.get("mode") != "predict" else None,
             "tips": _quality_tips(result.get("quality")) if passed else [],
             "can_reveal": _can_reveal(ex, state, int(body.get("duration_s", 0))),
             "topic_progress": tp.get(topic) if topic in tp else None}
@@ -457,7 +489,11 @@ def api_heartbeat(body: dict):
 
 def api_reviews(_=None):
     exs = progress.all_exercises()
-    return {"due": progress.due_reviews(),
+    if variants.enabled():
+        variants.prepare(exs)
+    ready = variants.ready_ids()
+    return {"due": [r | {"variant": r["id"] in ready} for r in progress.due_reviews()],
+            "variants_on": variants.enabled(),
             "upcoming": [dict(r) | {"title": exs.get(r["exercise_id"], {}).get("title", r["exercise_id"])} for r in db.q(
                 "SELECT exercise_id, next_review FROM exercise_state WHERE status='solved' AND next_review > ? "
                 "ORDER BY next_review LIMIT 15", (db.today(),))]}
@@ -718,6 +754,8 @@ def api_settings(body: dict):
         db.set_setting("onboarded", bool(body["onboarded"]))
     if "jev_enabled" in body:
         db.set_setting("jev_enabled", bool(body["jev_enabled"]))
+    if "review_variants" in body:
+        db.set_setting("review_variants", bool(body["review_variants"]))
     return api_state()
 
 
@@ -979,6 +1017,7 @@ ROUTES = [
     ("POST", r"/api/exercise/([\w-]+)/run", api_run),
     ("POST", r"/api/exercise/([\w-]+)/check", api_check),
     ("POST", r"/api/exercise/([\w-]+)/trace", api_trace),
+    ("GET", r"/api/exercise/([\w-]+)/variant", api_variant),
     ("POST", r"/api/exercise/([\w-]+)/hint", api_hint),
     ("POST", r"/api/exercise/([\w-]+)/reveal", api_reveal),
     ("POST", r"/api/run", api_run_snippet),
