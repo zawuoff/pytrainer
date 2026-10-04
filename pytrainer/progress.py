@@ -182,39 +182,61 @@ def add_seconds(seconds: int) -> None:
           "seconds = seconds + excluded.seconds", (db.today(), seconds))
 
 
+FREEZE_EVERY = 7   # days in a row that earn one streak freeze
+MAX_FREEZES = 2
+
+
 def streak() -> dict:
+    """The current and best streak, with streak freezes.
+
+    Every FREEZE_EVERY days in a row earns a freeze (holding at most MAX_FREEZES, unless turned off
+    in Settings). A missed day while you hold one spends it: the day is "frozen", the streak carries
+    on (a frozen day doesn't add to it). It's all replayed from the activity table, day by day, so
+    nothing is stored and the result never drifts. Today only counts once it's active."""
     rows = {r["day"]: r for r in db.q("SELECT * FROM activity")}
+    use_freezes = db.settings().get("streak_freezes", True)
 
     def active(d):
         r = rows.get(d.isoformat())
         return bool(r and (r["seconds"] >= 600 or r["solved"] > 0))
 
-    day = date.today()
-    current = 0
-    if not active(day):
-        day -= timedelta(days=1)
-    while active(day):
-        current += 1
-        day -= timedelta(days=1)
-    best = run = 0
+    today = date.today()
+    run = best = held = toward = 0
+    frozen: list[str] = []
     if rows:
         d = date.fromisoformat(min(rows))
-        while d <= date.today():
-            run = run + 1 if active(d) else 0
+        while d <= today:
+            if active(d):
+                run += 1
+                toward += 1
+                if toward == FREEZE_EVERY:
+                    toward = 0
+                    if use_freezes:
+                        held = min(MAX_FREEZES, held + 1)
+            elif d < today:
+                if run and held:
+                    held -= 1
+                    frozen.append(d.isoformat())
+                else:
+                    run = toward = 0
             best = max(best, run)
             d += timedelta(days=1)
-    return {"current": current, "best": best, "today_active": active(date.today())}
+    yesterday = (today - timedelta(days=1)).isoformat()
+    return {"current": run, "best": best, "today_active": active(today), "freezes": held,
+            "max_freezes": MAX_FREEZES, "freezes_on": use_freezes, "next_freeze_in": FREEZE_EVERY - toward,
+            "frozen_days": frozen[-30:], "saved_yesterday": bool(frozen) and frozen[-1] == yesterday}
 
 
 def heatmap(days: int = 140) -> list[dict]:
     start = date.today() - timedelta(days=days - 1)
     rows = {r["day"]: r for r in db.q("SELECT * FROM activity WHERE day >= ?", (start.isoformat(),))}
+    frozen = set(streak()["frozen_days"])
     out = []
     for i in range(days):
         d = (start + timedelta(days=i)).isoformat()
         r = rows.get(d)
         out.append({"day": d, "minutes": round((r["seconds"] if r else 0) / 60),
-                    "solved": r["solved"] if r else 0, "checks": r["checks"] if r else 0})
+                    "solved": r["solved"] if r else 0, "checks": r["checks"] if r else 0, "frozen": d in frozen})
     return out
 
 

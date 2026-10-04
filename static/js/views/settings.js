@@ -29,6 +29,9 @@ export async function viewSettings() {
     <section class="section"><h2>Reviews</h2><div class="panel">
       <label class="row" style="gap:8px;font-size:14px"><input type="checkbox" id="variants-on" ${S.settings.review_variants ? "checked" : ""}> Give me reviews in a changed form</label>
       <p class="dim small" style="margin:8px 0 0">Your AI connection rewrites due reviews with new names and data, so you rebuild the idea instead of remembering the text. Each one is checked before you see it. ${aiOn() ? "" : "Needs an AI connection."}</p></div></section>
+    <section class="section"><h2>Streak</h2><div class="panel">
+      <label class="row" style="gap:8px;font-size:14px"><input type="checkbox" id="freezes-on" ${S.settings.streak_freezes ? "checked" : ""}> Earn streak freezes</label>
+      <p class="dim small" style="margin:8px 0 0">Every 7 days in a row earns a freeze (you can hold 2). If you miss a day while holding one, it's used automatically and your streak carries on. Turn this off for a strict streak.</p></div></section>
     <section class="section"><h2>Jev quality scoring</h2>
       <p class="dim">Jev (TypeSafe) scores your code in about a second on readability, naming, idioms, simplicity and edge cases, and it checks that the tutor never gives answers away. <a href="https://console.typesafe.ai" target="_blank" rel="noopener">Get a key</a></p>
       <div class="panel" id="jev-box"></div></section>
@@ -49,6 +52,7 @@ export async function viewSettings() {
   $("#theme").value = theme;
   drawJev();
   aiPicker($("#ai-box"));
+  $("#freezes-on").onchange = async (e) => { await api("settings", { streak_freezes: e.target.checked }); await refreshState(); toast("Saved"); };
   $("#variants-on").onchange = async (e) => { await api("settings", { review_variants: e.target.checked }); await refreshState(); toast("Saved"); };
   $("#save-me").onclick = async () => {
     await api("settings", { name: $("#name").value.trim(), daily_goal: +$("#goal").value || 90 });

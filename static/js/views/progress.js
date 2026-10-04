@@ -1,5 +1,5 @@
 import { S, api, esc, fmtDate, fmtMin, main, modColor, refreshState } from "../core.js";
-import { heatmap } from "../shared.js";
+import { heatmap, streakHTML, streakNote } from "../shared.js";
 
 /* ---------------------------------------------------------------- progress */
 
@@ -19,7 +19,7 @@ export async function viewProgress() {
       <div class="stat"><b>${sm.first_try_rate == null ? "–" : Math.round(sm.first_try_rate * 100) + "%"}</b><span>first-try solves</span></div>
       <div class="stat"><b>${sm.avg_quality == null ? "–" : sm.avg_quality + "/10"}</b><span>code quality (last 20)</span></div>
       <div class="stat"><b>${fmtMin(sm.week_minutes)}</b><span>this week</span></div>
-      <div class="stat"><b>${sm.streak.current} / ${sm.streak.best}</b><span>streak / best</span></div>
+      <div class="stat"><b>${streakHTML(sm.streak)} / ${sm.streak.best}</b><span>streak / best</span></div>
     </div>
     <section class="section"><h2>Level ${st.xp.level} <span class="faint small">${esc(st.xp.title)}</span></h2><div class="panel">
       <div class="row" style="justify-content:space-between"><b>${st.xp.total.toLocaleString()} XP</b><span class="faint small">${(st.xp.level_size - st.xp.into_level).toLocaleString()} XP to level ${st.xp.level + 1}${st.xp.next_title ? ` · ${esc(st.xp.next_title)} at level ${XP_TITLE_AT[st.xp.next_title]}` : ""}</span></div>
@@ -30,7 +30,8 @@ export async function viewProgress() {
     <a class="suggest ach-strip" href="#/achievements"><b>Achievements: ${st.achievements.unlocked} of ${st.achievements.total}</b>
       <span>${st.achievements.recent.length ? "Latest: " + st.achievements.recent.map((a) => esc(a.title)).join(" · ") : "Solve your first step to earn the first one."}</span><em>See them all</em></a></div>
     <section class="section"><h2>Activity</h2><div class="panel">${heatmap(st.heatmap)}
-      <p class="faint small" style="margin:10px 0 0">A day counts toward your streak with 10+ minutes of practice or at least one solve.</p></div></section>
+      <p class="faint small" style="margin:10px 0 0">A day counts toward your streak with 10+ minutes of practice or at least one solve.${sm.streak.freezes_on ? " Snowflake days were covered by a streak freeze." : ""}</p>
+      <div style="margin-top:6px">${streakNote(sm.streak)}</div></div></section>
     ${st.per_day.length ? `<section class="section"><h2>Checks per day</h2><div class="panel"><div style="display:flex;gap:4px;align-items:flex-end;height:110px">${st.per_day.map((x) =>
       `<div title="${x.d}: ${x.p}/${x.n} passing" style="flex:1;max-width:26px;display:flex;flex-direction:column-reverse;height:100%"><div style="height:${(x.p / maxN) * 100}%;background:var(--pass);border-radius:2px 2px 0 0"></div><div style="height:${((x.n - x.p) / maxN) * 100}%;background:color-mix(in srgb,var(--fail) 55%,var(--rule));border-radius:2px 2px 0 0"></div></div>`).join("")}</div>
       <p class="faint small" style="margin:8px 0 0">Green: passing checks. Red: failing ones. Failing is how the checks teach you.</p></div></section>` : ""}

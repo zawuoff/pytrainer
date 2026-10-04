@@ -127,6 +127,7 @@ def api_state(_body=None):
             "name": settings.get("name", ""),
             "jev": {"configured": bool(jev.key()), "enabled": jev.enabled(), "masked": jev.masked()},
             "review_variants": settings.get("review_variants", True),
+            "streak_freezes": settings.get("streak_freezes", True),
         },
         "tracks": data["tracks"],
         "topics": [{"id": t["id"], "title": t["title"], "track": t["track"], "summary": t["summary"],
@@ -831,6 +832,8 @@ def api_settings(body: dict):
         db.set_setting("jev_enabled", bool(body["jev_enabled"]))
     if "review_variants" in body:
         db.set_setting("review_variants", bool(body["review_variants"]))
+    if "streak_freezes" in body:
+        db.set_setting("streak_freezes", bool(body["streak_freezes"]))
     return api_state()
 
 

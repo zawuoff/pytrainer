@@ -1251,3 +1251,8 @@ input[type=text], input[type=number], input[type=password], select, textarea { t
   .rc-big { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rc-high .faint { display: block; min-width: 0; }
 }
+
+/* Streak freezes */
+.heat i.frozen { background: color-mix(in srgb, var(--m-foundations) 45%, var(--panel-2)); box-shadow: inset 0 0 0 1px var(--m-foundations); }
+.freeze { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px; font-size: 12px; font-weight: 600; vertical-align: middle; color: var(--m-foundations); background: color-mix(in srgb, var(--m-foundations) 14%, transparent); }
+.freeze-note { margin: 14px 0 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--m-foundations) 45%, var(--rule)); background: color-mix(in srgb, var(--m-foundations) 8%, transparent); font-size: 14px; }

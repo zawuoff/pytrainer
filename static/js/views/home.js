@@ -1,5 +1,5 @@
 import { $, S, aiOn, api, busy, esc, fmtMin, main, md, modColor, moduleOf, noAI, refreshState, ticks } from "../core.js";
-import { heatmap } from "../shared.js";
+import { heatmap, streakHTML, streakNote } from "../shared.js";
 
 /* ---------------------------------------------------------------- home */
 
@@ -26,10 +26,11 @@ export async function viewHome() {
       <div><h1>${greeting()}</h1><p>${esc(S.level)} · ${sm.topics_cleared} of ${sm.topics_total} chapters cleared</p></div>
       <div class="today-meter">
         <div class="stat"><b>${fmtMin(sm.today_minutes)}</b><span>of ${fmtMin(goal)} today</span><div class="bar"><i style="width:${pct}%"></i></div></div>
-        <div class="stat"><b>${sm.streak.current}</b><span>day streak</span></div>
+        <div class="stat"><b>${streakHTML(sm.streak)}</b><span>day streak</span></div>
         <div class="stat"><b>${sm.reviews_due}</b><span>reviews due</span></div>
       </div>
     </div>
+    ${sm.streak.saved_yesterday ? streakNote(sm.streak) : ""}
     ${(() => {
       const tips = [];
       let seen = null;

@@ -2,12 +2,26 @@ import { $, $$, anim, api, busy, esc, toast } from "./core.js";
 
 /* ---------------------------------------------------------------- shared pieces */
 
+/* The streak number with its freezes: "12" plus a snowflake chip per freeze held. */
+export function streakHTML(st) {
+  const chips = st.freezes_on && st.freezes ? `<span class="freeze" title="${st.freezes} streak freeze${st.freezes === 1 ? "" : "s"} held: a missed day uses one and keeps your streak">❄ ${st.freezes}</span>` : "";
+  return `${st.current}${chips}`;
+}
+
+export function streakNote(st) {
+  if (st.saved_yesterday) return `<p class="freeze-note">❄ A streak freeze covered yesterday, so your ${st.current}-day streak is safe.${st.today_active ? " You've practised today too." : " Practise today to keep it going."}</p>`;
+  if (!st.freezes_on) return "";
+  return st.freezes >= st.max_freezes ? `<span class="faint small">Holding the most freezes (${st.max_freezes}).</span>`
+    : `<span class="faint small">${st.next_freeze_in} more day${st.next_freeze_in === 1 ? "" : "s"} in a row earns a streak freeze.</span>`;
+}
+
 export function heatmap(days) {
   const pad = new Date(days[0].day).getDay();
   const cells = Array(pad).fill(`<i style="visibility:hidden"></i>`);
   days.forEach((d) => {
     const m = d.minutes, lvl = m === 0 && !d.solved ? 0 : m < 20 ? 1 : m < 45 ? 2 : m < 90 ? 3 : 4;
-    cells.push(`<i class="l${lvl}" title="${d.day}: ${m} min, ${d.solved} solved"></i>`);
+    cells.push(d.frozen ? `<i class="frozen" title="${d.day}: streak freeze used"></i>`
+      : `<i class="l${lvl}" title="${d.day}: ${m} min, ${d.solved} solved"></i>`);
   });
   return `<div class="heat">${cells.join("")}</div>`;
 }
