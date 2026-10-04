@@ -255,20 +255,40 @@ def run_tests(files: dict[str, str], tests: str, *, mode: str = "function",
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def _budgets(stdout: str) -> tuple[str, list[dict]]:
+    """Pull `BUDGET|label|used|limit|unit` lines (printed by budget tests) out of the output."""
+    keep, budgets = [], []
+    for line in stdout.splitlines(keepends=True):
+        parts = line.strip().split("|")
+        if len(parts) == 5 and parts[0] == "BUDGET":
+            try:
+                used, limit = float(parts[2]), float(parts[3])
+            except ValueError:
+                keep.append(line)
+                continue
+            budgets.append({"label": parts[1], "used": used, "limit": limit, "unit": parts[4], "ok": used <= limit})
+        else:
+            keep.append(line)
+    return "".join(keep), budgets
+
+
 def _summarise(state: dict, timed_out: bool, returncode: int, stderr: str) -> dict:
     tests = [
         {"name": _nice_name(t["name"]), "passed": t["passed"], "message": t.get("message", ""),
          "ms": t.get("ms")}
         for t in state.get("tests", [])
     ]
+    stdout, budgets = _budgets(state.get("stdout") or "")
     out = {
         "status": "passed",
         "tests": tests,
         "passed": sum(t["passed"] for t in tests),
         "total": len(tests),
         "error": None,
-        "stdout": (state.get("stdout") or "")[-MAX_OUTPUT:],
+        "stdout": stdout[-MAX_OUTPUT:],
     }
+    if budgets:
+        out["budgets"] = budgets
     if state.get("load_error"):
         out.update(status="error", error=state["load_error"])
     elif timed_out:

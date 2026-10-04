@@ -1147,3 +1147,13 @@ input[type=text], input[type=number], input[type=password], select, textarea { t
 .llm-call { border-left: 2px solid var(--rule-strong); padding: 4px 0 4px 10px; margin: 6px 0; overflow-wrap: anywhere; }
 .eb-result { margin-top: 12px; border-top: 1px solid var(--rule); padding-top: 10px; }
 .eb-result p { margin: 6px 0; }
+
+/* Budget checks */
+.budgets { display: grid; gap: 6px; }
+.budget { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(80px, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; }
+.budget-bar { height: 8px; border-radius: 0 4px 4px 0; background: color-mix(in srgb, var(--rule) 60%, transparent); overflow: hidden; }
+.budget-bar i { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--pass); }
+.budget.over .budget-bar i { background: var(--fail); }
+.budget-val { font-variant-numeric: tabular-nums; color: var(--dim); white-space: nowrap; }
+.budget.over .budget-val { color: var(--fail); }
+@media (max-width: 560px) { .budget { grid-template-columns: minmax(0, 1fr) auto; } .budget-bar { grid-column: 1 / -1; } }

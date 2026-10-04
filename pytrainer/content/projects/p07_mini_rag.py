@@ -401,5 +401,15 @@ def test_below_threshold_refuses_without_calling_llm():
     got = rag.answer("q-far")
     assert got == {"answer": NO_ANSWER, "sources": []}, f"got {got!r}"
     assert llm.prompts == [], "llm must not be called when nothing is relevant"
+
+def test_budget_texts_embedded():
+    emb = CountingEmbed()
+    rag = RAG(emb, FakeLLM(), threshold=0.0)
+    rag.add_documents([f"document number {i} about cats" for i in range(10)])
+    for question in ["cats?", "dogs?", "numbers?", "about?"]:
+        rag.answer(question)
+    used = sum(len(texts) for texts in emb.calls)
+    print(f"BUDGET|texts embedded for 10 documents and 4 questions|{used}|14|texts")
+    assert used <= 14, f"embedded {used} texts; the budget is 14 (each document once, each question once)"
 ''',
 }

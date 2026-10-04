@@ -600,5 +600,16 @@ def test_client_without_cache_and_bad_request():
     assert client.complete("small", MSGS) == "reply 2"
     assert client.complete("small", MSGS) == "reply 3", "no cache_path means no caching"
     assert set(os.listdir(".")) == before, "no cache file should be written without cache_path"
+
+def test_budget_cost_of_repeated_requests():
+    single = ResilientClient(FakeProvider(), prices=PRICES, sleep=lambda s: None)
+    single.complete("small", MSGS)
+    budget = single.usage.total_cost()
+    client = ResilientClient(FakeProvider(), prices=PRICES, cache_path="budget.json", sleep=lambda s: None)
+    for _ in range(20):
+        client.complete("small", MSGS)
+    used = client.usage.total_cost()
+    print(f"BUDGET|cost of 20 identical temperature-0 requests|{used * 1e6:.2f}|{budget * 1e6:.2f}|micro-$")
+    assert used <= budget + 1e-12, f"cost {used * 1e6:.2f} micro-$; repeats should be served from the cache"
 ''',
 }

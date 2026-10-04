@@ -332,5 +332,15 @@ def test_empty_and_invalid_concurrency():
         pass
     else:
         raise AssertionError("concurrency=0 should raise ValueError")
+
+def test_budget_wall_time():
+    async def slow(prompt):
+        await asyncio.sleep(0.1)
+        return prompt
+    start = time.perf_counter()
+    asyncio.run(run_batch([str(i) for i in range(20)], slow, concurrency=5))
+    used = time.perf_counter() - start
+    print(f"BUDGET|time for 20 calls of 0.1 s at concurrency 5|{used:.2f}|1.2|s")
+    assert used <= 1.2, f"took {used:.2f} s; the budget is 1.2 s (one at a time would take 2 s)"
 ''',
 }

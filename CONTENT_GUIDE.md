@@ -371,6 +371,13 @@ Two extra kinds have their own rules, which the validator enforces:
   the line to change and must differ in `solution` (the fixed program, which must run cleanly). Add an
   `explanation`. The traceback the learner sees is produced by running `code`.
 
+## Budget checks in projects
+
+A project test named `test_budget_...` measures something that costs money or time (wall time,
+texts embedded, API cost, calls made), prints one line `BUDGET|<label>|<used>|<limit>|<unit>` and
+asserts `used <= limit`. The runner turns those lines into `result["budgets"]`, which the results
+panel shows as "used of limit" bars. Keep limits generous enough for slow CI machines.
+
 ## New chapters: what to cover (fake/injected clients - no network, stdlib only)
 
 - **testing**: why tests; `assert`; test functions; arrange-act-assert; edge cases; testing

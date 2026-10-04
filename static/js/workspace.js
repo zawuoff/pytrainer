@@ -82,8 +82,17 @@ export function resultsHTML(r, extra = "") {
   if (r.error) html += `<div class="errbox">${esc(r.error)}</div>`;
   html += r.tests.map((t, i) => `<div class="test ${t.passed ? "ok" : "no"}" style="--i:${i}"><span class="ic">${t.passed ? "✓" : "✕"}</span>
       <div>${esc(t.name)}${t.message ? `<pre>${esc(t.message)}</pre>` : ""}</div></div>`).join("");
+  html += budgetsHTML(r.budgets);
   if (r.stdout && r.stdout.trim()) html += `<h3 style="margin:16px 0 6px">Printed while checking</h3><pre class="outbox">${esc(r.stdout)}</pre>`;
   return html + extra + "</div>";
+}
+
+/* Budget checks (time, cost, calls) measured by the hidden tests, as "used of limit" bars. */
+export function budgetsHTML(budgets) {
+  if (!budgets?.length) return "";
+  return `<h3 style="margin:16px 0 6px">Budgets</h3><div class="budgets">${budgets.map((b) => `<div class="budget ${b.ok ? "ok" : "over"}">
+    <span>${esc(b.label)}</span><span class="budget-bar"><i style="width:${Math.min(100, b.limit ? (b.used / b.limit) * 100 : 100)}%"></i></span>
+    <span class="budget-val">${esc(b.used)} of ${esc(b.limit)} ${esc(b.unit)}</span></div>`).join("")}</div>`;
 }
 
 export const chatHTML = (chat, empty) => !chat.length ? `<p class="dim">${empty}</p>` :

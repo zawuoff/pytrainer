@@ -37,6 +37,32 @@ class RunTestsTests(unittest.TestCase):
         self.assertEqual(r["status"], "timeout")
 
 
+class BudgetTests(unittest.TestCase):
+    TESTS = """
+def test_fast_enough():
+    print("BUDGET|time for the batch|0.40|1.2|s")
+
+def test_cheap_enough():
+    print("BUDGET|texts embedded|20|14|texts")
+    assert 20 <= 14, "embedded 20 texts; the budget is 14"
+
+def test_prints_normally():
+    print("hello")
+"""
+
+    def test_budget_lines_become_budgets_and_leave_the_output(self):
+        r = runner.run_tests({"solution.py": "x = 1\n"}, self.TESTS)
+        self.assertEqual(r["budgets"], [
+            {"label": "time for the batch", "used": 0.4, "limit": 1.2, "unit": "s", "ok": True},
+            {"label": "texts embedded", "used": 20.0, "limit": 14.0, "unit": "texts", "ok": False}])
+        self.assertEqual(r["stdout"].strip(), "hello")
+        self.assertEqual(r["status"], "failed")
+
+    def test_no_budgets_no_key(self):
+        r = runner.run_tests({"solution.py": "def add(a, b):\n    return a + b\n"}, TESTS)
+        self.assertNotIn("budgets", r)
+
+
 class RunCodeTests(unittest.TestCase):
     def test_prints_and_reads_stdin(self):
         r = runner.run_code({"solution.py": "print(input().upper())"}, stdin="hi\n")
