@@ -3,6 +3,7 @@ import { lessonTracker, lxPop, renderRich } from "../blocks.js";
 import { burst, chatHTML, checksHTML, isNarrow, makeDock, makeEditor, paneSwitch, qualityHTML, researchHTML, resultsHTML, reviewHTML, startTimer } from "../workspace.js";
 import { mountLibrary, tabIndicator } from "../library.js";
 import { createDebugger } from "../debugger.js";
+import { mountParsons } from "../parsons.js";
 
 /* ---------------------------------------------------------------- step workspace: lesson left, code right, output below */
 
@@ -82,6 +83,15 @@ export async function viewStep(id, reviewFlag) {
   }
   cleanup.push(() => { clearTimeout(saveT); if (!review && !predict) api("draft", { item_id: id, files: ed.files() }).catch(() => {}); });
   makeDock($("#dock"));
+  // Parsons steps: the editor stays (Run, Check and Debug read it) but is hidden behind the board.
+  let pz = null;
+  if (ex.kind === "parsons") {
+    ed.cm.getWrapperElement().style.display = "none";
+    const board = document.createElement("div");
+    board.className = "pz-host";
+    $("#editor").appendChild(board);
+    pz = mountParsons(board, { tiles: ex.parsons_lines, code: initial, onChange: (code) => ed.set({ "solution.py": code }) });
+  }
   const dbg = createDebugger({
     cm: ed.cm, exerciseId: id, suggestion: d.debug_call, predict,
     getFiles: () => ed.files(), getStdin: () => stdin.replace(/\\n/g, "\n"),
@@ -93,7 +103,7 @@ export async function viewStep(id, reviewFlag) {
   const read = $("#read");
   read.innerHTML = `<div id="read-head"></div>
     ${ex.lesson && !review ? `<div class="lesson-wrap" id="read-lesson">${md(ex.lesson, "lesson")}</div>` : ""}
-    <div class="task" id="read-task"><div class="label">${predict ? "Your turn: predict the output" : testsMode ? "Your turn: write the tests" : ex.kind === "bughunt" ? "Your turn: find and fix the bug" : ex.kind === "refactor" ? "Your turn: refactor it, keep it working" : "Your turn"}</div>
+    <div class="task" id="read-task"><div class="label">${predict ? "Your turn: predict the output" : testsMode ? "Your turn: write the tests" : ex.kind === "bughunt" ? "Your turn: find and fix the bug" : ex.kind === "refactor" ? "Your turn: refactor it, keep it working" : ex.kind === "parsons" ? "Your turn: put the lines in order" : "Your turn"}</div>
       ${researchHTML(ex.research)}${md(ex.prompt)}${checksHTML(d.checks)}
       ${ex.setup_files?.length ? `<p class="faint small" style="margin-top:10px">Files next to your code: ${ex.setup_files.map(esc).join(", ")}</p>` : ""}</div>
     <div id="read-extra"></div>`;
@@ -311,7 +321,7 @@ export async function viewStep(id, reviewFlag) {
   $("#lib-btn").onclick = () => lib.toggle();
   $("#reset-btn")?.addEventListener("click", (e) => {
     const b = e.currentTarget;
-    if (b.dataset.armed) { ed.set({ "solution.py": ex.starter }); b.textContent = "Reset"; delete b.dataset.armed; }
+    if (b.dataset.armed) { if (pz) pz.reset(); else ed.set({ "solution.py": ex.starter }); b.textContent = "Reset"; delete b.dataset.armed; }
     else { b.dataset.armed = 1; b.textContent = "Click again to reset"; setTimeout(() => { if (b.isConnected) { b.textContent = "Reset"; delete b.dataset.armed; } }, 3000); }
   });
   const keys = (e) => {

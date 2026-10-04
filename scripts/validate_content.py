@@ -90,6 +90,14 @@ def check_exercise(ex):
         problems.append("starter code already passes all tests")
     if not 0 <= ex["difficulty"] <= 3:
         problems.append("difficulty must be 0..3")
+    if ex.get("kind") == "parsons":
+        lines = [line.strip() for line in ex["solution"].splitlines() if line.strip()]
+        if any(line.startswith("#") or '"""' in line or "'''" in line for line in lines):
+            problems.append("parsons: no comments or multi-line strings in the solution (each line is a tile)")
+        if not 3 <= len(lines) <= 12:
+            problems.append("parsons: the solution needs 3-12 lines")
+        if not ex.get("distractors") or any(d.strip() in lines for d in ex["distractors"]):
+            problems.append("parsons: needs distractors, and none may be a line of the solution")
     if ex.get("kind") == "refactor":
         # The starter already works: only the style checks may fail on it.
         broken = [t["name"] for t in bad["tests"] if not t["passed"] and not t["name"].startswith("style ")]

@@ -365,6 +365,8 @@ Two extra kinds have their own rules, which the validator enforces:
   starter must pass them and fail the hidden `tests`.
 - `"kind": "refactor"`: the starter is working but clunky code. Style checks are tests named
   `test_style_...` (a line budget, the idiom the step is about); the starter must fail only those.
+- `"kind": "parsons"`: every non-blank line of `solution` becomes a tile (so no comments or multi-line
+  strings, 3-12 lines), plus `distractors` that must not be lines of the solution. `starter` is `""`.
 
 ## New chapters: what to cover (fake/injected clients - no network, stdlib only)
 

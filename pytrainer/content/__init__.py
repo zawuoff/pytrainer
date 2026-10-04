@@ -52,6 +52,16 @@ def _norm_exercise(ex: dict, topic_id: str | None = None) -> dict:
     return out
 
 
+def parsons_tiles(ex: dict) -> list[str]:
+    """A Parsons step's tiles: every non-blank solution line without its indentation, plus the
+    distractors, shuffled the same way every time."""
+    import random
+    tiles = [line.strip() for line in ex["solution"].splitlines() if line.strip()]
+    tiles += [d.strip() for d in ex.get("distractors", [])]
+    random.Random(ex["id"]).shuffle(tiles)
+    return tiles
+
+
 def _norm_reference(ref: dict | None) -> dict:
     """A topic's Library entry: search keywords plus short syntax cards (see CONTENT_GUIDE.md)."""
     ref = ref or {}
@@ -92,6 +102,8 @@ def load() -> dict:
         for raw in getattr(mod, "EXTRAS", []):
             ex = _norm_exercise({k: v for k, v in raw.items() if k != "topic"}, raw["topic"])
             ex["extra"] = True
+            if ex.get("kind") == "parsons":
+                ex["parsons_lines"] = parsons_tiles(ex)
             if ex["id"] in exercises:
                 raise ValueError(f"duplicate exercise id {ex['id']}")
             exercises[ex["id"]] = ex
@@ -201,7 +213,8 @@ def _norm_project(raw: dict) -> dict:
 def public_exercise(ex: dict) -> dict:
     """What the browser is allowed to see (never the solution, hints or test source)."""
     return {k: ex[k] for k in ("id", "title", "difficulty", "prompt", "starter", "mode",
-                               "topic", "concepts", "code", "lesson", "research", "module", "extra", "kind")
+                               "topic", "concepts", "code", "lesson", "research", "module", "extra", "kind",
+                               "parsons_lines")
             if k in ex} | {
         "topics": ex.get("topics", []),
         "setup_files": list(ex.get("setup_files", {}).keys()),

@@ -1058,3 +1058,24 @@ input[type=text], input[type=number], input[type=password], select, textarea { t
 .drill-task h2 { margin: 0 0 6px; }
 .drill-editor { position: relative; height: 240px; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; margin-top: 12px; }
 .drill-editor .CodeMirror { position: absolute; inset: 0; height: auto; }
+
+/* Parsons board */
+.pz-host { position: absolute; inset: 0; overflow: auto; padding: 14px 16px; background: var(--code-bg); }
+.pz { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 16px; align-items: start; }
+.pz-col h4 { margin: 0 0 8px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+.pz-col h4 .faint { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 4px; }
+.pz-pool, .pz-sol { list-style: none; margin: 0; padding: 6px; min-height: 120px; border: 1px dashed var(--rule-strong); border-radius: 8px; display: grid; gap: 4px; align-content: start; }
+.pz-sol { border-style: solid; background: var(--panel); }
+.pz-tile { width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 5px 8px; cursor: grab; color: var(--text); font: inherit; }
+.pz-tile:hover { border-color: var(--amber); }
+.pz-tile code, .pz-row code { font-family: var(--mono); font-size: 13px; background: none; padding: 0; white-space: pre; }
+.pz-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px calc(8px + var(--ind) * 2.2em); border-radius: 6px; border: 1px solid transparent; cursor: grab; background-image: repeating-linear-gradient(90deg, var(--rule) 0 1px, transparent 1px 2.2em); background-size: calc(var(--ind) * 2.2em) 100%; background-repeat: no-repeat; background-position: 8px 0; }
+.pz-row:hover { border-color: var(--rule-strong); }
+.pz-row:focus { outline: none; border-color: var(--amber); background-color: var(--amber-bg); }
+.pz-row code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pz-ctl { display: flex; flex: none; gap: 1px; opacity: .55; }
+.pz-row:hover .pz-ctl, .pz-row:focus .pz-ctl, .pz-row:focus-within .pz-ctl { opacity: 1; }
+.pz-ctl button { width: 21px; height: 24px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--dim); cursor: pointer; font-size: 12px; }
+.pz-ctl button:hover { background: var(--rule); color: var(--text); }
+.pz-empty { padding: 10px; }
+@media (max-width: 760px) { .pz { grid-template-columns: minmax(0, 1fr); } }
