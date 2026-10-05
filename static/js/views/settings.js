@@ -45,6 +45,9 @@ export async function viewSettings() {
     <section class="section"><h2>Editor</h2><div class="panel">
       <label class="row" style="gap:8px;font-size:14px"><input type="checkbox" id="assist-on" ${S.settings.editor_assist ? "checked" : ""}> Autocomplete and inline errors</label>
       <p class="dim small" style="margin:8px 0 0">Syntax errors and names that are never defined get underlined as you type; Ctrl+Space (or typing a dot) suggests names, methods and modules. ${S.assist.jedi ? "Jedi is installed, so suggestions understand types." : "For suggestions that understand types, install Jedi into the Python that runs PyTrainer: <code>pip install jedi</code>."}</p></div></section>
+    <section class="section"><h2>Help when you're stuck</h2><div class="panel">
+      <label class="row" style="gap:8px;font-size:14px"><input type="checkbox" id="nudges-on" ${S.settings.nudges ? "checked" : ""}> Offer help when the same check keeps failing</label>
+      <p class="dim small" style="margin:8px 0 0">After a few minutes on the same failing check, a small card in the corner of the editor offers a hint, a pointer from the tutor${aiOn() ? "" : " (with an AI connection)"}, or stepping through your code. It never takes focus, and "Not now" quiets it for a while. Never in module tests.</p></div></section>
     <section class="section"><h2>Streak</h2><div class="panel">
       <label class="row" style="gap:8px;font-size:14px"><input type="checkbox" id="freezes-on" ${S.settings.streak_freezes ? "checked" : ""}> Earn streak freezes</label>
       <p class="dim small" style="margin:8px 0 0">Every 7 days in a row earns a freeze (you can hold 2). If you miss a day while holding one, it's used automatically and your streak carries on. Turn this off for a strict streak.</p></div></section>
@@ -85,6 +88,7 @@ export async function viewSettings() {
   drawJev();
   drawInstall();
   aiPicker($("#ai-box"));
+  $("#nudges-on").onchange = async (e) => { await api("settings", { nudges: e.target.checked }); await refreshState(); toast("Saved."); };
   $("#assist-on").onchange = async (e) => { await api("settings", { editor_assist: e.target.checked }); await refreshState(); toast("Saved. It applies to editors you open from now on."); };
   $("#freezes-on").onchange = async (e) => { await api("settings", { streak_freezes: e.target.checked }); await refreshState(); toast("Saved"); };
   $("#variants-on").onchange = async (e) => { await api("settings", { review_variants: e.target.checked }); await refreshState(); toast("Saved"); };

@@ -10,6 +10,7 @@ import { spansHTML } from "../spans.js";
 import { createRepl } from "../repl.js";
 import { folderSync } from "../sync.js";
 import { setZen } from "../zen.js";
+import { createNudger } from "../nudge.js";
 
 /* ---------------------------------------------------------------- step workspace: lesson left, code right, output below */
 
@@ -303,6 +304,17 @@ export async function viewStep(id, reviewFlag) {
     });
   }
   drawDock();
+  const nudger = noHelp ? null : createNudger($("#editor"), {
+    hint: () => ex.hint_count && hints.length < ex.hint_count ? { next: hints.length + 1, total: ex.hint_count } : null,
+    onHint: getHint,
+    onTutor: (msg) => {
+      dockTab = "tutor"; drawDock();
+      if (isNarrow()) setPane("code");
+      const ask = $("#ask");
+      if (ask) { ask.value = msg; $("#ask-btn").click(); }
+    },
+    onDebug: readOnly ? null : () => debug(),
+  });
 
   async function run() {
     const btn = $("#run-btn"); busy(btn, true);
@@ -323,6 +335,7 @@ export async function viewStep(id, reviewFlag) {
       const payload = predict ? { answer } : traceMode ? { answer: picked } : { files: ed.files(), variant: !!variant };
       const r = await api(`exercise/${id}/check`, { ...payload, kind: review ? "review" : "practice", duration_s: timer.secs });
       lastResult = r.result; lastResult._fresh = true; canReveal = r.can_reveal;
+      nudger?.result(r.result);
       $$("#read-task .check-list li").forEach((li, i) => {
         const t = r.result.tests.find((x) => x.name === li.lastElementChild.textContent) || (r.result.tests.length === d.checks.length ? r.result.tests[i] : null);
         const mark = li.firstElementChild;

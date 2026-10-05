@@ -131,6 +131,7 @@ def api_state(_body=None):
             "review_variants": settings.get("review_variants", True),
             "streak_freezes": settings.get("streak_freezes", True),
             "editor_assist": settings.get("editor_assist", True),
+            "nudges": settings.get("nudges", True),
         },
         "assist": {"jedi": assist.jedi_available()},
         "tracks": data["tracks"],
@@ -851,6 +852,8 @@ def api_settings(body: dict):
         db.set_setting("streak_freezes", bool(body["streak_freezes"]))
     if "editor_assist" in body:
         db.set_setting("editor_assist", bool(body["editor_assist"]))
+    if "nudges" in body:
+        db.set_setting("nudges", bool(body["nudges"]))
     return api_state()
 
 

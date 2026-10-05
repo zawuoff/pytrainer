@@ -58,6 +58,12 @@ class ServerTests(unittest.TestCase):
         status, body = self.request("GET", "/js/main.js")
         self.assertEqual(status, 200)
 
+    def test_nudges_can_be_turned_off(self):
+        self.assertTrue(self.request("GET", "/api/state")[1]["settings"]["nudges"])
+        self.request("POST", "/api/settings", {"nudges": False})
+        self.assertFalse(self.request("GET", "/api/state")[1]["settings"]["nudges"])
+        self.request("POST", "/api/settings", {"nudges": True})
+
     def test_the_app_is_installable(self):
         status, body = self.request("GET", "/manifest.webmanifest")
         self.assertEqual(status, 200)
