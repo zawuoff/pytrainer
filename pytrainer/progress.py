@@ -5,11 +5,10 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timedelta
 
-from . import content, db
+from . import content, db, srs
 
 WEIGHT = {0: 0, 1: 1, 2: 2, 3: 3}
 CLEAR_THRESHOLD = 0.6
-REVIEW_INTERVALS = [1, 3, 7, 16, 35, 80]
 
 
 def all_exercises() -> dict:
@@ -52,8 +51,11 @@ def topic_progress(states: dict | None = None) -> dict[str, dict]:
 
     for t in data["topics"]:
         all_exs = [data["exercises"][e] for e in t["exercise_ids"]]
-        starters = [e for e in all_exs if e["difficulty"] == 0]
-        exs = [e for e in all_exs if e["difficulty"] >= 1]
+        # Extra steps (test writing, bug hunts...) are practice on top of the path: they never
+        # count toward mastery, so adding new ones can't un-clear a chapter.
+        path = [e for e in all_exs if not e.get("extra")]
+        starters = [e for e in path if e["difficulty"] == 0]
+        exs = [e for e in path if e["difficulty"] >= 1]
         total_w = sum(WEIGHT[e["difficulty"]] for e in exs)
         solved = [e for e in exs if earned(e)]
         solved_w = sum(WEIGHT[e["difficulty"]] for e in solved)
@@ -121,26 +123,19 @@ def record_attempt(ex: dict, files: dict, result: dict, kind: str, duration_s: i
     st.setdefault("revealed", 0)
     st.setdefault("hints_used", 0)
     if kind == "review" and was_solved:
-        st["review_count"] += 1
+        rating = srs.on_review(st, passed, int(duration_s or 0))
+        if rating:
+            st["review_count"] += 1
+        if rating == srs.AGAIN:
+            st["lapses"] += 1
         if passed:
             st["revealed"] = 0  # rebuilt from memory: now it's genuinely yours
-            idx = min(st["review_count"], len(REVIEW_INTERVALS) - 1)
-            st["interval_days"] = REVIEW_INTERVALS[idx]
-            st["next_review"] = (date.today() + timedelta(days=st["interval_days"])).isoformat()
-        else:
-            st["lapses"] += 1
-            st["interval_days"] = 1
-            st["next_review"] = date.today().isoformat()
     elif passed and not was_solved:
         newly_solved = True
         st["status"] = "solved"
         st["solved_at"] = db.now()
         st["first_try"] = 1 if st["attempts"] == 1 else 0
-        # first-try solves are scheduled further out; struggle means sooner review
-        first = REVIEW_INTERVALS[1] if st["first_try"] and not st["revealed"] and not st["hints_used"] \
-            else REVIEW_INTERVALS[0]
-        st["interval_days"] = first
-        st["next_review"] = (date.today() + timedelta(days=first)).isoformat()
+        srs.on_first_solve(st)  # struggle (hints, retries, a revealed solution) means a sooner review
     elif not was_solved:
         st["status"] = "attempted"
     save_state(st)
@@ -152,11 +147,12 @@ def record_attempt(ex: dict, files: dict, result: dict, kind: str, duration_s: i
 
 def save_state(st: dict) -> None:
     db.ex("INSERT OR REPLACE INTO exercise_state(exercise_id, status, attempts, first_try, solved_at, best_passed, "
-          "total, next_review, interval_days, review_count, lapses, revealed, hints_used) "
-          "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+          "total, next_review, interval_days, review_count, lapses, revealed, hints_used, stability, difficulty, "
+          "last_review) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
           (st["exercise_id"], st["status"], st["attempts"], st["first_try"], st["solved_at"], st["best_passed"],
            st["total"], st["next_review"], st["interval_days"], st["review_count"], st["lapses"],
-           st.get("revealed", 0), st.get("hints_used", 0)))
+           st.get("revealed", 0), st.get("hints_used", 0), st.get("stability"), st.get("difficulty"),
+           st.get("last_review")))
 
 
 def get_state(ex_id: str) -> dict:
@@ -164,7 +160,7 @@ def get_state(ex_id: str) -> dict:
     return dict(row) if row else {"exercise_id": ex_id, "status": "new", "attempts": 0, "first_try": 0,
                                   "solved_at": None, "best_passed": 0, "total": 0, "next_review": None,
                                   "interval_days": 0, "review_count": 0, "lapses": 0, "revealed": 0,
-                                  "hints_used": 0}
+                                  "hints_used": 0, "stability": None, "difficulty": None, "last_review": None}
 
 
 def due_reviews(limit: int | None = None) -> list[dict]:
@@ -186,39 +182,61 @@ def add_seconds(seconds: int) -> None:
           "seconds = seconds + excluded.seconds", (db.today(), seconds))
 
 
+FREEZE_EVERY = 7   # days in a row that earn one streak freeze
+MAX_FREEZES = 2
+
+
 def streak() -> dict:
+    """The current and best streak, with streak freezes.
+
+    Every FREEZE_EVERY days in a row earns a freeze (holding at most MAX_FREEZES, unless turned off
+    in Settings). A missed day while you hold one spends it: the day is "frozen", the streak carries
+    on (a frozen day doesn't add to it). It's all replayed from the activity table, day by day, so
+    nothing is stored and the result never drifts. Today only counts once it's active."""
     rows = {r["day"]: r for r in db.q("SELECT * FROM activity")}
+    use_freezes = db.settings().get("streak_freezes", True)
 
     def active(d):
         r = rows.get(d.isoformat())
         return bool(r and (r["seconds"] >= 600 or r["solved"] > 0))
 
-    day = date.today()
-    current = 0
-    if not active(day):
-        day -= timedelta(days=1)
-    while active(day):
-        current += 1
-        day -= timedelta(days=1)
-    best = run = 0
+    today = date.today()
+    run = best = held = toward = 0
+    frozen: list[str] = []
     if rows:
         d = date.fromisoformat(min(rows))
-        while d <= date.today():
-            run = run + 1 if active(d) else 0
+        while d <= today:
+            if active(d):
+                run += 1
+                toward += 1
+                if toward == FREEZE_EVERY:
+                    toward = 0
+                    if use_freezes:
+                        held = min(MAX_FREEZES, held + 1)
+            elif d < today:
+                if run and held:
+                    held -= 1
+                    frozen.append(d.isoformat())
+                else:
+                    run = toward = 0
             best = max(best, run)
             d += timedelta(days=1)
-    return {"current": current, "best": best, "today_active": active(date.today())}
+    yesterday = (today - timedelta(days=1)).isoformat()
+    return {"current": run, "best": best, "today_active": active(today), "freezes": held,
+            "max_freezes": MAX_FREEZES, "freezes_on": use_freezes, "next_freeze_in": FREEZE_EVERY - toward,
+            "frozen_days": frozen[-30:], "saved_yesterday": bool(frozen) and frozen[-1] == yesterday}
 
 
 def heatmap(days: int = 140) -> list[dict]:
     start = date.today() - timedelta(days=days - 1)
     rows = {r["day"]: r for r in db.q("SELECT * FROM activity WHERE day >= ?", (start.isoformat(),))}
+    frozen = set(streak()["frozen_days"])
     out = []
     for i in range(days):
         d = (start + timedelta(days=i)).isoformat()
         r = rows.get(d)
         out.append({"day": d, "minutes": round((r["seconds"] if r else 0) / 60),
-                    "solved": r["solved"] if r else 0, "checks": r["checks"] if r else 0})
+                    "solved": r["solved"] if r else 0, "checks": r["checks"] if r else 0, "frozen": d in frozen})
     return out
 
 

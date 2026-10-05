@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    name: Linux · Python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install bubblewrap (so the sandbox tests run for real)
+        run: |
+          sudo apt-get update -q && sudo apt-get install -yq bubblewrap
+          # Ubuntu 24.04 blocks unprivileged user namespaces by default; bwrap needs them.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Compile
+        run: python -m compileall -q pytrainer server.py scripts tests
+      - name: Check front-end syntax
+        run: for f in $(find static/js -name '*.js'); do node --check "$f"; done
+      - name: Unit and API tests
+        run: python -m unittest discover -s tests -t . -v
+      - name: Validate all course content (reference solutions pass, starters fail, cards print what they claim)
+        run: python scripts/validate_content.py
+
+  other-os:
+    name: ${{ matrix.os }} · Python 3.13
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Unit and API tests
+        run: python -m unittest discover -s tests -t . -v
+
+  package:
+    name: Package · wheel, pytrainer command, Docker image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build the wheel and install it in a fresh venv
+        run: |
+          python -m pip install -q build
+          python -m build --wheel --outdir dist
+          python -m venv /tmp/pt && /tmp/pt/bin/pip install -q dist/*.whl
+          /tmp/pt/bin/pytrainer --version
+      - name: The installed command serves the app (outside the checkout)
+        run: |
+          cd /tmp && PYTRAINER_DATA=/tmp/ptdata /tmp/pt/bin/pytrainer --no-open --port 8800 &
+          for i in $(seq 1 50); do curl -fs http://127.0.0.1:8800/api/state >/dev/null && break; sleep 0.2; done
+          curl -fs http://127.0.0.1:8800/api/state | python -c "import sys, json; d = json.load(sys.stdin); assert len(d['topics']) == 38, d"
+          curl -fs http://127.0.0.1:8800/js/main.js >/dev/null
+          curl -fs -H 'Content-Type: application/json' -d '{"code": "print(6 * 7)"}' http://127.0.0.1:8800/api/run | grep -q 42
+      - name: Build and run the Docker image
+        run: |
+          docker build -t pytrainer:ci .
+          docker run -d --name pt -p 127.0.0.1:8801:8765 pytrainer:ci
+          for i in $(seq 1 50); do curl -fs http://127.0.0.1:8801/api/state >/dev/null && break; sleep 0.3; done
+          curl -fs http://127.0.0.1:8801/api/state | python -c "import sys, json; d = json.load(sys.stdin); assert d['data_dir'] == '/data', d"
+          curl -fs -H 'Content-Type: application/json' -d '{"code": "print(6 * 7)"}' http://127.0.0.1:8801/api/run | grep -q 42
+

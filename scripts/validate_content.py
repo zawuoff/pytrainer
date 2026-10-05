@@ -67,9 +67,36 @@ def check_test_writing(ex):
     return ex["id"], problems
 
 
+def check_traceback(ex):
+    """A read-the-traceback step: the program really raises `error`, the fix runs, and the answer
+    line is a line the fix changes."""
+    problems = []
+    check_hints(ex, problems)
+    if not ex.get("explanation", "").strip():
+        problems.append("traceback step needs an `explanation`")
+    lines = ex.get("code", "").splitlines()
+    run = runner.run_code({"solution.py": ex.get("code", "")}, setup_files=ex["setup_files"])
+    last = run["stderr"].strip().splitlines()[-1] if run["stderr"].strip() else ""
+    if run["returncode"] == 0 or "Traceback" not in run["stderr"]:
+        problems.append("the program must crash with a traceback")
+    elif ex.get("error", "").lower() not in last.lower():
+        problems.append(f"expected a {ex.get('error')} but the traceback ends with: {last}")
+    fixed = runner.run_code({"solution.py": ex["solution"]}, setup_files=ex["setup_files"])
+    if fixed["returncode"] != 0 or fixed["timed_out"]:
+        problems.append("the fixed program (`solution`) must run cleanly: " + fixed["stderr"].strip()[-300:])
+    n = ex.get("answer_line")
+    if not isinstance(n, int) or not 1 <= n <= len(lines):
+        problems.append("`answer_line` must be a line of `code`")
+    elif lines[n - 1] in ex["solution"].splitlines():
+        problems.append(f"line {n} is unchanged in the fix, so it can't be the line to change")
+    return ex["id"], problems
+
+
 def check_exercise(ex):
     if ex["mode"] == "predict":
         return check_prediction(ex)
+    if ex["mode"] == "traceback":
+        return check_traceback(ex)
     if ex["mode"] == "tests":
         return check_test_writing(ex)
     problems = []
@@ -90,6 +117,32 @@ def check_exercise(ex):
         problems.append("starter code already passes all tests")
     if not 0 <= ex["difficulty"] <= 3:
         problems.append("difficulty must be 0..3")
+    if ex.get("kind") == "parsons":
+        lines = [line.strip() for line in ex["solution"].splitlines() if line.strip()]
+        if any(line.startswith("#") or '"""' in line or "'''" in line for line in lines):
+            problems.append("parsons: no comments or multi-line strings in the solution (each line is a tile)")
+        if not 3 <= len(lines) <= 12:
+            problems.append("parsons: the solution needs 3-12 lines")
+        if not ex.get("distractors") or any(d.strip() in lines for d in ex["distractors"]):
+            problems.append("parsons: needs distractors, and none may be a line of the solution")
+    if ex.get("kind") == "refactor":
+        # The starter already works: only the style checks may fail on it.
+        broken = [t["name"] for t in bad["tests"] if not t["passed"] and not t["name"].startswith("style ")]
+        if bad["error"] or broken:
+            problems.append("refactor: the starter must pass every behaviour check, but fails: "
+                            + (bad["error"] or ", ".join(broken)))
+        if not any(t["name"].startswith("style ") for t in bad["tests"] if not t["passed"]):
+            problems.append("refactor: the starter must fail at least one style check")
+    if ex.get("kind") == "bughunt":
+        # The bug must hide: the buggy starter passes every example shown in the prompt.
+        if not ex.get("visible_tests"):
+            problems.append("bug hunt needs `visible_tests` (the prompt's examples)")
+        else:
+            shown = runner.run_tests({main: ex["starter"]}, ex["visible_tests"], mode=ex["mode"],
+                                     setup_files=ex["setup_files"])
+            if shown["status"] != "passed":
+                problems.append("bug hunt: the buggy starter must pass its visible examples: "
+                                + (shown["error"] or "; ".join(t["message"] for t in shown["tests"] if not t["passed"])))
     return ex["id"], problems
 
 
@@ -106,14 +159,20 @@ def check_mini(m):
 
 def check_project(p):
     problems = []
-    good = runner.run_tests(p["solution_files"], p["tests"], mode="function",
-                            main=p.get("main", "app.py"), timeout=60)
+    # A capstone runs next to the code of the projects it builds on: use their reference solutions.
+    data = content.load()
+    base = {}
+    for pid in p.get("requires_projects", []):
+        base.update(data["projects_by_id"][pid]["solution_files"])
+    setup = p.get("setup_files") or None
+    good = runner.run_tests({**base, **p["solution_files"]}, p["tests"], mode="function",
+                            main=p.get("main", "app.py"), timeout=60, setup_files=setup)
     if good["status"] != "passed":
         detail = good["error"] or "; ".join(f"{t['name']}: {t['message']}" for t in good["tests"]
                                             if not t["passed"])
         problems.append(f"solution does not pass ({good['status']}): {detail}")
-    bad = runner.run_tests(p["starter_files"], p["tests"], mode="function",
-                           main=p.get("main", "app.py"), timeout=60)
+    bad = runner.run_tests({**base, **p["starter_files"]}, p["tests"], mode="function",
+                           main=p.get("main", "app.py"), timeout=60, setup_files=setup)
     if bad["status"] == "passed":
         problems.append("starter already passes")
     return "project:" + p["id"], problems
@@ -179,7 +238,13 @@ def main():
         for req in t["requires"]:
             if req not in topic_ids:
                 structural.append(f"topic {t['id']} requires unknown topic {req}")
-        exs = [data["exercises"][e] for e in t["exercise_ids"]]
+        everything = [data["exercises"][e] for e in t["exercise_ids"]]
+        exs = [e for e in everything if not e.get("extra")]
+        extras = [e for e in everything if e.get("extra")]
+        if everything[len(exs):] != extras:
+            structural.append(f"topic {t['id']} extra steps must come after the learning path")
+        if any(e["placement"] or e["difficulty"] < 1 for e in extras):
+            structural.append(f"topic {t['id']} extra steps are difficulty 1-3 and never the placement step")
         placements = [e for e in exs if e["placement"]]
         if len(placements) != 1:
             structural.append(f"topic {t['id']} needs exactly one placement exercise (has {len(placements)})")

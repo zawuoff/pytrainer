@@ -1,6 +1,6 @@
 """Terminal labs. Done in your real terminal; the app verifies the result on disk.
 
-Check types (see pytrainer/labs.py): command, path, absent, contains, run.
+Check types (see pytrainer/labs.py): command, path, glob, absent, contains, run.
 """
 
 LAB = "~/pytrainer-lab"
@@ -352,6 +352,48 @@ LABS = [
              "pattern": r"pytest"},
             {"type": "run", "label": "a GitHub remote is configured", "cmd": ["git", "remote", "-v"],
              "cwd": f"{LAB}/08-api", "stdout": r"github\.com"},
+        ],
+    },
+    {
+        "id": "lab-ship-package",
+        "title": "Ship it: package and install a CLI",
+        "order": 11,
+        "topics": ["scripts", "testing"],
+        "brief": r"""
+            Code on your laptop helps one person. A package with a command people can install helps
+            everyone, and it's how internal AI tools get shared in a team. Here you package a tiny
+            token counter the way real Python tools are shipped.
+
+            **Mission** in `~/pytrainer-lab/09-ship/`:
+
+            1. Create a packaged project there called `tokcount` with uv (look for the option that
+               makes a *package* with a `src/` layout, not just a script).
+            2. Make the package expose a command named `tokcount` (the `[project.scripts]` table in
+               `pyproject.toml`). `tokcount FILE` reads a text file and prints
+               `words: <n>  tokens: <t>`, where `t` is the number of characters divided by 4,
+               rounded up. With `--json` it prints `{"words": <n>, "tokens": <t>}` instead.
+            3. Create `sample.txt` containing exactly `the cat sat on the mat` and check that
+               `uv run tokcount sample.txt` prints `words: 6  tokens: 6`.
+            4. Add pytest as a dev dependency and at least one test in `tests/`; `uv run pytest` passes.
+            5. Build the package: `uv build`. A wheel (`.whl`) and a source archive appear in `dist/`.
+            6. Install your wheel as a tool with uv, so `tokcount` works from any folder in a new terminal.
+
+            Explore: what is inside a wheel (it's a zip file: open one)? What would you change to
+            publish this on PyPI, and why would you try TestPyPI first?
+        """,
+        "checks": [
+            {"type": "path", "label": "pyproject.toml exists", "path": f"{LAB}/09-ship/pyproject.toml"},
+            {"type": "contains", "label": "it defines a tokcount command", "path": f"{LAB}/09-ship/pyproject.toml",
+             "pattern": r"(?s)\[project\.scripts\][^\[]*tokcount\s*="},
+            {"type": "path", "label": "it uses a src/ layout", "path": f"{LAB}/09-ship/src", "dir": True},
+            {"type": "run", "label": "uv run tokcount sample.txt counts words and tokens",
+             "cmd": ["uv", "run", "tokcount", "sample.txt"], "cwd": f"{LAB}/09-ship", "stdout": r"words: 6\s+tokens: 6"},
+            {"type": "run", "label": "--json prints JSON", "cmd": ["uv", "run", "tokcount", "--json", "sample.txt"],
+             "cwd": f"{LAB}/09-ship", "stdout": r'"words":\s*6'},
+            {"type": "run", "label": "uv run pytest passes", "cmd": ["uv", "run", "pytest", "-q"],
+             "cwd": f"{LAB}/09-ship", "stdout": r"passed"},
+            {"type": "glob", "label": "uv build made a wheel", "pattern": f"{LAB}/09-ship/dist/tokcount-*.whl"},
+            {"type": "command", "label": "tokcount is installed as a command", "cmd": "tokcount"},
         ],
     },
 ]

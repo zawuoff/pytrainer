@@ -2,20 +2,29 @@
 
 Tests are plain Python source containing ``test_*`` functions. They run inside
 ``_harness.py`` next to the learner's files, in a throwaway temp directory, with
-CPU / memory / file-size limits and a wall-clock timeout.
+CPU / memory / file-size limits and a wall-clock timeout, inside the OS sandbox that
+``sandbox`` picks (no network, read-only filesystem) when the machine has one.
 """
 
 from __future__ import annotations
 
 import json
 import os
-import resource
 import shutil
 import signal
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from pathlib import Path
+
+try:
+    import resource
+except ImportError:  # Windows: no rlimits, only the wall-clock timeout applies
+    resource = None
+
+from . import sandbox
 
 PYTHON = sys.executable or "python3"
 MAX_OUTPUT = 20_000
@@ -156,20 +165,34 @@ main()
 
 def _limits(cpu: int = 30):
     os.setsid()
-    resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu + 5))
-    resource.setrlimit(resource.RLIMIT_AS, (2 * 1024**3, 2 * 1024**3))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (20 * 1024**2, 20 * 1024**2))
+    for name, value in (("RLIMIT_CPU", (cpu, cpu + 5)), ("RLIMIT_AS", (2 * 1024**3, 2 * 1024**3)),
+                        ("RLIMIT_FSIZE", (20 * 1024**2, 20 * 1024**2))):
+        try:
+            resource.setrlimit(getattr(resource, name), value)
+        except (AttributeError, ValueError, OSError):
+            pass  # e.g. macOS refuses RLIMIT_AS; the other limits and the timeout still apply
+
+
+def _spawn_opts(timeout: float) -> dict:
+    """Popen options that put the child in its own process group with resource limits."""
+    if os.name == "posix":
+        return {"preexec_fn": lambda: _limits(int(timeout) + 10)}
+    return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
 
 
 def _env(home: str) -> dict:
-    return {
-        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+    env = {
+        "PATH": os.environ.get("PATH", os.defpath),
         "HOME": home,
         "LANG": "C.UTF-8",
         "TMPDIR": home,
         "PYTHONIOENCODING": "utf-8",
         "PYTHONDONTWRITEBYTECODE": "1",
     }
+    if os.name == "nt":  # Python can't start on Windows without these
+        env.update({k: os.environ[k] for k in ("SYSTEMROOT", "COMSPEC", "PATHEXT") if k in os.environ})
+        env.update(TEMP=home, TMP=home, USERPROFILE=home)
+    return env
 
 
 def _write_files(root: Path, files: dict[str, str]) -> None:
@@ -187,7 +210,10 @@ def _write_files(root: Path, files: dict[str, str]) -> None:
 
 def _kill(proc: subprocess.Popen) -> None:
     try:
-        os.killpg(proc.pid, signal.SIGKILL)
+        if os.name == "posix":
+            os.killpg(proc.pid, signal.SIGKILL)
+        else:
+            proc.kill()
     except (ProcessLookupError, PermissionError):
         pass
 
@@ -208,10 +234,10 @@ def run_tests(files: dict[str, str], tests: str, *, mode: str = "function",
         (tmp / "_tests.py").write_text(tests, encoding="utf-8")
         results = tmp / "_results.json"
         proc = subprocess.Popen(
-            [PYTHON, "-X", "utf8", "_harness.py", str(results), "_tests.py", mode, main],
+            sandbox.wrap([PYTHON, "-X", "utf8", "_harness.py", str(results), "_tests.py", mode, main], tmp),
             cwd=tmp, env=_env(str(tmp)), stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-            preexec_fn=lambda: _limits(int(timeout) + 10),
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
+            errors="replace", **_spawn_opts(timeout),
         )
         timed_out = False
         try:
@@ -229,20 +255,40 @@ def run_tests(files: dict[str, str], tests: str, *, mode: str = "function",
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def _budgets(stdout: str) -> tuple[str, list[dict]]:
+    """Pull `BUDGET|label|used|limit|unit` lines (printed by budget tests) out of the output."""
+    keep, budgets = [], []
+    for line in stdout.splitlines(keepends=True):
+        parts = line.strip().split("|")
+        if len(parts) == 5 and parts[0] == "BUDGET":
+            try:
+                used, limit = float(parts[2]), float(parts[3])
+            except ValueError:
+                keep.append(line)
+                continue
+            budgets.append({"label": parts[1], "used": used, "limit": limit, "unit": parts[4], "ok": used <= limit})
+        else:
+            keep.append(line)
+    return "".join(keep), budgets
+
+
 def _summarise(state: dict, timed_out: bool, returncode: int, stderr: str) -> dict:
     tests = [
         {"name": _nice_name(t["name"]), "passed": t["passed"], "message": t.get("message", ""),
          "ms": t.get("ms")}
         for t in state.get("tests", [])
     ]
+    stdout, budgets = _budgets(state.get("stdout") or "")
     out = {
         "status": "passed",
         "tests": tests,
         "passed": sum(t["passed"] for t in tests),
         "total": len(tests),
         "error": None,
-        "stdout": (state.get("stdout") or "")[-MAX_OUTPUT:],
+        "stdout": stdout[-MAX_OUTPUT:],
     }
+    if budgets:
+        out["budgets"] = budgets
     if state.get("load_error"):
         out.update(status="error", error=state["load_error"])
     elif timed_out:
@@ -266,31 +312,65 @@ def _summarise(state: dict, timed_out: bool, returncode: int, stderr: str) -> di
 
 def run_code(files: dict[str, str], *, main: str = "solution.py", stdin: str = "",
              args: list[str] | None = None, setup_files: dict | None = None,
-             timeout: float = 10) -> dict:
-    """Run a file as a script (the 'Run' button) and return its output."""
+             timeout: float = 10, llm=None) -> dict:
+    """Run a file as a script (the 'Run' button) and return its output.
+
+    With `llm` (a callable taking a prompt and a system prompt), the code can make real model calls
+    through `pytrainer_llm` (see llm_bridge); time spent waiting on the model doesn't count against
+    `timeout`, and the calls are listed in the result. A `traces.jsonl` the code writes comes back
+    as `result["spans"]` for the waterfall viewer (see spans)."""
+    from . import llm_bridge, spans
+
     tmp = Path(tempfile.mkdtemp(prefix="pytrainer-run-"))
     try:
         _write_files(tmp, setup_files or {})
         _write_files(tmp, files)
+        if llm is not None:
+            llm_bridge.install(tmp)
         proc = subprocess.Popen(
-            [PYTHON, "-X", "utf8", main, *(args or [])], cwd=tmp, env=_env(str(tmp)),
+            sandbox.wrap([PYTHON, "-X", "utf8", main, *(args or [])], tmp), cwd=tmp, env=_env(str(tmp)),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, preexec_fn=lambda: _limits(int(timeout) + 10),
+            text=True, encoding="utf-8", errors="replace", **_spawn_opts(timeout + (300 if llm else 0)),
         )
-        timed_out = False
-        try:
-            stdout, stderr = proc.communicate(stdin, timeout=timeout)
-        except subprocess.TimeoutExpired:
-            timed_out = True
-            _kill(proc)
-            stdout, stderr = proc.communicate()
-        stderr = stderr.replace(str(tmp) + "/", "")
-        return {
+        timed_out, calls = False, []
+        if llm is None:
+            try:
+                stdout, stderr = proc.communicate(stdin, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                _kill(proc)
+                stdout, stderr = proc.communicate()
+        else:
+            out: dict = {}
+            reader = threading.Thread(target=lambda: out.update(zip(("stdout", "stderr"), proc.communicate(stdin))),
+                                      daemon=True)
+            reader.start()
+            deadline = time.monotonic() + timeout
+            while reader.is_alive():
+                deadline += llm_bridge.serve(tmp, llm, calls)
+                if time.monotonic() > deadline:
+                    timed_out = True
+                    _kill(proc)
+                    break
+                reader.join(0.05)
+            reader.join()
+            stdout, stderr = out.get("stdout", ""), out.get("stderr", "")
+        # Show paths relative to the run folder. Strip the resolved path first: on macOS the temp dir
+        # is reached through a symlink (/var -> /private/var) and tracebacks report the real path.
+        for prefix in (str(tmp.resolve()) + os.sep, str(tmp) + os.sep):
+            stderr = stderr.replace(prefix, "")
+        result = {
             "stdout": stdout[-MAX_OUTPUT:],
             "stderr": stderr[-MAX_OUTPUT:],
             "returncode": proc.returncode,
             "timed_out": timed_out,
         }
+        if llm is not None:
+            result["llm_calls"] = calls
+        traced = spans.collect(tmp)
+        if traced:
+            result["spans"] = traced
+        return result
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

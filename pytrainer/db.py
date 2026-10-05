@@ -1,4 +1,5 @@
-"""SQLite persistence. One file in ~/.local/share/pytrainer, with daily backups."""
+"""SQLite persistence. One file in the per-user data dir (~/.local/share/pytrainer on Linux),
+with daily backups."""
 
 from __future__ import annotations
 
@@ -6,12 +7,22 @@ import json
 import os
 import shutil
 import sqlite3
+import sys
 import threading
 import time
 from datetime import date, datetime
 from pathlib import Path
 
-DATA_DIR = Path(os.environ.get("PYTRAINER_DATA", Path.home() / ".local/share/pytrainer"))
+
+def _default_data_dir() -> Path:
+    if sys.platform == "win32":
+        return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / "PyTrainer"
+    if sys.platform == "darwin":
+        return Path.home() / "Library/Application Support/PyTrainer"
+    return Path.home() / ".local/share/pytrainer"
+
+
+DATA_DIR = Path(os.environ.get("PYTRAINER_DATA") or _default_data_dir())
 DB_PATH = DATA_DIR / "pytrainer.db"
 BACKUP_DIR = DATA_DIR / "backups"
 
@@ -100,6 +111,49 @@ CREATE TABLE IF NOT EXISTS lesson_state (
     topic_id TEXT PRIMARY KEY,
     read_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS review_variants (
+    exercise_id TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS drills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    seconds INTEGER NOT NULL,
+    solved INTEGER NOT NULL,
+    skipped INTEGER NOT NULL,
+    best_streak INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS interviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    exercise_id TEXT NOT NULL,
+    minutes INTEGER NOT NULL,
+    seconds INTEGER,
+    files TEXT,
+    result TEXT,
+    transcript TEXT NOT NULL DEFAULT '[]',
+    debrief TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS explanations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id TEXT NOT NULL,
+    text TEXT NOT NULL,
+    result TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS leaderboard_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    settings TEXT NOT NULL,
+    dev INTEGER NOT NULL,
+    test INTEGER NOT NULL,
+    details TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS achievements (
+    id TEXT PRIMARY KEY,
+    unlocked_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS lab_state (
     lab_id TEXT PRIMARY KEY,
     done INTEGER NOT NULL DEFAULT 0,
@@ -142,6 +196,10 @@ def conn() -> sqlite3.Connection:
 MIGRATIONS = [
     "ALTER TABLE exercise_state ADD COLUMN revealed INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE exercise_state ADD COLUMN hints_used INTEGER NOT NULL DEFAULT 0",
+    # FSRS memory model (see srs.py); NULL on rows scheduled before it, filled at their next review.
+    "ALTER TABLE exercise_state ADD COLUMN stability REAL",
+    "ALTER TABLE exercise_state ADD COLUMN difficulty REAL",
+    "ALTER TABLE exercise_state ADD COLUMN last_review TEXT",
 ]
 
 
@@ -200,7 +258,8 @@ def backup() -> None:
 
 def export_all() -> dict:
     tables = ["settings", "attempts", "exercise_state", "drafts", "topic_state", "activity",
-              "placement", "custom_exercises", "submissions", "chats", "reviews", "lab_state", "lesson_state"]
+              "placement", "custom_exercises", "submissions", "chats", "reviews", "lab_state", "lesson_state",
+              "review_variants", "drills", "interviews", "explanations", "leaderboard_runs", "achievements"]
     return {"exported_at": now(), "version": 1,
             "tables": {t: [dict(r) for r in q(f"SELECT * FROM {t}")] for t in tables}}
 

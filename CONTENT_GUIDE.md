@@ -347,6 +347,45 @@ The learner WRITES tests. The code under test is saved as `target.py`.
 Graded: learner's tests must all pass on `impl` and at least one must fail for each mutant.
 The prompt describes what `target.py` does (its behaviour spec), not the bugs.
 
+## Extra steps (`pytrainer/content/extras/`)
+
+Practice that sits on top of a chapter's learning path: test writing, bug hunts and the like.
+Each module there defines `EXTRAS`, a list of normal exercise dicts with one more key, `topic`.
+The loader appends them to the end of that chapter and marks them `extra`:
+
+- they are difficulty 1-3 and never the placement step;
+- they get reviews like any step, and show as "Extra · ..." in the chapter;
+- they never count toward chapter mastery, so adding one can't un-clear a chapter someone finished.
+
+`validate_content.py` checks them like any other step (`python3 scripts/validate_content.py json-wt`).
+
+Two extra kinds have their own rules, which the validator enforces:
+
+- `"kind": "bughunt"`: the starter is the buggy code. Add `visible_tests` (the prompt's examples): the
+  starter must pass them and fail the hidden `tests`.
+- `"kind": "refactor"`: the starter is working but clunky code. Style checks are tests named
+  `test_style_...` (a line budget, the idiom the step is about); the starter must fail only those.
+- `"kind": "parsons"`: every non-blank line of `solution` becomes a tile (so no comments or multi-line
+  strings, 3-12 lines), plus `distractors` that must not be lines of the solution. `starter` is `""`.
+- `"mode": "traceback"` (`"kind": "traceback"`): `code` must really crash with `error`; `answer_line` is
+  the line to change and must differ in `solution` (the fixed program, which must run cleanly). Add an
+  `explanation`. The traceback the learner sees is produced by running `code`.
+
+## Budget checks in projects
+
+A project test named `test_budget_...` measures something that costs money or time (wall time,
+texts embedded, API cost, calls made), prints one line `BUDGET|<label>|<used>|<limit>|<unit>` and
+asserts `used <= limit`. The runner turns those lines into `result["budgets"]`, which the results
+panel shows as "used of limit" bars. Keep limits generous enough for slow CI machines.
+
+## Traces from Run
+
+When code run with **Run** leaves a `traces.jsonl` in its folder (one span per line: `name`, `start`
+and `end` in seconds, and optionally `span_id`, `parent_id`, `trace_id`, `status`, `attributes`),
+the runner returns the spans as `result["spans"]` and the output panel draws them as a waterfall
+(`pytrainer/spans.py`, `static/js/spans.js`). A project or step about tracing can end its demo with
+an export to that file so the learner sees what their instrumentation recorded.
+
 ## New chapters: what to cover (fake/injected clients - no network, stdlib only)
 
 - **testing**: why tests; `assert`; test functions; arrange-act-assert; edge cases; testing

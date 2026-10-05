@@ -111,5 +111,5 @@ PROJECT_MODULES = {
     "prompt-kit": "llm-apps", "chat-memory": "llm-apps", "structured-output": "llm-apps",
     "resilient-client": "llm-apps", "cli-chat": "working-python", "async-batch": "production-python",
     "chunker": "rag", "search-index": "rag", "mini-rag": "rag", "doc-qa": "rag",
-    "eval-harness": "evals", "tool-agent": "agents",
+    "eval-harness": "evals", "tool-agent": "agents", "capstone": "agents",
 }

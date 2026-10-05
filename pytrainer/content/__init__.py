@@ -12,6 +12,7 @@ import textwrap
 from functools import lru_cache
 
 from . import exams as _exams_pkg
+from . import extras as _extras_pkg
 from . import minis as _minis_pkg
 from . import projects as _projects_pkg
 from . import topics as _topics_pkg
@@ -32,7 +33,7 @@ def _norm_exercise(ex: dict, topic_id: str | None = None) -> dict:
     if missing:
         raise ValueError(f"exercise {ex.get('id')} missing {missing}")
     out = dict(ex)
-    for key in ("prompt", "starter", "tests", "solution", "code", "explanation", "lesson", "impl"):
+    for key in ("prompt", "starter", "tests", "solution", "code", "explanation", "lesson", "impl", "visible_tests"):
         if key in out:
             out[key] = _clean(out[key])
     if "mutants" in out:
@@ -49,6 +50,16 @@ def _norm_exercise(ex: dict, topic_id: str | None = None) -> dict:
     if topic_id:
         out["topic"] = topic_id
     return out
+
+
+def parsons_tiles(ex: dict) -> list[str]:
+    """A Parsons step's tiles: every non-blank solution line without its indentation, plus the
+    distractors, shuffled the same way every time."""
+    import random
+    tiles = [line.strip() for line in ex["solution"].splitlines() if line.strip()]
+    tiles += [d.strip() for d in ex.get("distractors", [])]
+    random.Random(ex["id"]).shuffle(tiles)
+    return tiles
 
 
 def _norm_reference(ref: dict | None) -> dict:
@@ -83,6 +94,20 @@ def load() -> dict:
         topics.append(topic)
     track_order = {t["id"]: i for i, t in enumerate(TRACKS)}
     topics.sort(key=lambda t: (track_order.get(t["track"], 99), t["order"]))
+
+    # Extra practice steps live in content/extras and go at the end of their chapter's path.
+    topic_by_id = {t["id"]: t for t in topics}
+    for mod_info in sorted(pkgutil.iter_modules(_extras_pkg.__path__), key=lambda m: m.name):
+        mod = importlib.import_module(f"{_extras_pkg.__name__}.{mod_info.name}")
+        for raw in getattr(mod, "EXTRAS", []):
+            ex = _norm_exercise({k: v for k, v in raw.items() if k != "topic"}, raw["topic"])
+            ex["extra"] = True
+            if ex.get("kind") == "parsons":
+                ex["parsons_lines"] = parsons_tiles(ex)
+            if ex["id"] in exercises:
+                raise ValueError(f"duplicate exercise id {ex['id']}")
+            exercises[ex["id"]] = ex
+            topic_by_id[raw["topic"]]["exercise_ids"].append(ex["id"])
 
     from .combos import CHALLENGES
     combos = []
@@ -177,6 +202,8 @@ def _norm_project(raw: dict) -> dict:
         p[key] = _clean(p.get(key, ""))
     p["starter_files"] = {k: _clean(v) for k, v in p.get("starter_files", {}).items()}
     p["solution_files"] = {k: _clean(v) for k, v in p.get("solution_files", {}).items()}
+    p["setup_files"] = {k: _clean(v) for k, v in p.get("setup_files", {}).items()}
+    p.setdefault("requires_projects", [])  # projects whose passing code runs next to this one (capstone)
     p.setdefault("rubric", [])
     p.setdefault("requires", [])
     p.setdefault("kind", "portfolio")
@@ -186,7 +213,8 @@ def _norm_project(raw: dict) -> dict:
 def public_exercise(ex: dict) -> dict:
     """What the browser is allowed to see (never the solution, hints or test source)."""
     return {k: ex[k] for k in ("id", "title", "difficulty", "prompt", "starter", "mode",
-                               "topic", "concepts", "code", "lesson", "research", "module")
+                               "topic", "concepts", "code", "lesson", "research", "module", "extra", "kind",
+                               "parsons_lines")
             if k in ex} | {
         "topics": ex.get("topics", []),
         "setup_files": list(ex.get("setup_files", {}).keys()),

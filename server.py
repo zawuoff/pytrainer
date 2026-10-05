@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """PyTrainer - local Python practice app for aspiring AI engineers.
 
-Run:  python3 server.py [--port 8765]
-Then open http://127.0.0.1:8765 (or use the installed desktop launcher).
+Run:  python3 server.py [--port 8765] [--open]
+Then open http://127.0.0.1:8765 (or use the installed desktop launcher). Needs Python 3.11+.
 """
 
 from __future__ import annotations
@@ -12,19 +12,26 @@ import json
 import mimetypes
 import re
 import sys
+import threading
 import traceback
-from http import HTTPStatus
+import webbrowser
+from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT))
+if sys.version_info < (3, 11):
+    sys.exit("PyTrainer needs Python 3.11 or newer (this is %d.%d)." % sys.version_info[:2])
 
-from pytrainer import ai, coach, content, course, db, jev, labs, lint, progress, runner  # noqa: E402
+ROOT = Path(__file__).resolve().parent
+if (ROOT / "pytrainer").is_dir():  # a checkout; an installed copy lives inside the package already
+    sys.path.insert(0, str(ROOT))
+
+from pytrainer import (achievements, ai, assist, capstone, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
+                       mistakes, progress, radar, recap, repl, runner, sandbox, spans, sync, tracer, variants, xp)
 
 STATIC = ROOT / "static"
-PROJECTS_DIR = labs.LAB_ROOT / "projects"
+PROJECTS_DIR = labs.LAB_ROOT / "projects"  # same folder as sync.PROJECTS_DIR
 MAX_BODY = 8 * 1024 * 1024
 VERSION = "1.0.0"
 
@@ -105,6 +112,8 @@ def _quality(ex: dict, code: str) -> dict | None:
 # --------------------------------------------------------------------------- state
 
 def api_state(_body=None):
+    if variants.enabled():
+        variants.prepare(progress.all_exercises())
     data = content.load()
     states = progress.exercise_states()
     tp = progress.topic_progress(states)
@@ -118,7 +127,11 @@ def api_state(_body=None):
             "onboarded": settings.get("onboarded", False),
             "name": settings.get("name", ""),
             "jev": {"configured": bool(jev.key()), "enabled": jev.enabled(), "masked": jev.masked()},
+            "review_variants": settings.get("review_variants", True),
+            "streak_freezes": settings.get("streak_freezes", True),
+            "editor_assist": settings.get("editor_assist", True),
         },
+        "assist": {"jedi": assist.jedi_available()},
         "tracks": data["tracks"],
         "topics": [{"id": t["id"], "title": t["title"], "track": t["track"], "summary": t["summary"],
                     "requires": t["requires"], "concepts": t.get("concepts", []), **tp[t["id"]],
@@ -137,6 +150,10 @@ def api_state(_body=None):
         },
         "counts": {"projects": len(data["projects"]), "labs": len(data["labs"])},
         "library": {"unlocked": sum(p["library_unlocked"] for p in tp.values()), "total": len(tp)},
+        "xp": xp.baseline(),
+        "recap": recap.banner(),
+        "sandbox": sandbox.status(),
+        "data_dir": str(db.DATA_DIR),
     }
 
 
@@ -155,7 +172,7 @@ def api_topic(topic_id: str):
         return {"id": e["id"], "title": e["title"], "difficulty": e["difficulty"],
                 "status": st.get("status", "new"), "attempts": st.get("attempts", 0),
                 "generated": e.get("generated", False), "mode": e.get("mode", "function"),
-                "revealed": bool(st.get("revealed"))}
+                "revealed": bool(st.get("revealed")), "extra": bool(e.get("extra")), "kind": e.get("kind")}
     requires = [{"id": r, "title": data["topics_by_id"][r]["title"], "cleared": tp[r]["cleared"]}
                 for r in t["requires"]]
     return {"topic": {k: t[k] for k in ("id", "title", "track", "summary", "concepts", "lesson")},
@@ -183,11 +200,12 @@ def api_exercise(ex_id: str):
     return {
         "path": path,
         "exam": is_exam, "exam_locked_help": exam_open,
-        "reference": ex["solution"] if state["status"] == "solved" and ex.get("mode") not in ("predict",) else None,
+        "reference": ex["solution"] if state["status"] == "solved" and ex.get("mode") != "predict" else None,
         "hints": ex.get("hints", [])[:state.get("hints_used", 0)],
         "can_reveal": _can_reveal(ex, state),
         "revealed": _revealed_payload(ex) if state.get("revealed") else None,
-        "explanation": ex.get("explanation") if ex.get("mode") == "predict" and state["status"] == "solved" else None,
+        "explanation": ex.get("explanation") if ex.get("mode") in READ_ONLY and state["status"] == "solved" else None,
+        "traceback": _traceback(ex) if ex.get("mode") == "traceback" else None,
         "exercise": content.public_exercise(ex),
         "checks": _check_names(ex),
         "topic_title": ("Combination challenge" if ex.get("topic") == "combo" else
@@ -203,8 +221,16 @@ def api_exercise(ex_id: str):
         "chat": json.loads(chat["messages"]) if chat else [],
         "attempts": [dict(a) for a in attempts],
         "review": json.loads(review["review"]) if review else None,
+        "explain_back": _last_explanation(ex_id),
         "next": seq["next"], "prev": seq["prev"],
+        "debug_call": (tracer.suggest_call(ex["solution"], ex["tests"])
+                       if ex.get("mode", "function") == "function" else ""),
     }
+
+
+def _last_explanation(ex_id: str) -> dict | None:
+    row = db.q1("SELECT text, result, created_at FROM explanations WHERE item_id=? ORDER BY id DESC LIMIT 1", (ex_id,))
+    return {"text": row["text"], "result": json.loads(row["result"]), "created_at": row["created_at"]} if row else None
 
 
 def _sequence(ex: dict) -> dict:
@@ -225,9 +251,43 @@ REVEAL_AFTER_ATTEMPTS = 3
 REVEAL_AFTER_SECONDS = 600
 
 
+READ_ONLY = ("predict", "traceback")  # steps where the learner reads a given program instead of writing one
+
+
+def _traceback(ex: dict) -> str:
+    """The real traceback of a read-the-traceback step's program, run once and remembered."""
+    if ex["id"] not in _TRACEBACKS:
+        run = runner.run_code({"solution.py": ex["code"]}, setup_files=ex.get("setup_files"))
+        _TRACEBACKS[ex["id"]] = run["stderr"].strip()
+    return _TRACEBACKS[ex["id"]]
+
+
+_TRACEBACKS: dict[str, str] = {}
+
+
+def _check_traceback(ex: dict, answer) -> dict:
+    try:
+        line = int(answer)
+    except (TypeError, ValueError):
+        raise ApiError("Click the line you would change first, then press Check.") from None
+    ok = line == ex["answer_line"]
+    frames = [int(n) for n in re.findall(r'File "solution\.py", line (\d+)', _traceback(ex))]
+    if ok:
+        msg = ""
+    elif frames and line == frames[-1]:
+        msg = (f"Line {line} is where the error surfaced, but nothing on it is wrong. "
+               "Ask where the bad value or call came from: look at the frames above it.")
+    elif line in frames:
+        msg = f"Line {line} is part of the path to the error, but it isn't the line to change."
+    else:
+        msg = f"Not line {line}. Read the traceback from the bottom up: what went wrong, and on which lines?"
+    return {"status": "passed" if ok else "failed", "error": None, "stdout": "", "passed": int(ok), "total": 1,
+            "tests": [{"name": "the line to change", "passed": ok, "message": msg, "ms": None}]}
+
+
 def _check_names(ex: dict) -> list[str]:
     """Readable names of the hidden tests - a checklist of what will be checked (not how)."""
-    if ex.get("mode") == "predict":
+    if ex.get("mode") in READ_ONLY:
         return []
     return [n.removeprefix("test_").replace("_", " ") for n in re.findall(r"^def (test_\w+)", ex["tests"], re.M)]
 
@@ -235,7 +295,7 @@ def _check_names(ex: dict) -> list[str]:
 def _can_reveal(ex: dict, state: dict, duration_s: int = 0) -> bool:
     if state.get("status") == "solved" and not state.get("revealed"):
         return False
-    need = 2 if ex.get("mode") == "predict" else REVEAL_AFTER_ATTEMPTS
+    need = 2 if ex.get("mode") in READ_ONLY else REVEAL_AFTER_ATTEMPTS
     return state.get("attempts", 0) >= need or duration_s >= REVEAL_AFTER_SECONDS or bool(state.get("revealed"))
 
 
@@ -243,6 +303,8 @@ def _revealed_payload(ex: dict) -> dict:
     if ex.get("mode") == "predict":
         out = runner.check_prediction(ex["code"], "", setup_files=ex.get("setup_files"))["_actual"]
         return {"output": out, "explanation": ex.get("explanation", "")}
+    if ex.get("mode") == "traceback":
+        return {"line": ex["answer_line"], "explanation": ex.get("explanation", ""), "solution": ex["solution"]}
     return {"solution": ex["solution"]}
 
 
@@ -268,7 +330,7 @@ def api_reveal(ex_id: str, body: dict):
     _no_help_in_tests(ex)
     state = progress.get_state(ex_id)
     if not _can_reveal(ex, state, int(body.get("duration_s", 0))):
-        need = 2 if ex.get("mode") == "predict" else REVEAL_AFTER_ATTEMPTS
+        need = 2 if ex.get("mode") in READ_ONLY else REVEAL_AFTER_ATTEMPTS
         raise ApiError(f"Keep going a bit longer: the solution unlocks after {need} checks "
                        f"or {REVEAL_AFTER_SECONDS // 60} minutes of trying.")
     state["revealed"] = 1
@@ -347,6 +409,17 @@ def api_exam(module_id: str):
                            "status": states.get(e, {}).get("status", "new")} for e in exam["exercise_ids"]]}
 
 
+def api_explain_back(body: dict):
+    """Grade the learner's own explanation of a step they solved."""
+    ex = _exercise(body.get("item_id", ""))
+    if progress.get_state(ex["id"])["status"] != "solved":
+        raise ApiError("Solve it first, then explain why your solution works.")
+    text = str(body.get("text", "")).strip()
+    if len(text) < 40:
+        raise ApiError("Write at least a couple of sentences: what your code does, and why that gives the right answer.")
+    return {"result": coach.explain_back(ex["id"], _task_text(ex), _files(body), text[:4000])}
+
+
 def api_improve(body: dict):
     ex = _exercise(body.get("item_id", ""))
     if progress.get_state(ex["id"])["status"] != "solved":
@@ -355,18 +428,59 @@ def api_improve(body: dict):
     return {"advice": coach.improve_solution(_task_text(ex), files, ex["solution"])}
 
 
+def _real_llm(body: dict):
+    """The model callable for Run when the learner ticked "Real model calls", else None."""
+    if not body.get("real_llm"):
+        return None
+    if ai.current().get("provider", "none") == "none":
+        raise ApiError("Real model calls need an AI connection: connect one in Settings.")
+    return lambda prompt, system: ai.complete(system, prompt, timeout=120)
+
+
 def api_run(ex_id: str, body: dict):
     ex = _exercise(ex_id)
-    if ex.get("mode") == "predict":
+    if ex.get("mode") in READ_ONLY:
         st = progress.get_state(ex_id)
         if st["status"] != "solved" and not st.get("revealed"):
-            raise ApiError("Running is unlocked once you've predicted the output (that's the exercise!).")
+            raise ApiError("Running is unlocked once you've answered (that's the exercise!).")
         return runner.run_code({"solution.py": ex["code"]}, setup_files=ex.get("setup_files"))
     files = _files(body)
     if ex.get("mode") == "tests":
         files = {**files, "target.py": ex["impl"]}
     return runner.run_code(files, stdin=body.get("stdin", ""), setup_files=ex.get("setup_files"),
-                           args=[str(a) for a in body.get("args", [])][:20])
+                           args=[str(a) for a in body.get("args", [])][:20], llm=_real_llm(body))
+
+
+def _variant_test_names(tests: str) -> list[str]:
+    return [n.removeprefix("test_").replace("_", " ") for n in re.findall(r"^def (test_\w+)", tests, re.M)]
+
+
+def api_variant(ex_id: str):
+    """The changed-form version of a review, if one is ready (never its solution or tests)."""
+    ex = _exercise(ex_id)
+    v = variants.get(ex_id) if variants.eligible(ex) else None
+    if not v:
+        return {"variant": None, "enabled": variants.enabled()}
+    return {"variant": {"title": v["title"], "prompt": v["prompt"], "starter": v["starter"]},
+            "checks": _variant_test_names(v["tests"]),
+            "debug_call": tracer.suggest_call(v["solution"], v["tests"]) if ex.get("mode", "function") == "function" else "",
+            "enabled": variants.enabled()}
+
+
+def api_trace(ex_id: str, body: dict):
+    """Step through the learner's file (or, for read-and-predict steps, the program once it's unlocked)."""
+    ex = _exercise(ex_id)
+    call = str(body.get("call") or "")[:2000]
+    if ex.get("mode") in READ_ONLY:
+        st = progress.get_state(ex_id)
+        if st["status"] != "solved" and not st.get("revealed"):
+            raise ApiError("Stepping through is unlocked once you've answered.")
+        return tracer.trace_code({"solution.py": ex["code"]}, setup_files=ex.get("setup_files"))
+    files = _files(body)
+    if ex.get("mode") == "tests":
+        files = {**files, "target.py": ex["impl"]}
+    return tracer.trace_code(files, call=call, stdin=str(body.get("stdin", ""))[:20000],
+                             setup_files=ex.get("setup_files"))
 
 
 def _grade(ex: dict, body: dict) -> tuple[dict, dict]:
@@ -376,6 +490,9 @@ def _grade(ex: dict, body: dict) -> tuple[dict, dict]:
         result = runner.check_prediction(ex["code"], answer, setup_files=ex.get("setup_files"))
         result.pop("_actual", None)
         return {"answer.txt": answer}, result
+    if ex.get("mode") == "traceback":
+        result = _check_traceback(ex, body.get("answer"))
+        return {"answer.txt": str(body.get("answer"))}, result
     files = _files(body)
     if ex.get("mode") == "tests":
         return files, runner.grade_test_writing(files.get("solution.py", ""), ex["impl"], ex["mutants"],
@@ -389,11 +506,24 @@ def api_check(ex_id: str, body: dict):
     kind = body.get("kind", "practice")
     if kind not in ("practice", "review"):
         kind = "practice"
-    files, result = _grade(ex, body)
-    if result["status"] == "passed" and ex.get("mode") != "predict":
-        result["quality"] = _quality(ex, files.get("solution.py", ""))
+    variant = variants.get(ex_id) if body.get("variant") and kind == "review" else None
+    if body.get("variant") and kind == "review" and not variant:
+        raise ApiError("This changed-form review is no longer available. Reload the page to review the original.")
+    if variant:
+        # Graded against the variant's own tests; it still counts as a review of the original step.
+        files = _files(body)
+        result = runner.run_tests(files, variant["tests"], mode=ex.get("mode", "function"),
+                                  setup_files=ex.get("setup_files"))
+        ex_view = {**ex, "title": variant["title"], "prompt": variant["prompt"], "solution": variant["solution"]}
+    else:
+        files, result = _grade(ex, body)
+        ex_view = ex
+    if result["status"] == "passed" and ex.get("mode") not in READ_ONLY:
+        result["quality"] = _quality(ex_view, files.get("solution.py", ""))
     state = progress.record_attempt(ex, files, result, kind, body.get("duration_s", 0))
-    if result["status"] == "passed" and ex.get("mode") == "predict":
+    if variant and result["status"] == "passed":
+        variants.drop(ex_id)  # the next review gets a fresh one
+    if result["status"] == "passed" and ex.get("mode") in READ_ONLY:
         result["explanation"] = ex.get("explanation", "")
     tp = progress.topic_progress()
     topic = ex.get("topic")
@@ -404,7 +534,7 @@ def api_check(ex_id: str, body: dict):
         placed_now = passed and course.place_module_if_exam_passed(ex["module"])
         exam = course.exam_status(ex["module"]) | {"placed_now": placed_now}
     return {"result": result, "state": state, "style": style, "exam": exam,
-            "reference": ex["solution"] if passed and ex.get("mode") != "predict" else None,
+            "reference": ex_view["solution"] if passed and ex.get("mode") != "predict" else None,
             "tips": _quality_tips(result.get("quality")) if passed else [],
             "can_reveal": _can_reveal(ex, state, int(body.get("duration_s", 0))),
             "topic_progress": tp.get(topic) if topic in tp else None}
@@ -432,7 +562,11 @@ def api_heartbeat(body: dict):
 
 def api_reviews(_=None):
     exs = progress.all_exercises()
-    return {"due": progress.due_reviews(),
+    if variants.enabled():
+        variants.prepare(exs)
+    ready = variants.ready_ids()
+    return {"due": [r | {"variant": r["id"] in ready} for r in progress.due_reviews()],
+            "variants_on": variants.enabled(),
             "upcoming": [dict(r) | {"title": exs.get(r["exercise_id"], {}).get("title", r["exercise_id"])} for r in db.q(
                 "SELECT exercise_id, next_review FROM exercise_state WHERE status='solved' AND next_review > ? "
                 "ORDER BY next_review LIMIT 15", (db.today(),))]}
@@ -448,8 +582,14 @@ def api_stats(_=None):
     per_day = db.q("SELECT substr(created_at,1,10) d, COUNT(*) n, SUM(status='passed') p FROM attempts "
                    "GROUP BY d ORDER BY d DESC LIMIT 30")
     placement = db.q1("SELECT * FROM placement WHERE finished_at IS NOT NULL ORDER BY id DESC LIMIT 1")
+    awards = _rewards()
+    ach = achievements.overview()
+    parts = xp.breakdown()
     return {
+        **awards,
+        "xp": {**xp.summary(sum(parts.values())), "breakdown": parts},
         "summary": progress.summary(),
+        "achievements": {k: ach[k] for k in ("unlocked", "total", "recent")},
         "heatmap": progress.heatmap(140),
         "topics": [{"id": t["id"], "title": t["title"], "track": t["track"], **tp[t["id"]]} for t in data["topics"]],
         "recent": [dict(r) | {"title": exs.get(r["item_id"], {}).get("title", r["item_id"])} for r in recent],
@@ -693,6 +833,12 @@ def api_settings(body: dict):
         db.set_setting("onboarded", bool(body["onboarded"]))
     if "jev_enabled" in body:
         db.set_setting("jev_enabled", bool(body["jev_enabled"]))
+    if "review_variants" in body:
+        db.set_setting("review_variants", bool(body["review_variants"]))
+    if "streak_freezes" in body:
+        db.set_setting("streak_freezes", bool(body["streak_freezes"]))
+    if "editor_assist" in body:
+        db.set_setting("editor_assist", bool(body["editor_assist"]))
     return api_state()
 
 
@@ -827,7 +973,29 @@ def api_project(pid: str):
         "draft": json.loads(draft["files"]) if draft else None,
         "chat": json.loads(chat["messages"]) if chat else [],
         "folder": str(folder), "folder_exists": folder.is_dir(),
+        "builds_on": _builds_on(p),
     }
+
+
+def _builds_on(p: dict) -> list[dict] | None:
+    """For a capstone: the projects whose passing code runs next to it, and whether each has passed."""
+    if not p.get("requires_projects"):
+        return None
+    data = content.load()
+    passed = progress.passed_projects()
+    return [{"id": pid, "title": data["projects_by_id"][pid]["title"], "files": data["projects_by_id"][pid]["files"],
+             "passed": pid in passed} for pid in p["requires_projects"]]
+
+
+def _with_provided(p: dict, files: dict) -> dict:
+    """Add the learner's passing code from the projects a capstone builds on (their own files win)."""
+    if not p.get("requires_projects"):
+        return files
+    provided, missing = capstone.provided_files(p)
+    if missing:
+        raise ApiError("This project runs on your own code from earlier projects. Pass these first: "
+                       + ", ".join(missing))
+    return {**provided, **files}
 
 
 def api_project_scaffold(pid: str, _body=None):
@@ -841,6 +1009,14 @@ def api_project_scaffold(pid: str, _body=None):
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(code)
             written.append(name)
+    if p.get("requires_projects"):
+        provided, _missing = capstone.provided_files(p)
+        for name, code in {**provided, **p.get("setup_files", {})}.items():
+            dest = folder / name
+            if not dest.exists():
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(code)
+                written.append(name)
     readme = folder / "BRIEF.md"
     readme.write_text(f"# {p['title']}\n\n{p['brief']}\n\n---\n\n## Explore\n\n{p['explore']}")
     return {"folder": str(folder), "written": written}
@@ -867,8 +1043,9 @@ def api_project_run(pid: str, body: dict):
     main = body.get("file") or p.get("main", "app.py")
     if main not in files:
         raise ApiError(f"{main} isn't one of your files")
-    return runner.run_code(files, main=main, stdin=str(body.get("stdin", ""))[:20000],
-                           args=[str(a) for a in body.get("args", [])][:20], timeout=15)
+    return runner.run_code(_with_provided(p, files), main=main, stdin=str(body.get("stdin", ""))[:20000],
+                           args=[str(a) for a in body.get("args", [])][:20], timeout=15,
+                           setup_files=p.get("setup_files") or None, llm=_real_llm(body))
 
 
 def api_project_submit(pid: str, body: dict):
@@ -880,7 +1057,8 @@ def api_project_submit(pid: str, body: dict):
     total = sum(len(c) for c in files.values())
     if total > 400_000:
         raise ApiError("submission too large")
-    result = runner.run_tests(files, p["tests"], mode="function", main=p.get("main", "app.py"), timeout=90)
+    result = runner.run_tests(_with_provided(p, files), p["tests"], mode="function", main=p.get("main", "app.py"),
+                              timeout=90, setup_files=p.get("setup_files") or None)
     result["style"] = {name: lint.check(code) for name, code in files.items() if name.endswith(".py")}
     sid = db.ex("INSERT INTO submissions(project_id, files, result, created_at) VALUES(?,?,?,?)",
                 (pid, json.dumps(files), json.dumps(result), db.now()))
@@ -904,6 +1082,221 @@ def api_project_review(pid: str, body: dict):
 
 
 # --------------------------------------------------------------------------- labs
+
+def _interview(fn, *args):
+    try:
+        return fn(*args)
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
+
+
+def api_interviews(_=None):
+    return {"history": interview.history(), "lengths": list(interview.LENGTHS)}
+
+
+def api_interview_start(body: dict):
+    return _interview(interview.start, int(body.get("minutes", 30)))
+
+
+def api_interview_submit(iid: str, body: dict):
+    return {"result": _interview(interview.submit, int(iid), _files(body), int(body.get("seconds", 0)))}
+
+
+def api_interview_followup(iid: str, body: dict):
+    answer = body.get("answer")
+    return _interview(interview.followup, int(iid), str(answer) if answer is not None else None)
+
+
+def api_interview_debrief(iid: str, _body=None):
+    return {"debrief": _interview(interview.debrief, int(iid))}
+
+
+def api_radar(_=None):
+    return radar.analyse() | {"mistake_drill": mistakes.last_drill(), "mistakes": len(mistakes.recent_mistakes())}
+
+
+def api_mistake_drill(_body=None):
+    try:
+        return mistakes.make_drill()
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
+
+
+def api_drill(_=None):
+    exercises = drills.pool()
+    return {"pool": exercises, "enough": len(exercises) >= drills.MIN_POOL, "min": drills.MIN_POOL} | drills.stats()
+
+
+def api_drill_check(body: dict):
+    """Grade a drill answer. Not recorded: drills never change stats or the review schedule."""
+    ex = _exercise(str(body.get("id", "")))
+    if ex.get("mode", "function") not in drills.MODES:
+        raise ApiError("This step can't be drilled.")
+    files, result = _grade(ex, body)
+    return {"result": result}
+
+
+def api_drill_finish(body: dict):
+    try:
+        return drills.finish(int(body.get("seconds", 0)), int(body.get("solved", 0)), int(body.get("skipped", 0)),
+                             int(body.get("best_streak", 0)))
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
+
+
+def api_leaderboard(_=None):
+    return leaderboard.overview()
+
+
+def api_traces_parse(body: dict):
+    """The trace viewer page: spans from a JSON Lines file the learner opened or pasted."""
+    text = str(body.get("text") or "")
+    if len(text) > spans.MAX_BYTES:
+        raise ApiError("That file is too big for the viewer (2 MB at most).")
+    found = spans.parse(text)
+    if not found:
+        raise ApiError("No spans found. Each line should be a JSON object with a name, start and end.")
+    return {"spans": found}
+
+
+def api_traces_sample(_=None):
+    return {"spans": spans.parse(spans.SAMPLE)}
+
+
+def api_recap(day: str | None = None):
+    try:
+        start = date.fromisoformat(day) if day else None
+    except ValueError:
+        raise ApiError("bad date") from None
+    try:
+        r = recap.week(start)
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
+    return {**r, "text": recap.text(r)}
+
+
+def api_assist_complete(body: dict):
+    code = str(body.get("code") or "")
+    try:
+        line, ch = int(body.get("line", 1)), int(body.get("ch", 0))
+    except (TypeError, ValueError):
+        raise ApiError("line and ch must be numbers") from None
+    return assist.complete(code, max(1, line), max(0, ch))
+
+
+def api_assist_diagnose(body: dict):
+    return {"problems": assist.diagnose(str(body.get("code") or ""))}
+
+
+def api_repl_start(body: dict):
+    files = body.get("files") or {}
+    if not isinstance(files, dict) or sum(len(str(c)) for c in files.values()) > 400_000:
+        raise ApiError("bad files")
+    files = {str(k): str(v) for k, v in files.items() if str(k).endswith(".py")}
+    try:
+        return repl.start(files, run_file=body.get("run") or None)
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
+
+
+def api_repl_run(sid: str, body: dict):
+    try:
+        return repl.run(sid, str(body.get("code") or ""))
+    except KeyError as exc:
+        raise ApiError(str(exc.args[0]), 404) from None
+
+
+def api_repl_stop(sid: str, _body=None):
+    repl.stop(sid)
+    return {"ok": True}
+
+
+def _sync_item(body: dict) -> tuple[str, str, dict, dict]:
+    """(kind, id, starter files, extra files written once) for a sync request, after checking it."""
+    kind, item_id = body.get("kind"), str(body.get("id") or "")
+    if kind == "project":
+        p = _project(item_id)
+        extra = {"BRIEF.md": f"# {p['title']}\n\n{p['brief']}\n"}
+        extra.update(p.get("setup_files") or {})
+        if p.get("requires_projects"):
+            extra.update(capstone.provided_files(p)[0])
+        return kind, item_id, p["starter_files"], extra
+    if kind == "step":
+        ex = _exercise(item_id)
+        if ex.get("mode") in ("predict", "traceback"):
+            raise ApiError("This step is for reading, not writing code.")
+        extra = {"STEP.md": f"# {ex['title']}\n\n{ex['prompt']}\n\nWrite your code in solution.py. PyTrainer picks up every save; "
+                            f"press Check in the browser.\n"}
+        extra.update(ex.get("setup_files") or {})
+        return kind, item_id, {"solution.py": ex.get("starter", "")}, extra
+    raise ApiError("kind must be project or step")
+
+
+def _sync_files(body: dict, starters: dict) -> dict:
+    files = body.get("files") or {}
+    if not isinstance(files, dict):
+        raise ApiError("bad files")
+    allowed = set(starters)
+    files = {str(k): str(v) for k, v in files.items() if str(k) in allowed}
+    if sum(len(v) for v in files.values()) > 400_000:
+        raise ApiError("files too large")
+    return files
+
+
+def api_sync_open(body: dict):
+    kind, item_id, starters, extra = _sync_item(body)
+    files = _sync_files(body, starters) or dict(starters)
+    folder = sync.folder_for(kind, item_id)
+    try:
+        state = sync.prepare(folder, files, starters, extra)
+    except (OSError, ValueError) as exc:
+        raise ApiError(f"Couldn't write {folder}: {exc}") from None
+    active = body.get("file") if body.get("file") in files else next(iter(files))
+    return {"folder": str(folder), "display": sync.display(folder), **state, **sync.open_in_editor(folder, active)}
+
+
+def api_sync_poll(body: dict):
+    kind, item_id, starters, _extra = _sync_item(body)
+    names = [n for n in (body.get("names") or []) if n in starters]
+    known = body.get("stamp") if isinstance(body.get("stamp"), dict) else {}
+    return sync.changes(sync.folder_for(kind, item_id), names, {k: int(v) for k, v in known.items() if str(v).isdigit()})
+
+
+def api_achievements(_=None):
+    awards = _rewards()
+    return {**achievements.overview(), **awards}
+
+
+def _rewards() -> dict:
+    """What an action just earned, merged into its response: new achievements (`awards`) and XP
+    gained (`xp_gain`, with `level_up`). The browser celebrates both."""
+    out = {}
+    new = achievements.check()
+    if new:
+        out["awards"] = new
+    gain = xp.gained()
+    if gain:
+        out["xp_gain"] = gain
+    return out
+
+
+def api_leaderboard_run(_body=None):
+    try:
+        return leaderboard.run()
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
+
+
+def api_capstone(_=None):
+    return capstone.status()
+
+
+def api_capstone_export(_body=None):
+    try:
+        return capstone.export()
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
+
 
 def api_labs(_=None):
     data = content.load()
@@ -953,11 +1346,14 @@ ROUTES = [
     ("GET", r"/api/exercise/([\w-]+)", api_exercise),
     ("POST", r"/api/exercise/([\w-]+)/run", api_run),
     ("POST", r"/api/exercise/([\w-]+)/check", api_check),
+    ("POST", r"/api/exercise/([\w-]+)/trace", api_trace),
+    ("GET", r"/api/exercise/([\w-]+)/variant", api_variant),
     ("POST", r"/api/exercise/([\w-]+)/hint", api_hint),
     ("POST", r"/api/exercise/([\w-]+)/reveal", api_reveal),
     ("POST", r"/api/run", api_run_snippet),
     ("GET", r"/api/exam/([\w-]+)", api_exam),
     ("POST", r"/api/ai/improve", api_improve),
+    ("POST", r"/api/ai/explain-back", api_explain_back),
     ("POST", r"/api/lesson/([\w-]+)/read", api_lesson_read),
     ("GET", r"/api/library", api_library),
     ("GET", r"/api/library/([\w-]+)", api_library_entry),
@@ -988,6 +1384,32 @@ ROUTES = [
     ("POST", r"/api/project/([\w-]+)/run", api_project_run),
     ("POST", r"/api/project/([\w-]+)/submit", api_project_submit),
     ("POST", r"/api/project/([\w-]+)/review", api_project_review),
+    ("GET", r"/api/interviews", api_interviews),
+    ("POST", r"/api/interview/start", api_interview_start),
+    ("POST", r"/api/interview/(\d+)/submit", api_interview_submit),
+    ("POST", r"/api/interview/(\d+)/followup", api_interview_followup),
+    ("POST", r"/api/interview/(\d+)/debrief", api_interview_debrief),
+    ("GET", r"/api/radar", api_radar),
+    ("POST", r"/api/ai/mistakes", api_mistake_drill),
+    ("GET", r"/api/drill", api_drill),
+    ("POST", r"/api/drill/check", api_drill_check),
+    ("POST", r"/api/drill/finish", api_drill_finish),
+    ("GET", r"/api/leaderboard", api_leaderboard),
+    ("POST", r"/api/leaderboard/run", api_leaderboard_run),
+    ("POST", r"/api/traces/parse", api_traces_parse),
+    ("GET", r"/api/traces/sample", api_traces_sample),
+    ("GET", r"/api/achievements", api_achievements),
+    ("GET", r"/api/recap", api_recap),
+    ("POST", r"/api/assist/complete", api_assist_complete),
+    ("POST", r"/api/repl/start", api_repl_start),
+    ("POST", r"/api/sync/open", api_sync_open),
+    ("POST", r"/api/sync/poll", api_sync_poll),
+    ("POST", r"/api/repl/(\w+)/run", api_repl_run),
+    ("POST", r"/api/repl/(\w+)/stop", api_repl_stop),
+    ("POST", r"/api/assist/diagnose", api_assist_diagnose),
+    ("GET", r"/api/recap/(\d{4}-\d{2}-\d{2})", api_recap),
+    ("GET", r"/api/capstone", api_capstone),
+    ("POST", r"/api/capstone/export", api_capstone_export),
     ("GET", r"/api/labs", api_labs),
     ("POST", r"/api/lab/([\w-]+)/check", api_lab_check),
     ("GET", r"/api/export", api_export),
@@ -995,6 +1417,9 @@ ROUTES = [
     ("POST", r"/api/unplace", api_unplace),
 ]
 COMPILED = [(m, re.compile(p + r"$"), fn) for m, p, fn in ROUTES]
+# Actions that can earn an achievement: their responses carry anything newly earned.
+REWARDING = {api_check, api_project_submit, api_lab_check, api_drill_finish, api_interview_submit,
+             api_leaderboard_run, api_explain_back, api_heartbeat, api_placement_finish}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1047,6 +1472,8 @@ class Handler(BaseHTTPRequestHandler):
                     if method == "POST":
                         args.append(body)
                     result = fn(*args) if args else fn()
+                    if fn in REWARDING and isinstance(result, dict):
+                        result = {**result, **_rewards()}
                     return self._json(200, result)
                 except ApiError as exc:
                     return self._json(exc.status, {"error": str(exc)})
@@ -1065,7 +1492,10 @@ class Handler(BaseHTTPRequestHandler):
         target = (STATIC / path.lstrip("/")).resolve()
         if not str(target).startswith(str(STATIC.resolve())) or not target.is_file():
             return self._json(404, {"error": "not found"})
-        ctype = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+        # .js is pinned: Windows registry settings can map it to text/plain, which browsers refuse
+        # to run as a module.
+        ctype = "text/javascript" if target.suffix == ".js" else (
+            mimetypes.guess_type(target.name)[0] or "application/octet-stream")
         if ctype.startswith("text/") or ctype in ("application/javascript", "image/svg+xml"):
             ctype += "; charset=utf-8"
         self._send(200, target.read_bytes(), ctype)
@@ -1082,17 +1512,26 @@ def main():
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--open", action="store_true", help="open the app in your browser once it is up")
+    ap.add_argument("--version", action="version", version=f"PyTrainer {VERSION}")
     args = ap.parse_args()
     db.conn()
     db.backup()
     content.load()
+    print(f"Code sandbox: {sandbox.level()}", flush=True)
     httpd = ThreadingHTTPServer((args.host, args.port), Handler)
     httpd.daemon_threads = True
-    print(f"PyTrainer running on http://{args.host}:{args.port}", flush=True)
+    url = f"http://{args.host}:{args.port}/"
+    print(f"PyTrainer running on {url}", flush=True)
+    print(f"Data: {db.DATA_DIR}", flush=True)
+    if args.open:
+        threading.Timer(0.5, webbrowser.open, (url,)).start()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        repl.stop_all()
 
 
 if __name__ == "__main__":
