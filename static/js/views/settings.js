@@ -1,5 +1,6 @@
 import { $, S, aiOn, api, busy, esc, main, refreshState, resetState, toast } from "../core.js";
 import { aiPicker } from "./onboarding.js";
+import { drawInstall } from "../install.js";
 
 /* ---------------------------------------------------------------- settings */
 
@@ -55,6 +56,7 @@ export async function viewSettings() {
         <span class="theme-prev" style="background:${c[0]}"><i style="background:${c[1]}"><b style="background:${c[2]}"></b><b style="background:${c[3]};width:60%"></b><b style="background:${c[4]};width:34%"></b></i></span><span>${label}</span></button>`).join("")}</div>
       <label class="field"><span>Code size <b id="code-size-val">${codeSize}px</b></span><input type="range" id="code-size" min="12" max="20" step="1" value="${codeSize}"></label>
       <p class="dim small" style="margin:0">Zen mode hides everything but the editor while you work on a step or project: press <kbd>Alt</kbd>+<kbd>Z</kbd> (or the Zen button), and <kbd>Alt</kbd>+<kbd>Z</kbd> or <kbd>Esc</kbd> to come back.</p></div></section>
+    <section class="section"><h2>App</h2><div class="panel" id="install-box"></div></section>
     <section class="section"><h2>You</h2><div class="panel">
       <label class="field"><span>Name</span><input type="text" id="name" value="${esc(S.settings.name)}"></label>
       <label class="field"><span>Daily goal (minutes)</span><input type="number" id="goal" min="15" max="480" value="${S.settings.daily_goal}"></label>
@@ -81,6 +83,7 @@ export async function viewSettings() {
     try { localStorage.setItem("pt-code-size", v); } catch {}
   };
   drawJev();
+  drawInstall();
   aiPicker($("#ai-box"));
   $("#assist-on").onchange = async (e) => { await api("settings", { editor_assist: e.target.checked }); await refreshState(); toast("Saved. It applies to editors you open from now on."); };
   $("#freezes-on").onchange = async (e) => { await api("settings", { streak_freezes: e.target.checked }); await refreshState(); toast("Saved"); };

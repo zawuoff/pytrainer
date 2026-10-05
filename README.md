@@ -39,6 +39,16 @@ namespaces, which most container runtimes don't allow).
 - **Windows (or anywhere, without installing):** `python server.py --open`.
 - Reinstall / move the folder: run `./install.sh` again.
 
+**As an app, on a computer or a phone.** PyTrainer is installable (a PWA): your browser's
+**Install app** (Chrome, Edge), **Add to Home Screen** (Safari on iPhone), or the button in
+Settings → App. It gets its own window and icon, and it still opens when the server can't be
+reached (then it says so, with a Try again button); progress always lives on the server. Browsers
+only install from `https://` or `localhost`. To use it on your phone with the server on another
+machine, put both on [Tailscale](https://tailscale.com) and run `tailscale serve --bg 8765` on the
+server: open the `https://<machine>.<tailnet>.ts.net` address it prints on your phone and install
+from there. (The API only answers requests addressed to `localhost`, a Tailscale name (`*.ts.net`)
+or a Tailscale address (`100.64.0.0/10`).)
+
 ## What's inside
 
 | Area | What it does |

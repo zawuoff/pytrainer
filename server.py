@@ -8,6 +8,7 @@ Then open http://127.0.0.1:8765 (or use the installed desktop launcher). Needs P
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import mimetypes
 import re
@@ -1439,6 +1440,26 @@ REWARDING = {api_check, api_project_submit, api_lab_check, api_drill_finish, api
              api_leaderboard_run, api_explain_back, api_heartbeat, api_placement_finish}
 
 
+mimetypes.add_type("application/manifest+json", ".webmanifest")
+SHELL_TYPES = (".html", ".js", ".css", ".svg", ".png", ".woff2", ".webmanifest")
+
+
+def _service_worker() -> bytes:
+    """static/sw.js with the app's files and a version filled in.
+
+    The version changes whenever a file does, so the browser installs the new worker (and a fresh
+    offline copy) after an update."""
+    files = sorted(p for p in STATIC.rglob("*") if p.is_file() and p.suffix in SHELL_TYPES and p.name != "sw.js")
+    digest = hashlib.sha256(VERSION.encode())
+    for p in files:
+        st = p.stat()
+        digest.update(f"{p.relative_to(STATIC).as_posix()}:{st.st_size}:{st.st_mtime_ns}".encode())
+    shell = ["./"] + [p.relative_to(STATIC).as_posix() for p in files if p.name != "index.html"]
+    src = (STATIC / "sw.js").read_text(encoding="utf-8")
+    return (src.replace('"__VERSION__"', json.dumps(digest.hexdigest()[:16]))
+            .replace('["__SHELL__"]', json.dumps(shell))).encode()
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "PyTrainer/" + VERSION
 
@@ -1506,6 +1527,8 @@ class Handler(BaseHTTPRequestHandler):
     def _static(self, path: str):
         if path in ("/", "") or not Path(path).suffix:
             path = "/index.html"
+        if path == "/sw.js":
+            return self._send(200, _service_worker(), "text/javascript; charset=utf-8")
         target = (STATIC / path.lstrip("/")).resolve()
         if not str(target).startswith(str(STATIC.resolve())) or not target.is_file():
             return self._json(404, {"error": "not found"})

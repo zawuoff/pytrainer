@@ -3,6 +3,7 @@
    diagrams.js and blocks.js, the editor/results pieces in workspace.js, one file per page in views/. */
 import { $$, S, api, esc, lastInteraction, main, refreshState, runCleanup } from "./core.js";
 import { viewLibrary } from "./library.js";
+import { setupInstall } from "./install.js";
 import { viewHome } from "./views/home.js";
 import { viewChapter, viewCourse, viewExam, viewExtras } from "./views/course.js";
 import { viewStep } from "./views/step.js";
@@ -69,7 +70,13 @@ async function showRoute() {
   const hash = location.hash || "#/home";
   if (!S) {
     try { await refreshState(); }
-    catch (e) { main.innerHTML = `<div class="page"><div class="errbox">Cannot reach the PyTrainer server: ${esc(e.message)}</div></div>`; return; }
+    catch (e) {
+      main.innerHTML = `<div class="page narrow"><h1>Can't reach PyTrainer</h1>
+        <p class="dim" style="margin-top:10px">The app opened, but the server that keeps your progress didn't answer. Is it running${location.hostname.endsWith(".ts.net") ? ", and is Tailscale connected on this device" : ""}?</p>
+        <p class="faint small">${esc(e.message)}</p><button class="btn primary big" id="retry-btn">Try again</button></div>`;
+      document.getElementById("retry-btn").onclick = () => route();
+      return;
+    }
   }
   if (!S.settings.onboarded && !/^#\/(welcome|placement|settings)/.test(hash)) { location.hash = "#/welcome"; return; }
   const nav = hash.split("/")[1]?.split("?")[0];
@@ -97,4 +104,5 @@ setInterval(() => {
   if (document.visibilityState === "visible" && Date.now() - lastInteraction < 120000) api("heartbeat", { seconds: 30 }).catch(() => {});
 }, 30000);
 
+setupInstall();
 route();

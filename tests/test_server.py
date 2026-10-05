@@ -2,6 +2,7 @@
 
 import http.client
 import json
+import re
 import threading
 import unittest
 from datetime import date, timedelta
@@ -56,6 +57,26 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b'type="module"', body)
         status, body = self.request("GET", "/js/main.js")
         self.assertEqual(status, 200)
+
+    def test_the_app_is_installable(self):
+        status, body = self.request("GET", "/manifest.webmanifest")
+        self.assertEqual(status, 200)
+        manifest = json.loads(body)
+        self.assertEqual(manifest["display"], "standalone")
+        self.assertIn("maskable", [i.get("purpose") for i in manifest["icons"]])
+        for icon in manifest["icons"]:
+            self.assertEqual(self.request("GET", "/" + icon["src"])[0], 200, icon["src"])
+        status, sw = self.request("GET", "/sw.js")
+        self.assertEqual(status, 200)
+        sw = sw.decode()
+        self.assertNotIn("__VERSION__", sw)
+        shell = json.loads(re.search(r"const SHELL = (\[.*?\]);", sw).group(1))
+        self.assertIn("js/main.js", shell)
+        self.assertIn("manifest.webmanifest", shell)
+        self.assertNotIn("sw.js", shell)
+        for path in shell[1:]:
+            self.assertEqual(self.request("GET", "/" + path)[0], 200, path)
+        self.assertIn(b'rel="manifest"', self.request("GET", "/")[1])
 
     def test_path_traversal_is_refused(self):
         status, _ = self.request("GET", "/../server.py")
