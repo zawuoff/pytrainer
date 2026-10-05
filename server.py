@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent
 if (ROOT / "pytrainer").is_dir():  # a checkout; an installed copy lives inside the package already
     sys.path.insert(0, str(ROOT))
 
-from pytrainer import (achievements, ai, assist, capstone, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
+from pytrainer import (achievements, ai, assist, capstone, go, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
                        library, mistakes, progress, radar, recap, repl, runner, sandbox, spans, sync, tracer, variants, xp)
 
 STATIC = ROOT / "static"
@@ -1273,6 +1273,10 @@ def api_sync_poll(body: dict):
     return sync.changes(sync.folder_for(kind, item_id), names, {k: int(v) for k, v in known.items() if str(v).isdigit()})
 
 
+def api_go(_=None):
+    return go.session(_traceback)
+
+
 def api_achievements(_=None):
     awards = _rewards()
     return {**achievements.overview(), **awards}
@@ -1411,6 +1415,7 @@ ROUTES = [
     ("POST", r"/api/traces/parse", api_traces_parse),
     ("GET", r"/api/traces/sample", api_traces_sample),
     ("GET", r"/api/achievements", api_achievements),
+    ("GET", r"/api/go", api_go),
     ("GET", r"/api/recap", api_recap),
     ("POST", r"/api/assist/complete", api_assist_complete),
     ("POST", r"/api/repl/start", api_repl_start),

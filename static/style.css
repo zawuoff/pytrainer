@@ -1408,3 +1408,43 @@ body.zen.zen-task .ws-read { display: block; position: fixed; z-index: 45; top: 
 .lib-alt { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--dim); font-size: 14px; }
 .lib-try { border: 1px solid var(--rule-strong); background: var(--panel); color: var(--text); border-radius: 999px; padding: 2px 10px; font: inherit; font-size: 13px; cursor: pointer; }
 .lib-try:hover { border-color: var(--amber); }
+
+/* ---------------------------------------------------------------- on the go: phone-first practice */
+.go-start { width: 100%; justify-content: center; margin-top: 18px; }
+.go-start .faint { font-weight: 450; font-size: 14px; }
+.go-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 14px; }
+.go-tile { display: flex; flex-direction: column; gap: 4px; text-align: left; font: inherit; color: var(--text); text-decoration: none; cursor: pointer;
+           background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 16px; min-height: 112px; transition: border-color .15s; }
+.go-tile:hover:not(:disabled) { border-color: var(--amber); }
+.go-tile:disabled { cursor: default; opacity: .6; }
+.go-tile b { font-weight: 650; font-size: 16px; }
+.go-tile span { color: var(--dim); font-size: 13.5px; }
+.go-tile em { font-style: normal; color: var(--amber); font-size: 13.5px; font-weight: 600; margin-top: auto; padding-top: 6px; }
+.go-tile:disabled em { color: var(--faint); font-weight: 450; }
+.go-bar { display: flex; align-items: center; gap: 12px; padding: 8px 0 12px; }
+.go-prog { flex: 1; height: 6px; border-radius: 3px; background: var(--panel-2); overflow: hidden; }
+.go-prog i { display: block; height: 100%; width: 0; background: var(--amber); border-radius: 3px; transition: width .3s var(--ease-spring, ease); }
+.go-kicker { font-size: 13px; color: var(--dim); margin-top: 6px; }
+.go-kicker span { color: var(--mc); font-weight: 650; }
+.go-title { margin: 4px 0 6px; }
+.go-prompt { font-size: 15px; }
+.go-code { margin: 12px 0; padding: 12px 14px; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 10px; overflow-x: auto; font-size: 13.5px; line-height: 1.55; }
+.go-answer { font-size: 16px; margin-top: 4px; }   /* 16px keeps phones from zooming in on focus */
+.go-actions { display: flex; gap: 10px; margin-top: 14px; }
+.go-actions > * { flex: 1; justify-content: center; }
+.go-actions[hidden], .go-actions [hidden] { display: none; }
+.go-tb { max-height: 220px; overflow: auto; }
+.go-lines { display: grid; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; background: var(--code-bg); }
+.go-line { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 12px; min-height: 40px; padding: 6px 10px 6px 0; text-align: left;
+           font: 13.5px/1.4 var(--mono); color: var(--text); background: none; border: 0; border-bottom: 1px solid var(--rule); cursor: pointer; }
+.go-line:last-child { border-bottom: 0; }
+.go-line code { display: block; white-space: pre-wrap; overflow-wrap: anywhere; font-size: inherit; padding-left: var(--ind, 4ch); text-indent: calc(-1 * var(--ind, 4ch)); }  /* a wrapped line hangs under its own text */
+.go-ln { color: var(--faint); text-align: right; font-size: 12px; }
+.go-line.on { background: color-mix(in srgb, var(--amber) 22%, transparent); box-shadow: inset 3px 0 0 var(--amber); }
+.go-line:disabled { cursor: default; }
+.go-bad { margin: 6px 0; padding-left: 18px; }
+.go-bad li { margin: 2px 0; }
+.go-flash { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 22px 18px; margin-top: 10px; text-align: center; }
+.go-syn { display: block; font: 600 18px/1.5 var(--mono); margin: 14px 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.go-flash #go-back { text-align: left; margin-top: 16px; border-top: 1px solid var(--rule); padding-top: 14px; }
+@media (max-width: 700px) { .go-tiles { grid-template-columns: minmax(0, 1fr); } .go-tile { min-height: 0; } }

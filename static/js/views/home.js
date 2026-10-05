@@ -36,6 +36,8 @@ export async function viewHome() {
       let seen = null;
       try { seen = localStorage.getItem("pt-recap-seen"); } catch {}
       if (S.recap?.ready && seen !== S.recap.week) tips.push(`<a class="suggest" href="#/recap/${S.recap.week}"><b>Your week in review</b><span>Minutes, solves, reviews and XP from last week, compared with the week before.</span><em>See your recap</em></a>`);
+      // On a phone, practice that needs no code typing is the easier start.
+      if (matchMedia("(max-width: 700px)").matches) tips.push(`<a class="suggest" href="#/go"><b>On the go</b><span>Predict outputs, read tracebacks, flip flashcards: practice made for a phone.</span><em>Start a round</em></a>`);
       if (S.placement.status !== "done") tips.push(`<a class="suggest" href="#/placement"><b>${S.placement.status === "in_progress" ? "Placement test in progress" : "Already know some Python?"}</b><span>${S.placement.status === "in_progress" ? "Pick up where you left off and skip what you know." : "Take the placement test and skip what you know."}</span><em>${S.placement.status === "in_progress" ? "Continue placement" : "Take the test"}</em></a>`);
       return tips.length ? `<div class="suggests">${tips.join("")}</div>` : "";
     })()}
