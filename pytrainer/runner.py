@@ -30,7 +30,7 @@ PYTHON = sys.executable or "python3"
 MAX_OUTPUT = 20_000
 
 HARNESS = r'''
-import sys, os, io, json, types, traceback, contextlib, subprocess, importlib, time, builtins
+import sys, os, io, json, types, traceback, contextlib, subprocess, importlib, time, builtins, ast, pprint
 
 RESULTS = sys.argv[1]
 TESTS_FILE = sys.argv[2]
@@ -79,6 +79,76 @@ def describe(exc, tb):
         if line:
             text += f"\n  while running: {line}"
     return text
+
+# "Why did it fail?": each `assert a == b` in the test file is rewritten to `assert _pt_eq(a, b, ...)`,
+# which compares exactly as `==` would (each side evaluated once) and, when the result is false,
+# remembers both sides so the results panel can show expected and actual side by side.
+_last_eq = None
+_EXPECTISH = ("expect", "want", "correct", "answer", "target")
+
+def _literal(node):
+    if isinstance(node, ast.Constant):
+        return True
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        return all(_literal(e) for e in node.elts)
+    if isinstance(node, ast.Dict):
+        return all(k is not None and _literal(k) and _literal(v) for k, v in zip(node.keys, node.values))
+    if isinstance(node, ast.UnaryOp):
+        return _literal(node.operand)
+    return False
+
+def _expectish(node):
+    return isinstance(node, ast.Name) and any(w in node.id.lower() for w in _EXPECTISH)
+
+class _EqRewriter(ast.NodeTransformer):
+    def visit_Assert(self, node):
+        t = node.test
+        if isinstance(t, ast.Compare) and len(t.ops) == 1 and isinstance(t.ops[0], ast.Eq):
+            left, right = t.left, t.comparators[0]
+            # Tests are written `assert actual == expected`: swap when the left side is clearly the expected one.
+            swap = (_literal(left) and not _literal(right)) or (_expectish(left) and not _expectish(right))
+            call = ast.Call(func=ast.Name("_pt_eq", ast.Load()),
+                            args=[left, right, ast.Constant(swap), ast.Constant(node.lineno)], keywords=[])
+            node.test = ast.copy_location(call, t)
+        return node
+
+def _pt_eq(a, b, swap, lineno):
+    global _last_eq
+    result = a == b
+    try:
+        ok = bool(result)
+    except Exception:
+        return result  # e.g. an array: let the assert raise its own error
+    if not ok:
+        _last_eq = (lineno, a, b) if swap else (lineno, b, a)  # (line, expected, actual)
+    return result
+
+def _show(v):
+    try:
+        return pprint.pformat(v, width=72, sort_dicts=False)
+    except Exception:
+        return repr(v)
+
+def _eq_diff(tb):
+    """Expected and actual for the assert that just failed, when it was an `==` we recorded."""
+    if _last_eq is None:
+        return None
+    line = next((fs.lineno for fs in reversed(traceback.extract_tb(tb))
+                 if os.path.basename(fs.filename) == "_tests.py"), None)
+    lineno, expected, actual = _last_eq
+    if line != lineno:
+        return None
+    both_text = isinstance(expected, str) and isinstance(actual, str)
+    exp, act = (expected, actual) if both_text else (_show(expected), _show(actual))
+    return {"expected": exp[:6000], "actual": act[:6000], "kind": "text" if both_text else "repr",
+            "types": [type(expected).__name__, type(actual).__name__]}
+
+def _compile_tests(src):
+    try:
+        tree = _EqRewriter().visit(ast.parse(src, "_tests.py"))
+        return compile(ast.fix_missing_locations(tree), "_tests.py", "exec")
+    except (SyntaxError, ValueError, RecursionError):
+        return compile(src, "_tests.py", "exec")
 
 class ScriptResult:
     def __init__(self, cp):
@@ -136,11 +206,14 @@ def main():
     ns = {"__name__": "_tests", "run_script": run_script, "capture": capture,
           "load": load, "source": source}
     with open(TESTS_FILE, encoding="utf-8") as fh:
-        code = compile(fh.read(), "_tests.py", "exec")
+        code = _compile_tests(fh.read())
+    ns["_pt_eq"] = _pt_eq
     with contextlib.redirect_stdout(_out):
         exec(code, ns)
     tests = [(k, v) for k, v in ns.items() if k.startswith("test_") and callable(v)]
+    global _last_eq
     for name, fn in tests:
+        _last_eq = None
         state["running"] = name
         dump()
         start = time.perf_counter()
@@ -153,6 +226,10 @@ def main():
             entry["message"] = "Your script took too long (possible infinite loop or waiting for input)."
         except BaseException as exc:
             entry["message"] = describe(exc, exc.__traceback__)[:1500]
+            if isinstance(exc, AssertionError):
+                diff = _eq_diff(exc.__traceback__)
+                if diff:
+                    entry["diff"] = diff
         entry["ms"] = round((time.perf_counter() - start) * 1000, 1)
         state["tests"].append(entry)
     state["running"] = None
@@ -273,11 +350,16 @@ def _budgets(stdout: str) -> tuple[str, list[dict]]:
 
 
 def _summarise(state: dict, timed_out: bool, returncode: int, stderr: str) -> dict:
-    tests = [
-        {"name": _nice_name(t["name"]), "passed": t["passed"], "message": t.get("message", ""),
-         "ms": t.get("ms")}
-        for t in state.get("tests", [])
-    ]
+    from . import diffview
+
+    tests = []
+    for t in state.get("tests", []):
+        entry = {"name": _nice_name(t["name"]), "passed": t["passed"], "message": t.get("message", ""),
+                 "ms": t.get("ms")}
+        diff = None if t["passed"] else diffview.build(t.get("diff"), t.get("message", ""))
+        if diff:
+            entry["diff"] = diff
+        tests.append(entry)
     stdout, budgets = _budgets(state.get("stdout") or "")
     out = {
         "status": "passed",

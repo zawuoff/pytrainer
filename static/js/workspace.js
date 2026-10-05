@@ -83,10 +83,32 @@ export function resultsHTML(r, extra = "") {
     <span class="dim">${r.passed}/${r.total} ${unit}</span></div>`;
   if (r.error) html += `<div class="errbox">${esc(r.error)}</div>`;
   html += r.tests.map((t, i) => `<div class="test ${t.passed ? "ok" : "no"}" style="--i:${i}"><span class="ic">${t.passed ? "✓" : "✕"}</span>
-      <div>${esc(t.name)}${t.message ? `<pre>${esc(t.message)}</pre>` : ""}</div></div>`).join("");
+      <div>${esc(t.name)}${t.message ? `<pre>${esc(t.message)}</pre>` : ""}${diffHTML(t.diff)}</div></div>`).join("");
   html += budgetsHTML(r.budgets);
   if (r.stdout && r.stdout.trim()) html += `<h3 style="margin:16px 0 6px">Printed while checking</h3><pre class="outbox">${esc(r.stdout)}</pre>`;
   return html + extra + "</div>";
+}
+
+/* "Why did it fail?": expected and what your code gave, side by side, differing characters marked.
+   Spaces and tabs inside a marked part are drawn as · and → so whitespace mistakes are visible. */
+const seg = ([text, changed]) => {
+  if (!changed) return esc(text);
+  const shown = esc(text).replace(/ /g, "·").replace(/\t/g, "→");
+  return `<mark>${shown || "&nbsp;"}</mark>`;
+};
+const cell = (parts, side) => {
+  if (!parts) return `<code class="dv-${side} dv-none">${side === "e" ? "(not in the expected value)" : "(missing from yours)"}</code>`;
+  const html = parts.map(seg).join("");
+  return `<code class="dv-${side}">${html || `<span class="faint">(empty line)</span>`}</code>`;
+};
+export function diffHTML(d) {
+  if (!d?.rows?.length) return "";
+  return `<div class="diffv" role="table" aria-label="Expected compared with what your code gave">
+    ${d.note ? `<p class="dv-note">${esc(d.note)}</p>` : ""}
+    <div class="dv-head" role="row"><span role="columnheader">Expected</span><span role="columnheader">Your code gave</span></div>
+    ${d.rows.map((r) => r.t === "skip" ? `<div class="dv-skip" role="row">⋯ ${r.n} matching line${r.n === 1 ? "" : "s"}</div>`
+      : `<div class="dv-row dv-${r.t}" role="row">${cell(r.e, "e")}${cell(r.a, "a")}</div>`).join("")}
+    ${d.truncated ? `<div class="dv-skip">⋯ more lines not shown</div>` : ""}</div>`;
 }
 
 /* Budget checks (time, cost, calls) measured by the hidden tests, as "used of limit" bars. */
