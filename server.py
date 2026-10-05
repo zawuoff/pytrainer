@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent
 if (ROOT / "pytrainer").is_dir():  # a checkout; an installed copy lives inside the package already
     sys.path.insert(0, str(ROOT))
 
-from pytrainer import (achievements, ai, assist, capstone, go, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint, retro,  # noqa: E402
+from pytrainer import (achievements, ai, assist, capstone, go, coach, content, course, db, drills, interview, jev, labs, insights, leaderboard, lint, retro,  # noqa: E402
                        library, mistakes, progress, radar, recap, repl, runner, sandbox, spans, sync, tracer, variants, xp)
 
 STATIC = ROOT / "static"
@@ -1200,6 +1200,10 @@ def api_retro_ai(body: dict):
     return {"review": review}
 
 
+def api_insights(_=None):
+    return insights.report()
+
+
 def api_leaderboard(_=None):
     return leaderboard.overview()
 
@@ -1412,6 +1416,7 @@ ROUTES = [
     ("POST", r"/api/exercise/([\w-]+)/reveal", api_reveal),
     ("POST", r"/api/run", api_run_snippet),
     ("GET", r"/api/exam/([\w-]+)", api_exam),
+    ("GET", r"/api/insights", api_insights),
     ("GET", r"/api/retro", api_retro),
     ("POST", r"/api/retro/pick", api_retro_pick),
     ("POST", r"/api/retro/([\w-]+)/check", api_retro_check),

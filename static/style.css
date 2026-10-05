@@ -1477,3 +1477,15 @@ body.zen.zen-task .ws-read { display: block; position: fixed; z-index: 45; top: 
 .rt-hist summary { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; cursor: pointer; }
 .rt-hist summary > span:first-child { font-weight: 600; flex: 1; min-width: 12ch; }
 .rt-hist details[open] > :not(summary) { margin-top: 8px; }
+
+/* ---------------------------------------------------------------- where it got hard */
+.ins-list { list-style: none; padding: 0; margin: 10px 0 0; }
+.ins-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+.ins-bar { position: relative; height: 22px; margin-top: 1px; display: flex; align-items: center; gap: 8px; }
+.ins-bar i { display: block; height: 10px; border-radius: 0 4px 4px 0; background: var(--amber); }
+.ins-bar b { font: 600 13px var(--mono); color: var(--text); }
+.ins-main a { text-decoration: none; }
+.ins-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+.ins-table { overflow-x: auto; }
+.ins-table td:not(:first-child) { text-align: right; white-space: nowrap; }
+@media (max-width: 700px) { .ins-row { grid-template-columns: minmax(0, 1fr); gap: 4px; } .ins-bar { max-width: 220px; } }

@@ -27,6 +27,7 @@ export async function viewProgress() {
       <div class="xp-parts">${Object.entries(st.xp.breakdown).map(([k, v]) => `<span>${esc(XP_PARTS[k] || k)} <b>${v.toLocaleString()}</b></span>`).join("")}</div>
       <p class="faint small" style="margin:10px 0 0">XP comes from your history: harder steps are worth more, a clean first try adds a bonus, a step solved after seeing the solution counts half. Reviews, chapters, projects, labs, achievements and every day you practise add to it.</p></div></section>
     <div class="suggests" style="margin-top:20px"><a class="suggest" href="#/recap"><b>Weekly recap</b><span>Last week as a card: minutes, solves, reviews and XP, compared with the week before.</span><em>Open the recap</em></a>
+    <a class="suggest" href="#/insights"><b>Where it got hard</b><span>The steps and chapters that took the most failing checks, hints and solution peeks.</span><em>See them</em></a>
     <a class="suggest ach-strip" href="#/achievements"><b>Achievements: ${st.achievements.unlocked} of ${st.achievements.total}</b>
       <span>${st.achievements.recent.length ? "Latest: " + st.achievements.recent.map((a) => esc(a.title)).join(" · ") : "Solve your first step to earn the first one."}</span><em>See them all</em></a></div>
     <section class="section"><h2>Activity</h2><div class="panel">${heatmap(st.heatmap)}
