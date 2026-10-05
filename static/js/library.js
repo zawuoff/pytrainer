@@ -4,19 +4,19 @@ import { renderRich } from "./blocks.js";
 import { isNarrow } from "./workspace.js";
 
 /* ---------------------------------------------------------------- library
-   Reference cards for the chapters whose lesson is finished. The same list is drawn as a page
-   (#/library) and inside every workspace (step, module test, placement question, project), where
-   it is part of the screen instead of something laid over it: a tab of the bottom dock, or a
-   panel docked on the left or the right. Locked chapters arrive from the server as a title only:
-   there is nothing locked in the page to reveal. */
+   A search engine over the reference cards of the chapters you've finished. A chapter joins once
+   its lesson steps are solved (or you tested out of it). Locked chapters never reach the page: the
+   server sends only what's unlocked, plus personal signals (what you opened lately, what you've been
+   practising and failing, what the chapter you're on builds on) that lift the results you most
+   likely want. Anything unlocked can still be found by searching for it.
+   The same Library is a page (#/library) and a panel inside every workspace (Ctrl+K). */
 
 export let LIB = null;                 // last /api/library payload
 export let libHere = null;             // topic id of the exercise on screen, if any
-export const libState = { q: "", open: new Set(), shut: new Set() };
-export const LOCK_SVG = `<svg class="lib-lock" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="7" width="10" height="7" rx="1.6" fill="currentColor"/></svg>`;
+export const libState = { q: "", open: new Set(), shown: new Set() };
 
-export const libWords = (q) => q.toLowerCase().split(/\s+/).filter(Boolean);
-export const libHas = (text, words) => { const t = text.toLowerCase(); return words.every((w) => t.includes(w)); };
+export const libWords = (q) => q.toLowerCase().split(/[\s,]+/).filter(Boolean);
+const tokens = (text) => String(text ?? "").toLowerCase().match(/[a-z0-9_]+|[^\sa-z0-9_]/g) || [];
 
 /* esc(text) with every occurrence of a search word wrapped in <mark>. */
 export function libMark(text, words) {
@@ -34,106 +34,220 @@ export function libMark(text, words) {
   return out;
 }
 
-/* Unlocked entries that contain every search word, best match first. An entry found only
-   through its cards shows just the matching cards. Locked chapters can match by title only. */
-export function libSearch(lib, q) {
-  const words = libWords(q), hits = [];
-  for (const e of lib.entries.filter((x) => x.unlocked)) {
-    const names = [...e.keywords, ...e.concepts].join(" ");
-    const cardText = (c) => [c.syntax, c.explain, c.example].join(" ");
-    const rank = libHas(e.title, words) ? 0 : libHas(e.title + " " + names, words) ? 1 : libHas(e.title + " " + names + " " + e.summary, words) ? 2 : 3;
-    const cards = e.cards.filter((c) => libHas(cardText(c), words));
-    if (rank === 3 && !cards.length && !libHas([e.title, names, e.summary, ...e.cards.map(cardText)].join(" "), words)) continue;
-    hits.push({ e, rank, cards: rank === 3 && cards.length ? cards : e.cards });
-  }
-  hits.sort((a, b) => a.rank - b.rank || a.e.number - b.e.number);
-  return { words, hits, locked: lib.entries.filter((x) => !x.unlocked && libHas(x.title, words)) };
+/* One edit (insert, delete, substitute or swap two neighbours) apart: catches most typos. */
+function oneEdit(a, b) {
+  if (Math.abs(a.length - b.length) > 1 || a === b) return a === b;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1) || (a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2));
+  return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
 }
 
-export function libEntryHTML(e, cards, words, open, panel) {
-  const hidden = e.cards.length - cards.length;
+/* How well one word matches one field's tokens: exact, prefix, inside, or one typo away. */
+function wordScore(w, toks, text) {
+  let best = 0;
+  for (const t of toks) {
+    if (t === w) return 1;
+    if (t.startsWith(w)) best = Math.max(best, 0.8);
+    else if (w.length >= 4 && oneEdit(w, t)) best = Math.max(best, 0.45);
+  }
+  if (!best && w.length >= 2 && text.includes(w)) best = 0.5;
+  return best;
+}
+
+// A word found on the card itself counts fully; one found only on its chapter (title, keywords...)
+// counts for less, so the card that is actually about the word comes first.
+const CARD_FIELDS = [["syntax", 6], ["explain", 3], ["example", 1.5]];
+const CHAPTER_FIELDS = [["title", 4], ["keywords", 4], ["concepts", 3], ["summary", 1]];
+const CHAPTER_SHARE = 0.6;
+
+/* Every card of every unlocked chapter, with its searchable fields prepared once per payload. */
+function index(lib) {
+  if (lib._index) return lib._index;
+  const docs = [];
+  for (const e of lib.entries) {
+    e.cards.forEach((c, i) => {
+      const f = { syntax: c.syntax, title: e.title, keywords: e.keywords.join(" "), concepts: e.concepts.join(" "),
+                  explain: c.explain, example: c.example, summary: e.summary };
+      docs.push({ e, c, i, f: Object.fromEntries(Object.entries(f).map(([k, v]) => [k, { text: v.toLowerCase(), toks: tokens(v) }])) });
+    });
+  }
+  lib._index = docs;
+  return docs;
+}
+
+const recentKey = (id, i) => `${id}#${i}`;
+
+/* Everyday names for syntax the cards show but don't spell out: searching "slice" should find
+   items[start:stop] even though that card never says the word. */
+const ALIASES = {
+  slice: ["start:stop", "[:", ":]"], slicing: ["start:stop", "[:", ":]"],
+  fstring: ['f"', "f'"], "f-string": ['f"', "f'"],
+  comprehension: [" for ", "comprehension"], ternary: [" if ", " else "], walrus: [":="],
+  unpack: ["*args", "**", ", *"], unpacking: ["*args", "**", ", *"], kwargs: ["**kwargs", "**"],
+  truthy: ["if not", "bool("], falsy: ["if not", "bool("], decorator: ["@"], docstring: ['"""'],
+};
+const aliasHit = (w, d) => (ALIASES[w] || []).some((a) => d.f.syntax.text.includes(a) || d.f.example.text.includes(a));
+
+/* Ranked cards for a query: every word has to match somewhere on the card or its chapter, the
+   closer the match the better, and what you've been working with lately counts on top. */
+export function libSearch(lib, q) {
+  const words = libWords(q), boost = lib.boost || {}, recent = new Set((lib.recent || []).map((r) => recentKey(r.id, r.card)));
+  if (!words.length) return { words, hits: [] };
+  const hits = [];
+  for (const d of index(lib)) {
+    let score = 0;
+    for (const w of words) {
+      const best = (fields) => Math.max(...fields.map(([name, weight]) => weight * wordScore(w, d.f[name].toks, d.f[name].text)));
+      const s = Math.max(best(CARD_FIELDS), aliasHit(w, d) ? 5 : 0) + CHAPTER_SHARE * best(CHAPTER_FIELDS);
+      if (!s) { score = 0; break; }
+      score += s;
+    }
+    if (!score) continue;
+    score *= 1 + 0.6 * (boost[d.e.id] || 0);
+    if (d.e.id === libHere) score += 2;
+    if (recent.has(recentKey(d.e.id, d.i))) score += 1;
+    hits.push({ ...d, score });
+  }
+  hits.sort((a, b) => b.score - a.score || a.e.number - b.e.number || a.i - b.i);
+  return { words, hits };
+}
+
+/* "Did you mean": the closest words from your Library's chapters when nothing matched. */
+function suggestions(lib, q) {
+  const vocab = new Set();
+  for (const e of lib.entries) for (const t of tokens([e.title, ...e.keywords, ...e.concepts].join(" "))) if (t.length > 2) vocab.add(t);
+  const out = [];
+  for (const w of libWords(q)) for (const t of vocab) if (t !== w && (oneEdit(w, t) || (w.length >= 3 && t.startsWith(w.slice(0, 3))))) out.push(t);
+  return [...new Set(out)].slice(0, 6);
+}
+
+/* For an empty search box: cards from the chapters you're most likely to need right now. */
+function forYou(lib) {
+  const boost = lib.boost || {}, byId = new Map(lib.entries.map((e) => [e.id, e]));
+  const ranked = lib.entries.map((e) => [e, (boost[e.id] || 0) + (e.id === libHere ? 2 : 0)]).filter(([, s]) => s > 0)
+    .sort((a, b) => b[1] - a[1]).map(([e]) => e);
+  const picks = [], seen = new Set();
+  for (const r of lib.recent || []) {
+    const e = byId.get(r.id);
+    if (e && r.card != null && e.cards[r.card] && !seen.has(recentKey(r.id, r.card))) { seen.add(recentKey(r.id, r.card)); picks.push({ e, c: e.cards[r.card], i: r.card, why: "opened recently" }); }
+    if (picks.length >= 3) break;
+  }
+  for (const e of ranked) {
+    const why = e.id === libHere ? "this chapter" : (lib.working_on || []).includes(e.id) ? "you're practising this" : "related to your recent work";
+    let n = 0;
+    e.cards.forEach((c, i) => { if (n < 2 && !seen.has(recentKey(e.id, i))) { seen.add(recentKey(e.id, i)); picks.push({ e, c, i, why }); n++; } });
+    if (picks.length >= 8) break;
+  }
+  return picks.slice(0, 8);
+}
+
+function cardHTML({ e, c, i, why }, words, panel) {
+  const key = recentKey(e.id, i), open = libState.shown.has(key);
+  return `<article class="lib-hit ${open ? "open" : ""}" style="${modColor(e.module)}" data-id="${esc(e.id)}" data-card="${i}">
+    <button type="button" class="lib-hit-head" aria-expanded="${open}">
+      <span class="lib-crumb">${libMark(e.title, words)}${why ? ` · <em>${esc(why)}</em>` : ""}</span>
+      <code class="lib-syn">${libMark(c.syntax, words)}</code>
+      <span class="lib-explain">${libMark(c.explain, words)}</span></button>
+    ${open ? `<div class="lib-hit-in"><pre><code class="language-python">${esc(c.example)}</code></pre>
+      ${panel ? "" : `<a class="lib-more" href="#/chapter/${esc(e.id)}?notes">Chapter notes</a>`}</div>` : ""}
+  </article>`;
+}
+
+export function libEntryHTML(e, words, open, panel) {
   return `<article class="lib-entry ${open ? "open" : ""}" style="${modColor(e.module)}" data-id="${esc(e.id)}">
     <button type="button" class="lib-head" aria-expanded="${open}"><span class="lib-num">${String(e.number).padStart(2, "0")}</span>
       <span class="lib-title"><b>${libMark(e.title, words)}</b><span class="lib-sum">${libMark(e.summary, words)}</span></span>
       ${e.id === libHere ? `<span class="pill warn">this chapter</span>` : ""}<span class="lib-caret" aria-hidden="true"></span></button>
     ${open ? `<div class="lib-in">
       <div class="lib-tags">${e.concepts.map((c) => `<span>${libMark(c, words)}</span>`).join("")}</div>
-      <div class="lib-cards">${cards.map((c) => `<div class="lib-card"><code class="lib-syn">${libMark(c.syntax, words)}</code>
+      <div class="lib-cards">${e.cards.map((c) => `<div class="lib-card"><code class="lib-syn">${libMark(c.syntax, words)}</code>
         <p>${libMark(c.explain, words)}</p><pre><code class="language-python">${esc(c.example)}</code></pre></div>`).join("")}</div>
-      <div class="lib-foot">${hidden > 0 ? `<button type="button" class="btn small ghost lib-all">Show all ${e.cards.length} cards</button>` : ""}
-        ${panel ? "" : `<a class="btn small ghost" href="#/chapter/${esc(e.id)}?notes">Open the chapter notes</a>`}</div></div>` : ""}
+      ${panel ? "" : `<div class="lib-foot"><a class="btn small ghost" href="#/chapter/${esc(e.id)}?notes">Open the chapter notes</a></div>`}</div>` : ""}
   </article>`;
 }
 
-export const libLockedHTML = (e, panel) => `<div class="lib-entry locked" style="${modColor(e.module)}"><div class="lib-head">
-  <span class="lib-num">${String(e.number).padStart(2, "0")}</span><span class="lib-title"><b>${esc(e.title)}</b></span>
-  <span class="lib-why">${LOCK_SVG} ${panel ? "locked" : `<a href="#/chapter/${esc(e.id)}">Finish the chapter</a> to unlock`}</span></div></div>`;
+const remember = (id, card = null) => api(`library/${id}/open`, { card }).catch(() => {});
 
-/* Draw the list (or the search results) into `body`. Only this part is redrawn while typing. */
+/* Draw the results (or, with an empty box, suggestions and the chapters to browse) into `body`. */
 export function libDraw(body, lib, { panel = false } = {}) {
   const st = libState, q = st.q.trim();
-  const { words, hits, locked } = libSearch(lib, q);
-  const isOpen = (id) => q ? !st.shut.has(id) : st.open.has(id);
-  const full = new Set(st.full || []);
   let h = "";
   if (!lib.unlocked) {
-    h += `<div class="note">Your Library is empty so far. Work through a chapter's steps and its reference card is added here${panel ? "." : `. <a href="#/course">Go to the course</a>.`}</div>`;
-  }
-  if (q) {
-    h += `<p class="lib-status" role="status">${hits.length ? `${hits.length} unlocked ${hits.length === 1 ? "entry matches" : "entries match"}` : "No unlocked entry matches"} "${esc(q)}".</p>`;
-    h += hits.map(({ e, cards }) => libEntryHTML(e, full.has(e.id) ? e.cards : cards, words, isOpen(e.id), panel)).join("");
-    if (locked.length) h += `<p class="lib-status">${LOCK_SVG} ${locked.length === 1 ? "One locked chapter has" : `${locked.length} locked chapters have`} a matching title:</p>` + locked.map((e) => libLockedHTML(e, panel)).join("");
+    h = `<div class="note">Your Library is empty so far. Finish the lesson steps of a chapter and its reference cards are added here${panel ? "." : `. <a href="#/course">Go to the course</a>.`}</div>`;
+  } else if (q) {
+    const { words, hits } = libSearch(lib, q);
+    if (hits.length) {
+      h += `<p class="lib-status" role="status">${hits.length} card${hits.length === 1 ? "" : "s"} for "${esc(q)}"${hits.length > 30 ? ", best 30 shown" : ""}</p>`;
+      h += hits.slice(0, 30).map((d) => cardHTML(d, words, panel)).join("");
+    } else {
+      const alt = suggestions(lib, q);
+      h += `<p class="lib-status" role="status">Nothing in your Library matches "${esc(q)}".</p>
+        ${alt.length ? `<p class="lib-alt">Try: ${alt.map((w) => `<button type="button" class="lib-try" data-q="${esc(w)}">${esc(w)}</button>`).join(" ")}</p>` : ""}
+        <p class="faint small">The Library holds the chapters you've finished (${lib.unlocked} of ${lib.total}). Finish more chapters to search them too.</p>`;
+    }
   } else {
+    const picks = forYou(lib);
+    if (picks.length) h += `<section class="lib-mod lib-foryou"><h2><span>For you</span><small>from what you've opened and practised</small></h2>${picks.map((d) => cardHTML(d, [], panel)).join("")}</section>`;
     for (const m of lib.modules) {
       const rows = lib.entries.filter((e) => e.module === m.id);
       if (!rows.length) continue;
-      const got = rows.filter((e) => e.unlocked).length;
-      h += `<section class="lib-mod" style="${modColor(m.id)}"><h2><span>${esc(m.title)}</span><small>${got} of ${rows.length}</small></h2>
-        ${rows.map((e) => e.unlocked ? libEntryHTML(e, e.cards, words, isOpen(e.id), panel) : libLockedHTML(e, panel)).join("")}</section>`;
+      h += `<section class="lib-mod" style="${modColor(m.id)}"><h2><span>${esc(m.title)}</span><small>${rows.length} chapter${rows.length === 1 ? "" : "s"}</small></h2>
+        ${rows.map((e) => libEntryHTML(e, [], st.open.has(e.id), panel)).join("")}</section>`;
     }
   }
   body.innerHTML = h;
   highlight(body);
-  $$(".lib-entry:not(.locked)", body).forEach((el) => {
+  $$(".lib-hit", body).forEach((el) => {
+    const id = el.dataset.id, card = +el.dataset.card, key = recentKey(id, card);
+    $(".lib-hit-head", el).onclick = () => {
+      const was = st.shown.has(key);
+      if (was) st.shown.delete(key); else { st.shown.add(key); remember(id, card); }
+      libDraw(body, lib, { panel });
+      const now = $(`.lib-hit[data-id="${id}"][data-card="${card}"]`, body);
+      $(".lib-hit-head", now)?.focus();
+      if (!was) anim($(".lib-hit-in", now), [{ opacity: 0, transform: "translateY(-6px)" }, { opacity: 1, transform: "none" }], { duration: 200 });
+    };
+  });
+  $$(".lib-entry", body).forEach((el) => {
     const id = el.dataset.id;
     $(".lib-head", el).onclick = () => {
-      const set = q ? st.shut : st.open, was = isOpen(id);
-      if (q ? was : !was) set.add(id); else set.delete(id);
+      const was = st.open.has(id);
+      if (was) st.open.delete(id); else { st.open.add(id); remember(id); }
       libDraw(body, lib, { panel });
       const now = $(`.lib-entry[data-id="${id}"]`, body);
       $(".lib-head", now)?.focus();
       if (!was) anim($(".lib-in", now), [{ opacity: 0, transform: "translateY(-8px)" }, { opacity: 1, transform: "none" }], { duration: 240 });
     };
-    $(".lib-all", el)?.addEventListener("click", () => { st.full = [...full, id]; libDraw(body, lib, { panel }); });
+  });
+  $$(".lib-try", body).forEach((b) => b.onclick = () => {
+    st.q = b.dataset.q;
+    const input = body.parentElement.querySelector("input[role=searchbox]") || $("#lib-q");
+    if (input) input.value = st.q;
+    libDraw(body, lib, { panel });
   });
 }
 
-export const libCountHTML = (lib) => `<div class="lib-count"><b>${lib.unlocked}</b> of ${lib.total} unlocked</div>
-  <div class="lib-ticks" role="img" aria-label="${lib.unlocked} of ${lib.total} chapters unlocked">${lib.entries.map((e) =>
-    `<i class="${e.unlocked ? "on" : ""}" style="${modColor(e.module)}" title="${esc(e.title)}: ${e.unlocked ? "unlocked" : "locked"}"></i>`).join("")}</div>`;
+export const libCountHTML = (lib) => `<div class="lib-count"><b>${lib.unlocked}</b> of ${lib.total} chapters</div>
+  <div class="lib-bar" role="img" aria-label="${lib.unlocked} of ${lib.total} chapters in your Library"><i style="width:${Math.round((lib.unlocked / lib.total) * 100)}%"></i></div>`;
 
 export function libSearchBox(input, body, lib, opts) {
   input.value = libState.q;
-  input.oninput = () => { libState.q = input.value; libState.shut.clear(); libState.full = []; libDraw(body, lib, opts); };
-}
-
-/* With nothing chosen yet, open the entry most likely to be wanted: this chapter, else the newest. */
-export function libDefaultOpen(lib) {
-  if (libState.open.size) return;
-  const got = lib.entries.filter((e) => e.unlocked);
-  const pick = got.find((e) => e.id === libHere) || got[got.length - 1];
-  if (pick) libState.open.add(pick.id);
+  input.oninput = () => { libState.q = input.value; libState.shown.clear(); libDraw(body, lib, opts); };
+  input.onkeydown = (e) => {
+    if (e.key === "Enter") { e.preventDefault(); $(".lib-hit-head", body)?.click(); }
+    else if (e.key === "Escape" && input.value) { e.preventDefault(); e.stopPropagation(); input.value = ""; input.oninput(); }
+  };
 }
 
 export async function viewLibrary() {
   await refreshState();
   const lib = LIB = await api("library");
-  libDefaultOpen(lib);
   main.innerHTML = `<div class="page lib-page">
     <div class="lib-top"><div><h1>Library</h1>
-      <p class="dim" style="margin:10px 0 0;max-width:60ch">Reference cards for the chapters you have finished: the key syntax, what it does, and a tiny example. Each chapter you finish adds its card. Inside an exercise the Library sits next to your code: press <kbd>Ctrl+K</kbd>.</p></div>
+      <p class="dim" style="margin:10px 0 0;max-width:62ch">Search the reference cards of every chapter you've finished: the key syntax, what it does, and a tiny example. Results you've opened and topics you're practising come first, and you can still find anything else in your Library by searching for it. Inside an exercise, press <kbd>Ctrl+K</kbd>.</p></div>
       <div class="lib-meter">${libCountHTML(lib)}</div></div>
-    <div class="lib-search"><input type="text" id="lib-q" role="searchbox" aria-label="Search the Library" autocomplete="off" spellcheck="false" placeholder="Search by chapter or keyword, for example: slice, KeyError, sorted"></div>
+    <div class="lib-search"><input type="text" id="lib-q" role="searchbox" aria-label="Search the Library" autocomplete="off" spellcheck="false" placeholder="Search anything you've learned: slice, KeyError, sorted key, f-string"></div>
     <div id="lib-body" class="lib-body"></div></div>`;
   const body = $("#lib-body"), input = $("#lib-q");
   libSearchBox(input, body, lib, {});
@@ -183,9 +297,8 @@ export function mountLibrary(ws, dock, { topic = null, onPlace, selectTab, edito
   const pos = () => (isNarrow() ? "bottom" : libPrefs.pos);
 
   function draw(lib) {
-    $(".lib-dcount", panel).textContent = `${lib.unlocked} of ${lib.total} unlocked`;
+    $(".lib-dcount", panel).textContent = `${lib.unlocked} of ${lib.total} chapters`;
     if (mode !== "cards") return;
-    libDefaultOpen(lib);
     libSearchBox(input, body, lib, { panel: true });
     libDraw(body, lib, { panel: true });
   }
@@ -194,7 +307,7 @@ export function mountLibrary(ws, dock, { topic = null, onPlace, selectTab, edito
     try {
       LIB = await api("library"); loaded = true;
       if (!panel.isConnected) return;
-      if (topic && !chose && mode === "cards" && !LIB.entries.find((e) => e.id === topic)?.unlocked) return setMode("notes");
+      if (topic && !chose && mode === "cards" && !LIB.entries.some((e) => e.id === topic)) return setMode("notes");
       draw(LIB);
     }
     catch (err) { if (!LIB && panel.isConnected) body.innerHTML = `<div class="errbox">${esc(err.message)}</div>`; }

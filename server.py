@@ -28,7 +28,7 @@ if (ROOT / "pytrainer").is_dir():  # a checkout; an installed copy lives inside 
     sys.path.insert(0, str(ROOT))
 
 from pytrainer import (achievements, ai, assist, capstone, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
-                       mistakes, progress, radar, recap, repl, runner, sandbox, spans, sync, tracer, variants, xp)
+                       library, mistakes, progress, radar, recap, repl, runner, sandbox, spans, sync, tracer, variants, xp)
 
 STATIC = ROOT / "static"
 PROJECTS_DIR = labs.LAB_ROOT / "projects"  # same folder as sync.PROJECTS_DIR
@@ -367,12 +367,23 @@ def _library_entry(t: dict, number: int, unlocked: bool) -> dict:
 
 
 def api_library(_=None):
-    """Reference cards for the chapters whose lesson is finished, plus locked placeholders."""
+    """Reference cards for the chapters you've finished (locked ones aren't listed at all), with the
+    personal signals the browser uses to rank search results (see pytrainer/library.py)."""
     data = content.load()
     tp = progress.topic_progress()
-    entries = [_library_entry(t, i + 1, tp[t["id"]]["library_unlocked"]) for i, t in enumerate(data["topics"])]
-    return {"unlocked": sum(e["unlocked"] for e in entries), "total": len(entries), "entries": entries,
-            "modules": [{"id": m["id"], "title": m["title"]} for m in data["modules"]]}
+    entries = [_library_entry(t, i + 1, True) for i, t in enumerate(data["topics"]) if tp[t["id"]]["library_unlocked"]]
+    return {"unlocked": len(entries), "total": len(data["topics"]), "entries": entries,
+            "modules": [{"id": m["id"], "title": m["title"]} for m in data["modules"]],
+            **library.signals({e["id"] for e in entries})}
+
+
+def api_library_open(topic_id: str, body: dict):
+    """Remember that a card (or a chapter's entry) was opened: it ranks higher in later searches."""
+    if not progress.topic_progress().get(topic_id, {}).get("library_unlocked"):
+        raise ApiError("This chapter isn't in your Library yet.", 403)
+    card = body.get("card")
+    library.record_open(topic_id, int(card) if isinstance(card, int) and 0 <= card < 20 else None)
+    return {"ok": True}
 
 
 def api_library_entry(topic_id: str):
@@ -1357,6 +1368,7 @@ ROUTES = [
     ("POST", r"/api/lesson/([\w-]+)/read", api_lesson_read),
     ("GET", r"/api/library", api_library),
     ("GET", r"/api/library/([\w-]+)", api_library_entry),
+    ("POST", r"/api/library/([\w-]+)/open", api_library_open),
     ("POST", r"/api/ai/explain", api_explain_solution),
     ("POST", r"/api/draft", api_draft),
     ("POST", r"/api/draft/reset", api_reset_draft),

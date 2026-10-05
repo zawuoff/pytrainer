@@ -64,6 +64,10 @@ def topic_progress(states: dict | None = None) -> dict[str, dict]:
         mastery = solved_w / total_w if total_w else 0
         extra = sum(1 for e in custom_by_topic.get(t["id"], []) if earned(e))
         steps_done = mastery >= CLEAR_THRESHOLD and hard_solved
+        # The lesson steps teach the chapter; once they're all solved, everything the chapter's
+        # reference card covers has been taught, so the card joins the Library.
+        lessons = [e for e in path if e.get("lesson") and e["difficulty"] <= 1]
+        lessons_done = bool(lessons) and all(states.get(e["id"], {}).get("status") == "solved" for e in lessons)
         mini = data["minis_by_chapter"].get(t["id"])
         project_done = mini is None or mini["id"] in projects_passed
         # A chapter is complete when its steps are mastered AND its chapter project passes
@@ -86,9 +90,10 @@ def topic_progress(states: dict | None = None) -> dict[str, dict]:
             "earned": earned_all,
             "placed": t["id"] in placed,
             "attempted": any(states.get(e["id"], {}).get("attempts", 0) for e in all_exs),
-            # The Library shows a chapter's reference card only once its lesson is finished:
-            # the steps are mastered, or the chapter was tested out of, or it was marked read.
-            "library_unlocked": steps_done or cleared or t["id"] in read,
+            "lessons_done": lessons_done,
+            # A chapter joins the Library once its lessons are finished: every lesson step solved,
+            # the steps mastered, the chapter (or its module test) tested out of, or its notes read.
+            "library_unlocked": lessons_done or steps_done or cleared or t["id"] in read,
         }
     for t in data["topics"]:
         out[t["id"]]["unlocked"] = all(out.get(r, {}).get("cleared") for r in t["requires"])
