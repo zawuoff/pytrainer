@@ -301,7 +301,7 @@ label.field span { display: block; font-size: 13px; color: var(--dim); margin-bo
 .research { margin: 0 0 16px; border: 1px dashed color-mix(in srgb, var(--mc, var(--amber)) 60%, transparent); border-radius: 9px; padding: 12px 16px; font-size: 14.5px; }
 .research b { color: var(--mc, var(--amber)); }
 .research ul { margin: 6px 0 0; padding-left: 1.2em; }
-.ws-code { display: grid; grid-template-rows: auto auto minmax(80px, 1fr) var(--dock, 42%); min-width: 0; min-height: 0; background: var(--code-bg); }
+.ws-code { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(80px, 1fr) var(--dock, 42%); min-width: 0; min-height: 0; background: var(--code-bg); }
 .toolbar { display: flex; gap: 8px; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
 .toolbar .grow { flex: 1; }
 .timer { font-family: var(--mono); font-size: 12.5px; color: var(--faint); }
@@ -1374,3 +1374,118 @@ body.zen.zen-task .ws-read { display: block; position: fixed; z-index: 45; top: 
 #zen-bar .zen-label { padding: 0 8px 0 10px; color: var(--faint); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; font-size: 11px; }
 #zen-bar button { border: 0; background: none; color: var(--dim); padding: 5px 11px; border-radius: 999px; cursor: pointer; }
 #zen-bar button:hover, #zen-bar button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text); }
+
+/* "Why did it fail?" diff */
+.diffv { margin-top: 8px; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; font-size: 12.5px; }
+.dv-note { margin: 0; padding: 6px 10px; background: var(--amber-bg); color: var(--text); font-size: 12.5px; border-bottom: 1px solid var(--rule); }
+.dv-head, .dv-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.dv-head span { padding: 4px 10px; font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--faint); background: var(--panel-2); }
+.dv-head span + span, .dv-row code + code { border-left: 1px solid var(--rule); }
+.dv-row code { display: block; padding: 2px 10px; font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap; overflow-wrap: anywhere; background: none; border-radius: 0; }
+.dv-row + .dv-row { border-top: 1px solid color-mix(in srgb, var(--rule) 50%, transparent); }
+.dv-change .dv-e, .dv-missing .dv-e { background: var(--pass-bg); }
+.dv-change .dv-a, .dv-extra .dv-a { background: var(--fail-bg); }
+.dv-e mark { background: color-mix(in srgb, var(--pass) 30%, transparent); color: inherit; border-radius: 3px; }
+.dv-a mark { background: color-mix(in srgb, var(--fail) 32%, transparent); color: inherit; border-radius: 3px; }
+/* then and now (Look back): the old side is what went, the new side what came, as in a code diff */
+.dv-thennow .dv-change .dv-e, .dv-thennow .dv-missing .dv-e { background: var(--fail-bg); }
+.dv-thennow .dv-change .dv-a, .dv-thennow .dv-extra .dv-a { background: var(--pass-bg); }
+.dv-thennow .dv-e mark { background: color-mix(in srgb, var(--fail) 30%, transparent); }
+.dv-thennow .dv-a mark { background: color-mix(in srgb, var(--pass) 32%, transparent); }
+.dv-none { color: var(--faint); font-family: var(--ui) !important; font-style: italic; }
+.dv-skip { padding: 2px 10px; color: var(--faint); font-size: 11.5px; background: var(--panel-2); }
+
+/* Library search results: one card per row, ranked; click to see the example */
+.lib-bar { height: 8px; margin-top: 8px; border-radius: 0 4px 4px 0; background: var(--rule-strong); overflow: hidden; }
+.lib-bar i { display: block; height: 100%; background: var(--amber); border-radius: 0 4px 4px 0; }
+.lib-hit { border: 1px solid var(--rule); border-left: 3px solid var(--mc, var(--amber)); border-radius: 10px; background: var(--panel); margin: 8px 0; overflow: hidden; }
+.lib-hit-head { display: grid; gap: 3px; width: 100%; padding: 10px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.lib-hit-head:hover { background: color-mix(in srgb, var(--rule) 35%, transparent); }
+.lib-hit-head:focus-visible { outline: 2px solid var(--lilac); outline-offset: -2px; }
+.lib-crumb { font-size: 12px; color: var(--faint); }
+.lib-crumb em { font-style: normal; color: var(--mc, var(--dim)); }
+.lib-explain { color: var(--dim); font-size: 13.5px; line-height: 1.45; }
+.lib-hit-in { padding: 0 14px 12px; }
+.lib-hit-in pre { margin: 0; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 7px; padding: 9px 11px; overflow-x: auto; line-height: 1.5; }
+.lib-hit-in pre code { font-size: 12.5px; }
+.lib-more { display: inline-block; margin-top: 8px; font-size: 12.5px; color: var(--dim); }
+.lib-foryou h2 small { font-weight: 400; }
+.lib-alt { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--dim); font-size: 14px; }
+.lib-try { border: 1px solid var(--rule-strong); background: var(--panel); color: var(--text); border-radius: 999px; padding: 2px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+.lib-try:hover { border-color: var(--amber); }
+
+/* ---------------------------------------------------------------- on the go: phone-first practice */
+.go-start { width: 100%; justify-content: center; margin-top: 18px; }
+.go-start .faint { font-weight: 450; font-size: 14px; }
+.go-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 14px; }
+.go-tile { display: flex; flex-direction: column; gap: 4px; text-align: left; font: inherit; color: var(--text); text-decoration: none; cursor: pointer;
+           background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 16px; min-height: 112px; transition: border-color .15s; }
+.go-tile:hover:not(:disabled) { border-color: var(--amber); }
+.go-tile:disabled { cursor: default; opacity: .6; }
+.go-tile b { font-weight: 650; font-size: 16px; }
+.go-tile span { color: var(--dim); font-size: 13.5px; }
+.go-tile em { font-style: normal; color: var(--amber); font-size: 13.5px; font-weight: 600; margin-top: auto; padding-top: 6px; }
+.go-tile:disabled em { color: var(--faint); font-weight: 450; }
+.go-bar { display: flex; align-items: center; gap: 12px; padding: 8px 0 12px; }
+.go-prog { flex: 1; height: 6px; border-radius: 3px; background: var(--panel-2); overflow: hidden; }
+.go-prog i { display: block; height: 100%; width: 0; background: var(--amber); border-radius: 3px; transition: width .3s var(--ease-spring, ease); }
+.go-kicker { font-size: 13px; color: var(--dim); margin-top: 6px; }
+.go-kicker span { color: var(--mc); font-weight: 650; }
+.go-title { margin: 4px 0 6px; }
+.go-prompt { font-size: 15px; }
+.go-code { margin: 12px 0; padding: 12px 14px; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 10px; overflow-x: auto; font-size: 13.5px; line-height: 1.55; }
+.go-answer { font-size: 16px; margin-top: 4px; }   /* 16px keeps phones from zooming in on focus */
+.go-actions { display: flex; gap: 10px; margin-top: 14px; }
+.go-actions > * { flex: 1; justify-content: center; }
+.go-actions[hidden], .go-actions [hidden] { display: none; }
+.go-tb { max-height: 220px; overflow: auto; }
+.go-lines { display: grid; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; background: var(--code-bg); }
+.go-line { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 12px; min-height: 40px; padding: 6px 10px 6px 0; text-align: left;
+           font: 13.5px/1.4 var(--mono); color: var(--text); background: none; border: 0; border-bottom: 1px solid var(--rule); cursor: pointer; }
+.go-line:last-child { border-bottom: 0; }
+.go-line code { display: block; white-space: pre-wrap; overflow-wrap: anywhere; font-size: inherit; padding-left: var(--ind, 4ch); text-indent: calc(-1 * var(--ind, 4ch)); }  /* a wrapped line hangs under its own text */
+.go-ln { color: var(--faint); text-align: right; font-size: 12px; }
+.go-line.on { background: color-mix(in srgb, var(--amber) 22%, transparent); box-shadow: inset 3px 0 0 var(--amber); }
+.go-line:disabled { cursor: default; }
+.go-bad { margin: 6px 0; padding-left: 18px; }
+.go-bad li { margin: 2px 0; }
+.go-flash { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 22px 18px; margin-top: 10px; text-align: center; }
+.go-syn { display: block; font: 600 18px/1.5 var(--mono); margin: 14px 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.go-flash #go-back { text-align: left; margin-top: 16px; border-top: 1px solid var(--rule); padding-top: 14px; }
+@media (max-width: 700px) { .go-tiles { grid-template-columns: minmax(0, 1fr); } .go-tile { min-height: 0; } }
+
+/* ---------------------------------------------------------------- live tutor nudge: an offer in the editor's corner */
+.nudge { position: absolute; right: 14px; bottom: 12px; z-index: 6; width: min(400px, calc(100% - 28px)); background: var(--panel); color: var(--text);
+         border: 1px solid var(--rule-strong); border-left: 3px solid var(--amber); border-radius: 12px; padding: 12px 14px 12px 16px;
+         box-shadow: 0 10px 30px rgba(0, 0, 0, .28); font-size: 14px; animation: nudge-in .35s var(--ease-spring) both; }
+.nudge > b { display: block; padding-right: 22px; }
+.nudge p { margin: 4px 0 10px; color: var(--dim); font-size: 13.5px; }
+.nudge .row { flex-wrap: wrap; gap: 6px; }
+.nudge-x { position: absolute; top: 6px; right: 8px; border: 0; background: none; color: var(--faint); font-size: 18px; line-height: 1; cursor: pointer; padding: 4px; }
+.nudge-x:hover { color: var(--text); }
+@keyframes nudge-in { from { opacity: 0; transform: translateY(10px); } }
+@media (prefers-reduced-motion: reduce) { .nudge { animation: none; } }
+
+/* ---------------------------------------------------------------- look back */
+.rt-task { margin: 6px 0 4px; }
+.rt-task summary { cursor: pointer; color: var(--dim); font-size: 14px; }
+.rt-label { display: block; font-weight: 600; margin: 18px 0 6px; }
+.rt-actions { margin-top: 10px; flex-wrap: wrap; }
+.rt-actions[hidden] { display: none; }
+#rt-edit { margin-top: 14px; }
+.rt-hist details { border-bottom: 1px solid var(--rule); padding: 10px 2px; }
+.rt-hist summary { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; cursor: pointer; }
+.rt-hist summary > span:first-child { font-weight: 600; flex: 1; min-width: 12ch; }
+.rt-hist details[open] > :not(summary) { margin-top: 8px; }
+
+/* ---------------------------------------------------------------- where it got hard */
+.ins-list { list-style: none; padding: 0; margin: 10px 0 0; }
+.ins-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+.ins-bar { position: relative; height: 22px; margin-top: 1px; display: flex; align-items: center; gap: 8px; }
+.ins-bar i { display: block; height: 10px; border-radius: 0 4px 4px 0; background: var(--amber); }
+.ins-bar b { font: 600 13px var(--mono); color: var(--text); }
+.ins-main a { text-decoration: none; }
+.ins-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+.ins-table { overflow-x: auto; }
+.ins-table td:not(:first-child) { text-align: right; white-space: nowrap; }
+@media (max-width: 700px) { .ins-row { grid-template-columns: minmax(0, 1fr); gap: 4px; } .ins-bar { max-width: 220px; } }

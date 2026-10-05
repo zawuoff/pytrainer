@@ -8,6 +8,7 @@ Then open http://127.0.0.1:8765 (or use the installed desktop launcher). Needs P
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import mimetypes
 import re
@@ -27,8 +28,8 @@ ROOT = Path(__file__).resolve().parent
 if (ROOT / "pytrainer").is_dir():  # a checkout; an installed copy lives inside the package already
     sys.path.insert(0, str(ROOT))
 
-from pytrainer import (achievements, ai, assist, capstone, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
-                       mistakes, progress, radar, recap, repl, runner, sandbox, spans, sync, tracer, variants, xp)
+from pytrainer import (achievements, ai, assist, capstone, go, coach, content, course, db, drills, interview, jev, labs, insights, leaderboard, lint, retro,  # noqa: E402
+                       library, mistakes, progress, radar, recap, repl, runner, sandbox, spans, sync, tracer, variants, xp)
 
 STATIC = ROOT / "static"
 PROJECTS_DIR = labs.LAB_ROOT / "projects"  # same folder as sync.PROJECTS_DIR
@@ -130,6 +131,7 @@ def api_state(_body=None):
             "review_variants": settings.get("review_variants", True),
             "streak_freezes": settings.get("streak_freezes", True),
             "editor_assist": settings.get("editor_assist", True),
+            "nudges": settings.get("nudges", True),
         },
         "assist": {"jedi": assist.jedi_available()},
         "tracks": data["tracks"],
@@ -367,12 +369,23 @@ def _library_entry(t: dict, number: int, unlocked: bool) -> dict:
 
 
 def api_library(_=None):
-    """Reference cards for the chapters whose lesson is finished, plus locked placeholders."""
+    """Reference cards for the chapters you've finished (locked ones aren't listed at all), with the
+    personal signals the browser uses to rank search results (see pytrainer/library.py)."""
     data = content.load()
     tp = progress.topic_progress()
-    entries = [_library_entry(t, i + 1, tp[t["id"]]["library_unlocked"]) for i, t in enumerate(data["topics"])]
-    return {"unlocked": sum(e["unlocked"] for e in entries), "total": len(entries), "entries": entries,
-            "modules": [{"id": m["id"], "title": m["title"]} for m in data["modules"]]}
+    entries = [_library_entry(t, i + 1, True) for i, t in enumerate(data["topics"]) if tp[t["id"]]["library_unlocked"]]
+    return {"unlocked": len(entries), "total": len(data["topics"]), "entries": entries,
+            "modules": [{"id": m["id"], "title": m["title"]} for m in data["modules"]],
+            **library.signals({e["id"] for e in entries})}
+
+
+def api_library_open(topic_id: str, body: dict):
+    """Remember that a card (or a chapter's entry) was opened: it ranks higher in later searches."""
+    if not progress.topic_progress().get(topic_id, {}).get("library_unlocked"):
+        raise ApiError("This chapter isn't in your Library yet.", 403)
+    card = body.get("card")
+    library.record_open(topic_id, int(card) if isinstance(card, int) and 0 <= card < 20 else None)
+    return {"ok": True}
 
 
 def api_library_entry(topic_id: str):
@@ -839,6 +852,8 @@ def api_settings(body: dict):
         db.set_setting("streak_freezes", bool(body["streak_freezes"]))
     if "editor_assist" in body:
         db.set_setting("editor_assist", bool(body["editor_assist"]))
+    if "nudges" in body:
+        db.set_setting("nudges", bool(body["nudges"]))
     return api_state()
 
 
@@ -1144,6 +1159,51 @@ def api_drill_finish(body: dict):
         raise ApiError(str(exc)) from None
 
 
+def api_retro(_=None):
+    pick, available = retro.pick()
+    return {"pick": pick, "available": available, "history": retro.history(), "min_days": retro.MIN_DAYS,
+            "cooldown_days": retro.COOLDOWN_DAYS, "next_at": None if available else retro.next_available()}
+
+
+def api_retro_pick(body: dict):
+    pick, available = retro.pick([str(x) for x in body.get("skip") or []][:200])
+    return {"pick": pick, "available": available}
+
+
+def api_retro_check(ex_id: str, body: dict):
+    """Check a rewrite against the step's tests. Not recorded: the step is solved already."""
+    ex = _exercise(ex_id)
+    if ex.get("mode", "function") not in retro.MODES:
+        raise ApiError("This step can't be rewritten.")
+    files, result = _grade(ex, body)
+    return {"result": result, "style": lint.check(files.get("solution.py", ""))}
+
+
+def api_retro_save(ex_id: str, body: dict):
+    _exercise(ex_id)
+    try:
+        passed = body.get("passed")
+        return retro.save(int(body.get("attempt") or 0), ex_id, _files(body) if body.get("files") else {},
+                          str(body.get("notes") or "")[:4000], None if passed is None else bool(passed))
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
+
+
+def api_retro_ai(body: dict):
+    try:
+        r = retro.get(int(body.get("retro") or 0))
+    except ValueError as exc:
+        raise ApiError(str(exc), 404) from None
+    ex = _exercise(r["item_id"])
+    review = coach.compare_retro(_task_text(ex), r["days"], r["old_files"], r["new_files"], r["notes"], ex["solution"])
+    retro.set_review(r["id"], review)
+    return {"review": review}
+
+
+def api_insights(_=None):
+    return insights.report()
+
+
 def api_leaderboard(_=None):
     return leaderboard.overview()
 
@@ -1262,6 +1322,10 @@ def api_sync_poll(body: dict):
     return sync.changes(sync.folder_for(kind, item_id), names, {k: int(v) for k, v in known.items() if str(v).isdigit()})
 
 
+def api_go(_=None):
+    return go.session(_traceback)
+
+
 def api_achievements(_=None):
     awards = _rewards()
     return {**achievements.overview(), **awards}
@@ -1352,11 +1416,18 @@ ROUTES = [
     ("POST", r"/api/exercise/([\w-]+)/reveal", api_reveal),
     ("POST", r"/api/run", api_run_snippet),
     ("GET", r"/api/exam/([\w-]+)", api_exam),
+    ("GET", r"/api/insights", api_insights),
+    ("GET", r"/api/retro", api_retro),
+    ("POST", r"/api/retro/pick", api_retro_pick),
+    ("POST", r"/api/retro/([\w-]+)/check", api_retro_check),
+    ("POST", r"/api/retro/([\w-]+)/save", api_retro_save),
+    ("POST", r"/api/ai/retro", api_retro_ai),
     ("POST", r"/api/ai/improve", api_improve),
     ("POST", r"/api/ai/explain-back", api_explain_back),
     ("POST", r"/api/lesson/([\w-]+)/read", api_lesson_read),
     ("GET", r"/api/library", api_library),
     ("GET", r"/api/library/([\w-]+)", api_library_entry),
+    ("POST", r"/api/library/([\w-]+)/open", api_library_open),
     ("POST", r"/api/ai/explain", api_explain_solution),
     ("POST", r"/api/draft", api_draft),
     ("POST", r"/api/draft/reset", api_reset_draft),
@@ -1399,6 +1470,7 @@ ROUTES = [
     ("POST", r"/api/traces/parse", api_traces_parse),
     ("GET", r"/api/traces/sample", api_traces_sample),
     ("GET", r"/api/achievements", api_achievements),
+    ("GET", r"/api/go", api_go),
     ("GET", r"/api/recap", api_recap),
     ("POST", r"/api/assist/complete", api_assist_complete),
     ("POST", r"/api/repl/start", api_repl_start),
@@ -1420,6 +1492,26 @@ COMPILED = [(m, re.compile(p + r"$"), fn) for m, p, fn in ROUTES]
 # Actions that can earn an achievement: their responses carry anything newly earned.
 REWARDING = {api_check, api_project_submit, api_lab_check, api_drill_finish, api_interview_submit,
              api_leaderboard_run, api_explain_back, api_heartbeat, api_placement_finish}
+
+
+mimetypes.add_type("application/manifest+json", ".webmanifest")
+SHELL_TYPES = (".html", ".js", ".css", ".svg", ".png", ".woff2", ".webmanifest")
+
+
+def _service_worker() -> bytes:
+    """static/sw.js with the app's files and a version filled in.
+
+    The version changes whenever a file does, so the browser installs the new worker (and a fresh
+    offline copy) after an update."""
+    files = sorted(p for p in STATIC.rglob("*") if p.is_file() and p.suffix in SHELL_TYPES and p.name != "sw.js")
+    digest = hashlib.sha256(VERSION.encode())
+    for p in files:
+        st = p.stat()
+        digest.update(f"{p.relative_to(STATIC).as_posix()}:{st.st_size}:{st.st_mtime_ns}".encode())
+    shell = ["./"] + [p.relative_to(STATIC).as_posix() for p in files if p.name != "index.html"]
+    src = (STATIC / "sw.js").read_text(encoding="utf-8")
+    return (src.replace('"__VERSION__"', json.dumps(digest.hexdigest()[:16]))
+            .replace('["__SHELL__"]', json.dumps(shell))).encode()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1489,6 +1581,8 @@ class Handler(BaseHTTPRequestHandler):
     def _static(self, path: str):
         if path in ("/", "") or not Path(path).suffix:
             path = "/index.html"
+        if path == "/sw.js":
+            return self._send(200, _service_worker(), "text/javascript; charset=utf-8")
         target = (STATIC / path.lstrip("/")).resolve()
         if not str(target).startswith(str(STATIC.resolve())) or not target.is_file():
             return self._json(404, {"error": "not found"})

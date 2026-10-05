@@ -209,6 +209,27 @@ def improve_solution(task: str, files: dict, reference: str) -> str:
     return ai.complete(IMPROVE_SYSTEM, prompt)
 
 
+RETRO_SYSTEM = f"""You are a friendly senior Python engineer. {LEARNER}
+The learner solved this exercise some weeks ago. Today they reread that code, wrote down what they
+would change, and maybe rewrote it. Compare then and now so they can see how far they've come and
+what to keep working on. Since the exercise is solved you MAY show short code (max ~8 lines).
+Structure, in Markdown, concise (max ~220 words plus code):
+- **What got better**: specific changes from the old code to the new (or, with no rewrite, which of
+  their notes are right).
+- **Still worth changing**: at most two things, in either version, with why.
+- **What you noticed**: one or two sentences on their notes: what they spotted well, and the most
+  important thing they missed.
+Be honest; if the rewrite made something worse, say so kindly. No generic praise."""
+
+
+def compare_retro(task: str, days: int, old: dict, new: dict | None, notes: str, reference: str) -> str:
+    prompt = (f"## Exercise\n{task}\n\n## Their code from {days} days ago\n{_code_block(old)}\n\n"
+              + (f"## Their rewrite today\n{_code_block(new)}\n\n" if new else "## No rewrite today.\n\n")
+              + f"## What they said they'd change\n{notes or '(nothing written)'}\n\n"
+              f"## A reference solution (for your comparison)\n```python\n{reference}\n```")
+    return ai.complete(RETRO_SYSTEM, prompt)
+
+
 EXPLAIN_BACK_SYSTEM = f"""You are a Python teacher checking whether a learner really understands code they wrote.
 {LEARNER}
 They solved the exercise. Now they explain, in their own words, why their solution works. Judge the

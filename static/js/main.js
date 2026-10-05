@@ -3,6 +3,7 @@
    diagrams.js and blocks.js, the editor/results pieces in workspace.js, one file per page in views/. */
 import { $$, S, api, esc, lastInteraction, main, refreshState, runCleanup } from "./core.js";
 import { viewLibrary } from "./library.js";
+import { setupInstall } from "./install.js";
 import { viewHome } from "./views/home.js";
 import { viewChapter, viewCourse, viewExam, viewExtras } from "./views/course.js";
 import { viewStep } from "./views/step.js";
@@ -12,6 +13,9 @@ import { viewPlacement, viewPlacementQuestion } from "./views/placement.js";
 import { viewProject, viewProjects } from "./views/projects.js";
 import { viewCapstone } from "./views/capstone.js";
 import { viewDrill } from "./views/drill.js";
+import { viewGo } from "./views/go.js";
+import { viewRetro } from "./views/retro.js";
+import { viewInsights } from "./views/insights.js";
 import { viewMap } from "./views/map.js";
 import { viewRadar } from "./views/radar.js";
 import { viewInterview } from "./views/interview.js";
@@ -44,6 +48,9 @@ const routes = [
   [/^#\/project\/([\w-]+)$/, viewProject],
   [/^#\/capstone$/, viewCapstone],
   [/^#\/drill$/, viewDrill],
+  [/^#\/go$/, viewGo],
+  [/^#\/retro$/, viewRetro],
+  [/^#\/insights$/, viewInsights],
   [/^#\/map$/, viewMap],
   [/^#\/radar$/, viewRadar],
   [/^#\/interview$/, viewInterview],
@@ -67,12 +74,18 @@ async function showRoute() {
   const hash = location.hash || "#/home";
   if (!S) {
     try { await refreshState(); }
-    catch (e) { main.innerHTML = `<div class="page"><div class="errbox">Cannot reach the PyTrainer server: ${esc(e.message)}</div></div>`; return; }
+    catch (e) {
+      main.innerHTML = `<div class="page narrow"><h1>Can't reach PyTrainer</h1>
+        <p class="dim" style="margin-top:10px">The app opened, but the server that keeps your progress didn't answer. Is it running${location.hostname.endsWith(".ts.net") ? ", and is Tailscale connected on this device" : ""}?</p>
+        <p class="faint small">${esc(e.message)}</p><button class="btn primary big" id="retry-btn">Try again</button></div>`;
+      document.getElementById("retry-btn").onclick = () => route();
+      return;
+    }
   }
   if (!S.settings.onboarded && !/^#\/(welcome|placement|settings)/.test(hash)) { location.hash = "#/welcome"; return; }
   const nav = hash.split("/")[1]?.split("?")[0];
   document.body.classList.toggle("focus", /^#\/(step|project|placement)\//.test(hash));
-  const navMap = { recap: "progress", achievements: "progress", traces: "projects", leaderboard: "projects", interview: "projects", radar: "progress", map: "course", drill: "reviews", capstone: "projects", step: "course", chapter: "course", exam: "course", extras: "course", project: "projects", placement: "home", welcome: "home", today: "home" };
+  const navMap = { recap: "progress", achievements: "progress", traces: "projects", leaderboard: "projects", interview: "projects", radar: "progress", map: "course", drill: "reviews", go: "reviews", retro: "reviews", insights: "progress", capstone: "projects", step: "course", chapter: "course", exam: "course", extras: "course", project: "projects", placement: "home", welcome: "home", today: "home" };
   $$(".nav a[data-nav]").forEach((a) => a.classList.toggle("on", a.dataset.nav === (navMap[nav] || nav)));
   for (const [rx, fn] of routes) {
     const m = hash.match(rx);
@@ -95,4 +108,5 @@ setInterval(() => {
   if (document.visibilityState === "visible" && Date.now() - lastInteraction < 120000) api("heartbeat", { seconds: 30 }).catch(() => {});
 }, 30000);
 
+setupInstall();
 route();

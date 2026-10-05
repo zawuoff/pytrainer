@@ -150,9 +150,25 @@ CREATE TABLE IF NOT EXISTS leaderboard_runs (
     details TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS library_opens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    topic_id TEXT NOT NULL,
+    card INTEGER,
+    opened_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS achievements (
     id TEXT PRIMARY KEY,
     unlocked_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS retros (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id TEXT NOT NULL,
+    attempt_id INTEGER NOT NULL,     -- the old passing attempt looked back on
+    notes TEXT NOT NULL DEFAULT '',
+    new_files TEXT,                  -- the rewrite, when there was one
+    passed INTEGER,                  -- whether the rewrite passed the step's tests
+    review TEXT,                     -- the AI comparison, when asked for
+    created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS lab_state (
     lab_id TEXT PRIMARY KEY,
@@ -259,7 +275,7 @@ def backup() -> None:
 def export_all() -> dict:
     tables = ["settings", "attempts", "exercise_state", "drafts", "topic_state", "activity",
               "placement", "custom_exercises", "submissions", "chats", "reviews", "lab_state", "lesson_state",
-              "review_variants", "drills", "interviews", "explanations", "leaderboard_runs", "achievements"]
+              "review_variants", "drills", "interviews", "explanations", "leaderboard_runs", "achievements", "library_opens", "retros"]
     return {"exported_at": now(), "version": 1,
             "tables": {t: [dict(r) for r in q(f"SELECT * FROM {t}")] for t in tables}}
 
