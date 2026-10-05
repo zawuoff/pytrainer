@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent
 if (ROOT / "pytrainer").is_dir():  # a checkout; an installed copy lives inside the package already
     sys.path.insert(0, str(ROOT))
 
-from pytrainer import (achievements, ai, assist, capstone, go, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint,  # noqa: E402
+from pytrainer import (achievements, ai, assist, capstone, go, coach, content, course, db, drills, interview, jev, labs, leaderboard, lint, retro,  # noqa: E402
                        library, mistakes, progress, radar, recap, repl, runner, sandbox, spans, sync, tracer, variants, xp)
 
 STATIC = ROOT / "static"
@@ -1159,6 +1159,47 @@ def api_drill_finish(body: dict):
         raise ApiError(str(exc)) from None
 
 
+def api_retro(_=None):
+    pick, available = retro.pick()
+    return {"pick": pick, "available": available, "history": retro.history(), "min_days": retro.MIN_DAYS,
+            "cooldown_days": retro.COOLDOWN_DAYS, "next_at": None if available else retro.next_available()}
+
+
+def api_retro_pick(body: dict):
+    pick, available = retro.pick([str(x) for x in body.get("skip") or []][:200])
+    return {"pick": pick, "available": available}
+
+
+def api_retro_check(ex_id: str, body: dict):
+    """Check a rewrite against the step's tests. Not recorded: the step is solved already."""
+    ex = _exercise(ex_id)
+    if ex.get("mode", "function") not in retro.MODES:
+        raise ApiError("This step can't be rewritten.")
+    files, result = _grade(ex, body)
+    return {"result": result, "style": lint.check(files.get("solution.py", ""))}
+
+
+def api_retro_save(ex_id: str, body: dict):
+    _exercise(ex_id)
+    try:
+        passed = body.get("passed")
+        return retro.save(int(body.get("attempt") or 0), ex_id, _files(body) if body.get("files") else {},
+                          str(body.get("notes") or "")[:4000], None if passed is None else bool(passed))
+    except ValueError as exc:
+        raise ApiError(str(exc)) from None
+
+
+def api_retro_ai(body: dict):
+    try:
+        r = retro.get(int(body.get("retro") or 0))
+    except ValueError as exc:
+        raise ApiError(str(exc), 404) from None
+    ex = _exercise(r["item_id"])
+    review = coach.compare_retro(_task_text(ex), r["days"], r["old_files"], r["new_files"], r["notes"], ex["solution"])
+    retro.set_review(r["id"], review)
+    return {"review": review}
+
+
 def api_leaderboard(_=None):
     return leaderboard.overview()
 
@@ -1371,6 +1412,11 @@ ROUTES = [
     ("POST", r"/api/exercise/([\w-]+)/reveal", api_reveal),
     ("POST", r"/api/run", api_run_snippet),
     ("GET", r"/api/exam/([\w-]+)", api_exam),
+    ("GET", r"/api/retro", api_retro),
+    ("POST", r"/api/retro/pick", api_retro_pick),
+    ("POST", r"/api/retro/([\w-]+)/check", api_retro_check),
+    ("POST", r"/api/retro/([\w-]+)/save", api_retro_save),
+    ("POST", r"/api/ai/retro", api_retro_ai),
     ("POST", r"/api/ai/improve", api_improve),
     ("POST", r"/api/ai/explain-back", api_explain_back),
     ("POST", r"/api/lesson/([\w-]+)/read", api_lesson_read),
